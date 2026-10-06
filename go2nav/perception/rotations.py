@@ -34,12 +34,14 @@ class GyroAttitude:
     """Body rotation since the first frame, from the 500 Hz body gyro.
 
     Each 100-ms frame brings 51 rate samples (the first repeats the previous frame's last); consecutive samples are
-    integrated with the midpoint rule (50 increments of 2 ms), and the result is re-orthonormalised once per frame.
+    integrated with the midpoint rule (50 increments of 2 ms). The visual odometry's integrator re-orthonormalises the
+    result once per frame; the obstacle observer's does not (`orthonormalize=False`), as in the original.
     """
 
-    def __init__(self):
+    def __init__(self, orthonormalize=True):
         self.rotation = np.eye(3)
         self.started = False
+        self.orthonormalize = orthonormalize
 
     def update(self, rates):
         """Integrate one frame's (51, 3) rate block (rad/s); the first call only starts the integration."""
@@ -50,5 +52,5 @@ class GyroAttitude:
         updated = self.rotation.copy()
         for previous, current in zip(rates[:-1], rates[1:], strict=True):
             updated = updated@rotation_increment((previous+current)*.001)
-        self.rotation = orthonormalize(updated)
+        self.rotation = orthonormalize(updated) if self.orthonormalize else updated
         return self.rotation
