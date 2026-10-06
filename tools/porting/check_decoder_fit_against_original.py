@@ -4,7 +4,7 @@ The original stage-2 cache (LeWMQuad-v3, stage2_feature_cache_v1) holds the deco
 frame and pair rows the original fits used. This adapter reads its arrays in place, runs `go2nav.training.decoder.fit`
 with the deployed seed and recipe, and prints the selection score and per-type errors beside the original record.
 
-Usage: python tools/porting/check_decoder_fit_against_original.py --out outputs/checks/decoder_fit_s2026093011
+Usage: python tools/porting/check_decoder_fit_against_original.py --out DIR [--recipe stage2]  (stage2: seed 2026093012)
 """
 import argparse
 import json
@@ -33,14 +33,21 @@ class OriginalCache(d.DecoderCache):
         self.mean, self.std = control_stats()
 
 
-def main(out):
+STAGE2_FIT = ROOT/'stage2_decoder_fits/stage2_p3_large_past_frames_s2026093012.json'
+
+
+def main(out, recipe):
     cache = OriginalCache(d.load_contexts())
-    checkpoint = d.fit(cache, T5A, out, seed=2026093011, recipe='decoder_fix')
+    seed, record = (2026093011, ORIGINAL_FIT) if recipe == 'decoder_fix' else (2026093012, STAGE2_FIT)
+    checkpoint = d.fit(cache, T5A, out, seed=seed, recipe=recipe)
     ported = json.loads((Path(out)/'evaluation.json').read_text())
-    original = json.loads(ORIGINAL_FIT.read_text())
+    original = json.loads(record.read_text())
     print('selection score (mm): ported', round(ported['score_mm'], 3))
-    for key in ('eval_onpolicy@800ms/C3', 'eval_onpolicy@800ms/C4', 'eval_transfer@700ms/C3', 'eval_offline@800ms/C4'):
-        for c in ('all',)+d.CATEGORIES:
+    keys = ('eval_onpolicy@800ms/C3', 'eval_onpolicy@800ms/C4', 'eval_transfer@700ms/C3', 'eval_offline@800ms/C4')
+    if recipe == 'stage2':
+        keys += ('eval_patch@800ms/C3', 'eval_patch@800ms/C4')
+    for key in keys:
+        for c in ('all',)+d.CATEGORIES+tuple(f'bin:{b}' for b in d.EDGE_BINS):
             a, b = original['eval'][key].get(c), ported['eval'][key].get(c)
             if a and b:
                 print(f"{key:26s} {c:11s} median xy {a['median_xy_mm']:7.3f} -> {b['median_xy_mm']:7.3f}   ratio {a['median_ratio']} -> {b['median_ratio']}")
@@ -50,4 +57,6 @@ def main(out):
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
     p.add_argument('--out', required=True)
-    main(p.parse_args().out)
+    p.add_argument('--recipe', choices=['decoder_fix', 'stage2'], default='decoder_fix')
+    a = p.parse_args()
+    main(a.out, a.recipe)

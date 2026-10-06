@@ -11,3 +11,12 @@ deployed fit's record (`dev_decoder_fits/p3_large_past_frames_s2026093011.json`)
 
 So the ported fit, with the same features and seed, gives the same models. Retraining on a retrained predictor (T4)
 needs a new cache (`decoder cache --predictor`), since the predicted features depend on T4.
+
+## Stage-2 refit (T8)
+
+The same check with `--recipe stage2` (seed 2026093012, 3,520 updates; old 32, maze 16, on-policy 1.33 x 5 + 1.35,
+patch 6, patch_off 2 per batch) against `stage2_decoder_fits/stage2_p3_large_past_frames_s2026093012.json`:
+
+**Result: identical.** Selection score 9.868 mm, as recorded. eval_onpolicy, eval_transfer, eval_offline and
+eval_patch match for C3 and C4, for every movement type and every patch edge bin (approach, entry, on_patch, exit,
+off_patch).
