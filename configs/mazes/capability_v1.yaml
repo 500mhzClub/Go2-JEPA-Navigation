@@ -1,0 +1,13 @@
+# The capability sets (25 September 2026): 90 layouts, two episodes each.
+# Layouts 30-89 were the original sealed test set; Andrew declassified them on 1 October 2026 for the preliminary run
+# (shipped as data/mazes/prelim_test_v1). Their specifications keep data_role "sealed_test", so the role name is kept here
+# to regenerate them exactly.
+description: capability_v1 (dev_tune 0-9, validation 10-29, prelim_test_v1 30-89)
+scene_id_prefix: navigation-capability-v1
+family: NAVIGATION_CAPABILITY_SAME_MAZE_FAMILY
+seeds: {construction: 2026092501, physics_base: 2026112500, appearance_base: 2026112600, episode_base: 2026093000}
+exclude: [data/mazes/registries/capability_v1_prior_graphs.json]
+roles:
+  - {name: dev_tune, count: 10, episodes: [0, 1]}
+  - {name: validation, count: 20, episodes: [0, 1]}
+  - {name: sealed_test, count: 60, episodes: [0, 1]}

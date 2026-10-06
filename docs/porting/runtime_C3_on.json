@@ -1,0 +1,905 @@
+{
+ "mro": [
+  {
+   "cls": "Runtime_C3_on",
+   "module": "/home/andrewknowles/Workspace/Go2-JEPA-Navigation/tools/porting/runtime_mro.py"
+  },
+  {
+   "cls": "DevStartupRecoveryRuntimeMixin",
+   "module": "lewm/dev_harness_fixes_development.py"
+  },
+  {
+   "cls": "ReserveExitMixin",
+   "module": "lewm/dev_harness_reserve_exit_v2_development.py"
+  },
+  {
+   "cls": "ScriptedBackupMixin",
+   "module": "lewm/dev_harness_fixes_development.py"
+  },
+  {
+   "cls": "CoverageObservedObstacleMixin",
+   "module": "lewm/dev_harness_fixes_development.py"
+  },
+  {
+   "cls": "DeadlockEscapeMixin",
+   "module": "lewm/dev_harness_fixes_development.py"
+  },
+  {
+   "cls": "LatchTimeoutMixin",
+   "module": "lewm/dev_harness_fixes_development.py"
+  },
+  {
+   "cls": "PoseLossRecordMixin",
+   "module": "lewm/dev_harness_fixes_development.py"
+  },
+  {
+   "cls": "StallWatchdogMixin",
+   "module": "lewm/dev_harness_fixes_development.py"
+  },
+  {
+   "cls": "TerminalPositionScoringMixin",
+   "module": "lewm/dev_harness_fixes_development.py"
+  },
+  {
+   "cls": "CompletedSupportRuntimeMixin",
+   "module": "lewm/navigation_capability_completed_support_development.py"
+  },
+  {
+   "cls": "LiveTurnMemoryRuntimeMixin",
+   "module": "lewm/navigation_capability_live_turn_binding_c1_development.py"
+  },
+  {
+   "cls": "ExhaustedViewRuntimeMixin",
+   "module": "lewm/navigation_capability_exhausted_view_development.py"
+  },
+  {
+   "cls": "PairedFloorRuntimeMixin",
+   "module": "lewm/navigation_capability_paired_floor_start_development.py"
+  },
+  {
+   "cls": "StartupRecoveryRuntimeMixin",
+   "module": "lewm/navigation_capability_startup_recovery_development.py"
+  },
+  {
+   "cls": "DenseNavigationRuntime",
+   "module": "scripts/run_go2_dense_horizon_navigation_development.py"
+  },
+  {
+   "cls": "DenseNativeContextRuntimeMixin",
+   "module": "lewm/dense_horizon_navigation_development.py"
+  },
+  {
+   "cls": "CompletionRuntime",
+   "module": "scripts/run_go2_sparse_corner_completion_development.py"
+  },
+  {
+   "cls": "SparseCornerCompletionRuntimeMixin",
+   "module": "lewm/sparse_corner_completion_runtime_development.py"
+  },
+  {
+   "cls": "TransferRuntime",
+   "module": "scripts/run_go2_route_turn_memory_transfer_development.py"
+  },
+  {
+   "cls": "AxisFineConnectivityMixin",
+   "module": "lewm/axis_aligned_fine_connectivity_development.py"
+  },
+  {
+   "cls": "RouteTurnMemoryRuntime",
+   "module": "scripts/run_go2_interrupted_route_turn_memory_development.py"
+  },
+  {
+   "cls": "InterruptedRouteTurnMemoryMixin",
+   "module": "lewm/interrupted_route_turn_memory_development.py"
+  },
+  {
+   "cls": "InterruptedViewRuntime",
+   "module": "scripts/run_go2_interrupted_view_replan_development.py"
+  },
+  {
+   "cls": "InterruptedViewReplanMixin",
+   "module": "lewm/interrupted_view_replan_development.py"
+  },
+  {
+   "cls": "CachedFineConnectivityRuntime",
+   "module": "scripts/run_go2_cached_fine_connectivity_development.py"
+  },
+  {
+   "cls": "CurrentPositionCoverageRuntime",
+   "module": "scripts/run_go2_current_position_coverage_view_development.py"
+  },
+  {
+   "cls": "CurrentPositionCoverageMixin",
+   "module": "lewm/current_position_coverage_view_development.py"
+  },
+  {
+   "cls": "CoverageViewRuntime",
+   "module": "scripts/run_go2_coverage_translation_view_development.py"
+  },
+  {
+   "cls": "CoverageTranslationViewMixin",
+   "module": "lewm/coverage_translation_view_development.py"
+  },
+  {
+   "cls": "NoEarlyReleaseRuntime",
+   "module": "scripts/run_go2_view_arc_no_early_release_development.py"
+  },
+  {
+   "cls": "ViewArcRecoveryRuntime",
+   "module": "scripts/run_go2_measured_view_arc_recovery_development.py"
+  },
+  {
+   "cls": "MeasuredViewArcRecoveryMixin",
+   "module": "lewm/measured_view_arc_recovery_development.py"
+  },
+  {
+   "cls": "PublicationRepairedRuntime",
+   "module": "scripts/run_go2_publication_repaired_navigation_replication_development.py"
+  },
+  {
+   "cls": "MeasuredRecoveryPublicationMixin",
+   "module": "lewm/measured_recovery_publication_development.py"
+  },
+  {
+   "cls": "RecoveryLimitedSurveyRuntime",
+   "module": "scripts/run_go2_nogil_recovery_hold_development.py"
+  },
+  {
+   "cls": "ProfiledRecoveryHoldRuntime",
+   "module": "scripts/run_go2_nogil_recovery_hold_development.py"
+  },
+  {
+   "cls": "VisualRecoveryDispatchHoldRuntime",
+   "module": "lewm/visual_recovery_dispatch_hold_development.py"
+  },
+  {
+   "cls": "LivePlanningStageProfileRuntime",
+   "module": "lewm/live_planning_stage_profile_development.py"
+  },
+  {
+   "cls": "LivePlanningProfileRuntime",
+   "module": "lewm/live_planning_profile_development.py"
+  },
+  {
+   "cls": "PersistentLocalVisualRuntime",
+   "module": "lewm/persistent_local_visual_recovery_development.py"
+  },
+  {
+   "cls": "FramewiseVisualSupportRuntime",
+   "module": "lewm/framewise_visual_support_recovery_development.py"
+  },
+  {
+   "cls": "PrefixAwareTerminalRuntime",
+   "module": "lewm/prefix_aware_terminal_approach_development.py"
+  },
+  {
+   "cls": "PrefixAwareTerminalMixin",
+   "module": "lewm/prefix_aware_terminal_approach_development.py"
+  },
+  {
+   "cls": "VisualSupportRuntime",
+   "module": "lewm/visual_support_recovery_development.py"
+  },
+  {
+   "cls": "PipelineAgeRuntime",
+   "module": "lewm/pipeline_age_dispatch_development.py"
+  },
+  {
+   "cls": "PulsePredictiveRuntime",
+   "module": "lewm/short_pulse_navigation_runtime_development.py"
+  },
+  {
+   "cls": "NeuralInputTreatmentMixin",
+   "module": "lewm/neural_input_treatment_development.py"
+  },
+  {
+   "cls": "SignedVetoViewMixin",
+   "module": "lewm/signed_veto_view_recovery_development.py"
+  },
+  {
+   "cls": "RecoveryViewMixin",
+   "module": "scripts/run_go2_auxiliary_turn_recovery_development.py"
+  },
+  {
+   "cls": "FloorReacquisitionRuntimeMixin",
+   "module": "lewm/floor_reacquisition_development.py"
+  },
+  {
+   "cls": "StoppingAwareRuntime",
+   "module": "scripts/run_go2_planned_stopping_projection_development.py"
+  },
+  {
+   "cls": "PlannedStoppingProjectionMixin",
+   "module": "lewm/planned_stopping_projection_development.py"
+  },
+  {
+   "cls": "CommittedViewRuntime",
+   "module": "scripts/run_go2_committed_camera_view_development.py"
+  },
+  {
+   "cls": "CombinedMotionSourceMixin",
+   "module": "lewm/combined_motion_source_development.py"
+  },
+  {
+   "cls": "CommittedCameraFrontierRuntimeMixin",
+   "module": "lewm/committed_camera_frontier_view_development.py"
+  },
+  {
+   "cls": "CameraFrontierRuntimeMixin",
+   "module": "lewm/camera_frontier_visits_development.py"
+  },
+  {
+   "cls": "ContactScoreRuntime",
+   "module": "scripts/run_go2_contact_score_ablation_development.py"
+  },
+  {
+   "cls": "ContactScoreAblationMixin",
+   "module": "lewm/contact_score_ablation_development.py"
+  },
+  {
+   "cls": "XYSourceRuntime",
+   "module": "scripts/run_go2_pose_command_xy_ablation_development.py"
+  },
+  {
+   "cls": "PoseCommandXYSourceMixin",
+   "module": "lewm/pose_command_xy_control_development.py"
+  },
+  {
+   "cls": "RoutingMemoryRuntime",
+   "module": "scripts/run_go2_routing_memory_scope_development.py"
+  },
+  {
+   "cls": "RoutingMemoryScopeMixin",
+   "module": "lewm/current_pair_routing_memory_development.py"
+  },
+  {
+   "cls": "HeadingRecoveryRuntime",
+   "module": "scripts/run_go2_hold_relative_heading_recovery_development.py"
+  },
+  {
+   "cls": "HoldRelativeHeadingRecoveryMixin",
+   "module": "lewm/hold_relative_heading_recovery_development.py"
+  },
+  {
+   "cls": "DirectedRevisitRuntime",
+   "module": "scripts/run_go2_nearby_panorama_comparison_development.py"
+  },
+  {
+   "cls": "NearbyPanoramaRuntimeMixin",
+   "module": "lewm/nearby_panorama_directed_view_development.py"
+  },
+  {
+   "cls": "MatchedSurveyRepositionRuntime",
+   "module": "scripts/run_go2_survey_reposition_native_development.py"
+  },
+  {
+   "cls": "SurveyClearanceRepositionRuntime",
+   "module": "lewm/survey_clearance_reposition_development.py"
+  },
+  {
+   "cls": "NoEarlyHeadingReleaseMixin",
+   "module": "lewm/no_early_heading_release_development.py"
+  },
+  {
+   "cls": "FullReserveHeadingReleaseRuntime",
+   "module": "lewm/full_reserve_heading_release_development.py"
+  },
+  {
+   "cls": "MatchedMotionResidualRuntime",
+   "module": "lewm/matched_motion_residual_runtime_development.py"
+  },
+  {
+   "cls": "ArrivalEntryTerminalPriorityRuntime",
+   "module": "lewm/arrival_entry_terminal_priority_development.py"
+  },
+  {
+   "cls": "CachedFineConnectivityMixin",
+   "module": "lewm/cached_fine_connectivity_development.py"
+  },
+  {
+   "cls": "CachedFineGoalRecoveryRuntime",
+   "module": "lewm/cached_fine_goal_route_development.py"
+  },
+  {
+   "cls": "HoldRelativeClearanceRecoveryRuntime",
+   "module": "lewm/hold_relative_clearance_recovery_development.py"
+  },
+  {
+   "cls": "TerminalTranslationPulseRuntime",
+   "module": "lewm/terminal_translation_pulse_development.py"
+  },
+  {
+   "cls": "PredictiveArrivalHoldRuntime",
+   "module": "lewm/predictive_arrival_hold_development.py"
+  },
+  {
+   "cls": "FineGoalRouteRuntime",
+   "module": "lewm/fine_goal_route_development.py"
+  },
+  {
+   "cls": "ProgressRejoiningTerminalRuntime",
+   "module": "lewm/terminal_position_priority_development.py"
+  },
+  {
+   "cls": "TerminalPositionPriorityRuntime",
+   "module": "lewm/terminal_position_priority_development.py"
+  },
+  {
+   "cls": "TerminalPositionPriorityMixin",
+   "module": "lewm/terminal_position_priority_development.py"
+  },
+  {
+   "cls": "ClearancePreferredTurnRecoveryRuntime",
+   "module": "lewm/clearance_preferred_route_development.py"
+  },
+  {
+   "cls": "ClearancePreferredRouteMixin",
+   "module": "lewm/clearance_preferred_route_development.py"
+  },
+  {
+   "cls": "StepwiseClearanceTurnRecoveryRuntime",
+   "module": "lewm/clearance_turn_recovery_development.py"
+  },
+  {
+   "cls": "ClearanceTurnRecoveryRuntime",
+   "module": "lewm/clearance_turn_recovery_development.py"
+  },
+  {
+   "cls": "InitialSurveyRuntime",
+   "module": "lewm/initial_panorama_development.py"
+  },
+  {
+   "cls": "RecoveryLimitedInitialSurveyMixin",
+   "module": "lewm/recovery_limited_initial_survey_development.py"
+  },
+  {
+   "cls": "InitialSurveyMixin",
+   "module": "lewm/initial_panorama_development.py"
+  },
+  {
+   "cls": "PanoramicMotionResidualRuntime",
+   "module": "lewm/closed_loop_motion_residual_development.py"
+  },
+  {
+   "cls": "MotionResidualRuntime",
+   "module": "lewm/closed_loop_motion_residual_development.py"
+  },
+  {
+   "cls": "StandOffFrontierRuntime",
+   "module": "lewm/clearance_lookahead_development.py"
+  },
+  {
+   "cls": "ReserveRecoveryLookaheadRuntime",
+   "module": "lewm/clearance_lookahead_development.py"
+  },
+  {
+   "cls": "ClearanceLookaheadRuntime",
+   "module": "lewm/clearance_lookahead_development.py"
+  },
+  {
+   "cls": "TranslationReserveRuntime",
+   "module": "lewm/memory_forecast_clearance_development.py"
+  },
+  {
+   "cls": "MemoryForecastClearanceRuntime",
+   "module": "lewm/memory_forecast_clearance_development.py"
+  },
+  {
+   "cls": "FrontierVisitRuntime",
+   "module": "lewm/frontier_visit_runtime_development.py"
+  },
+  {
+   "cls": "FineStoredObstacleRuntime",
+   "module": "lewm/fine_stored_obstacle_routing_development.py"
+  },
+  {
+   "cls": "ContinuousStartConnectorRuntime",
+   "module": "lewm/continuous_start_connector_development.py"
+  },
+  {
+   "cls": "WaypointAlignmentRoundTripRuntime",
+   "module": "lewm/waypoint_alignment_planning_development.py"
+  },
+  {
+   "cls": "PartialHeightRoundTripRuntime",
+   "module": "lewm/partial_height_round_trip_development.py"
+  },
+  {
+   "cls": "FineObstacleRoundTripRuntime",
+   "module": "lewm/fine_obstacle_round_trip_development.py"
+  },
+  {
+   "cls": "VetoViewRoundTripRuntime",
+   "module": "lewm/veto_view_round_trip_development.py"
+  },
+  {
+   "cls": "StoppingMarginRoundTripRuntime",
+   "module": "lewm/stopping_margin_dispatch_development.py"
+  },
+  {
+   "cls": "ProcessRegisteredRoundTripRuntime",
+   "module": "lewm/process_registered_round_trip_development.py"
+  },
+  {
+   "cls": "ContinuousRoundTripRuntime",
+   "module": "lewm/continuous_round_trip_runtime_development.py"
+  },
+  {
+   "cls": "ContinuousCommitmentRuntime",
+   "module": "lewm/continuous_commitment_runtime_development.py"
+  },
+  {
+   "cls": "IndependentDepthProcessRuntime",
+   "module": "lewm/independent_depth_process_development.py"
+  },
+  {
+   "cls": "IndependentDepthRuntime",
+   "module": "lewm/independent_depth_runtime_development.py"
+  },
+  {
+   "cls": "MeasuredLatencyRuntime",
+   "module": "lewm/measured_latency_simulation_development.py"
+  },
+  {
+   "cls": "ProcessSeparatedRuntime",
+   "module": "lewm/process_mapped_runtime_development.py"
+  },
+  {
+   "cls": "ProcessMappedRuntime",
+   "module": "lewm/process_mapped_runtime_development.py"
+  },
+  {
+   "cls": "PipelineAgeDispatch",
+   "module": "lewm/pipeline_age_dispatch_development.py"
+  },
+  {
+   "cls": "AuxiliaryTurnDispatch",
+   "module": "lewm/auxiliary_only_turn_recovery_development.py"
+  },
+  {
+   "cls": "_FineDispatch",
+   "module": "lewm/fine_obstacle_round_trip_development.py"
+  },
+  {
+   "cls": "_StoppingDispatch",
+   "module": "lewm/stopping_margin_dispatch_development.py"
+  },
+  {
+   "cls": "PacedMultirateController",
+   "module": "lewm/paced_multirate_controller_development.py"
+  }
+ ],
+ "methods": {
+  "__init__": {
+   "owner": "ScriptedBackupMixin",
+   "module": "lewm/dev_harness_fixes_development.py",
+   "overrides": 45,
+   "executed": true,
+   "chain": [
+    "ScriptedBackupMixin (lewm/dev_harness_fixes_development.py)",
+    "DeadlockEscapeMixin (lewm/dev_harness_fixes_development.py)",
+    "LatchTimeoutMixin (lewm/dev_harness_fixes_development.py)",
+    "StallWatchdogMixin (lewm/dev_harness_fixes_development.py)",
+    "TerminalPositionScoringMixin (lewm/dev_harness_fixes_development.py)",
+    "CompletedSupportRuntimeMixin (lewm/navigation_capability_completed_support_development.py)",
+    "LiveTurnMemoryRuntimeMixin (lewm/navigation_capability_live_turn_binding_c1_development.py)",
+    "ExhaustedViewRuntimeMixin (lewm/navigation_capability_exhausted_view_development.py)",
+    "StartupRecoveryRuntimeMixin (lewm/navigation_capability_startup_recovery_development.py)",
+    "DenseNativeContextRuntimeMixin (lewm/dense_horizon_navigation_development.py)",
+    "SparseCornerCompletionRuntimeMixin (lewm/sparse_corner_completion_runtime_development.py)",
+    "InterruptedRouteTurnMemoryMixin (lewm/interrupted_route_turn_memory_development.py)",
+    "InterruptedViewReplanMixin (lewm/interrupted_view_replan_development.py)",
+    "CurrentPositionCoverageMixin (lewm/current_position_coverage_view_development.py)",
+    "CoverageTranslationViewMixin (lewm/coverage_translation_view_development.py)",
+    "VisualRecoveryDispatchHoldRuntime (lewm/visual_recovery_dispatch_hold_development.py)",
+    "LivePlanningStageProfileRuntime (lewm/live_planning_stage_profile_development.py)",
+    "LivePlanningProfileRuntime (lewm/live_planning_profile_development.py)",
+    "PersistentLocalVisualRuntime (lewm/persistent_local_visual_recovery_development.py)",
+    "FramewiseVisualSupportRuntime (lewm/framewise_visual_support_recovery_development.py)",
+    "VisualSupportRuntime (lewm/visual_support_recovery_development.py)",
+    "PulsePredictiveRuntime (lewm/short_pulse_navigation_runtime_development.py)",
+    "NeuralInputTreatmentMixin (lewm/neural_input_treatment_development.py)",
+    "FloorReacquisitionRuntimeMixin (lewm/floor_reacquisition_development.py)",
+    "CombinedMotionSourceMixin (lewm/combined_motion_source_development.py)",
+    "CommittedCameraFrontierRuntimeMixin (lewm/committed_camera_frontier_view_development.py)",
+    "CameraFrontierRuntimeMixin (lewm/camera_frontier_visits_development.py)",
+    "ContactScoreAblationMixin (lewm/contact_score_ablation_development.py)",
+    "PoseCommandXYSourceMixin (lewm/pose_command_xy_control_development.py)",
+    "NearbyPanoramaRuntimeMixin (lewm/nearby_panorama_directed_view_development.py)",
+    "MatchedMotionResidualRuntime (lewm/matched_motion_residual_runtime_development.py)",
+    "TerminalTranslationPulseRuntime (lewm/terminal_translation_pulse_development.py)",
+    "ClearanceTurnRecoveryRuntime (lewm/clearance_turn_recovery_development.py)",
+    "RecoveryLimitedInitialSurveyMixin (lewm/recovery_limited_initial_survey_development.py)",
+    "InitialSurveyMixin (lewm/initial_panorama_development.py)",
+    "MotionResidualRuntime (lewm/closed_loop_motion_residual_development.py)",
+    "FrontierVisitRuntime (lewm/frontier_visit_runtime_development.py)",
+    "VetoViewRoundTripRuntime (lewm/veto_view_round_trip_development.py)",
+    "ProcessRegisteredRoundTripRuntime (lewm/process_registered_round_trip_development.py)",
+    "ContinuousRoundTripRuntime (lewm/continuous_round_trip_runtime_development.py)",
+    "ContinuousCommitmentRuntime (lewm/continuous_commitment_runtime_development.py)",
+    "IndependentDepthProcessRuntime (lewm/independent_depth_process_development.py)",
+    "IndependentDepthRuntime (lewm/independent_depth_runtime_development.py)",
+    "ProcessSeparatedRuntime (lewm/process_mapped_runtime_development.py)",
+    "ProcessMappedRuntime (lewm/process_mapped_runtime_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "_check_model_inputs": {
+   "owner": "LivePlanningStageProfileRuntime",
+   "module": "lewm/live_planning_stage_profile_development.py",
+   "overrides": 1,
+   "executed": true,
+   "chain": [
+    "LivePlanningStageProfileRuntime (lewm/live_planning_stage_profile_development.py)",
+    "NeuralInputTreatmentMixin (lewm/neural_input_treatment_development.py)"
+   ]
+  },
+  "_command_gate": {
+   "owner": "StartupRecoveryRuntimeMixin",
+   "module": "lewm/navigation_capability_startup_recovery_development.py",
+   "overrides": 4,
+   "executed": true,
+   "chain": [
+    "StartupRecoveryRuntimeMixin (lewm/navigation_capability_startup_recovery_development.py)",
+    "VisualRecoveryDispatchHoldRuntime (lewm/visual_recovery_dispatch_hold_development.py)",
+    "FloorReacquisitionRuntimeMixin (lewm/floor_reacquisition_development.py)",
+    "ContinuousRoundTripRuntime (lewm/continuous_round_trip_runtime_development.py)",
+    "ContinuousCommitmentRuntime (lewm/continuous_commitment_runtime_development.py)"
+   ]
+  },
+  "_correct_prediction": {
+   "owner": "LivePlanningProfileRuntime",
+   "module": "lewm/live_planning_profile_development.py",
+   "overrides": 7,
+   "executed": true,
+   "chain": [
+    "LivePlanningProfileRuntime (lewm/live_planning_profile_development.py)",
+    "PulsePredictiveRuntime (lewm/short_pulse_navigation_runtime_development.py)",
+    "CombinedMotionSourceMixin (lewm/combined_motion_source_development.py)",
+    "ContactScoreAblationMixin (lewm/contact_score_ablation_development.py)",
+    "PoseCommandXYSourceMixin (lewm/pose_command_xy_control_development.py)",
+    "MatchedMotionResidualRuntime (lewm/matched_motion_residual_runtime_development.py)",
+    "MotionResidualRuntime (lewm/closed_loop_motion_residual_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "_map": {
+   "owner": "PairedFloorRuntimeMixin",
+   "module": "lewm/navigation_capability_paired_floor_start_development.py",
+   "overrides": 5,
+   "executed": false,
+   "chain": [
+    "PairedFloorRuntimeMixin (lewm/navigation_capability_paired_floor_start_development.py)",
+    "StartupRecoveryRuntimeMixin (lewm/navigation_capability_startup_recovery_development.py)",
+    "MeasuredLatencyRuntime (lewm/measured_latency_simulation_development.py)",
+    "ProcessSeparatedRuntime (lewm/process_mapped_runtime_development.py)",
+    "ProcessMappedRuntime (lewm/process_mapped_runtime_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "_measure": {
+   "owner": "LivePlanningProfileRuntime",
+   "module": "lewm/live_planning_profile_development.py",
+   "overrides": 0,
+   "executed": true,
+   "chain": [
+    "LivePlanningProfileRuntime (lewm/live_planning_profile_development.py)"
+   ]
+  },
+  "_obstacles": {
+   "owner": "IndependentDepthProcessRuntime",
+   "module": "lewm/independent_depth_process_development.py",
+   "overrides": 1,
+   "executed": true,
+   "chain": [
+    "IndependentDepthProcessRuntime (lewm/independent_depth_process_development.py)",
+    "IndependentDepthRuntime (lewm/independent_depth_runtime_development.py)"
+   ]
+  },
+  "_plan": {
+   "owner": "StartupRecoveryRuntimeMixin",
+   "module": "lewm/navigation_capability_startup_recovery_development.py",
+   "overrides": 5,
+   "executed": true,
+   "chain": [
+    "StartupRecoveryRuntimeMixin (lewm/navigation_capability_startup_recovery_development.py)",
+    "DenseNativeContextRuntimeMixin (lewm/dense_horizon_navigation_development.py)",
+    "LivePlanningProfileRuntime (lewm/live_planning_profile_development.py)",
+    "FloorReacquisitionRuntimeMixin (lewm/floor_reacquisition_development.py)",
+    "ContinuousRoundTripRuntime (lewm/continuous_round_trip_runtime_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "_pose": {
+   "owner": "LivePlanningProfileRuntime",
+   "module": "lewm/live_planning_profile_development.py",
+   "overrides": 2,
+   "executed": true,
+   "chain": [
+    "LivePlanningProfileRuntime (lewm/live_planning_profile_development.py)",
+    "PartialHeightRoundTripRuntime (lewm/partial_height_round_trip_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "_prefix_commands": {
+   "owner": "ContinuousCommitmentRuntime",
+   "module": "lewm/continuous_commitment_runtime_development.py",
+   "overrides": 1,
+   "executed": true,
+   "chain": [
+    "ContinuousCommitmentRuntime (lewm/continuous_commitment_runtime_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "_propose": {
+   "owner": "ContinuousStartConnectorRuntime",
+   "module": "lewm/continuous_start_connector_development.py",
+   "overrides": 1,
+   "executed": false,
+   "chain": [
+    "ContinuousStartConnectorRuntime (lewm/continuous_start_connector_development.py)",
+    "ProcessRegisteredRoundTripRuntime (lewm/process_registered_round_trip_development.py)"
+   ]
+  },
+  "_publish_visual_recovery": {
+   "owner": "MeasuredRecoveryPublicationMixin",
+   "module": "lewm/measured_recovery_publication_development.py",
+   "overrides": 1,
+   "executed": true,
+   "chain": [
+    "MeasuredRecoveryPublicationMixin (lewm/measured_recovery_publication_development.py)",
+    "VisualRecoveryDispatchHoldRuntime (lewm/visual_recovery_dispatch_hold_development.py)"
+   ]
+  },
+  "_reactive_escape": {
+   "owner": "DeadlockEscapeMixin",
+   "module": "lewm/dev_harness_fixes_development.py",
+   "overrides": 0,
+   "executed": true,
+   "chain": [
+    "DeadlockEscapeMixin (lewm/dev_harness_fixes_development.py)"
+   ]
+  },
+  "_recovery_state": {
+   "owner": "FramewiseVisualSupportRuntime",
+   "module": "lewm/framewise_visual_support_recovery_development.py",
+   "overrides": 1,
+   "executed": true,
+   "chain": [
+    "FramewiseVisualSupportRuntime (lewm/framewise_visual_support_recovery_development.py)",
+    "VisualSupportRuntime (lewm/visual_support_recovery_development.py)"
+   ]
+  },
+  "_register": {
+   "owner": "StartupRecoveryRuntimeMixin",
+   "module": "lewm/navigation_capability_startup_recovery_development.py",
+   "overrides": 5,
+   "executed": true,
+   "chain": [
+    "StartupRecoveryRuntimeMixin (lewm/navigation_capability_startup_recovery_development.py)",
+    "FloorReacquisitionRuntimeMixin (lewm/floor_reacquisition_development.py)",
+    "ContinuousRoundTripRuntime (lewm/continuous_round_trip_runtime_development.py)",
+    "IndependentDepthRuntime (lewm/independent_depth_runtime_development.py)",
+    "MeasuredLatencyRuntime (lewm/measured_latency_simulation_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "_request_backup": {
+   "owner": "ScriptedBackupMixin",
+   "module": "lewm/dev_harness_fixes_development.py",
+   "overrides": 0,
+   "executed": false,
+   "chain": [
+    "ScriptedBackupMixin (lewm/dev_harness_fixes_development.py)"
+   ]
+  },
+  "_route": {
+   "owner": "StallWatchdogMixin",
+   "module": "lewm/dev_harness_fixes_development.py",
+   "overrides": 16,
+   "executed": true,
+   "chain": [
+    "StallWatchdogMixin (lewm/dev_harness_fixes_development.py)",
+    "InterruptedRouteTurnMemoryMixin (lewm/interrupted_route_turn_memory_development.py)",
+    "InterruptedViewReplanMixin (lewm/interrupted_view_replan_development.py)",
+    "CoverageTranslationViewMixin (lewm/coverage_translation_view_development.py)",
+    "MeasuredViewArcRecoveryMixin (lewm/measured_view_arc_recovery_development.py)",
+    "LivePlanningProfileRuntime (lewm/live_planning_profile_development.py)",
+    "PrefixAwareTerminalMixin (lewm/prefix_aware_terminal_approach_development.py)",
+    "VisualSupportRuntime (lewm/visual_support_recovery_development.py)",
+    "CameraFrontierRuntimeMixin (lewm/camera_frontier_visits_development.py)",
+    "RoutingMemoryScopeMixin (lewm/current_pair_routing_memory_development.py)",
+    "TerminalPositionPriorityMixin (lewm/terminal_position_priority_development.py)",
+    "RecoveryLimitedInitialSurveyMixin (lewm/recovery_limited_initial_survey_development.py)",
+    "InitialSurveyMixin (lewm/initial_panorama_development.py)",
+    "FrontierVisitRuntime (lewm/frontier_visit_runtime_development.py)",
+    "VetoViewRoundTripRuntime (lewm/veto_view_round_trip_development.py)",
+    "ProcessRegisteredRoundTripRuntime (lewm/process_registered_round_trip_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "_route_target": {
+   "owner": "PrefixAwareTerminalMixin",
+   "module": "lewm/prefix_aware_terminal_approach_development.py",
+   "overrides": 4,
+   "executed": true,
+   "chain": [
+    "PrefixAwareTerminalMixin (lewm/prefix_aware_terminal_approach_development.py)",
+    "RoutingMemoryScopeMixin (lewm/current_pair_routing_memory_development.py)",
+    "TerminalPositionPriorityMixin (lewm/terminal_position_priority_development.py)",
+    "ClearanceLookaheadRuntime (lewm/clearance_lookahead_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "_routing_proposer": {
+   "owner": "AxisFineConnectivityMixin",
+   "module": "lewm/axis_aligned_fine_connectivity_development.py",
+   "overrides": 7,
+   "executed": true,
+   "chain": [
+    "AxisFineConnectivityMixin (lewm/axis_aligned_fine_connectivity_development.py)",
+    "CachedFineConnectivityMixin (lewm/cached_fine_connectivity_development.py)",
+    "CachedFineGoalRecoveryRuntime (lewm/cached_fine_goal_route_development.py)",
+    "FineGoalRouteRuntime (lewm/fine_goal_route_development.py)",
+    "ClearancePreferredRouteMixin (lewm/clearance_preferred_route_development.py)",
+    "FrontierVisitRuntime (lewm/frontier_visit_runtime_development.py)",
+    "FineStoredObstacleRuntime (lewm/fine_stored_obstacle_routing_development.py)",
+    "ProcessRegisteredRoundTripRuntime (lewm/process_registered_round_trip_development.py)"
+   ]
+  },
+  "_routing_view": {
+   "owner": "RoutingMemoryScopeMixin",
+   "module": "lewm/current_pair_routing_memory_development.py",
+   "overrides": 0,
+   "executed": true,
+   "chain": [
+    "RoutingMemoryScopeMixin (lewm/current_pair_routing_memory_development.py)"
+   ]
+  },
+  "_score": {
+   "owner": "TerminalPositionScoringMixin",
+   "module": "lewm/dev_harness_fixes_development.py",
+   "overrides": 3,
+   "executed": true,
+   "chain": [
+    "TerminalPositionScoringMixin (lewm/dev_harness_fixes_development.py)",
+    "LivePlanningStageProfileRuntime (lewm/live_planning_stage_profile_development.py)",
+    "WaypointAlignmentRoundTripRuntime (lewm/waypoint_alignment_planning_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "_select_action": {
+   "owner": "DenseNativeContextRuntimeMixin",
+   "module": "lewm/dense_horizon_navigation_development.py",
+   "overrides": 6,
+   "executed": true,
+   "chain": [
+    "DenseNativeContextRuntimeMixin (lewm/dense_horizon_navigation_development.py)",
+    "LivePlanningProfileRuntime (lewm/live_planning_profile_development.py)",
+    "PrefixAwareTerminalMixin (lewm/prefix_aware_terminal_approach_development.py)",
+    "NeuralInputTreatmentMixin (lewm/neural_input_treatment_development.py)",
+    "RoutingMemoryScopeMixin (lewm/current_pair_routing_memory_development.py)",
+    "TerminalTranslationPulseRuntime (lewm/terminal_translation_pulse_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "_select_clear_prediction": {
+   "owner": "ReserveExitMixin",
+   "module": "lewm/dev_harness_reserve_exit_v2_development.py",
+   "overrides": 23,
+   "executed": true,
+   "chain": [
+    "ReserveExitMixin (lewm/dev_harness_reserve_exit_v2_development.py)",
+    "ScriptedBackupMixin (lewm/dev_harness_fixes_development.py)",
+    "CoverageObservedObstacleMixin (lewm/dev_harness_fixes_development.py)",
+    "DeadlockEscapeMixin (lewm/dev_harness_fixes_development.py)",
+    "LatchTimeoutMixin (lewm/dev_harness_fixes_development.py)",
+    "TerminalPositionScoringMixin (lewm/dev_harness_fixes_development.py)",
+    "InterruptedRouteTurnMemoryMixin (lewm/interrupted_route_turn_memory_development.py)",
+    "CoverageTranslationViewMixin (lewm/coverage_translation_view_development.py)",
+    "MeasuredViewArcRecoveryMixin (lewm/measured_view_arc_recovery_development.py)",
+    "LivePlanningStageProfileRuntime (lewm/live_planning_stage_profile_development.py)",
+    "PlannedStoppingProjectionMixin (lewm/planned_stopping_projection_development.py)",
+    "HoldRelativeHeadingRecoveryMixin (lewm/hold_relative_heading_recovery_development.py)",
+    "SurveyClearanceRepositionRuntime (lewm/survey_clearance_reposition_development.py)",
+    "NoEarlyHeadingReleaseMixin (lewm/no_early_heading_release_development.py)",
+    "FullReserveHeadingReleaseRuntime (lewm/full_reserve_heading_release_development.py)",
+    "ArrivalEntryTerminalPriorityRuntime (lewm/arrival_entry_terminal_priority_development.py)",
+    "HoldRelativeClearanceRecoveryRuntime (lewm/hold_relative_clearance_recovery_development.py)",
+    "PredictiveArrivalHoldRuntime (lewm/predictive_arrival_hold_development.py)",
+    "TerminalPositionPriorityMixin (lewm/terminal_position_priority_development.py)",
+    "ClearanceTurnRecoveryRuntime (lewm/clearance_turn_recovery_development.py)",
+    "ReserveRecoveryLookaheadRuntime (lewm/clearance_lookahead_development.py)",
+    "TranslationReserveRuntime (lewm/memory_forecast_clearance_development.py)",
+    "MemoryForecastClearanceRuntime (lewm/memory_forecast_clearance_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "_store_plan": {
+   "owner": "ScriptedBackupMixin",
+   "module": "lewm/dev_harness_fixes_development.py",
+   "overrides": 6,
+   "executed": true,
+   "chain": [
+    "ScriptedBackupMixin (lewm/dev_harness_fixes_development.py)",
+    "VisualRecoveryDispatchHoldRuntime (lewm/visual_recovery_dispatch_hold_development.py)",
+    "FloorReacquisitionRuntimeMixin (lewm/floor_reacquisition_development.py)",
+    "TerminalTranslationPulseRuntime (lewm/terminal_translation_pulse_development.py)",
+    "ContinuousRoundTripRuntime (lewm/continuous_round_trip_runtime_development.py)",
+    "ContinuousCommitmentRuntime (lewm/continuous_commitment_runtime_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "_track": {
+   "owner": "PoseLossRecordMixin",
+   "module": "lewm/dev_harness_fixes_development.py",
+   "overrides": 3,
+   "executed": true,
+   "chain": [
+    "PoseLossRecordMixin (lewm/dev_harness_fixes_development.py)",
+    "MeasuredLatencyRuntime (lewm/measured_latency_simulation_development.py)",
+    "ProcessSeparatedRuntime (lewm/process_mapped_runtime_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "_translation_veto_recovery": {
+   "owner": "SignedVetoViewMixin",
+   "module": "lewm/signed_veto_view_recovery_development.py",
+   "overrides": 1,
+   "executed": true,
+   "chain": [
+    "SignedVetoViewMixin (lewm/signed_veto_view_recovery_development.py)",
+    "VetoViewRoundTripRuntime (lewm/veto_view_round_trip_development.py)"
+   ]
+  },
+  "_worker": {
+   "owner": "MeasuredLatencyRuntime",
+   "module": "lewm/measured_latency_simulation_development.py",
+   "overrides": 1,
+   "executed": true,
+   "chain": [
+    "MeasuredLatencyRuntime (lewm/measured_latency_simulation_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "finish": {
+   "owner": "PacedMultirateController",
+   "module": "lewm/paced_multirate_controller_development.py",
+   "overrides": 0,
+   "executed": true,
+   "chain": [
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "request": {
+   "owner": "ScriptedBackupMixin",
+   "module": "lewm/dev_harness_fixes_development.py",
+   "overrides": 9,
+   "executed": true,
+   "chain": [
+    "ScriptedBackupMixin (lewm/dev_harness_fixes_development.py)",
+    "DeadlockEscapeMixin (lewm/dev_harness_fixes_development.py)",
+    "RecoveryViewMixin (scripts/run_go2_auxiliary_turn_recovery_development.py)",
+    "VetoViewRoundTripRuntime (lewm/veto_view_round_trip_development.py)",
+    "ContinuousCommitmentRuntime (lewm/continuous_commitment_runtime_development.py)",
+    "PipelineAgeDispatch (lewm/pipeline_age_dispatch_development.py)",
+    "AuxiliaryTurnDispatch (lewm/auxiliary_only_turn_recovery_development.py)",
+    "_FineDispatch (lewm/fine_obstacle_round_trip_development.py)",
+    "_StoppingDispatch (lewm/stopping_margin_dispatch_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  },
+  "submit": {
+   "owner": "DenseNativeContextRuntimeMixin",
+   "module": "lewm/dense_horizon_navigation_development.py",
+   "overrides": 3,
+   "executed": true,
+   "chain": [
+    "DenseNativeContextRuntimeMixin (lewm/dense_horizon_navigation_development.py)",
+    "ContinuousRoundTripRuntime (lewm/continuous_round_trip_runtime_development.py)",
+    "IndependentDepthRuntime (lewm/independent_depth_runtime_development.py)",
+    "PacedMultirateController (lewm/paced_multirate_controller_development.py)"
+   ]
+  }
+ }
+}

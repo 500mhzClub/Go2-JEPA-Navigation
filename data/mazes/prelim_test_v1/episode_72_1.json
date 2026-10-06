@@ -1,0 +1,35 @@
+{
+  "schema": "navigation_capability_episode.v1",
+  "maze_id": 72,
+  "episode_index": 1,
+  "episode_id": "72/1",
+  "role": "sealed_test",
+  "seed": 2026093145,
+  "simulation_seed": 2026112645,
+  "home_se2_world": [
+    2.6,
+    0.0,
+    -1.1295251563641586
+  ],
+  "beacon_xy_world": [
+    0.0,
+    1.3
+  ],
+  "mission": {
+    "goal_initial_body_xy_m": [
+      -2.285904294831345,
+      -1.795728697457278
+    ],
+    "return_initial_body_xy_m": [
+      0.0,
+      0.0
+    ],
+    "require_return_after_goal": true
+  },
+  "shortest_outbound_m": 7.278721497261372,
+  "shortest_return_m": 7.278721497261372,
+  "initial_wall_occlusion": true,
+  "endpoint_clearance_qualified": true,
+  "runtime_executed": false,
+  "rendering_performed": false
+}

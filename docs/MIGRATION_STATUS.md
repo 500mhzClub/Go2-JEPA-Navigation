@@ -56,7 +56,7 @@ to resume from.
 
 | Module | Files | Executed lines | Status |
 |---|---:|---:|---|
-| `go2nav.mazes` | 10 | 38 | todo |
+| `go2nav.mazes` | 10 | 38 | **done**: regeneration reproduces capability_v1 (90 layouts, 180 episodes), c3v2 and c3v3 sets byte for byte (`tests/unit/test_mazes.py`); stage-2 qualification waits for `go2nav.sim` patches |
 | `go2nav.sim` | 34 | 1,123 | todo |
 | `go2nav.locomotion` | 1 | 15 | todo |
 | `go2nav.perception` | 103 | 2,200 | todo |
@@ -72,7 +72,8 @@ to resume from.
 
 | Component | Original entry points | Status |
 |---|---|---|
-| maze and scene generation | `generate_go2_navigation_capability_sets_development.py`, `register_go2_{c3v2,c3v3,stage2_patch}_sets_development.py`, `lewm_worlds` | todo |
+| maze generation | `generate_go2_navigation_capability_sets_development.py`, `register_go2_{c3v2,c3v3,stage2_patch}_sets_development.py` | **done** except the stage-2 qualification hook; registered sets shipped in `data/mazes` (3.9 MB) with exclusion registries (307 built graphs) |
+| May-corpus scene generation | `lewm_worlds` (T1 lineage only) | todo |
 | locomotion RL | `train_genesis_go2_locomotion_contract.{py,sh}`, upstream Genesis go2 example, `check_genesis_go2_policy_contract.{py,sh}` | todo |
 | May-corpus data generation | `datagen_all_resumable.sh` → `run_mass_datagen.sh` → bulk rollout, convert, labels, render replay | todo |
 | T1 temporal predictor | `run_dev_proprio_factorial_driver_v1.py` + v03 temporal-JEPA cache builders | todo |

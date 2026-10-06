@@ -1,0 +1,10 @@
+# Mazes for the C3-v2 readout fix (29 September 2026), disjoint from the capability sets and their prior graphs.
+description: c3v2_sets_v1 (fresh_check 0-9 with one episode; rest/turn recording layouts 10-15, no episodes)
+scene_id_prefix: navigation-c3v2
+family: NAVIGATION_CAPABILITY_SAME_MAZE_FAMILY
+seeds: {construction: 2026092901, physics_base: 2026113000, appearance_base: 2026113100, episode_base: 2026113200}
+exclude: [data/mazes/registries/capability_v1_prior_graphs.json, data/mazes/dev_tune, data/mazes/validation, data/mazes/prelim_test_v1]
+roles:
+  - {name: fresh_check, count: 10, episodes: [0], spec_fields: {recording_split: null}}
+  - {name: rest_turn_recording, count: 4, episodes: [], spec_fields: {recording_split: fit}}
+  - {name: rest_turn_recording, count: 2, episodes: [], spec_fields: {recording_split: heldout}}

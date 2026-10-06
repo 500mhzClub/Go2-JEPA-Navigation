@@ -1,0 +1,226 @@
+{
+  "schema": "go2nav_maze_set.v1",
+  "name": "dev_tune",
+  "description": "capability_v1 layouts 0-9: development tuning",
+  "entries": [
+    {
+      "maze_id": 0,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_00.json",
+        "sha256": "7f14056622877fcddb183e9b7754b48eeeefbf3e13b8a370fc8cab164f20cd0a",
+        "bytes": 12056
+      },
+      "episodes": [
+        {
+          "file": "episode_00_0.json",
+          "sha256": "75f1d08efce60ea3605e484e051f8993276061213a96eceb420a737d9d2fc938",
+          "bytes": 735
+        },
+        {
+          "file": "episode_00_1.json",
+          "sha256": "5bfc82054ed47320db3d138195d59de27897a25b728fa51f453ab7e05cc62a24",
+          "bytes": 738
+        }
+      ]
+    },
+    {
+      "maze_id": 1,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_01.json",
+        "sha256": "d748b7cdcf6f8ba88c7a83febabc778fbb1117bb3e0053ea7239f959a235bb88",
+        "bytes": 12055
+      },
+      "episodes": [
+        {
+          "file": "episode_01_0.json",
+          "sha256": "81c7e4cd429f1a23792d8851a0c2a7e707ae1fbb875c4af075df7e523b538972",
+          "bytes": 733
+        },
+        {
+          "file": "episode_01_1.json",
+          "sha256": "94ab495051596d97016c1c1aaec39cdaeae17c37081ea193bd5eb8d9180dffcb",
+          "bytes": 736
+        }
+      ]
+    },
+    {
+      "maze_id": 2,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_02.json",
+        "sha256": "4374af9e261aff3ce0bb7a7851b48b61dd46f0580eeead5f5cb9f5c88de7964b",
+        "bytes": 12037
+      },
+      "episodes": [
+        {
+          "file": "episode_02_0.json",
+          "sha256": "217192169e1baa7d6068ae43800f207a02202d7685f85b6ba0c2c89e6999fc18",
+          "bytes": 734
+        },
+        {
+          "file": "episode_02_1.json",
+          "sha256": "3f1ccea1cc6690c001785bf2c0655f38fa10ed51ab397c64792b301b403f2b40",
+          "bytes": 736
+        }
+      ]
+    },
+    {
+      "maze_id": 3,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_03.json",
+        "sha256": "bddb1905b397bc7ac9f30deb3cc9baf28abe89f273772e5bbcc288d34f291d92",
+        "bytes": 12080
+      },
+      "episodes": [
+        {
+          "file": "episode_03_0.json",
+          "sha256": "9104505491502086871ca161dd62f1d3d99e0c28abada72f18ed7bbdf0d9aacf",
+          "bytes": 734
+        },
+        {
+          "file": "episode_03_1.json",
+          "sha256": "e54617a8666652814fc4991622b47848e92fadd23fd2c932387a224087352826",
+          "bytes": 735
+        }
+      ]
+    },
+    {
+      "maze_id": 4,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_04.json",
+        "sha256": "7056905d95ca64b1ea523b4a074b1d08e7c057db539240c3e9709f8cad273877",
+        "bytes": 11989
+      },
+      "episodes": [
+        {
+          "file": "episode_04_0.json",
+          "sha256": "b3e09cbc6798aa48b37bd7893d15b7f485935638add72c44673ff3b2ecfb620c",
+          "bytes": 734
+        },
+        {
+          "file": "episode_04_1.json",
+          "sha256": "5a883725e159b821e33c24639dc51e3e26e5a8ea4afea846c4ad6c5c317783fe",
+          "bytes": 738
+        }
+      ]
+    },
+    {
+      "maze_id": 5,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_05.json",
+        "sha256": "f306c525a57b6df738d470365cee4310e2cb8d8621a93105d27fc0e217663542",
+        "bytes": 12044
+      },
+      "episodes": [
+        {
+          "file": "episode_05_0.json",
+          "sha256": "5af2e7829c8a2d21735364c7b0bbd97d2caaabee88de96a68607631d7edbeaa5",
+          "bytes": 736
+        },
+        {
+          "file": "episode_05_1.json",
+          "sha256": "b4e320da2a5cbaf84761dec56e3f4af06cb81dd5d2b31d67ad52782ad6ce15bb",
+          "bytes": 736
+        }
+      ]
+    },
+    {
+      "maze_id": 6,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_06.json",
+        "sha256": "d5279f986620dc962f851c10e6dfa79826b0bc33b8384d3412501ffff9e6954f",
+        "bytes": 12031
+      },
+      "episodes": [
+        {
+          "file": "episode_06_0.json",
+          "sha256": "0723e1bd4bab59f09e369ff8d65b91bb5ad6b89bfab8ec82563965a04c380817",
+          "bytes": 735
+        },
+        {
+          "file": "episode_06_1.json",
+          "sha256": "f58d906361ba5bca024bbb3b21802106e8c5dfeb18d8dd35af094f89ce99a3bf",
+          "bytes": 734
+        }
+      ]
+    },
+    {
+      "maze_id": 7,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_07.json",
+        "sha256": "2ef92749081ac56e4f0f2f9be239733b8413c33c1ff92a727935ef4da8190235",
+        "bytes": 12001
+      },
+      "episodes": [
+        {
+          "file": "episode_07_0.json",
+          "sha256": "f7a9bf670efaffe30e8412df1f58e738614b32578176f6674fb02a8c6a3c6827",
+          "bytes": 732
+        },
+        {
+          "file": "episode_07_1.json",
+          "sha256": "cbe6c5617e9fc9fefb82b145c2ee4e93604d02277a1362746b67486877905806",
+          "bytes": 737
+        }
+      ]
+    },
+    {
+      "maze_id": 8,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_08.json",
+        "sha256": "dcc44cb7b5377cc0707e0e4391ecfac33d82f18ee5d71ddfbaba014b1680528a",
+        "bytes": 12109
+      },
+      "episodes": [
+        {
+          "file": "episode_08_0.json",
+          "sha256": "b0016daca9147ccd1c1becd1f2f3deca92513116a217cd521401e92304544b58",
+          "bytes": 738
+        },
+        {
+          "file": "episode_08_1.json",
+          "sha256": "595b32672c1293d0a43802a798367d48d03f6835120943039264640f511eb83c",
+          "bytes": 735
+        }
+      ]
+    },
+    {
+      "maze_id": 9,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_09.json",
+        "sha256": "539db392fb67f069e1f71934fa61143e3f1956e674bf9cdbc84ad517f53012b2",
+        "bytes": 12146
+      },
+      "episodes": [
+        {
+          "file": "episode_09_0.json",
+          "sha256": "0f4d9a89cde4b22faf64ad58ba3fa4601e19bbaea17ce5f0f4c045f21d2f55d0",
+          "bytes": 736
+        },
+        {
+          "file": "episode_09_1.json",
+          "sha256": "297fb9a8f8bd0668806542629e6db7233893eb03a23e91ba22a95e8183f75220",
+          "bytes": 734
+        }
+      ]
+    }
+  ],
+  "family": "NAVIGATION_CAPABILITY_SAME_MAZE_FAMILY",
+  "scene_id_prefix": "navigation-capability-v1",
+  "seeds": {
+    "construction": 2026092501,
+    "physics_base": 2026112500,
+    "appearance_base": 2026112600,
+    "episode_base": 2026093000
+  },
+  "generator_config": "configs/mazes/capability_v1.yaml"
+}

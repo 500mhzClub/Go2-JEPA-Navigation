@@ -1,0 +1,11 @@
+# Mazes for the C3-v3 on-policy round (30 September 2026), disjoint from everything above and from c3v2_sets_v1.
+description: c3v3_sets_v1 (onpolicy_fit 0-15, onpolicy_heldout 16-21, safety_check 22-31; one episode each)
+scene_id_prefix: navigation-c3v3
+family: NAVIGATION_CAPABILITY_SAME_MAZE_FAMILY
+seeds: {construction: 2026093001, physics_base: 2026113400, appearance_base: 2026113500, episode_base: 2026113600}
+exclude: [data/mazes/registries/capability_v1_prior_graphs.json, data/mazes/dev_tune, data/mazes/validation,
+          data/mazes/prelim_test_v1, data/mazes/c3v2_sets_v1]
+roles:
+  - {name: onpolicy_fit, count: 16, episodes: [0]}
+  - {name: onpolicy_heldout, count: 6, episodes: [0]}
+  - {name: safety_check, count: 10, episodes: [0]}
