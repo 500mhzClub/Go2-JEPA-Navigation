@@ -47,6 +47,20 @@ def preprocess(image):
     return (chw-mean)/std
 
 
+def preprocess_may_corpus_frame(image):
+    """A 224 x 224 May-corpus frame (T1 training data) to the encoder input.
+
+    The May corpus was rendered square at the same focal length as the Go2 camera, so cropping 28 rows top and bottom
+    (224 x 168) gives exactly the Go2 camera's field of view (78.3 x 62.8 degrees); the crop is then preprocessed like
+    any frame.
+    """
+    if not isinstance(image, Image.Image):
+        image = Image.fromarray(np.asarray(image))
+    if image.size != (224, 224):
+        raise ValueError(f'224 x 224 May-corpus frame required, got {image.size}')
+    return preprocess(image.convert('RGB').crop((0, 28, 224, 196)))
+
+
 def normalise(tokens):
     """Layer-normalise token features (no affine), in float32."""
     return F.layer_norm(tokens.float(), (TOKEN_DIM,))

@@ -1,0 +1,12 @@
+{
+ "description": "Mean and standard deviation of applied commands [forward m/s, yaw rad/s] on the T1 (May-corpus) training rows; used to normalise command history in every learned stage and at run time.",
+ "control_mean": [
+  0.09720289241588302,
+  0.03156160613672535
+ ],
+ "control_std": [
+  0.1461102425095908,
+  0.32782628369047895
+ ],
+ "source": "lewm_go2_temporal_v03/proprio_v1/proprio_norm_stats.json"
+}
