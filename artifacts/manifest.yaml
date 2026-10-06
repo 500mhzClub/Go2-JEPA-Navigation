@@ -7,7 +7,7 @@ artifacts:
     sha256: 7ea9b7cb4a75d10644a8a8d42cff9e177b10dca8f02173f0eaf2b0bed82838c6
     url: null
     source: /home/andrewknowles/.cache/vjepa2_1_vitl_dist_vitG_384.pt
-    note: "V-JEPA 2.1 ViT-L (distilled from ViT-G, 384 px), Meta. Licence to check; may be fetched from source instead of re-hosted."
+    note: "V-JEPA 2.1 ViT-L (distilled from ViT-G, 384 px), Meta. Not re-hosted: `python artifacts/fetch.py vjepa` downloads it from dl.fbaipublicfiles.com and the source (facebookresearch/vjepa2, MIT with Apache-2.0 portions) at the pinned commit."
   - name: t1_temporal_predictor
     kind: checkpoint
     bytes: 206534551
