@@ -58,7 +58,7 @@ to resume from.
 |---|---:|---:|---|
 | `go2nav.mazes` | 10 | 38 | **done**: regeneration reproduces capability_v1 (90 layouts, 180 episodes), c3v2 and c3v3 sets byte for byte (`tests/unit/test_mazes.py`); stage-2 qualification waits for `go2nav.sim` patches |
 | `go2nav.sim` | 34 | 1,123 | todo |
-| `go2nav.locomotion` | 1 | 15 | todo |
+| `go2nav.locomotion` | 1 | 15 | **done**: training env (Genesis Go2 example port with the primitive bank), PPO training CLI with lineage, run-time policy (bit-identical actions to the original wrapper), tracking benchmark; config equals the shipped cfgs.pkl (`tests/unit/test_locomotion.py`) |
 | `go2nav.perception` | 103 | 2,200 | todo |
 | `go2nav.planning` | 64 | 1,880 | todo |
 | `go2nav.models` | 21 | 583 | todo |
@@ -74,7 +74,7 @@ to resume from.
 |---|---|---|
 | maze generation | `generate_go2_navigation_capability_sets_development.py`, `register_go2_{c3v2,c3v3,stage2_patch}_sets_development.py` | **done** except the stage-2 qualification hook; registered sets shipped in `data/mazes` (3.9 MB) with exclusion registries (307 built graphs) |
 | May-corpus scene generation | `lewm_worlds` (T1 lineage only) | todo |
-| locomotion RL | `train_genesis_go2_locomotion_contract.{py,sh}`, upstream Genesis go2 example, `check_genesis_go2_policy_contract.{py,sh}` | todo |
+| locomotion RL | `train_genesis_go2_locomotion_contract.{py,sh}`, upstream Genesis go2 example, `check_genesis_go2_policy_contract.{py,sh}` | **ported** (`go2nav.locomotion`); retraining against the shipped policy: see below |
 | May-corpus data generation | `datagen_all_resumable.sh` → `run_mass_datagen.sh` → bulk rollout, convert, labels, render replay | todo |
 | T1 temporal predictor | `run_dev_proprio_factorial_driver_v1.py` + v03 temporal-JEPA cache builders | todo |
 | T2–T5 predictor and readout training | `train_go2_{frozen_vjepa_native_adaptation,balanced_start_predictor,horizon_dense_predictor,full_heading_readout,maze_view_readout,dense_visual_motion_readout}_development.py` | todo |
