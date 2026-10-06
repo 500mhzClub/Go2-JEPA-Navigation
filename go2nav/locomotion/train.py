@@ -50,7 +50,7 @@ def train(config_path, out, *, seed, num_envs, max_iterations):
 
     checkpoints = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(out.glob('model_*.pt'))}
     lineage = dict(component='go2_locomotion_policy', seed=seed, num_envs=num_envs, max_iterations=max_iterations,
-                   config=str(Path(config_path)), config_sha256=hashlib.sha256(config_text.encode()).hexdigest(),
+                   config=str(Path(config_path).resolve().relative_to(REPO)) if Path(config_path).resolve().is_relative_to(REPO) else Path(config_path).name, config_sha256=hashlib.sha256(config_text.encode()).hexdigest(),
                    code=code_commit(), packages={p: metadata.version(p) for p in ('genesis-world', 'torch', 'rsl-rl-lib')},
                    parents=[], checkpoints=checkpoints)
     (out/'lineage.json').write_text(json.dumps(lineage, indent=1)+'\n')
