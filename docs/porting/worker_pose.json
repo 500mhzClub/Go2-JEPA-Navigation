@@ -1,0 +1,781 @@
+{
+ "self": {
+  "mro": [
+   {
+    "cls": "SparseCornerCompletionMotion",
+    "module": "lewm/sparse_corner_completion_runtime_development.py"
+   },
+   {
+    "cls": "CadencedViewRevisitMotion",
+    "module": "lewm/cadenced_view_revisit_tracking_development.py"
+   },
+   {
+    "cls": "CachedMomentsDeferredCopyMotion",
+    "module": "lewm/cached_moments_deferred_copy_tracking_development.py"
+   },
+   {
+    "cls": "BatchedConsensusMotion",
+    "module": "lewm/batched_consensus_tracking_development.py"
+   },
+   {
+    "cls": "LocalViewRevisitMotion",
+    "module": "lewm/local_view_revisit_tracking_development.py"
+   },
+   {
+    "cls": "CoherentReferenceRefreshMotion",
+    "module": "lewm/coherent_reference_refresh_development.py"
+   },
+   {
+    "cls": "GyroCoherentFloorMotion",
+    "module": "lewm/gyro_coherent_floor_tracking_development.py"
+   },
+   {
+    "cls": "RetainedDepthCacheMotion",
+    "module": "lewm/retained_depth_cache_tracking_development.py"
+   },
+   {
+    "cls": "GyroSeededHeightFloorMotion",
+    "module": "lewm/gyro_seeded_height_floor_tracking_development.py"
+   },
+   {
+    "cls": "RobustHeightFloorMotion",
+    "module": "lewm/robust_height_floor_tracking_development.py"
+   },
+   {
+    "cls": "LocalFeatureDepthConsensusMotion",
+    "module": "lewm/local_feature_depth_consensus_development.py"
+   },
+   {
+    "cls": "GyroInitialCameraConsensusMotion",
+    "module": "lewm/gyro_initial_camera_consensus_development.py"
+   },
+   {
+    "cls": "ConsecutiveRetainedCameraPairMotion",
+    "module": "lewm/consecutive_retained_camera_pair_development.py"
+   },
+   {
+    "cls": "LocalInverseDepthFloorMotion",
+    "module": "lewm/local_inverse_depth_floor_tracking_development.py"
+   },
+   {
+    "cls": "CompiledFloorStableGyroReferenceMotion",
+    "module": "lewm/stable_gyro_reference_development.py"
+   },
+   {
+    "cls": "StableGyroReferenceMotion",
+    "module": "lewm/stable_gyro_reference_development.py"
+   },
+   {
+    "cls": "OrthonormalGyroVisualMotion",
+    "module": "lewm/orthonormal_gyro_visual_motion_development.py"
+   },
+   {
+    "cls": "ReusedFlowGyroVisualMotion",
+    "module": "lewm/reused_flow_gyro_visual_motion_development.py"
+   },
+   {
+    "cls": "GyroConsensusVisualMotion",
+    "module": "lewm/gyro_consensus_visual_motion_development.py"
+   },
+   {
+    "cls": "PairLocalPlaneConsensusVisualMotion",
+    "module": "lewm/pair_local_plane_consensus_development.py"
+   },
+   {
+    "cls": "PlaneConsensusVisualMotion",
+    "module": "lewm/plane_consensus_tracker_development.py"
+   },
+   {
+    "cls": "JointCameraAnchorVisualMotion",
+    "module": "lewm/joint_camera_anchor_tracker_development.py"
+   },
+   {
+    "cls": "ConditionedSupport150VisualMotion",
+    "module": "lewm/conditioned_support_150_tracker_development.py"
+   },
+   {
+    "cls": "FeatureBudget150VisualMotion",
+    "module": "lewm/feature_budget_150_tracker_development.py"
+   },
+   {
+    "cls": "BatchedPatchVisualMotion",
+    "module": "lewm/batched_patch_tracker_development.py"
+   },
+   {
+    "cls": "FullConsensusVisualMotion",
+    "module": "lewm/full_consensus_tracker_development.py"
+   },
+   {
+    "cls": "SampledPlaneChainedVisualMotion",
+    "module": "lewm/sampled_plane_stop_conditioned_controller_development.py"
+   },
+   {
+    "cls": "MeasuredPlaneChainedAnchorVisualMotion",
+    "module": "lewm/measured_plane_chained_anchor_development.py"
+   },
+   {
+    "cls": "MeasuredPlaneVisualMotion",
+    "module": "lewm/measured_plane_visual_motion_development.py"
+   },
+   {
+    "cls": "DualCameraVisualMotion",
+    "module": "lewm/dual_camera_visual_motion_development.py"
+   },
+   {
+    "cls": "VisualLedMotion",
+    "module": "lewm/visual_led_motion_development.py"
+   }
+  ],
+  "methods": {
+   "__init__": {
+    "owner": "SparseCornerCompletionMotion",
+    "module": "lewm/sparse_corner_completion_runtime_development.py",
+    "overrides": 30,
+    "executed": true,
+    "chain": [
+     "SparseCornerCompletionMotion (lewm/sparse_corner_completion_runtime_development.py)",
+     "CadencedViewRevisitMotion (lewm/cadenced_view_revisit_tracking_development.py)",
+     "CachedMomentsDeferredCopyMotion (lewm/cached_moments_deferred_copy_tracking_development.py)",
+     "BatchedConsensusMotion (lewm/batched_consensus_tracking_development.py)",
+     "LocalViewRevisitMotion (lewm/local_view_revisit_tracking_development.py)",
+     "CoherentReferenceRefreshMotion (lewm/coherent_reference_refresh_development.py)",
+     "GyroCoherentFloorMotion (lewm/gyro_coherent_floor_tracking_development.py)",
+     "RetainedDepthCacheMotion (lewm/retained_depth_cache_tracking_development.py)",
+     "GyroSeededHeightFloorMotion (lewm/gyro_seeded_height_floor_tracking_development.py)",
+     "RobustHeightFloorMotion (lewm/robust_height_floor_tracking_development.py)",
+     "LocalFeatureDepthConsensusMotion (lewm/local_feature_depth_consensus_development.py)",
+     "GyroInitialCameraConsensusMotion (lewm/gyro_initial_camera_consensus_development.py)",
+     "ConsecutiveRetainedCameraPairMotion (lewm/consecutive_retained_camera_pair_development.py)",
+     "LocalInverseDepthFloorMotion (lewm/local_inverse_depth_floor_tracking_development.py)",
+     "CompiledFloorStableGyroReferenceMotion (lewm/stable_gyro_reference_development.py)",
+     "StableGyroReferenceMotion (lewm/stable_gyro_reference_development.py)",
+     "OrthonormalGyroVisualMotion (lewm/orthonormal_gyro_visual_motion_development.py)",
+     "ReusedFlowGyroVisualMotion (lewm/reused_flow_gyro_visual_motion_development.py)",
+     "GyroConsensusVisualMotion (lewm/gyro_consensus_visual_motion_development.py)",
+     "PairLocalPlaneConsensusVisualMotion (lewm/pair_local_plane_consensus_development.py)",
+     "PlaneConsensusVisualMotion (lewm/plane_consensus_tracker_development.py)",
+     "JointCameraAnchorVisualMotion (lewm/joint_camera_anchor_tracker_development.py)",
+     "ConditionedSupport150VisualMotion (lewm/conditioned_support_150_tracker_development.py)",
+     "FeatureBudget150VisualMotion (lewm/feature_budget_150_tracker_development.py)",
+     "BatchedPatchVisualMotion (lewm/batched_patch_tracker_development.py)",
+     "FullConsensusVisualMotion (lewm/full_consensus_tracker_development.py)",
+     "SampledPlaneChainedVisualMotion (lewm/sampled_plane_stop_conditioned_controller_development.py)",
+     "MeasuredPlaneChainedAnchorVisualMotion (lewm/measured_plane_chained_anchor_development.py)",
+     "MeasuredPlaneVisualMotion (lewm/measured_plane_visual_motion_development.py)",
+     "DualCameraVisualMotion (lewm/dual_camera_visual_motion_development.py)",
+     "VisualLedMotion (lewm/visual_led_motion_development.py)"
+    ]
+   },
+   "observe": {
+    "owner": "DualCameraVisualMotion",
+    "module": "lewm/dual_camera_visual_motion_development.py",
+    "overrides": 1,
+    "executed": true,
+    "chain": [
+     "DualCameraVisualMotion (lewm/dual_camera_visual_motion_development.py)",
+     "VisualLedMotion (lewm/visual_led_motion_development.py)"
+    ]
+   },
+   "snapshot": {
+    "owner": "CadencedViewRevisitMotion",
+    "module": "lewm/cadenced_view_revisit_tracking_development.py",
+    "overrides": 22,
+    "executed": true,
+    "chain": [
+     "CadencedViewRevisitMotion (lewm/cadenced_view_revisit_tracking_development.py)",
+     "CoherentReferenceRefreshMotion (lewm/coherent_reference_refresh_development.py)",
+     "GyroCoherentFloorMotion (lewm/gyro_coherent_floor_tracking_development.py)",
+     "RetainedDepthCacheMotion (lewm/retained_depth_cache_tracking_development.py)",
+     "GyroSeededHeightFloorMotion (lewm/gyro_seeded_height_floor_tracking_development.py)",
+     "RobustHeightFloorMotion (lewm/robust_height_floor_tracking_development.py)",
+     "LocalFeatureDepthConsensusMotion (lewm/local_feature_depth_consensus_development.py)",
+     "GyroInitialCameraConsensusMotion (lewm/gyro_initial_camera_consensus_development.py)",
+     "ConsecutiveRetainedCameraPairMotion (lewm/consecutive_retained_camera_pair_development.py)",
+     "LocalInverseDepthFloorMotion (lewm/local_inverse_depth_floor_tracking_development.py)",
+     "CompiledFloorStableGyroReferenceMotion (lewm/stable_gyro_reference_development.py)",
+     "StableGyroReferenceMotion (lewm/stable_gyro_reference_development.py)",
+     "OrthonormalGyroVisualMotion (lewm/orthonormal_gyro_visual_motion_development.py)",
+     "GyroConsensusVisualMotion (lewm/gyro_consensus_visual_motion_development.py)",
+     "PairLocalPlaneConsensusVisualMotion (lewm/pair_local_plane_consensus_development.py)",
+     "PlaneConsensusVisualMotion (lewm/plane_consensus_tracker_development.py)",
+     "JointCameraAnchorVisualMotion (lewm/joint_camera_anchor_tracker_development.py)",
+     "ConditionedSupport150VisualMotion (lewm/conditioned_support_150_tracker_development.py)",
+     "FeatureBudget150VisualMotion (lewm/feature_budget_150_tracker_development.py)",
+     "MeasuredPlaneChainedAnchorVisualMotion (lewm/measured_plane_chained_anchor_development.py)",
+     "MeasuredPlaneVisualMotion (lewm/measured_plane_visual_motion_development.py)",
+     "DualCameraVisualMotion (lewm/dual_camera_visual_motion_development.py)",
+     "VisualLedMotion (lewm/visual_led_motion_development.py)"
+    ]
+   }
+  }
+ },
+ "self.model": {
+  "mro": [
+   {
+    "cls": "SparseCornerCompletionPose",
+    "module": "lewm/sparse_corner_completion_development.py"
+   },
+   {
+    "cls": "CadencedViewRevisitPose",
+    "module": "lewm/cadenced_view_revisit_tracking_development.py"
+   },
+   {
+    "cls": "CachedMomentsDeferredCopyPose",
+    "module": "lewm/cached_moments_deferred_copy_tracking_development.py"
+   },
+   {
+    "cls": "CachedFloorMomentsPose",
+    "module": "lewm/cached_floor_moments_development.py"
+   },
+   {
+    "cls": "DeferredRegistrationCopyPose",
+    "module": "lewm/deferred_registration_copy_development.py"
+   },
+   {
+    "cls": "BatchedConsensusPose",
+    "module": "lewm/batched_consensus_tracking_development.py"
+   },
+   {
+    "cls": "LocalViewRevisitPose",
+    "module": "lewm/local_view_revisit_tracking_development.py"
+   },
+   {
+    "cls": "CoherentReferenceRefreshPose",
+    "module": "lewm/coherent_reference_refresh_development.py"
+   },
+   {
+    "cls": "RecentAnchoredReferenceRefreshMixin",
+    "module": "lewm/recent_anchored_reference_refresh_development.py"
+   },
+   {
+    "cls": "GyroCoherentFloorPose",
+    "module": "lewm/gyro_coherent_floor_tracking_development.py"
+   },
+   {
+    "cls": "RetainedDepthCachePose",
+    "module": "lewm/retained_depth_cache_tracking_development.py"
+   },
+   {
+    "cls": "GyroSeededHeightFloorPose",
+    "module": "lewm/gyro_seeded_height_floor_tracking_development.py"
+   },
+   {
+    "cls": "RobustHeightFloorPose",
+    "module": "lewm/robust_height_floor_tracking_development.py"
+   },
+   {
+    "cls": "LocalFeatureDepthConsensusPose",
+    "module": "lewm/local_feature_depth_consensus_development.py"
+   },
+   {
+    "cls": "GyroInitialCameraConsensusPose",
+    "module": "lewm/gyro_initial_camera_consensus_development.py"
+   },
+   {
+    "cls": "ConsecutiveRetainedCameraPairPose",
+    "module": "lewm/consecutive_retained_camera_pair_development.py"
+   },
+   {
+    "cls": "ConsecutiveRetainedCameraPairMixin",
+    "module": "lewm/consecutive_retained_camera_pair_development.py"
+   },
+   {
+    "cls": "LocalInverseDepthFloorPose",
+    "module": "lewm/local_inverse_depth_floor_tracking_development.py"
+   },
+   {
+    "cls": "CompiledFloorStableGyroReferencePose",
+    "module": "lewm/stable_gyro_reference_development.py"
+   },
+   {
+    "cls": "StableGyroReferencePose",
+    "module": "lewm/stable_gyro_reference_development.py"
+   },
+   {
+    "cls": "OrthonormalGyroPose",
+    "module": "lewm/orthonormal_gyro_visual_motion_development.py"
+   },
+   {
+    "cls": "ReusedFlowGyroPose",
+    "module": "lewm/reused_flow_gyro_visual_motion_development.py"
+   },
+   {
+    "cls": "_DeferredConsensus",
+    "module": "lewm/deferred_registration_copy_development.py"
+   },
+   {
+    "cls": "GyroConsensusPairPose",
+    "module": "lewm/gyro_consensus_pair_pose_development.py"
+   },
+   {
+    "cls": "GyroConditionedPairPose",
+    "module": "lewm/gyro_conditioned_pair_pose_development.py"
+   },
+   {
+    "cls": "PairLocalPlaneConsensusPose",
+    "module": "lewm/pair_local_plane_consensus_development.py"
+   },
+   {
+    "cls": "PlaneConsensusPose",
+    "module": "lewm/plane_consensus_tracker_development.py"
+   },
+   {
+    "cls": "JointCameraAnchorPose",
+    "module": "lewm/joint_camera_anchor_tracker_development.py"
+   },
+   {
+    "cls": "ConditionedSupport150Pose",
+    "module": "lewm/conditioned_support_150_tracker_development.py"
+   },
+   {
+    "cls": "ConditionedSupportPose",
+    "module": "lewm/conditioned_support_tracker_development.py"
+   },
+   {
+    "cls": "SampledPlaneChainedPose",
+    "module": "lewm/sampled_plane_stop_conditioned_controller_development.py"
+   },
+   {
+    "cls": "MeasuredPlaneChainedAnchorPose",
+    "module": "lewm/measured_plane_chained_anchor_development.py"
+   },
+   {
+    "cls": "MeasuredPlaneDualCameraPose",
+    "module": "lewm/measured_plane_dual_camera_pose_development.py"
+   },
+   {
+    "cls": "_Views",
+    "module": "lewm/batched_consensus_tracking_development.py"
+   },
+   {
+    "cls": "_LiftViews",
+    "module": "lewm/local_feature_depth_consensus_development.py"
+   },
+   {
+    "cls": "_InitialViews",
+    "module": "lewm/gyro_initial_camera_consensus_development.py"
+   },
+   {
+    "cls": "_JointCameras",
+    "module": "lewm/joint_camera_anchor_tracker_development.py"
+   },
+   {
+    "cls": "_Chained",
+    "module": "lewm/batched_consensus_tracking_development.py"
+   },
+   {
+    "cls": "_LiftChained",
+    "module": "lewm/local_feature_depth_consensus_development.py"
+   },
+   {
+    "cls": "_InitialChained",
+    "module": "lewm/gyro_initial_camera_consensus_development.py"
+   },
+   {
+    "cls": "_Chained",
+    "module": "lewm/conditioned_support_tracker_development.py"
+   },
+   {
+    "cls": "ChainedAnchorDualCameraPose",
+    "module": "lewm/chained_anchor_dual_camera_pose_development.py"
+   },
+   {
+    "cls": "_Direct",
+    "module": "lewm/batched_consensus_tracking_development.py"
+   },
+   {
+    "cls": "_LiftDirect",
+    "module": "lewm/local_feature_depth_consensus_development.py"
+   },
+   {
+    "cls": "_InitialDirect",
+    "module": "lewm/gyro_initial_camera_consensus_development.py"
+   },
+   {
+    "cls": "_Direct",
+    "module": "lewm/conditioned_support_tracker_development.py"
+   },
+   {
+    "cls": "DirectFlowDualCameraAnchorPose",
+    "module": "lewm/direct_flow_dual_camera_pose_development.py"
+   },
+   {
+    "cls": "_CompletedBudgetDual",
+    "module": "lewm/sparse_corner_completion_development.py"
+   },
+   {
+    "cls": "_BudgetDual",
+    "module": "lewm/conditioned_support_150_tracker_development.py"
+   },
+   {
+    "cls": "_Dual",
+    "module": "lewm/batched_consensus_tracking_development.py"
+   },
+   {
+    "cls": "_LiftDual",
+    "module": "lewm/local_feature_depth_consensus_development.py"
+   },
+   {
+    "cls": "_InitialDual",
+    "module": "lewm/gyro_initial_camera_consensus_development.py"
+   },
+   {
+    "cls": "_Dual",
+    "module": "lewm/conditioned_support_tracker_development.py"
+   },
+   {
+    "cls": "DualCameraAnchorPose",
+    "module": "lewm/dual_camera_anchor_pose_development.py"
+   },
+   {
+    "cls": "_Joint",
+    "module": "lewm/batched_consensus_tracking_development.py"
+   },
+   {
+    "cls": "_LiftJoint",
+    "module": "lewm/local_feature_depth_consensus_development.py"
+   },
+   {
+    "cls": "_InitialJoint",
+    "module": "lewm/gyro_initial_camera_consensus_development.py"
+   },
+   {
+    "cls": "_Joint",
+    "module": "lewm/conditioned_support_tracker_development.py"
+   },
+   {
+    "cls": "JointTemporalAnchorRGBDPose",
+    "module": "lewm/joint_temporal_anchor_continuity_development.py"
+   },
+   {
+    "cls": "TemporalAnchorRGBDPose",
+    "module": "lewm/temporal_anchor_continuity_development.py"
+   },
+   {
+    "cls": "MultiReferenceRGBDPose",
+    "module": "lewm/multi_reference_rgbd_pose_development.py"
+   },
+   {
+    "cls": "RigidRGBDKeyframePose",
+    "module": "lewm/joint_rgbd_rigid_pose_development.py"
+   }
+  ],
+  "methods": {
+   "__init__": {
+    "owner": "CachedFloorMomentsPose",
+    "module": "lewm/cached_floor_moments_development.py",
+    "overrides": 15,
+    "executed": true,
+    "chain": [
+     "CachedFloorMomentsPose (lewm/cached_floor_moments_development.py)",
+     "LocalViewRevisitPose (lewm/local_view_revisit_tracking_development.py)",
+     "GyroCoherentFloorPose (lewm/gyro_coherent_floor_tracking_development.py)",
+     "RetainedDepthCachePose (lewm/retained_depth_cache_tracking_development.py)",
+     "StableGyroReferencePose (lewm/stable_gyro_reference_development.py)",
+     "OrthonormalGyroPose (lewm/orthonormal_gyro_visual_motion_development.py)",
+     "ReusedFlowGyroPose (lewm/reused_flow_gyro_visual_motion_development.py)",
+     "PairLocalPlaneConsensusPose (lewm/pair_local_plane_consensus_development.py)",
+     "MeasuredPlaneDualCameraPose (lewm/measured_plane_dual_camera_pose_development.py)",
+     "ChainedAnchorDualCameraPose (lewm/chained_anchor_dual_camera_pose_development.py)",
+     "DirectFlowDualCameraAnchorPose (lewm/direct_flow_dual_camera_pose_development.py)",
+     "DualCameraAnchorPose (lewm/dual_camera_anchor_pose_development.py)",
+     "JointTemporalAnchorRGBDPose (lewm/joint_temporal_anchor_continuity_development.py)",
+     "TemporalAnchorRGBDPose (lewm/temporal_anchor_continuity_development.py)",
+     "MultiReferenceRGBDPose (lewm/multi_reference_rgbd_pose_development.py)",
+     "RigidRGBDKeyframePose (lewm/joint_rgbd_rigid_pose_development.py)"
+    ]
+   },
+   "_cache_images": {
+    "owner": "ChainedAnchorDualCameraPose",
+    "module": "lewm/chained_anchor_dual_camera_pose_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "ChainedAnchorDualCameraPose (lewm/chained_anchor_dual_camera_pose_development.py)"
+    ]
+   },
+   "_candidate": {
+    "owner": "ConsecutiveRetainedCameraPairMixin",
+    "module": "lewm/consecutive_retained_camera_pair_development.py",
+    "overrides": 29,
+    "executed": true,
+    "chain": [
+     "ConsecutiveRetainedCameraPairMixin (lewm/consecutive_retained_camera_pair_development.py)",
+     "_DeferredConsensus (lewm/deferred_registration_copy_development.py)",
+     "GyroConsensusPairPose (lewm/gyro_consensus_pair_pose_development.py)",
+     "GyroConditionedPairPose (lewm/gyro_conditioned_pair_pose_development.py)",
+     "MeasuredPlaneDualCameraPose (lewm/measured_plane_dual_camera_pose_development.py)",
+     "_Views (lewm/batched_consensus_tracking_development.py)",
+     "_LiftViews (lewm/local_feature_depth_consensus_development.py)",
+     "_InitialViews (lewm/gyro_initial_camera_consensus_development.py)",
+     "_JointCameras (lewm/joint_camera_anchor_tracker_development.py)",
+     "_Chained (lewm/batched_consensus_tracking_development.py)",
+     "_LiftChained (lewm/local_feature_depth_consensus_development.py)",
+     "_InitialChained (lewm/gyro_initial_camera_consensus_development.py)",
+     "_Chained (lewm/conditioned_support_tracker_development.py)",
+     "ChainedAnchorDualCameraPose (lewm/chained_anchor_dual_camera_pose_development.py)",
+     "_Direct (lewm/batched_consensus_tracking_development.py)",
+     "_LiftDirect (lewm/local_feature_depth_consensus_development.py)",
+     "_InitialDirect (lewm/gyro_initial_camera_consensus_development.py)",
+     "_Direct (lewm/conditioned_support_tracker_development.py)",
+     "DirectFlowDualCameraAnchorPose (lewm/direct_flow_dual_camera_pose_development.py)",
+     "_Dual (lewm/batched_consensus_tracking_development.py)",
+     "_LiftDual (lewm/local_feature_depth_consensus_development.py)",
+     "_InitialDual (lewm/gyro_initial_camera_consensus_development.py)",
+     "_Dual (lewm/conditioned_support_tracker_development.py)",
+     "DualCameraAnchorPose (lewm/dual_camera_anchor_pose_development.py)",
+     "_Joint (lewm/batched_consensus_tracking_development.py)",
+     "_LiftJoint (lewm/local_feature_depth_consensus_development.py)",
+     "_InitialJoint (lewm/gyro_initial_camera_consensus_development.py)",
+     "_Joint (lewm/conditioned_support_tracker_development.py)",
+     "JointTemporalAnchorRGBDPose (lewm/joint_temporal_anchor_continuity_development.py)",
+     "MultiReferenceRGBDPose (lewm/multi_reference_rgbd_pose_development.py)"
+    ]
+   },
+   "_choose": {
+    "owner": "MultiReferenceRGBDPose",
+    "module": "lewm/multi_reference_rgbd_pose_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "MultiReferenceRGBDPose (lewm/multi_reference_rgbd_pose_development.py)"
+    ]
+   },
+   "_measure": {
+    "owner": "CadencedViewRevisitPose",
+    "module": "lewm/cadenced_view_revisit_tracking_development.py",
+    "overrides": 9,
+    "executed": true,
+    "chain": [
+     "CadencedViewRevisitPose (lewm/cadenced_view_revisit_tracking_development.py)",
+     "LocalViewRevisitPose (lewm/local_view_revisit_tracking_development.py)",
+     "RecentAnchoredReferenceRefreshMixin (lewm/recent_anchored_reference_refresh_development.py)",
+     "StableGyroReferencePose (lewm/stable_gyro_reference_development.py)",
+     "MeasuredPlaneDualCameraPose (lewm/measured_plane_dual_camera_pose_development.py)",
+     "ChainedAnchorDualCameraPose (lewm/chained_anchor_dual_camera_pose_development.py)",
+     "DirectFlowDualCameraAnchorPose (lewm/direct_flow_dual_camera_pose_development.py)",
+     "DualCameraAnchorPose (lewm/dual_camera_anchor_pose_development.py)",
+     "JointTemporalAnchorRGBDPose (lewm/joint_temporal_anchor_continuity_development.py)",
+     "TemporalAnchorRGBDPose (lewm/temporal_anchor_continuity_development.py)"
+    ]
+   },
+   "_prepare_plane": {
+    "owner": "GyroSeededHeightFloorPose",
+    "module": "lewm/gyro_seeded_height_floor_tracking_development.py",
+    "overrides": 6,
+    "executed": true,
+    "chain": [
+     "GyroSeededHeightFloorPose (lewm/gyro_seeded_height_floor_tracking_development.py)",
+     "RobustHeightFloorPose (lewm/robust_height_floor_tracking_development.py)",
+     "LocalFeatureDepthConsensusPose (lewm/local_feature_depth_consensus_development.py)",
+     "LocalInverseDepthFloorPose (lewm/local_inverse_depth_floor_tracking_development.py)",
+     "CompiledFloorStableGyroReferencePose (lewm/stable_gyro_reference_development.py)",
+     "SampledPlaneChainedPose (lewm/sampled_plane_stop_conditioned_controller_development.py)",
+     "MeasuredPlaneDualCameraPose (lewm/measured_plane_dual_camera_pose_development.py)"
+    ]
+   },
+   "_raw_floor": {
+    "owner": "CachedFloorMomentsPose",
+    "module": "lewm/cached_floor_moments_development.py",
+    "overrides": 1,
+    "executed": true,
+    "chain": [
+     "CachedFloorMomentsPose (lewm/cached_floor_moments_development.py)",
+     "GyroCoherentFloorPose (lewm/gyro_coherent_floor_tracking_development.py)"
+    ]
+   },
+   "_refine_candidate": {
+    "owner": "GyroCoherentFloorPose",
+    "module": "lewm/gyro_coherent_floor_tracking_development.py",
+    "overrides": 6,
+    "executed": true,
+    "chain": [
+     "GyroCoherentFloorPose (lewm/gyro_coherent_floor_tracking_development.py)",
+     "GyroConsensusPairPose (lewm/gyro_consensus_pair_pose_development.py)",
+     "PairLocalPlaneConsensusPose (lewm/pair_local_plane_consensus_development.py)",
+     "PlaneConsensusPose (lewm/plane_consensus_tracker_development.py)",
+     "JointCameraAnchorPose (lewm/joint_camera_anchor_tracker_development.py)",
+     "ConditionedSupportPose (lewm/conditioned_support_tracker_development.py)",
+     "MeasuredPlaneDualCameraPose (lewm/measured_plane_dual_camera_pose_development.py)"
+    ]
+   },
+   "_refresh_accepted_reference": {
+    "owner": "RecentAnchoredReferenceRefreshMixin",
+    "module": "lewm/recent_anchored_reference_refresh_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "RecentAnchoredReferenceRefreshMixin (lewm/recent_anchored_reference_refresh_development.py)"
+    ]
+   },
+   "_remember": {
+    "owner": "LocalViewRevisitPose",
+    "module": "lewm/local_view_revisit_tracking_development.py",
+    "overrides": 3,
+    "executed": true,
+    "chain": [
+     "LocalViewRevisitPose (lewm/local_view_revisit_tracking_development.py)",
+     "StableGyroReferencePose (lewm/stable_gyro_reference_development.py)",
+     "MeasuredPlaneDualCameraPose (lewm/measured_plane_dual_camera_pose_development.py)",
+     "MultiReferenceRGBDPose (lewm/multi_reference_rgbd_pose_development.py)"
+    ]
+   },
+   "observe": {
+    "owner": "LocalViewRevisitPose",
+    "module": "lewm/local_view_revisit_tracking_development.py",
+    "overrides": 22,
+    "executed": true,
+    "chain": [
+     "LocalViewRevisitPose (lewm/local_view_revisit_tracking_development.py)",
+     "RecentAnchoredReferenceRefreshMixin (lewm/recent_anchored_reference_refresh_development.py)",
+     "GyroCoherentFloorPose (lewm/gyro_coherent_floor_tracking_development.py)",
+     "RetainedDepthCachePose (lewm/retained_depth_cache_tracking_development.py)",
+     "LocalFeatureDepthConsensusPose (lewm/local_feature_depth_consensus_development.py)",
+     "ConsecutiveRetainedCameraPairMixin (lewm/consecutive_retained_camera_pair_development.py)",
+     "StableGyroReferencePose (lewm/stable_gyro_reference_development.py)",
+     "ReusedFlowGyroPose (lewm/reused_flow_gyro_visual_motion_development.py)",
+     "GyroConsensusPairPose (lewm/gyro_consensus_pair_pose_development.py)",
+     "GyroConditionedPairPose (lewm/gyro_conditioned_pair_pose_development.py)",
+     "PairLocalPlaneConsensusPose (lewm/pair_local_plane_consensus_development.py)",
+     "JointCameraAnchorPose (lewm/joint_camera_anchor_tracker_development.py)",
+     "MeasuredPlaneDualCameraPose (lewm/measured_plane_dual_camera_pose_development.py)",
+     "ChainedAnchorDualCameraPose (lewm/chained_anchor_dual_camera_pose_development.py)",
+     "DirectFlowDualCameraAnchorPose (lewm/direct_flow_dual_camera_pose_development.py)",
+     "_CompletedBudgetDual (lewm/sparse_corner_completion_development.py)",
+     "_BudgetDual (lewm/conditioned_support_150_tracker_development.py)",
+     "_Dual (lewm/conditioned_support_tracker_development.py)",
+     "DualCameraAnchorPose (lewm/dual_camera_anchor_pose_development.py)",
+     "JointTemporalAnchorRGBDPose (lewm/joint_temporal_anchor_continuity_development.py)",
+     "TemporalAnchorRGBDPose (lewm/temporal_anchor_continuity_development.py)",
+     "MultiReferenceRGBDPose (lewm/multi_reference_rgbd_pose_development.py)",
+     "RigidRGBDKeyframePose (lewm/joint_rgbd_rigid_pose_development.py)"
+    ]
+   }
+  }
+ },
+ "self.model.gyro": {
+  "mro": [
+   {
+    "cls": "OrthonormalFastOrientation",
+    "module": "lewm/orthonormal_gyro_visual_motion_development.py"
+   },
+   {
+    "cls": "FastRelativeOrientation",
+    "module": "lewm/fast_gyro_development.py"
+   }
+  ],
+  "methods": {
+   "__init__": {
+    "owner": "FastRelativeOrientation",
+    "module": "lewm/fast_gyro_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "FastRelativeOrientation (lewm/fast_gyro_development.py)"
+    ]
+   },
+   "_result": {
+    "owner": "FastRelativeOrientation",
+    "module": "lewm/fast_gyro_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "FastRelativeOrientation (lewm/fast_gyro_development.py)"
+    ]
+   },
+   "begin": {
+    "owner": "FastRelativeOrientation",
+    "module": "lewm/fast_gyro_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "FastRelativeOrientation (lewm/fast_gyro_development.py)"
+    ]
+   },
+   "step": {
+    "owner": "OrthonormalFastOrientation",
+    "module": "lewm/orthonormal_gyro_visual_motion_development.py",
+    "overrides": 1,
+    "executed": true,
+    "chain": [
+     "OrthonormalFastOrientation (lewm/orthonormal_gyro_visual_motion_development.py)",
+     "FastRelativeOrientation (lewm/fast_gyro_development.py)"
+    ]
+   }
+  }
+ },
+ "self.model.flow_memo": {
+  "mro": [
+   {
+    "cls": "ChainedFlowMemo",
+    "module": "lewm/chained_flow_memo_development.py"
+   }
+  ],
+  "methods": {
+   "__init__": {
+    "owner": "ChainedFlowMemo",
+    "module": "lewm/chained_flow_memo_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "ChainedFlowMemo (lewm/chained_flow_memo_development.py)"
+    ]
+   },
+   "image_token": {
+    "owner": "ChainedFlowMemo",
+    "module": "lewm/chained_flow_memo_development.py",
+    "overrides": 0,
+    "executed": false,
+    "chain": [
+     "ChainedFlowMemo (lewm/chained_flow_memo_development.py)"
+    ]
+   },
+   "observation": {
+    "owner": "ChainedFlowMemo",
+    "module": "lewm/chained_flow_memo_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "ChainedFlowMemo (lewm/chained_flow_memo_development.py)"
+    ]
+   },
+   "tracked_points": {
+    "owner": "ChainedFlowMemo",
+    "module": "lewm/chained_flow_memo_development.py",
+    "overrides": 0,
+    "executed": false,
+    "chain": [
+     "ChainedFlowMemo (lewm/chained_flow_memo_development.py)"
+    ]
+   }
+  }
+ },
+ "self.model.floor_moments": {
+  "mro": [
+   {
+    "cls": "FloorCloudMoments",
+    "module": "lewm/cached_floor_moments_development.py"
+   }
+  ],
+  "methods": {
+   "__call__": {
+    "owner": "FloorCloudMoments",
+    "module": "lewm/cached_floor_moments_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "FloorCloudMoments (lewm/cached_floor_moments_development.py)"
+    ]
+   },
+   "__init__": {
+    "owner": "FloorCloudMoments",
+    "module": "lewm/cached_floor_moments_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "FloorCloudMoments (lewm/cached_floor_moments_development.py)"
+    ]
+   }
+  }
+ }
+}

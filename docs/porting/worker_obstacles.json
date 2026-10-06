@@ -1,0 +1,152 @@
+{
+ "self": {
+  "mro": [
+   {
+    "cls": "GyroConditionedAuxiliaryObstacles",
+    "module": "lewm/gyro_conditioned_partial_floor_consumers_development.py"
+   },
+   {
+    "cls": "AuxiliaryTurnObstacles",
+    "module": "lewm/auxiliary_only_turn_recovery_development.py"
+   },
+   {
+    "cls": "_ConditionedObstacles",
+    "module": "lewm/gyro_conditioned_partial_floor_consumers_development.py"
+   },
+   {
+    "cls": "RobustHeightIndependentObstacles",
+    "module": "lewm/robust_height_floor_tracking_development.py"
+   },
+   {
+    "cls": "PartialHeightObstacles",
+    "module": "lewm/partial_height_round_trip_development.py"
+   },
+   {
+    "cls": "FineDepthObstacles",
+    "module": "lewm/fine_obstacle_round_trip_development.py"
+   },
+   {
+    "cls": "IndependentDepthObstacles",
+    "module": "lewm/independent_depth_obstacle_development.py"
+   }
+  ],
+  "methods": {
+   "__init__": {
+    "owner": "IndependentDepthObstacles",
+    "module": "lewm/independent_depth_obstacle_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "IndependentDepthObstacles (lewm/independent_depth_obstacle_development.py)"
+    ]
+   },
+   "_observe": {
+    "owner": "AuxiliaryTurnObstacles",
+    "module": "lewm/auxiliary_only_turn_recovery_development.py",
+    "overrides": 5,
+    "executed": true,
+    "chain": [
+     "AuxiliaryTurnObstacles (lewm/auxiliary_only_turn_recovery_development.py)",
+     "_ConditionedObstacles (lewm/gyro_conditioned_partial_floor_consumers_development.py)",
+     "RobustHeightIndependentObstacles (lewm/robust_height_floor_tracking_development.py)",
+     "PartialHeightObstacles (lewm/partial_height_round_trip_development.py)",
+     "FineDepthObstacles (lewm/fine_obstacle_round_trip_development.py)",
+     "IndependentDepthObstacles (lewm/independent_depth_obstacle_development.py)"
+    ]
+   },
+   "observe": {
+    "owner": "FineDepthObstacles",
+    "module": "lewm/fine_obstacle_round_trip_development.py",
+    "overrides": 1,
+    "executed": true,
+    "chain": [
+     "FineDepthObstacles (lewm/fine_obstacle_round_trip_development.py)",
+     "IndependentDepthObstacles (lewm/independent_depth_obstacle_development.py)"
+    ]
+   }
+  }
+ },
+ "self.gyro": {
+  "mro": [
+   {
+    "cls": "CameraIndependentGyro",
+    "module": "lewm/camera_independent_gyro_development.py"
+   }
+  ],
+  "methods": {
+   "__init__": {
+    "owner": "CameraIndependentGyro",
+    "module": "lewm/camera_independent_gyro_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "CameraIndependentGyro (lewm/camera_independent_gyro_development.py)"
+    ]
+   },
+   "for_camera": {
+    "owner": "CameraIndependentGyro",
+    "module": "lewm/camera_independent_gyro_development.py",
+    "overrides": 0,
+    "executed": false,
+    "chain": [
+     "CameraIndependentGyro (lewm/camera_independent_gyro_development.py)"
+    ]
+   },
+   "observe": {
+    "owner": "CameraIndependentGyro",
+    "module": "lewm/camera_independent_gyro_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "CameraIndependentGyro (lewm/camera_independent_gyro_development.py)"
+    ]
+   }
+  }
+ },
+ "self.gyro.integrator": {
+  "mro": [
+   {
+    "cls": "FastRelativeOrientation",
+    "module": "lewm/fast_gyro_development.py"
+   }
+  ],
+  "methods": {
+   "__init__": {
+    "owner": "FastRelativeOrientation",
+    "module": "lewm/fast_gyro_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "FastRelativeOrientation (lewm/fast_gyro_development.py)"
+    ]
+   },
+   "_result": {
+    "owner": "FastRelativeOrientation",
+    "module": "lewm/fast_gyro_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "FastRelativeOrientation (lewm/fast_gyro_development.py)"
+    ]
+   },
+   "begin": {
+    "owner": "FastRelativeOrientation",
+    "module": "lewm/fast_gyro_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "FastRelativeOrientation (lewm/fast_gyro_development.py)"
+    ]
+   },
+   "step": {
+    "owner": "FastRelativeOrientation",
+    "module": "lewm/fast_gyro_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "FastRelativeOrientation (lewm/fast_gyro_development.py)"
+    ]
+   }
+  }
+ }
+}

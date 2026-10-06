@@ -1,0 +1,206 @@
+{
+ "self": {
+  "mro": [
+   {
+    "cls": "PairedFloorStartupMap",
+    "module": "lewm/navigation_capability_paired_floor_start_development.py"
+   },
+   {
+    "cls": "RecoverableStartupMap",
+    "module": "lewm/navigation_capability_startup_recovery_development.py"
+   },
+   {
+    "cls": "ProjectedPolygonFloorRoutingMap",
+    "module": "lewm/projected_polygon_floor_coverage_development.py"
+   },
+   {
+    "cls": "CapturedCurrentPairMap",
+    "module": "lewm/current_pair_routing_memory_development.py"
+   },
+   {
+    "cls": "FineStoredMap",
+    "module": "lewm/fine_stored_obstacle_routing_development.py"
+   },
+   {
+    "cls": "ProjectedPolygonCoverageMap",
+    "module": "lewm/projected_polygon_floor_coverage_development.py"
+   },
+   {
+    "cls": "CurrentPlaneCoverageMap",
+    "module": "lewm/current_plane_floor_coverage_development.py"
+   },
+   {
+    "cls": "PartialHeightMap",
+    "module": "lewm/partial_height_round_trip_development.py"
+   },
+   {
+    "cls": "MultirateRoutingMap",
+    "module": "lewm/multirate_routing_map_development.py"
+   }
+  ],
+  "methods": {
+   "__init__": {
+    "owner": "CapturedCurrentPairMap",
+    "module": "lewm/current_pair_routing_memory_development.py",
+    "overrides": 1,
+    "executed": true,
+    "chain": [
+     "CapturedCurrentPairMap (lewm/current_pair_routing_memory_development.py)",
+     "MultirateRoutingMap (lewm/multirate_routing_map_development.py)"
+    ]
+   },
+   "_read_pose": {
+    "owner": "CurrentPlaneCoverageMap",
+    "module": "lewm/current_plane_floor_coverage_development.py",
+    "overrides": 0,
+    "executed": false,
+    "chain": [
+     "CurrentPlaneCoverageMap (lewm/current_plane_floor_coverage_development.py)"
+    ]
+   },
+   "update": {
+    "owner": "PairedFloorStartupMap",
+    "module": "lewm/navigation_capability_paired_floor_start_development.py",
+    "overrides": 5,
+    "executed": true,
+    "chain": [
+     "PairedFloorStartupMap (lewm/navigation_capability_paired_floor_start_development.py)",
+     "CapturedCurrentPairMap (lewm/current_pair_routing_memory_development.py)",
+     "ProjectedPolygonCoverageMap (lewm/projected_polygon_floor_coverage_development.py)",
+     "CurrentPlaneCoverageMap (lewm/current_plane_floor_coverage_development.py)",
+     "PartialHeightMap (lewm/partial_height_round_trip_development.py)",
+     "MultirateRoutingMap (lewm/multirate_routing_map_development.py)"
+    ]
+   }
+  }
+ },
+ "self.occupied": {
+  "mro": [
+   {
+    "cls": "CapturedUpdateSet",
+    "module": "lewm/current_pair_routing_memory_development.py"
+   },
+   {
+    "cls": "set",
+    "module": "<builtin>"
+   }
+  ],
+  "methods": {
+   "__init__": {
+    "owner": "CapturedUpdateSet",
+    "module": "lewm/current_pair_routing_memory_development.py",
+    "overrides": 1,
+    "executed": true,
+    "chain": [
+     "CapturedUpdateSet (lewm/current_pair_routing_memory_development.py)",
+     "set (<builtin>)"
+    ]
+   },
+   "begin_observation": {
+    "owner": "CapturedUpdateSet",
+    "module": "lewm/current_pair_routing_memory_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "CapturedUpdateSet (lewm/current_pair_routing_memory_development.py)"
+    ]
+   },
+   "update": {
+    "owner": "CapturedUpdateSet",
+    "module": "lewm/current_pair_routing_memory_development.py",
+    "overrides": 1,
+    "executed": true,
+    "chain": [
+     "CapturedUpdateSet (lewm/current_pair_routing_memory_development.py)",
+     "set (<builtin>)"
+    ]
+   }
+  }
+ },
+ "self.floor": {
+  "mro": [
+   {
+    "cls": "CapturedUpdateSet",
+    "module": "lewm/current_pair_routing_memory_development.py"
+   },
+   {
+    "cls": "set",
+    "module": "<builtin>"
+   }
+  ],
+  "methods": {
+   "__init__": {
+    "owner": "CapturedUpdateSet",
+    "module": "lewm/current_pair_routing_memory_development.py",
+    "overrides": 1,
+    "executed": true,
+    "chain": [
+     "CapturedUpdateSet (lewm/current_pair_routing_memory_development.py)",
+     "set (<builtin>)"
+    ]
+   },
+   "begin_observation": {
+    "owner": "CapturedUpdateSet",
+    "module": "lewm/current_pair_routing_memory_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "CapturedUpdateSet (lewm/current_pair_routing_memory_development.py)"
+    ]
+   },
+   "update": {
+    "owner": "CapturedUpdateSet",
+    "module": "lewm/current_pair_routing_memory_development.py",
+    "overrides": 1,
+    "executed": true,
+    "chain": [
+     "CapturedUpdateSet (lewm/current_pair_routing_memory_development.py)",
+     "set (<builtin>)"
+    ]
+   }
+  }
+ },
+ "self.fine_occupied": {
+  "mro": [
+   {
+    "cls": "CapturedUpdateSet",
+    "module": "lewm/current_pair_routing_memory_development.py"
+   },
+   {
+    "cls": "set",
+    "module": "<builtin>"
+   }
+  ],
+  "methods": {
+   "__init__": {
+    "owner": "CapturedUpdateSet",
+    "module": "lewm/current_pair_routing_memory_development.py",
+    "overrides": 1,
+    "executed": true,
+    "chain": [
+     "CapturedUpdateSet (lewm/current_pair_routing_memory_development.py)",
+     "set (<builtin>)"
+    ]
+   },
+   "begin_observation": {
+    "owner": "CapturedUpdateSet",
+    "module": "lewm/current_pair_routing_memory_development.py",
+    "overrides": 0,
+    "executed": true,
+    "chain": [
+     "CapturedUpdateSet (lewm/current_pair_routing_memory_development.py)"
+    ]
+   },
+   "update": {
+    "owner": "CapturedUpdateSet",
+    "module": "lewm/current_pair_routing_memory_development.py",
+    "overrides": 1,
+    "executed": true,
+    "chain": [
+     "CapturedUpdateSet (lewm/current_pair_routing_memory_development.py)",
+     "set (<builtin>)"
+    ]
+   }
+  }
+ }
+}
