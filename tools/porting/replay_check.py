@@ -6,6 +6,8 @@ Components:
 - `pose`: `go2nav.perception.visual_odometry.VisualOdometry` against the pose worker's `current_pose` (frame,
   reference frame, position, rotation, gyro rotation, promotion and keyframe count; exact equality).
 - `obstacles`: `go2nav.perception.obstacles.DepthObstacleObserver` against the obstacle worker's occupied cells.
+- `controller`: `go2nav.controllers.controller.NavigationController` (with its own ported perception), fed the recorded
+  frames and 50 Hz tick times, against every recorded dispatch request (command and reason) and mission row.
 - `mapping`: `go2nav.perception.mapping.RoutingMap`, fed the recorded registered pose, against every field of the
   mapping worker's snapshot.
 - `registration`: `go2nav.perception.registration.FloorRegistration`, fed the recorded visual pose, against the
@@ -95,7 +97,7 @@ def visual_pose(raw):
     return Pose(c['frame'], c['measured_ns'], np.asarray(c['position_initial_body_m'], float),
                 np.asarray(c['rotation_initial_body_from_current_body'], float),
                 np.asarray(c['gyro_rotation_initial_body_from_current_body'], float), c['reference_frame'],
-                c['promoted_keyframe'], c['promotion_reason'], c['keyframe_count'], None)
+                c['promoted_keyframe'], c['promotion_reason'], c['keyframe_count'], None, None)
 
 
 def compare_registration(registered, original):
@@ -182,6 +184,65 @@ def check_mapping(bundle, frames=None):
     print(f'all {n+1} map updates identical ({time.time()-started:.0f} s)')
 
 
+def sensor_frame(packet):
+    from go2nav.controllers.controller import SensorFrame
+    return SensorFrame(packet.frame, packet.measured_ns, packet.policy['image']['rgb'],
+                       (packet.depth['depth_m'], packet.depth['valid']), packet.auxiliary_rgb['rgb'],
+                       (packet.auxiliary_depth['depth_m'], packet.auxiliary_depth['valid']), packet.fast['values'],
+                       packet.policy['sensor_state']['sensed']['specific_force']['values'], packet.policy, tuple(packet.history))
+
+
+C1_MODEL = Path('/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/'
+                'go2_short_pulse_command_control_v1_attempt_001/command_only.npz')
+
+
+def build_controller(bundle):
+    import json
+    from go2nav.controllers.controller import NavigationController
+    from go2nav.controllers.forecasters import CommandHistoryForecaster
+    info = json.loads((Path(bundle)/'bundle.json').read_text())
+    mission = info['mission']
+    arm = mission[mission.index('--controller')+1]
+    recovery = mission[mission.index('--recovery')+1] == 'on' if '--recovery' in mission else False
+    run = Path(info['run'])
+    cues = json.loads((run/'public_task_cues.json').read_text())
+    if arm != 'C1':
+        raise SystemExit(f'controller check for {arm} not ported yet')
+    return NavigationController(CommandHistoryForecaster(C1_MODEL), goal_xy=cues['goal_initial_body_xy_m'],
+                                home_xy=cues['return_initial_body_xy_m'],
+                                arrival_radius_m=.02, navigation_frames=4800, recovery=recovery), run
+
+
+def check_controller(bundle, frames=None):
+    import json
+    controller, run = build_controller(bundle)
+    mission_rows = json.loads((run/'mission.json').read_text())
+    started, ticks, n = time.time(), 0, 0
+    for record in read_stream(Path(bundle)/'controller.stream'):
+        if record['kind'] == 'submit':
+            packet = record['packet']
+            if frames is not None and packet.frame >= frames:
+                break
+            controller.on_frame(sensor_frame(packet))
+            row, expected = controller.mission_rows[-1], mission_rows[packet.frame]
+            for key in ('phase', 'phase_transition', 'hold_required', 'terminal', 'quiet_intervals'):
+                if row[key] != expected[key]:
+                    print(f'frame {packet.frame}: mission {key} {row[key]} != {expected[key]}')
+                    return controller, record
+            if packet.frame % 100 == 0:
+                print(f'frame {packet.frame}: ok ({ticks} ticks, {time.time()-started:.0f} s)', flush=True)
+            n += 1
+        else:
+            got = controller.request(record['now_ns'])
+            want = record['result']
+            if got['requested_command'] != want['requested_command'] or got['reason'] != want['reason']:
+                print(f"tick {record['now_ns']}: DIVERGED {got} != {want['requested_command']} {want['reason']}")
+                return controller, record
+            ticks += 1
+    print(f'all {n} frames and {ticks} ticks identical ({time.time()-started:.0f} s)')
+    return controller, None
+
+
 def _original_tracker():
     from lewm.sparse_corner_completion_runtime_development import SparseCornerCompletionMotion
     from lewm.two_cm_floor_extent_development import configure
@@ -191,7 +252,7 @@ def _original_tracker():
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('component', choices=['pose', 'registration', 'obstacles', 'mapping'])
+    p.add_argument('component', choices=['pose', 'registration', 'obstacles', 'mapping', 'controller'])
     p.add_argument('bundle')
     p.add_argument('--frames', type=int)
     p.add_argument('--shadow', action='store_true')
@@ -202,8 +263,10 @@ def main():
         check_registration(a.bundle, a.frames)
     elif a.component == 'obstacles':
         check_obstacles(a.bundle, a.frames)
-    else:
+    elif a.component == 'mapping':
         check_mapping(a.bundle, a.frames)
+    else:
+        check_controller(a.bundle, a.frames)
 
 
 if __name__ == '__main__':

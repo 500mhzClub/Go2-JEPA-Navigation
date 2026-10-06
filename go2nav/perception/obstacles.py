@@ -25,6 +25,7 @@ class Obstacles:
     frame: int
     measured_ns: int
     cells: frozenset
+    returns: tuple  # valid depth samples per camera (primary, auxiliary)
 
 
 def sampled_points(depth_m, valid, mount):
@@ -70,4 +71,4 @@ class DepthObstacleObserver:
             above = points[(height > MIN_HEIGHT_M)&(height < MAX_HEIGHT_M)]
             cells.update(tuple(map(int, k)) for k in np.unique(np.floor(above[:, :2]/CELL_M).astype(int), axis=0))
         local = frozenset(k for k in cells if all(-HALF_EXTENT_CELLS <= v < HALF_EXTENT_CELLS for v in k))
-        return Obstacles(frame, now, local)
+        return Obstacles(frame, now, local, tuple(map(len, clouds)))

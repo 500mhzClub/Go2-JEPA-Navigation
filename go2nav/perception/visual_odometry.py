@@ -72,6 +72,7 @@ class Pose:
     promotion_reason: str | None
     keyframe_count: int
     camera: str | None
+    feature_counts: tuple  # corners kept in this frame (primary, auxiliary)
 
 
 def view_bin(gyro):
@@ -144,7 +145,8 @@ class VisualOdometry:
             reason = 'accepted_anchor_recent_reference_age'
             self._remember(current, R, G, p, now)
             self.keyframes += 1
-        return Pose(self.frame, now, p, R, G, ref_frame, reason is not None, reason, self.keyframes, self.camera)
+        counts = (len(current['primary'].keypoints), len(current['auxiliary'].keypoints))
+        return Pose(self.frame, now, p, R, G, ref_frame, reason is not None, reason, self.keyframes, self.camera, counts)
 
     # -- references -----------------------------------------------------------------------------------------------
 
