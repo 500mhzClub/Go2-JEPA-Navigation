@@ -57,14 +57,14 @@ to resume from.
 | Module | Files | Executed lines | Status |
 |---|---:|---:|---|
 | `go2nav.mazes` | 10 | 38 | **done**: regeneration reproduces capability_v1 (90 layouts, 180 episodes), c3v2 and c3v3 sets byte for byte (`tests/unit/test_mazes.py`); stage-2 qualification waits for `go2nav.sim` patches |
-| `go2nav.sim` | 34 | 1,123 | todo |
+| `go2nav.sim` | 34 | 1,123 | **done**: scene, appearance, sensors, contacts, mission session; driven with a recorded C1 mission's commands it reproduces all 51,010 physics samples and 1,006 sensor frames exactly (`tools/porting/sim_check.py`). Dynamics perturbations (friction, patches, markers, stall stop) and the C0 oracle's capture/restore: todo |
 | `go2nav.locomotion` | 1 | 15 | **done**: training env (Genesis Go2 example port with the primitive bank), PPO training CLI with lineage, run-time policy (bit-identical actions to the original wrapper), tracking benchmark; config equals the shipped cfgs.pkl (`tests/unit/test_locomotion.py`) |
-| `go2nav.perception` | 103 | 2,200 | todo |
-| `go2nav.planning` | 64 | 1,880 | todo |
-| `go2nav.models` | 21 | 583 | todo |
-| `go2nav.controllers` | 6 | 180 | todo |
+| `go2nav.perception` | 103 | 2,200 | **done**: visual odometry, floor registration, depth obstacles, routing map; every worker output identical on 7 recorded missions (C0–C4, C1A, C1R; `tools/porting/replay_check.py`) |
+| `go2nav.planning` | 64 | 1,880 | **done** (with the C2 reactive selector); degradation, margin and pessimistic-unknown variants: todo |
+| `go2nav.models` | 21 | 583 | **done** (see the progress log) |
+| `go2nav.controllers` | 6 | 180 | **done** for C1, C1A, C1R, C2, C3, C4: replays of recorded missions reproduce every 50 Hz request and mission row (G2); C0 oracle: todo |
 | `go2nav.data`, `go2nav.training` | 10 | 299 | todo |
-| `go2nav.eval` | 24 | 719 | todo |
+| `go2nav.eval` | 24 | 719 | mission runner **done** (a fresh C1 mission reproduces the original run exactly, G4); episode reader ported, being checked against the original evaluations; cohorts: todo |
 | experiments and reports | 7 | 513 | todo |
 | unclassified | 70 | 917 | classify |
 

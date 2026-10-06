@@ -328,7 +328,8 @@ def predicted_arrival_hold(selection, prediction, arrival_radius_m):
     if eligible:
         choose(result, hold)
         result['selection_objective'] = 'predicted_quiet_arrival_hold'
-    result['predictive_arrival_hold'] = dict(eligible=eligible, original_action=original, selected_action=result['action'])
+    result['predictive_arrival_hold'] = dict(eligible=eligible, original_action=original, selected_action=result['action'],
+                                             changed=original != result['action'])
     return result
 
 

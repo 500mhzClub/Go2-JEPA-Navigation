@@ -98,6 +98,7 @@ def heading_first_terminal(selection, arrival_radius_m):
         return selection
     result = deepcopy(selection)
     result.update(action=action, action_index=ACTIONS.index(action), requested_command=list(command(action)),
-                  rule=HEADING_FIRST_RULE, heading_first_terminal=dict(previous_action=selection['action'],
+                  rule=HEADING_FIRST_RULE, heading_first_terminal=dict(previous_action=selection['action'], selected_action=action,
+                                                                             changed=action != selection['action'],
                                                                              measured_heading_error_rad=error))
     return result

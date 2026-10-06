@@ -66,5 +66,6 @@ class RoundTripMission:
         self.last = dict(frame=frame, phase=self.phase, phase_transition=transition, evaluated_phase=phase,
                          active_goal_initial_body_xy_m=self.target().tolist(), observed_goal_distance_m=distance,
                          quiet_intervals=self.quiet, hold_required=hold or self.terminal is not None,
-                         arrival_confirmed_this_frame=arrival, terminal=self.terminal, observed_interval_speed_m_s=speed)
+                         arrival_confirmed_this_frame=arrival, terminal=self.terminal, observed_interval_speed_m_s=speed,
+                         arrivals=[dict(a) for a in self.arrivals])
         return self.last
