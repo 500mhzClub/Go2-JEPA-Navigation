@@ -124,3 +124,9 @@ candidates' commands are rounded through the model scale in float64 and passed t
 Mapping: the dense floor-cell index (`dense_level_floor_quads`, 32-row batches) is the one the tiled density-routed
 map ran (its copy keeps the density-routed `__module__`); the sparse index falls back to it on ambiguous last bits.
 C2_on_prelim31 mapping: all 443 updates identical.
+
+C1A (`controllers.adaptive.AdaptiveTravelForecaster`) wraps the C1 forecaster: travel ratios per movement type
+(`planning.actions.movement`) from the *registered* pose (the original's "tracker pose" is the evidence's corrected
+pose) against C1's re-forecast of the planned commands. C1R is C1 with the stage-2 refit command model. Replays: C1A
+(uniform friction 0.3, prelim maze 30) all 1,446 frames, 7,226 requests and every plan's ratios identical; C1R (patches,
+stage-2 eval maze 30) all 2,593 frames and 12,961 requests identical.

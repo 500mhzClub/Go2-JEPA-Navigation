@@ -35,3 +35,20 @@ def command_sequences(prefix, *, pulse=False):
         count = 1 if pulse and action in TRANSLATIONS else COMMIT_TICKS
         commands[i, PREFIX_TICKS:PREFIX_TICKS+count] = command(action)
     return commands
+
+
+def movement(tape, past):
+    """The movement type of an (8, 3) command tape after the (15, 3) commands of the 1.5 s before it: hold;
+    rest_start (forward motion after 1 s without any command); turn (no forward motion); cruise or arc_steady (one
+    constant translation, without or with yaw); otherwise switch. The decoder's training mix and C1A use these types."""
+    tape, past = np.asarray(tape), np.asarray(past)
+    forward, yaw = tape[:, 0] > 0, tape[:, 2] != 0
+    if not tape.any():
+        return 'hold'
+    if not past[-10:].any() and forward.any():
+        return 'rest_start'
+    if not forward.any():
+        return 'turn'
+    if np.all(tape == tape[0]):
+        return 'arc_steady' if yaw.any() else 'cruise'
+    return 'switch'

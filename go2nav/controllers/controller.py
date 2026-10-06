@@ -28,6 +28,7 @@ from go2nav.planning.planner import Planner
 MAP_PERIOD_FRAMES = 4
 FIRST_PLAN_FRAME = 10
 CONTEXT_WINDOW_NS = 1_500_000_000
+POSE_WINDOW_FRAMES = 256
 STRONG_FEATURES, LOW_FEATURES = 96, 48
 
 
@@ -48,11 +49,14 @@ class SensorFrame:
 
 @dataclass
 class PlanContext:
-    """What a forecaster may use: the four latest policy packets and those at t-1000, t-500 and t ms."""
+    """What a forecaster may use: the four latest policy packets, those at t-1000, t-500 and t ms, the recent registered
+    poses (by frame) and the plans committed so far."""
     frame: int
     measured_ns: int
     history: tuple
     native: tuple
+    poses: dict
+    commitments: tuple
 
 
 class NavigationController:
@@ -69,7 +73,7 @@ class NavigationController:
         self.goal, self.generation = np.asarray(goal_xy, float), 0
         self.mission_state = self.terminal = None
         self.latest_map = self.latest_obstacles = None
-        self.policy_packets = {}
+        self.policy_packets, self.registered_poses = {}, {}
         self.support_good = None
         self.planning, self.mission_rows, self.poses = [], [], []
 
@@ -82,6 +86,8 @@ class NavigationController:
         visual = self.odometry.observe(frame.rgb, frame.depth, frame.auxiliary_rgb, frame.auxiliary_depth,
                                        frame.gyro_rates, frame.specific_force, frame.measured_ns)
         registered = self.registration.observe(frame.depth, frame.auxiliary_depth, visual, frame.specific_force)
+        self.registered_poses[frame.frame] = registered
+        self.registered_poses = {f: p for f, p in self.registered_poses.items() if f > frame.frame-POSE_WINDOW_FRAMES}
         self._visual_support(visual)
         state = self.mission.advance(registered.position, frame=frame.frame, requested=requested)
         self.mission_rows.append(state | dict(measured_ns=frame.measured_ns, preceding_request=list(requested)))
@@ -131,7 +137,8 @@ class NavigationController:
             return
         goal_body, scan_error = objective
         context = PlanContext(frame.frame, now, frame.history,
-                              tuple(self.policy_packets[now-d] for d in (1_000_000_000, 500_000_000, 0)))
+                              tuple(self.policy_packets[now-d] for d in (1_000_000_000, 500_000_000, 0)),
+                              dict(self.registered_poses), tuple(self.ledger.commitments))
         prediction = self.forecaster.forecast(context, prefix, pulse=self.planner.pulse)
         selected = self.planner.select(prediction, goal_body, scan_error, snapshot, registered.position, registered.rotation,
                                        generation=generation)

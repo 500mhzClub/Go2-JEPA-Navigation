@@ -7,7 +7,8 @@ Components:
   reference frame, position, rotation, gyro rotation, promotion and keyframe count; exact equality).
 - `obstacles`: `go2nav.perception.obstacles.DepthObstacleObserver` against the obstacle worker's occupied cells.
 - `controller`: `go2nav.controllers.controller.NavigationController` (with its own ported perception), fed the recorded
-  frames and 50 Hz tick times, against every recorded dispatch request (command and reason) and mission row.
+  frames and 50 Hz tick times, against every recorded dispatch request (command and reason), mission row and plan
+  (action; for C1A also the adaptive ratios). Arms: C1, C1A, C1R, C3, C4.
 - `mapping`: `go2nav.perception.mapping.RoutingMap`, fed the recorded registered pose, against every field of the
   mapping worker's snapshot.
 - `registration`: `go2nav.perception.registration.FloorRegistration`, fed the recorded visual pose, against the
@@ -194,6 +195,7 @@ def sensor_frame(packet):
 
 C1_MODEL = Path('/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/'
                 'go2_short_pulse_command_control_v1_attempt_001/command_only.npz')
+C1R_MODEL = C1_MODEL.parents[1]/'go2_navigation_capability_v1_attempt_001/stage2_c1_refit_v1/command_only.npz'
 
 
 def build_controller(bundle):
@@ -208,6 +210,11 @@ def build_controller(bundle):
     cues = json.loads((run/'public_task_cues.json').read_text())
     if arm == 'C1':
         forecaster = CommandHistoryForecaster(C1_MODEL)
+    elif arm == 'C1A':
+        from go2nav.controllers.adaptive import AdaptiveTravelForecaster
+        forecaster = AdaptiveTravelForecaster(CommandHistoryForecaster(C1_MODEL))
+    elif arm == 'C1R':
+        forecaster = CommandHistoryForecaster(C1R_MODEL)
     elif arm == 'C3':
         forecaster = jepa_forecaster(mission[mission.index('--c3-decoder')+1])
     elif arm == 'C4':
@@ -241,10 +248,32 @@ def direct_forecaster(weights_path):
     return DirectForecaster(c4, stats['control_mean'], stats['control_std'])
 
 
+def compare_plan(controller, expected):
+    """Differences between the controller's newest plan and the original's plan at the same time."""
+    plan = controller.planning[-1]
+    want = expected.get(plan.get('measured_ns'))
+    if 'action' not in plan:
+        return {}
+    if want is None:
+        return dict(plan='missing in the original')
+    diffs = {}
+    if plan['action'] != want['action']:
+        diffs['action'] = (plan['action'], want['action'])
+    log = getattr(controller.forecaster, 'log', None)
+    if log:
+        adaptive = want['motion_correction']['dev_adaptive_travel']
+        for key in ('candidate_movement', 'translation_ratio', 'rotation_ratio', 'new_sample_movement'):
+            if log[-1][key] != adaptive[key]:
+                diffs[key] = (log[-1][key], adaptive[key])
+    return diffs
+
+
 def check_controller(bundle, frames=None):
     import json
     controller, run = build_controller(bundle)
     mission_rows = json.loads((run/'mission.json').read_text())
+    expected_plans = {r['measured_ns']: r for r in json.loads((run/'planning.json').read_text()) if 'selection' in r}
+    planned = 0
     started, ticks, n = time.time(), 0, 0
     for record in read_stream(Path(bundle)/'controller.stream'):
         if record['kind'] == 'submit':
@@ -252,6 +281,12 @@ def check_controller(bundle, frames=None):
             if frames is not None and packet.frame >= frames:
                 break
             controller.on_frame(sensor_frame(packet))
+            if len(controller.planning) > planned:
+                planned = len(controller.planning)
+                diffs = compare_plan(controller, expected_plans)
+                if diffs:
+                    print(f'frame {packet.frame}: plan DIVERGED {diffs}')
+                    return controller, record
             row, expected = controller.mission_rows[-1], mission_rows[packet.frame]
             for key in ('phase', 'phase_transition', 'hold_required', 'terminal', 'quiet_intervals'):
                 if row[key] != expected[key]:

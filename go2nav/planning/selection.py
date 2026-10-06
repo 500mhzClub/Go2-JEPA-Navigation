@@ -133,17 +133,17 @@ def stepwise_recovery_clear(distances, required):
 
 
 def exit_clear(distances):
-    """Clearance never decreases (1 mm tolerance) and ends higher than it starts."""
+    """Clearance never decreases (1 mm tolerance) and ends higher than it starts (an unbounded segment fails)."""
     if any(d is None for d in distances):
-        raise UnportedBranch('reserve exit with an unbounded clearance')
+        return False
     d = [float(v) for v in distances]
     return bool(all(b >= a-EXIT_TOLERANCE_M for a, b in zip(d, d[1:])) and min(d) >= d[0]-EXIT_TOLERANCE_M and d[-1] > d[0])
 
 
 def turn_hold_clear(distances):
-    """Clearance never decreases (1 mm tolerance), step to step and against the start."""
+    """Clearance never decreases (1 mm tolerance), step to step and against the start (an unbounded segment fails)."""
     if any(d is None for d in distances):
-        raise UnportedBranch('turn exit with an unbounded clearance')
+        return False
     d = [float(v) for v in distances]
     return bool(all(b >= a-EXIT_TOLERANCE_M for a, b in zip(d, d[1:])) and min(d) >= d[0]-EXIT_TOLERANCE_M)
 
