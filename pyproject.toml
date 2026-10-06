@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "go2nav"
+version = "0.1.0.dev0"
+description = "Go2-JEPA-Navigation: when do JEPA world-model representations help robot navigation? A Genesis Go2 testbed."
+requires-python = "==3.12.*"
+readme = "README.md"
+# Exact versions: env/requirements-rocm7.2.lock.txt (installed by env/setup_rocm_env.sh).
+dependencies = [
+  "genesis-world==0.4.6", "torch==2.12.0", "torchvision==0.27.0", "numpy==2.4.6", "opencv-python==5.0.0.93",
+  "trimesh==5.0.0", "pillow==11.3.0", "pyyaml==6.0.3", "scipy==1.17.1", "rsl-rl-lib==5.4.1", "tensordict==0.13.0",
+  "psutil==7.2.2", "einops==0.8.2",
+]
+
+[tool.setuptools.packages.find]
+include = ["go2nav*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "equivalence: gated against the frozen LeWMQuad-v3 snapshot (needs GO2NAV_SNAPSHOT and the original artefacts)",
+  "slow: runs simulation or training",
+]
