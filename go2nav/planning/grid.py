@@ -83,6 +83,12 @@ def disk_connector(start, end, cells, *, radius_m=FOOTPRINT_RADIUS_M, cell_m=CEL
     return not len(distances) or float(distances[int(np.argmin(distances))]) > radius_m+1e-12
 
 
+def nearest_cell_distance(point, cells, cell_m=CELL_M):
+    """Distance from a point to the nearest cell square (infinite with no cells)."""
+    distances = segment_cell_distances(point, point, cells, cell_m)
+    return float(distances.min()) if len(distances) else math.inf
+
+
 def inflated_cells(occupied, radius_m=FOOTPRINT_RADIUS_M):
     """Cells within `radius_m` of an occupied cell (square to square)."""
     return set(_inflated(frozenset(occupied), radius_m))

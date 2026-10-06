@@ -8,7 +8,7 @@ Components:
 - `obstacles`: `go2nav.perception.obstacles.DepthObstacleObserver` against the obstacle worker's occupied cells.
 - `controller`: `go2nav.controllers.controller.NavigationController` (with its own ported perception), fed the recorded
   frames and 50 Hz tick times, against every recorded dispatch request (command and reason), mission row and plan
-  (action; for C1A also the adaptive ratios). Arms: C1, C1A, C1R, C3, C4.
+  (action; for C1A also the adaptive ratios). Arms: C1, C1A, C1R, C2, C3, C4.
 - `mapping`: `go2nav.perception.mapping.RoutingMap`, fed the recorded registered pose, against every field of the
   mapping worker's snapshot.
 - `registration`: `go2nav.perception.registration.FloorRegistration`, fed the recorded visual pose, against the
@@ -215,6 +215,8 @@ def build_controller(bundle):
         forecaster = AdaptiveTravelForecaster(CommandHistoryForecaster(C1_MODEL))
     elif arm == 'C1R':
         forecaster = CommandHistoryForecaster(C1R_MODEL)
+    elif arm == 'C2':
+        forecaster = None  # model-free; the original's C4 forecasts were computed for workload only
     elif arm == 'C3':
         forecaster = jepa_forecaster(mission[mission.index('--c3-decoder')+1])
     elif arm == 'C4':

@@ -11,6 +11,9 @@
 
 `request(now_ns)` is called at every 50 Hz policy tick and returns the command to send: the current plan's command if
 it passes the dispatch check, the mission and the committed-prefix check; otherwise zero, with the reason.
+
+With no forecaster the controller is the model-free C2: the planner's reactive selection replaces forecasting and
+scoring (`Planner.select_reactive`).
 """
 from dataclasses import dataclass
 
@@ -21,6 +24,7 @@ from go2nav.perception.obstacles import DepthObstacleObserver
 from go2nav.perception.registration import FloorRegistration
 from go2nav.perception.rigid import UnportedBranch
 from go2nav.perception.visual_odometry import VisualOdometry
+from go2nav.planning import grid
 from go2nav.planning.dispatch import PASSED, CommitmentLedger, ScheduledCommand, dispatch_check
 from go2nav.planning.mission import RoundTripMission
 from go2nav.planning.planner import Planner
@@ -28,6 +32,7 @@ from go2nav.planning.planner import Planner
 MAP_PERIOD_FRAMES = 4
 FIRST_PLAN_FRAME = 10
 CONTEXT_WINDOW_NS = 1_500_000_000
+ESCAPE_DISPATCH_RADIUS_M = .40
 POSE_WINDOW_FRAMES = 256
 STRONG_FEATURES, LOW_FEATURES = 96, 48
 
@@ -136,12 +141,16 @@ class NavigationController:
             self.planning.append(dict(frame=frame.frame, reason='VIEW_BUDGET_EXHAUSTED'))
             return
         goal_body, scan_error = objective
-        context = PlanContext(frame.frame, now, frame.history,
-                              tuple(self.policy_packets[now-d] for d in (1_000_000_000, 500_000_000, 0)),
-                              dict(self.registered_poses), tuple(self.ledger.commitments))
-        prediction = self.forecaster.forecast(context, prefix, pulse=self.planner.pulse)
-        selected = self.planner.select(prediction, goal_body, scan_error, snapshot, registered.position, registered.rotation,
-                                       generation=generation)
+        if self.forecaster is None:
+            selected = self.planner.select_reactive(goal_body, scan_error, snapshot, registered.position, registered.rotation,
+                                                    prefix)
+        else:
+            context = PlanContext(frame.frame, now, frame.history,
+                                  tuple(self.policy_packets[now-d] for d in (1_000_000_000, 500_000_000, 0)),
+                                  dict(self.registered_poses), tuple(self.ledger.commitments))
+            prediction = self.forecaster.forecast(context, prefix, pulse=self.planner.pulse)
+            selected = self.planner.select(prediction, goal_body, scan_error, snapshot, registered.position,
+                                           registered.rotation, generation=generation)
         plan = ScheduledCommand.prepare(selected['action'], observed_ns=now,
                                         pulse=self.planner.pulse and selected['action'] in ('forward', 'left_arc', 'right_arc'))
         self.planning.append(dict(frame=frame.frame, measured_ns=now, map_frame=snapshot.frame, action=selected['action'],
@@ -175,4 +184,31 @@ class NavigationController:
         self.ledger.record_request(now_ns, requested)
         if reason in ('CURRENT_STOPPING_MARGIN_VETO', 'CURRENT_OBSERVED_OBSTACLE_VETO') and plan is not None:
             self.planner.veto(plan, now_ns, self.generation)
-        return dict(requested_command=requested, reason=reason)
+        response = dict(requested_command=requested, reason=reason)
+        if self.planner.escape_armed and reason in ('CURRENT_OBSERVED_OBSTACLE_VETO', 'COMMAND_WINDOW_VETO_LATCHED'):
+            response = self._escape_dispatch(response, plan, now_ns)
+        return response
+
+    def _escape_dispatch(self, response, plan, now_ns):
+        """While C2's reactive escape is armed, a vetoed escape command is sent anyway if a 0.40-m disk swept to its
+        endpoint is clear and the endpoint is no nearer the observed obstacles. The ledger keeps the veto and the zero
+        request; only the command sent changes, and the window is no longer latched.
+
+        As in the original, these two tests read the 1-cm body obstacle cells with the 5-cm map cell size (cell (i, j)
+        taken as the 5-cm square at 5i, 5j cm), kept so that missions reproduce."""
+        current = self.latest_obstacles
+        if plan is None or current is None or not any(plan.command):
+            return response
+        translating = any(plan.command[:2])
+        cells = sorted(current.cells)
+        start, endpoint = np.zeros(2), np.zeros(2)
+        if translating:
+            seconds = (plan.expires_ns-now_ns)/1e9
+            endpoint = np.array([plan.command[0]*seconds, plan.command[1]*seconds])
+        clear = grid.disk_connector(start, endpoint, cells, radius_m=ESCAPE_DISPATCH_RADIUS_M, cell_m=grid.CELL_M)
+        away = (not translating
+                or grid.nearest_cell_distance(endpoint, cells, grid.CELL_M) >= grid.nearest_cell_distance(start, cells, grid.CELL_M))
+        if not clear or not away:
+            return response
+        self.rejected.pop(plan.observed_ns, None)
+        return dict(requested_command=plan.request(now_ns=now_ns, allowed=True), reason=PASSED, escape_dispatch=True)

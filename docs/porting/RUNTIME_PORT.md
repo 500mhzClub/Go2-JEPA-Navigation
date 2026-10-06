@@ -130,3 +130,17 @@ C1A (`controllers.adaptive.AdaptiveTravelForecaster`) wraps the C1 forecaster: t
 pose) against C1's re-forecast of the planned commands. C1R is C1 with the stage-2 refit command model. Replays: C1A
 (uniform friction 0.3, prelim maze 30) all 1,446 frames, 7,226 requests and every plan's ratios identical; C1R (patches,
 stage-2 eval maze 30) all 2,593 frames and 12,961 requests identical.
+
+C2 (`planning.reactive`, `Planner.select_reactive`, controller with no forecaster): the nearest action primitive to an
+instantaneous feedback command, eligible only if its dispatched command path passes the forecasting controllers'
+clearance check (kinematic unicycle paths; reserve exit and turn exit included); heading-first rule in the terminal
+approach; recovery adds the terminal-spin break (forward pulse after 15 same-direction heading-first turns) and the
+reactive escape with its dispatch override. The original computed C4 forecasts during C2 missions "for workload
+control" only; its own equivalence check (`unused_workload_equivalence_passed`) and the synchronous drain make them
+action-neutral, so the port has no model. Quirk kept: the escape dispatch override reads the 1-cm body obstacle cells
+with the 5-cm map cell size. Replay (recovery on, prelim maze 31): all 1,770 frames and 8,846 requests identical; the
+escape never fired there (C2 call graph `outputs/porting/call_graph/C2_on_prelim31.json`), its backup request is
+`UnportedBranch`.
+
+C4 replay (recovery on, prelim maze 45, the full 480-s budget): all 4,800 frames and 24,000 requests identical.
+Startup floor recovery (`CompletedSupportRuntimeMixin`) never fired in 1,600 development runs; not ported.

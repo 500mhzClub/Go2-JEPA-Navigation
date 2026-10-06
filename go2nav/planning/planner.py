@@ -13,15 +13,18 @@ One plan is made every fourth frame (2.5 Hz), in three steps:
 3. **Selection** (`select`). Score the forecast toward the waypoint (`selection.score`), or toward the view heading;
    then the clearance check and the recovery and terminal stages, in the order given in `select`.
 
+`select_reactive` replaces step 3 for the model-free C2 (`planning.reactive`).
+
 `recovery=True` adds the development recovery fixes: stall watchdog, latch timeout, deadlock escape, terminal-spin
-guard (these were the "recovery on" condition of the experiments).
+guard (these were the "recovery on" condition of the experiments). For C2 they are the terminal-spin break and the
+reactive escape (`_reactive_escape`; its dispatch side is `NavigationController._escape_dispatch`).
 """
 import math
 
 import numpy as np
 
-from go2nav.planning import grid, routing, selection as sel
-from go2nav.planning.actions import ACTIONS, TURNS
+from go2nav.planning import grid, reactive, routing, selection as sel
+from go2nav.planning.actions import ACTIONS, TRANSLATIONS, TURNS, command
 from go2nav.planning.grid import centre
 from go2nav.perception.rigid import UnportedBranch
 
@@ -32,6 +35,7 @@ STALL_RADIUS_M, STALL_NS = .15, 30_000_000_000
 LATCH_STALL_DECISIONS, LATCH_MAX_SWITCHES, LATCH_COOLDOWN = 10, 3, 15
 ESCAPE_AFTER = 5
 TERMINAL_SPIN_TURNS = 15
+REACTIVE_ESCAPE_FLOOR_M, REACTIVE_ESCAPE_GAIN_M, REACTIVE_ESCAPE_S, ESCAPE_SLACK_M = .40, .005, .4, .003
 
 
 def wrap(value):
@@ -57,7 +61,7 @@ class Planner:
         # Recovery fixes.
         self.stall_window = None
         self.latch_track, self.latch_cooldown = None, 0
-        self.deadlock_holds = 0
+        self.deadlock_holds, self.escape_armed = 0, None
         self.terminal_turns = 0
         self.terminal_spin = (None, 0)
 
@@ -247,9 +251,23 @@ class Planner:
         if not terminal:
             result = self.route_turn_memory.select(result, q, heading, generation, None)
         if self.recovery:
-            self._terminal_spin_guard(result)
+            result = self._terminal_spin_guard(result)
             result = self._latch_timeout(result, heading)
             self._deadlock(result)
+        return result
+
+    def select_reactive(self, goal_body, scan_error, snapshot, position, rotation, prefix):
+        """C2's action (`planning.reactive`; no forecast), then the recovery stages that apply to it."""
+        B = np.asarray(snapshot.map_from_initial)
+        q, Q = B@position, B@rotation
+        clearance = grid.fine_clearance(snapshot.fine_occupied)
+        rows = reactive.path_rows(prefix, self.pulse, clearance, q, Q)
+        result = reactive.select(goal_body, scan_error, clearance.minimum(q[:2], q[:2]), rows)
+        if self.pulse:
+            result = reactive.heading_first_terminal(result, self.arrival_radius_m)
+        if self.recovery:
+            result = self._terminal_spin_guard(result)
+            result = self._reactive_escape(result, clearance, q, Q)
         return result
 
     def _terminal_turn_guard(self, result, goal_body):
@@ -262,10 +280,54 @@ class Planner:
             raise UnportedBranch('terminal spin burst')
 
     def _terminal_spin_guard(self, result):
-        if result.get('rule') != 'terminal_measured_heading_then_existing_forward_pulse' or result['action'] not in TURNS:
+        """After 15 consecutive heading-first terminal turns the same way, a forward pulse instead (if eligible)."""
+        if result.get('rule') != reactive.HEADING_FIRST_RULE or result['action'] not in TURNS:
             self.terminal_spin = (None, 0)
-            return
-        raise UnportedBranch('terminal spin guard')
+            return result
+        direction, count = self.terminal_spin
+        count = count+1 if direction == result['action'] else 1
+        self.terminal_spin = (result['action'], count)
+        forward = next(r for r in result['candidates'] if r['action'] == 'forward')
+        if count < TERMINAL_SPIN_TURNS or not forward['eligible']:
+            return result
+        result.update(action='forward', action_index=ACTIONS.index('forward'), requested_command=list(command('forward')),
+                      terminal_spin_break=dict(consecutive_same_direction_turns=count, turn_direction=direction))
+        self.terminal_spin = (None, 0)
+        return result
+
+    def _reactive_escape(self, result, clearance, q, Q):
+        """C2: after five holds with the current position inside the 0.45-m footprint (but at least 0.40 m clear of
+        stored obstacles), move away: the translation nearest the feedback command whose 0.4-s path keeps the current
+        clearance (3-mm slack) and ends 5 mm clearer, else a turn toward the clearest of 16 points 10 cm around. While
+        armed, the dispatch check is relaxed for the escape (`NavigationController._escape_dispatch`)."""
+        if result['action'] != 'hold' or result['current_nominal_disk_clear'] is not False:
+            self.deadlock_holds, self.escape_armed = 0, None
+            return result
+        self.deadlock_holds += 1
+        current = result['current_stored_clearance_m']
+        if self.deadlock_holds < ESCAPE_AFTER or current is None or current < REACTIVE_ESCAPE_FLOOR_M:
+            return result
+        p, yaw = np.asarray(q, float)[:2], math.atan2(Q[1][0], Q[0][0])
+        desired = {r['action']: r['normalized_command_distance_squared'] for r in result['candidates']}
+        moves = []
+        for action in TRANSLATIONS:
+            end = requested_endpoint(p, yaw, command(action), REACTIVE_ESCAPE_S)
+            path, final = clearance.minimum(p, end), clearance.minimum(end, end)
+            if path is not None and path >= current-ESCAPE_SLACK_M and final >= current+REACTIVE_ESCAPE_GAIN_M:
+                moves.append((desired[action], action))
+        if moves:
+            action = min(moves)[1]
+        else:
+            headings = np.linspace(-math.pi, math.pi, 16, endpoint=False)
+            gains = [clearance.minimum(c, c) for c in (p+.1*np.array([math.cos(yaw+h), math.sin(yaw+h)]) for h in headings)]
+            best = int(np.argmax(gains))
+            if gains[best] < current+REACTIVE_ESCAPE_GAIN_M:
+                raise UnportedBranch('scripted backup after a reactive deadlock with no move')
+            action = 'left_turn' if headings[best] > 0 else 'right_turn'
+        result.update(action=action, action_index=ACTIONS.index(action), requested_command=list(command(action)),
+                      reactive_escape=dict(consecutive_holds=self.deadlock_holds, current_clearance_m=current))
+        self.escape_armed = 'reactive'
+        return result
 
     def _latch_timeout(self, result, heading):
         latch = self.clearance_turn
@@ -320,3 +382,14 @@ class Planner:
         if any(plan.command[:2]) and self.view_recovery is None:
             self.view_recovery = dict(trigger_ns=now_ns, mission_generation=generation, target_heading_rad=None,
                                       view_angle_rad=(-1 if plan.command[2] < 0 else 1)*VETO_VIEW_ANGLE_RAD)
+
+
+def requested_endpoint(p, yaw, command, seconds, steps=20):
+    """Map-frame endpoint of one constant command (unicycle, Euler steps)."""
+    x, y, heading = float(p[0]), float(p[1]), yaw
+    dt = seconds/steps
+    for _ in range(steps):
+        x += (command[0]*math.cos(heading)-command[1]*math.sin(heading))*dt
+        y += (command[0]*math.sin(heading)+command[1]*math.cos(heading))*dt
+        heading += command[2]*dt
+    return np.array([x, y])
