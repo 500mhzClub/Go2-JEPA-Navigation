@@ -5,3 +5,6 @@ __pycache__/
 /outputs/
 /artifacts/cache/
 *.egg-info/
+
+# Training datasets ship as a hosted artefact (artifacts/manifest.yaml), not in git
+/data/training/*/

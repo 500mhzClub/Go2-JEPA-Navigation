@@ -55,11 +55,17 @@ def write_lineage(out, *, component, seed, config, parents, data, checkpoint, me
 
 
 class FeatureStore:
-    """Frozen V-JEPA tokens of a set of frames: features.f16 (N, 768, 1024, float16, raw tokens) + frames.json (paths)."""
+    """Frozen V-JEPA tokens of a set of frames: features.f16 (N, 768, 1024, float16) + frames.json (names) + meta.json.
+
+    `normalised` (meta.json): tokens were layer-normalised before conversion to float16 (the T2-T5 stages' format) rather
+    than stored raw (the T1 format). Each stage reads the format it was trained with.
+    """
 
     def __init__(self, folder):
         self.folder = Path(folder)
         self.paths = json.loads((self.folder/'frames.json').read_text())
+        meta = self.folder/'meta.json'
+        self.normalised = json.loads(meta.read_text())['normalised'] if meta.exists() else False
         self.index = {p: i for i, p in enumerate(self.paths)}
         self.tokens = np.memmap(self.folder/'features.f16', dtype=np.float16, mode='r', shape=(len(self.paths), 768, 1024))
 
@@ -68,16 +74,20 @@ class FeatureStore:
 
     @staticmethod
     @torch.no_grad()
-    def build(folder, frame_paths, load_pixels, encoder, batch=16):
+    def build(folder, frame_paths, load_pixels, encoder, batch=16, normalised=False):
         """Encode `frame_paths` (relative names) with `encoder`; `load_pixels(name)` returns the preprocessed frame."""
+        from torch.nn import functional as F
         folder = Path(folder)
         folder.mkdir(parents=True, exist_ok=False)
         (folder/'frames.json').write_text(json.dumps(list(frame_paths))+'\n')
+        (folder/'meta.json').write_text(json.dumps(dict(normalised=normalised))+'\n')
         tokens = np.memmap(folder/'features.f16', dtype=np.float16, mode='w+', shape=(len(frame_paths), 768, 1024))
         device = next(encoder.module.parameters()).device
         for start in range(0, len(frame_paths), batch):
             names = frame_paths[start:start+batch]
             pixels = torch.stack([load_pixels(n) for n in names]).to(device)
-            tokens[start:start+len(names)] = encoder.tokens(pixels).half().cpu().numpy()
+            out = encoder.tokens(pixels)
+            out = F.layer_norm(out.float(), (1024,)) if normalised else out
+            tokens[start:start+len(names)] = out.half().cpu().numpy()
         tokens.flush()
         return FeatureStore(folder)
