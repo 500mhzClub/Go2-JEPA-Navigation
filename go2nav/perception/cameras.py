@@ -97,7 +97,7 @@ def body_pose_from_adapter(rotation, translation):
 def local_inverse_depth(depth_m, valid):
     """Depth smoothed as the inverse of the 5 x 5 mean inverse depth, where the window is fully valid and flat.
 
-    Returns (float32 depth, support); unsupported pixels are 0 and invalid.
+    Returns (float64 depth, support); unsupported pixels are 0 and invalid.
     """
     d, v = np.asarray(depth_m), np.asarray(valid)
     kernel = np.ones((LOCAL_DEPTH_WINDOW, LOCAL_DEPTH_WINDOW), np.uint8)
@@ -108,5 +108,4 @@ def local_inverse_depth(depth_m, valid):
     supported &= hi-lo <= DEPTH_SPREAD_BASE_M+DEPTH_SPREAD_FRACTION*mean
     inverse = np.divide(1., d, out=np.zeros(d.shape, np.float64), where=v)
     average = cv2.boxFilter(inverse, -1, (LOCAL_DEPTH_WINDOW, LOCAL_DEPTH_WINDOW), normalize=True)
-    result = np.divide(1., average, out=np.zeros_like(average), where=supported)
-    return result.astype(np.float32), supported
+    return np.divide(1., average, out=np.zeros_like(average), where=supported), supported

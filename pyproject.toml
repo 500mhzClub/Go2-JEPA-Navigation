@@ -12,7 +12,7 @@ readme = "README.md"
 dependencies = [
   "genesis-world==0.4.6", "torch==2.12.0", "torchvision==0.27.0", "numpy==2.4.6", "opencv-python==5.0.0.93",
   "trimesh==5.0.0", "pillow==11.3.0", "pyyaml==6.0.3", "scipy==1.17.1", "rsl-rl-lib==5.4.1", "tensordict==0.13.0",
-  "psutil==7.2.2", "einops==0.8.2",
+  "psutil==7.2.2", "einops==0.8.2", "numba==0.66.0",
 ]
 
 [tool.setuptools.packages.find]

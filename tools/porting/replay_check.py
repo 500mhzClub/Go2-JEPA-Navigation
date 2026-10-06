@@ -6,6 +6,8 @@ Components:
 - `pose`: `go2nav.perception.visual_odometry.VisualOdometry` against the pose worker's `current_pose` (frame,
   reference frame, position, rotation, gyro rotation, promotion and keyframe count; exact equality).
 - `obstacles`: `go2nav.perception.obstacles.DepthObstacleObserver` against the obstacle worker's occupied cells.
+- `mapping`: `go2nav.perception.mapping.RoutingMap`, fed the recorded registered pose, against every field of the
+  mapping worker's snapshot.
 - `registration`: `go2nav.perception.registration.FloorRegistration`, fed the recorded visual pose, against the
   registration worker's corrected pose (position, rotation, transported or registered; exact equality).
 
@@ -150,6 +152,36 @@ def check_obstacles(bundle, frames=None):
     print(f'all {n+1} frames identical ({time.time()-started:.0f} s)')
 
 
+MAP_FIELDS = ('frame', 'measured_ns', 'floor', 'occupied', 'position_map', 'map_from_initial', 'floor_height',
+              'primary_current_floor_cells', 'auxiliary_current_floor_cells', 'fine_occupied', 'current_floor',
+              'current_occupied', 'current_fine_occupied')
+
+
+def check_mapping(bundle, frames=None):
+    from go2nav.perception.mapping import RoutingMap
+    routing = RoutingMap()
+    started = time.time()
+    for n, (args, kwargs, result) in enumerate(calls(bundle, 'mapping')):
+        if frames is not None and n >= frames:
+            break
+        packet, evidence = args
+        snapshot, _ = result
+        pose = evidence['current_pose']
+        got = routing.update(pose['frame'], packet.measured_ns, pose['position_initial_body_m'],
+                             pose['rotation_initial_body_from_current_body'],
+                             (packet.depth['depth_m'], packet.depth['valid']),
+                             (packet.auxiliary_depth['depth_m'], packet.auxiliary_depth['valid']),
+                             packet.policy['sensor_state']['sensed']['specific_force']['values'])
+        diffs = [f for f in MAP_FIELDS if getattr(got, f) != getattr(snapshot, f)]
+        if diffs:
+            print(f'frame {packet.frame}: DIVERGED {diffs}', {f: (len(getattr(got, f)), len(getattr(snapshot, f)))
+                  for f in diffs if isinstance(getattr(got, f), frozenset)})
+            return routing, args, result
+        if n % 50 == 0:
+            print(f'frame {packet.frame}: ok ({time.time()-started:.0f} s)', flush=True)
+    print(f'all {n+1} map updates identical ({time.time()-started:.0f} s)')
+
+
 def _original_tracker():
     from lewm.sparse_corner_completion_runtime_development import SparseCornerCompletionMotion
     from lewm.two_cm_floor_extent_development import configure
@@ -159,7 +191,7 @@ def _original_tracker():
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('component', choices=['pose', 'registration', 'obstacles'])
+    p.add_argument('component', choices=['pose', 'registration', 'obstacles', 'mapping'])
     p.add_argument('bundle')
     p.add_argument('--frames', type=int)
     p.add_argument('--shadow', action='store_true')
@@ -168,8 +200,10 @@ def main():
         check_pose(a.bundle, a.frames, a.shadow)
     elif a.component == 'registration':
         check_registration(a.bundle, a.frames)
-    else:
+    elif a.component == 'obstacles':
         check_obstacles(a.bundle, a.frames)
+    else:
+        check_mapping(a.bundle, a.frames)
 
 
 if __name__ == '__main__':

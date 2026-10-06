@@ -83,7 +83,8 @@ class FeatureFrame:
     def local_depth(self):
         """The locally smoothed depth used to lift matched corners (computed once per frame)."""
         if self._local_depth is None:
-            self._local_depth = cameras.local_inverse_depth(self.depth_m, self.valid)
+            depth_m, supported = cameras.local_inverse_depth(self.depth_m, self.valid)
+            self._local_depth = depth_m.astype(np.float32), supported
         return self._local_depth
 
 
