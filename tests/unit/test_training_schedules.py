@@ -21,3 +21,21 @@ def test_t3_schedule_matches_original():
 def test_t4_schedule_matches_original():
     original = json.loads((ORIGINAL/'go2_horizon_dense_predictor_v1_attempt_001/schedule.json').read_text())
     assert native.t4_schedule(native.load_samples('t4_samples')) == original
+
+
+MAZE_VIEW = Path('/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_maze_view_readout_v1_attempt_003')
+
+
+@pytest.mark.skipif(not MAZE_VIEW.exists(), reason='original T5b run folder missing')
+def test_t5b_schedule_matches_original():
+    import numpy as np
+    from go2nav.training import readouts
+    original = json.loads((MAZE_VIEW/'schedule.json').read_text())
+    data = json.loads((readouts.DATA/'t5_maze_view.json').read_text())
+    steps, half, seed = readouts.CONTINUATION_STEPS, readouts.HALF, readouts.T5B_SEED
+    assert readouts.cycle(len(data['old']['pairs']), steps*half, seed).reshape(steps, half).tolist() == original['shared']
+    assert readouts.cycle(len(data['maze']['pairs']), steps*half, seed+2).reshape(steps, half).tolist() == original['maze']
+    for k, key in ((10, 'shared_horizons'), (11, 'other_horizons')):
+        h = np.tile(np.arange(8), steps*half//8)
+        np.random.default_rng(seed+k).shuffle(h)
+        assert h.reshape(steps, half).tolist() == original[key]
