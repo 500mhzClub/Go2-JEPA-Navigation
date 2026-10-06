@@ -60,14 +60,21 @@ def valid_quads(valid):
     return valid[:-1, :-1]&valid[1:, :-1]&valid[:-1, 1:]&valid[1:, 1:]
 
 
-def level_floor_quads(depth_m, valid, up):
-    """Valid quads more than 15 cm below the body whose two triangles are planar (3 mm) and level (normal within
-    acos(0.97) of up); used for coverage when no current floor plane is available."""
+def _mesh_points(depth_m):
     d = np.asarray(depth_m)
     u = (np.arange(640)+.5-320)/cameras.FOCAL
     v = (np.arange(480)+.5-240)/cameras.FOCAL
     optical = np.stack((d*u[None], d*v[:, None], d), axis=2)
-    points = optical@cameras.PRIMARY[:3, :3].T+cameras.PRIMARY[:3, 3]
+    return optical@cameras.PRIMARY[:3, :3].T+cameras.PRIMARY[:3, 3]
+
+
+def level_floor_quads(depth_m, valid, up):
+    """Valid quads more than 15 cm below the body whose two triangles are planar (3 mm) and level (normal within
+    acos(0.97) of up); used for coverage when no current floor plane is available. Images with mostly floor below
+    the body use the dense computation (`dense_level_floor_quads`), others the sparse one over candidate quads."""
+    if _prefers_dense_index(depth_m, valid, up):
+        return dense_level_floor_quads(depth_m, valid, up)
+    points = _mesh_points(depth_m)
     a, b, c, e = points[:-1, :-1], points[:-1, 1:], points[1:, 1:], points[1:, :-1]
     good = valid[:-1, :-1]&valid[:-1, 1:]&valid[1:, 1:]&valid[1:, :-1]
     for p in (a, b, c, e):
@@ -83,14 +90,34 @@ def level_floor_quads(depth_m, valid, up):
         tolerance = 64*np.finfo(float).eps*length
         if (np.any(np.abs(length-1e-10) <= 64*np.finfo(float).eps*1e-10)
                 or np.any(np.abs(alignment-.97*length) <= tolerance)):
-            raise UnportedBranch('ambiguous last-bit floor quad (the original uses its dense index here)')
+            return dense_level_floor_quads(depth_m, valid, up, row_batch=479)  # ambiguous last bit: whole-grid arithmetic
         accepted = (length > 1e-10)&(alignment >= .97*length)
         if pair == 0:
             error = np.abs(np.sum((c[rows, columns]-anchor)*normal, axis=1))
             if np.any(np.abs(error-.003*length) <= tolerance):
-                raise UnportedBranch('ambiguous last-bit floor quad (the original uses its dense index here)')
+                return dense_level_floor_quads(depth_m, valid, up, row_batch=479)
             accepted &= error <= .003*length
         good[rows, columns] = accepted
+    return good
+
+
+def dense_level_floor_quads(depth_m, valid, up, row_batch=32):
+    """`level_floor_quads` over every quad, in blocks of `row_batch` rows (479: the whole grid at once)."""
+    points = _mesh_points(depth_m)
+    a, b, c, e = points[:-1, :-1], points[:-1, 1:], points[1:, 1:], points[1:, :-1]
+    good = valid[:-1, :-1]&valid[:-1, 1:]&valid[1:, 1:]&valid[1:, :-1]
+    for p in (a, b, c, e):
+        good &= p@up < -.15
+    for start in range(0, 479, row_batch):
+        end = min(start+row_batch, 479)
+        a, b, c, e = points[start:end, :-1], points[start:end, 1:], points[start+1:end+1, 1:], points[start+1:end+1, :-1]
+        cell_good = good[start:end]
+        for left, right in ((b, e), (b, c), (c, e)):
+            normal = np.cross(left-a, right-a)
+            length = np.linalg.norm(normal, axis=2)
+            cell_good &= (length > 1e-10)&(np.abs(normal@up) >= .97*length)
+            if left is b and right is e:
+                cell_good &= np.abs(np.sum((c-a)*normal, axis=2)) <= .003*length
     return good
 
 
@@ -163,8 +190,6 @@ def floor_coverage(depth_m, valid, map_from_body, translation_map, floor_height,
         quads = valid_quads(valid)
     else:
         depth_m, valid = cameras.local_inverse_depth(depth_m, valid)
-        if _prefers_dense_index(depth_m, valid, up_body):
-            raise UnportedBranch('dense floor-cell index')
         quads = level_floor_quads(depth_m, valid, up_body)
     near = np.abs(body_projection(depth_m)@up_body+p[2]-floor_height) <= FLOOR_BAND_M
     good = quads&near[:-1, :-1]&near[:-1, 1:]&near[1:, :-1]&near[1:, 1:]

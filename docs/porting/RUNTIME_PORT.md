@@ -73,3 +73,54 @@ already present.
 
 Matching lifts with the 5×5 local inverse-depth estimate (cached per observation); feature detection lifts with raw
 depth.
+
+### Floor registration, obstacles, routing map (ported, exact on C1_on_prelim30)
+
+- Registration: joint floor plane along the visual up → minimal tilt + heading-restoring twist + height correction
+  against frame 0's plane; transport of the last registered correction when the frame has < 100 floor candidates.
+  Weak-extent pruning (two variants), validation failures and re-acquisition never ran: `UnportedBranch`.
+- Obstacles: own gyro integrator **without** re-orthonormalisation; floor plane along the gyro up; 4-px samples
+  3–65 cm above it → 1-cm body cells within ±1 m. Also returns per-camera valid-sample counts (dispatch reads the
+  primary count).
+- Routing map: B from initial gravity; floor height from frame 0's plane (normalised up); coverage with the
+  current plane available → valid-quad rectangle + numba polygon kernel; unavailable → local inverse depth (float64)
+  + level-quad index (`eligible_floor_cell_index`); coarse 5-cm obstacles (±160) and fine 1-cm (±800).
+- Visual support (tracker diagnostics actually consumed): per-frame selected feature counts (primary, auxiliary) =
+  the current frame's keypoint counts after completion (`completed_corner_support`).
+
+### Controller (ported; exact on C1_on_prelim30 and C3_off_prelim30)
+
+Per frame, in order: `submit` (native-context packets; the ledger's preceding requests for the frame) → pose →
+`_register` (registration + visual support; mission advance on the registered position; floor re-acquisition streak;
+goal/phase update; vetoes of every plan when holding) → every 4th frame: map, then `_plan` → obstacles.
+
+`_plan` gates: startup recovery hold; frames < 10 (native context warm-up); floor waiting; mission hold. Then:
+route (`_route` chain, see below) → pose in the map → target heading or route target or scan → `_select_action`
+(forecast 6 candidates x 8 horizons, correction, scoring, scan utilities, `_select_clear_prediction` safety/recovery
+chain) → `ScheduledCommand.prepare` (dispatch at +300 ms, 400 ms; translation pulses 100 ms) → ledger commit.
+
+`request(now)` (50 Hz): latest eligible plan; latched window veto; dispatch check (stale obstacles > 250 ms hold;
+0.45 m disk connector over the remaining plan against 1-cm obstacle cells; translation stopping margin with +0.5 s
+and the observation age; primary-depth-missing translation veto [unported]); command gates (startup, visual
+recovery, floor waiting, mission hold); committed prefix executed check; ledger veto/record; veto-view recovery arm.
+
+Mission (`StopConditionedSettlingMission` ← `SettledBoundaryRoundTripMission` ← `MeasuredSettlingRoundTripMission`
+← `ObservedRoundTripMission`): outbound to goal then home; arrival = within radius (0.02 m in the capability runs)
+with ≥ N quiet intervals under zero requested command and measured-quiet boundaries.
+
+`_route` chain (outer → inner): stall watchdog (frontier stall; escape unported) · turn memory weak trigger ·
+interrupted-view bookkeeping · coverage translation views (requested patch, camera viewpoint) · measured view arc
+(unported part) · prefix-aware/terminal flags · visual support (recovery unported) · camera frontier context ·
+routing-memory scope (persistent) · initial panorama survey · frontier visits (stand-off view) · veto-view recovery
+(rotate 45° toward the veto's yaw sign) · `route_from_current_pose` with the proposer chain: grid BFS over observed
+floor minus 0.45 m inflation, 1-cm-cell connector, clearance-preferred A* refinement, fine goal-cell route.
+
+Forecasters: C1 command-history model (`controllers.forecasters`); C3 V-JEPA 2.1 tokens → T4 predictor per horizon
+(each distinct command prefix once) → T7 decoder; C4 one batch of 48 direct readouts (`controllers.neural`). The
+candidates' commands are rounded through the model scale in float64 and passed through the safety limits
+(`locomotion.safety`) from the newest applied command. C3 replay (recovery off, prelim maze 30): all 1,101 frames and
+5,501 requests identical.
+
+Mapping: the dense floor-cell index (`dense_level_floor_quads`, 32-row batches) is the one the tiled density-routed
+map ran (its copy keeps the density-routed `__module__`); the sparse index falls back to it on ambiguous last bits.
+C2_on_prelim31 mapping: all 443 updates identical.

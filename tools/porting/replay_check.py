@@ -206,11 +206,39 @@ def build_controller(bundle):
     recovery = mission[mission.index('--recovery')+1] == 'on' if '--recovery' in mission else False
     run = Path(info['run'])
     cues = json.loads((run/'public_task_cues.json').read_text())
-    if arm != 'C1':
+    if arm == 'C1':
+        forecaster = CommandHistoryForecaster(C1_MODEL)
+    elif arm == 'C3':
+        forecaster = jepa_forecaster(mission[mission.index('--c3-decoder')+1])
+    elif arm == 'C4':
+        forecaster = direct_forecaster(mission[mission.index('--c4-weights')+1])
+    else:
         raise SystemExit(f'controller check for {arm} not ported yet')
-    return NavigationController(CommandHistoryForecaster(C1_MODEL), goal_xy=cues['goal_initial_body_xy_m'],
-                                home_xy=cues['return_initial_body_xy_m'],
+    return NavigationController(forecaster, goal_xy=cues['goal_initial_body_xy_m'], home_xy=cues['return_initial_body_xy_m'],
                                 arrival_radius_m=.02, navigation_frames=4800, recovery=recovery), run
+
+
+T4 = '/mnt/workspace_drive/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_horizon_dense_predictor_v1_attempt_001/action_final.pt'
+T5B = '/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_maze_view_readout_v1_attempt_003/maze_data_final.pt'
+
+
+def jepa_forecaster(decoder_path):
+    import json
+    from go2nav.controllers.neural import JepaForecaster
+    from go2nav.models.motion import load_decoder_and_c4, load_motion_readout
+    from go2nav.models.predictor import load_horizon_predictor
+    stats = json.loads((REPO/'data/training/control_norm_stats.json').read_text())
+    decoder, _ = load_decoder_and_c4(decoder_path, load_motion_readout(T5B))
+    return JepaForecaster(load_horizon_predictor(T4), decoder, stats['control_mean'], stats['control_std'])
+
+
+def direct_forecaster(weights_path):
+    import json
+    from go2nav.controllers.neural import DirectForecaster
+    from go2nav.models.motion import load_decoder_and_c4, load_motion_readout
+    stats = json.loads((REPO/'data/training/control_norm_stats.json').read_text())
+    _, c4 = load_decoder_and_c4(weights_path, load_motion_readout(T5B))
+    return DirectForecaster(c4, stats['control_mean'], stats['control_std'])
 
 
 def check_controller(bundle, frames=None):
