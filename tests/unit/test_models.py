@@ -78,3 +78,21 @@ def test_shipped_models_match_original_modules():
     with torch.no_grad():
         assert torch.equal(decoder(*pooled), original_decoder.eval()(*pooled))
         assert torch.equal(c4(features, control, commands, horizon), original_c4.eval()(features, control, commands, horizon))
+
+
+C1_MODEL = Path('/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_short_pulse_command_control_v1_attempt_001/command_only.npz')
+
+
+@pytest.mark.skipif(not C1_MODEL.exists(), reason='original C1 model not available')
+@needs_snapshot
+def test_command_model_matches_original():
+    import numpy as np
+    snapshot_imports()
+    from lewm.short_pulse_navigation_runtime_development import command_predictions
+    from go2nav.models.command import CommandHistoryModel
+    model = CommandHistoryModel.load(C1_MODEL)
+    with np.load(C1_MODEL) as z:
+        original = {k: z[k].copy() for k in ('mean', 'scale', 'bias', 'coefficient')}
+    rng = np.random.default_rng(1)
+    commands, history = rng.normal(size=(6, 8, 3))*[.2, 0, .4], rng.normal(size=420)
+    np.testing.assert_array_equal(model.predict(commands, history), command_predictions(original, history, commands))
