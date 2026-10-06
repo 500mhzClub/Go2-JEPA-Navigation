@@ -90,3 +90,30 @@ to resume from.
 | artefact hosting (Hugging Face Hub: checkpoints, maze sets, training data, result summaries) | todo |
 | paper tables and figures from result files | todo |
 | licences and pre-publication review (Andrew) | todo |
+
+## Progress log (6 October 2026, evening)
+
+**Done and verified:**
+- `go2nav.mazes`: regeneration reproduces the registered sets byte for byte.
+- `go2nav.locomotion`: the retrained policy (seed 11) was accepted by Andrew; the comparison is in `docs/validation/`.
+- `go2nav.models`: the shipped T4, T5b, C3 decoder, C4 and C1 checkpoints load into the ported classes and match the original modules exactly; seeded initialisation matches the original.
+- `go2nav.training`:
+  - **T1:** the consolidated dataset reproduces the cached features to f16 precision.
+  - **T2–T4:** the regenerated schedules equal the originals.
+  - **T5:** the T5b schedule equals the original, and the T5-0 targets match the recorded hash.
+  - **T6:** the C1 refit reproduces the shipped model.
+- Training datasets are exported to `data/training/*` (hosted artefact, not in git) by `tools/porting/export_*`.
+
+**Running (background; logs in `outputs/training/`):**
+- `outputs/training/run_t1_t4.sh` builds the T1 and native features, then retrains T1→T4 with the original seeds.
+- `run_t5.sh` follows: readout features, then T5-0 → T5a → T5b.
+
+**Next:**
+- **T7 (C3 decoder + C4).** Port `fit_go2_dev_decoder_development.py` and its feature cache (`build_go2_dev_c3_feature_cache_development.py`):
+  - the cache's predicted features depend on T4, so rebuild them with each retrained T4;
+  - the decoder initialises from **T5a** (full-heading `mixed_data`), not T5b;
+  - C4 is fresh, with AdamW lr 3e-4, weight decay 1e-4, clip 1.0; its target normalisation comes from the prereg C4 head (key name to resolve);
+  - export the items from `stage2_feature_cache_v1/items.json`.
+- **T8:** the stage-2 refits.
+- **Then:** the controller and harness runtime port (planning, perception, sim) and the maze benchmark rerun.
+- **Comparison per stage:** retrained vs original training-loss histories, then downstream C3/C4 forecast accuracy on the evaluation sets.
