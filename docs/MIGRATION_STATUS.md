@@ -76,11 +76,11 @@ to resume from.
 | May-corpus scene generation | `lewm_worlds` (T1 lineage only) | todo |
 | locomotion RL | `train_genesis_go2_locomotion_contract.{py,sh}`, upstream Genesis go2 example, `check_genesis_go2_policy_contract.{py,sh}` | **ported** (`go2nav.locomotion`); retraining against the shipped policy: see below |
 | May-corpus data generation | `datagen_all_resumable.sh` → `run_mass_datagen.sh` → bulk rollout, convert, labels, render replay | todo |
-| T1 temporal predictor | `run_dev_proprio_factorial_driver_v1.py` + v03 temporal-JEPA cache builders | todo |
-| T2–T5 predictor and readout training | `train_go2_{frozen_vjepa_native_adaptation,balanced_start_predictor,horizon_dense_predictor,full_heading_readout,maze_view_readout,dense_visual_motion_readout}_development.py` | todo |
+| T1 temporal predictor | `run_dev_proprio_factorial_driver_v1.py` + v03 temporal-JEPA cache builders | **ported** (`go2nav.training.t1_temporal`); features reproduce the cache to f16 precision; retrain running |
+| T2–T5 predictor and readout training | `train_go2_{frozen_vjepa_native_adaptation,balanced_start_predictor,horizon_dense_predictor,full_heading_readout,maze_view_readout,dense_visual_motion_readout}_development.py` | **ported** (`go2nav.training.native_predictor`, `go2nav.training.readouts`); schedules equal the originals; retrain running |
 | training data collection | balanced-start (+horizon), moving-action switch family, geometry-progress family, short pulse, full heading, maze-view training and transfer, C3-v2 rest/turn, C3-v3 on-policy round | todo |
-| C1 fit | `fit_go2_local_motion_controls_development.py`, `fit_go2_short_pulse_command_control_development.py` | todo |
-| C3/C4 fits | feature caches, `fit_go2_dev_decoder_development.py`, stage-2 fits | todo |
+| C1 fit | `fit_go2_local_motion_controls_development.py`, `fit_go2_short_pulse_command_control_development.py` | **done** (`go2nav.training.command_model`): the refit reproduces the shipped C1 |
+| C3/C4 fits | feature caches, `fit_go2_dev_decoder_development.py`, stage-2 fits | **done** (`go2nav.training.decoder`): on the original cache the ported fit reproduces the deployed decoder-fix fit (8.509 mm) and the stage-2 fit (9.868 mm) exactly (`docs/validation/decoder_fit_port_2026-10-06.md`); rerun on the retrained T4/T5a pending |
 | verified replay, re-render, videos | replay, unmarked re-render, prelim, hero and capability videos | todo |
 
 ### Release
@@ -108,12 +108,18 @@ to resume from.
 - `outputs/training/run_t1_t4.sh` builds the T1 and native features, then retrains T1→T4 with the original seeds.
 - `run_t5.sh` follows: readout features, then T5-0 → T5a → T5b.
 
+**Done since (6 October, late afternoon):**
+- **T7/T8** (`go2nav.training.decoder`): the cache builder, the matched C3-decoder/C4 fit, evaluation and median-seed
+  choice. On the original cache, both the decoder-fix recipe and the stage-2 recipe reproduce their recorded fits exactly.
+
 **Next:**
-- **T7 (C3 decoder + C4).** Port `fit_go2_dev_decoder_development.py` and its feature cache (`build_go2_dev_c3_feature_cache_development.py`):
-  - the cache's predicted features depend on T4, so rebuild them with each retrained T4;
-  - the decoder initialises from **T5a** (full-heading `mixed_data`), not T5b;
-  - C4 is fresh, with AdamW lr 3e-4, weight decay 1e-4, clip 1.0; its target normalisation comes from the prereg C4 head (key name to resolve);
-  - export the items from `stage2_feature_cache_v1/items.json`.
-- **T8:** the stage-2 refits.
-- **Then:** the controller and harness runtime port (planning, perception, sim) and the maze benchmark rerun.
-- **Comparison per stage:** retrained vs original training-loss histories, then downstream C3/C4 forecast accuracy on the evaluation sets.
+- When T4 and T5a are retrained: `decoder cache --predictor <retrained T4>`, fit three seeds from the retrained T5a,
+  choose the median, and compare with the deployed fit.
+- Compare each retrained stage's training-loss history with the original records:
+  - T1 rgb_rollout final e1 about 0.324;
+  - T2 final L1 0.228;
+  - T4 final L1 about 0.240.
+- The controller and harness runtime port (sim, perception, planning, controllers, mission runner, evaluation), then
+  the maze benchmark rerun:
+  - first with the original checkpoints (G2/G4);
+  - then with retrained components, one at a time.
