@@ -39,7 +39,7 @@ class MissionSession:
     """The simulator side of one mission (see the module docstring). `samples` is the physics trace (one row per
     physics step); `contact_packets` and `contact_events` are the evaluator's contact records."""
 
-    def __init__(self, spec, output_dir, *, policy_checkpoint, noise_sigma_m=NOISE_SIGMA_M, dynamics=None):
+    def __init__(self, spec, output_dir, *, policy_checkpoint, noise_sigma_m=NOISE_SIGMA_M, dynamics=None, noise_layout=None):
         self.spec, self.output_dir, self.dynamics = spec, output_dir, dynamics
         self.world = maze_scene.build(spec, output_dir, dynamics)
         strips = dynamics is not None and dynamics.strips is not None
@@ -50,7 +50,8 @@ class MissionSession:
                       if dynamics is not None and dynamics.stall_stop_s else None)
         self.policy = LocomotionPolicy(policy_checkpoint, device='cpu')
         self.policy.check_robot(self.world.robot)
-        self.noise_layout, self.noise_sigma_m = spec['layout_index'] % 4, noise_sigma_m
+        self.noise_layout = spec['layout_index'] % 4 if noise_layout is None else noise_layout
+        self.noise_sigma_m = noise_sigma_m
         self.link_names = {int(l.idx): str(l.name) for e in self.world.scene.entities
                            if e not in self.world.surfaces for l in e.links}
         self.object_ids = {int(l.idx): 'ground_plane' for l in self.world.floor.links}

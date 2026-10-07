@@ -223,8 +223,18 @@ def build_controller(bundle):
         forecaster = direct_forecaster(mission[mission.index('--c4-weights')+1])
     else:
         raise SystemExit(f'controller check for {arm} not ported yet')
+    if '--degrade' in mission:
+        from go2nav.controllers.degraded import DegradedForecaster
+        forecaster = DegradedForecaster(forecaster, mission[mission.index('--degrade')+1])
+    from go2nav.planning import caution
+    margin = mission[mission.index('--margin')+1] if '--margin' in mission else None
+    unknown = None
+    if '--pessimistic-unknown' in mission:
+        level = info.get('unknown_level') or margin or 'p99'
+        unknown = caution.UnknownCells(caution.calibrated_bound(arm, level), info.get('pessimistic_variant') or 'revised')
     return NavigationController(forecaster, goal_xy=cues['goal_initial_body_xy_m'], home_xy=cues['return_initial_body_xy_m'],
-                                arrival_radius_m=.02, navigation_frames=4800, recovery=recovery), run
+                                arrival_radius_m=.02, navigation_frames=4800, recovery=recovery,
+                                margin_m=caution.calibrated_bound(arm, margin) if margin else 0., unknown=unknown), run
 
 
 T4 = '/mnt/workspace_drive/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_horizon_dense_predictor_v1_attempt_001/action_final.pt'

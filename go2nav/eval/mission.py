@@ -126,10 +126,14 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         if arm == 'C0':
             from go2nav.controllers.oracle import OracleForecaster
             forecaster = OracleForecaster(session)
+        if degrade:
+            from go2nav.controllers.degraded import DegradedForecaster
+            forecaster = DegradedForecaster(forecaster, degrade)
         save(out/'public_task_cues.json', cues)
         controller = NavigationController(forecaster, goal_xy=cues['goal_initial_body_xy_m'],
                                           home_xy=cues['return_initial_body_xy_m'], arrival_radius_m=.02,
-                                          navigation_frames=4800, recovery=recovery)
+                                          navigation_frames=4800, recovery=recovery, margin_m=margin_m,
+                                          unknown=caution.UnknownCells(unknown_bound, pessimistic) if pessimistic else None)
         history = deque(maxlen=4)
         for tick in range(STEP_BUDGET):
             now = session.sim_ns

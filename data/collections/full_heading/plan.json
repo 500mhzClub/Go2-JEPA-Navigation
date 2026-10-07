@@ -1,0 +1,3122 @@
+{
+  "trials": [
+    "family_episode_006",
+    "family_episode_002",
+    "family_episode_008",
+    "family_episode_044",
+    "family_episode_020",
+    "family_episode_001",
+    "family_episode_018",
+    "family_episode_011"
+  ],
+  "specifications": [
+    {
+      "scene_id": "geometry-progress-family-v1-family_episode_006",
+      "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+      "case_index": 1,
+      "kind": "straight",
+      "width_m": 1.0,
+      "procedural_seed": 2026090910,
+      "geometry": {
+        "spawn_se2_world": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "wall_boxes": [
+          {
+            "wall_id": "front_partial_panel",
+            "centre_xyz": [
+              0.63,
+              -0.45,
+              0.38
+            ],
+            "size_xyz": [
+              0.08,
+              1.02,
+              0.76
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "rear",
+            "centre_xyz": [
+              -1.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "far",
+            "centre_xyz": [
+              2.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "left",
+            "centre_xyz": [
+              0.5,
+              2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "right",
+            "centre_xyz": [
+              0.5,
+              -2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          }
+        ]
+      },
+      "probe_index": 0,
+      "stimulus_name": "zero",
+      "stimulus_command": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "trial": "family_episode_006",
+      "appearance_arm": "distinctive",
+      "appearance_seed": 2026090940,
+      "layout_id": "cluster_00_left_open",
+      "data_role": "train",
+      "friction_mu": 1.0,
+      "render_near_m": 0.005,
+      "visual_surface_contract": "floor_first_variable_height_union_walls",
+      "layout_index": 0
+    },
+    {
+      "scene_id": "geometry-progress-family-v1-family_episode_002",
+      "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+      "case_index": 1,
+      "kind": "straight",
+      "width_m": 1.0,
+      "procedural_seed": 2026090910,
+      "geometry": {
+        "spawn_se2_world": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "wall_boxes": [
+          {
+            "wall_id": "front_partial_panel",
+            "centre_xyz": [
+              0.63,
+              -0.45,
+              0.38
+            ],
+            "size_xyz": [
+              0.08,
+              1.02,
+              0.76
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "rear",
+            "centre_xyz": [
+              -1.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "far",
+            "centre_xyz": [
+              2.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "left",
+            "centre_xyz": [
+              0.5,
+              2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "right",
+            "centre_xyz": [
+              0.5,
+              -2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          }
+        ]
+      },
+      "probe_index": 0,
+      "stimulus_name": "zero",
+      "stimulus_command": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "trial": "family_episode_002",
+      "appearance_arm": "distinctive",
+      "appearance_seed": 2026090941,
+      "layout_id": "cluster_00_left_open",
+      "data_role": "train",
+      "friction_mu": 1.0,
+      "render_near_m": 0.005,
+      "visual_surface_contract": "floor_first_variable_height_union_walls",
+      "layout_index": 1
+    },
+    {
+      "scene_id": "geometry-progress-family-v1-family_episode_008",
+      "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+      "case_index": 1,
+      "kind": "straight",
+      "width_m": 1.0,
+      "procedural_seed": 2026090910,
+      "geometry": {
+        "spawn_se2_world": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "wall_boxes": [
+          {
+            "wall_id": "front_partial_panel",
+            "centre_xyz": [
+              0.63,
+              0.45,
+              0.38
+            ],
+            "size_xyz": [
+              0.08,
+              1.02,
+              0.76
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "rear",
+            "centre_xyz": [
+              -1.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "far",
+            "centre_xyz": [
+              2.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "left",
+            "centre_xyz": [
+              0.5,
+              2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "right",
+            "centre_xyz": [
+              0.5,
+              -2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          }
+        ]
+      },
+      "probe_index": 0,
+      "stimulus_name": "zero",
+      "stimulus_command": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "trial": "family_episode_008",
+      "appearance_arm": "distinctive",
+      "appearance_seed": 2026090940,
+      "layout_id": "cluster_00_right_open",
+      "data_role": "train",
+      "friction_mu": 1.0,
+      "render_near_m": 0.005,
+      "visual_surface_contract": "floor_first_variable_height_union_walls",
+      "layout_index": 2
+    },
+    {
+      "scene_id": "geometry-progress-family-v1-family_episode_044",
+      "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+      "case_index": 1,
+      "kind": "straight",
+      "width_m": 1.0,
+      "procedural_seed": 2026090910,
+      "geometry": {
+        "spawn_se2_world": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "wall_boxes": [
+          {
+            "wall_id": "front_partial_panel",
+            "centre_xyz": [
+              0.63,
+              0.45,
+              0.38
+            ],
+            "size_xyz": [
+              0.08,
+              1.02,
+              0.76
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "rear",
+            "centre_xyz": [
+              -1.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "far",
+            "centre_xyz": [
+              2.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "left",
+            "centre_xyz": [
+              0.5,
+              2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "right",
+            "centre_xyz": [
+              0.5,
+              -2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          }
+        ]
+      },
+      "probe_index": 0,
+      "stimulus_name": "zero",
+      "stimulus_command": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "trial": "family_episode_044",
+      "appearance_arm": "distinctive",
+      "appearance_seed": 2026090941,
+      "layout_id": "cluster_00_right_open",
+      "data_role": "train",
+      "friction_mu": 1.0,
+      "render_near_m": 0.005,
+      "visual_surface_contract": "floor_first_variable_height_union_walls",
+      "layout_index": 3
+    },
+    {
+      "scene_id": "geometry-progress-family-v1-family_episode_020",
+      "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+      "case_index": 1,
+      "kind": "straight",
+      "width_m": 1.0,
+      "procedural_seed": 2026090910,
+      "geometry": {
+        "spawn_se2_world": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "wall_boxes": [
+          {
+            "wall_id": "front_partial_panel",
+            "centre_xyz": [
+              0.69,
+              -0.45,
+              0.34
+            ],
+            "size_xyz": [
+              0.08,
+              0.94,
+              0.68
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "rear",
+            "centre_xyz": [
+              -1.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "far",
+            "centre_xyz": [
+              2.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "left",
+            "centre_xyz": [
+              0.5,
+              2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "right",
+            "centre_xyz": [
+              0.5,
+              -2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          }
+        ]
+      },
+      "probe_index": 0,
+      "stimulus_name": "zero",
+      "stimulus_command": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "trial": "family_episode_020",
+      "appearance_arm": "distinctive",
+      "appearance_seed": 2026090940,
+      "layout_id": "cluster_01_left_open",
+      "data_role": "train",
+      "friction_mu": 1.0,
+      "render_near_m": 0.005,
+      "visual_surface_contract": "floor_first_variable_height_union_walls",
+      "layout_index": 4
+    },
+    {
+      "scene_id": "geometry-progress-family-v1-family_episode_001",
+      "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+      "case_index": 1,
+      "kind": "straight",
+      "width_m": 1.0,
+      "procedural_seed": 2026090910,
+      "geometry": {
+        "spawn_se2_world": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "wall_boxes": [
+          {
+            "wall_id": "front_partial_panel",
+            "centre_xyz": [
+              0.69,
+              -0.45,
+              0.34
+            ],
+            "size_xyz": [
+              0.08,
+              0.94,
+              0.68
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "rear",
+            "centre_xyz": [
+              -1.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "far",
+            "centre_xyz": [
+              2.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "left",
+            "centre_xyz": [
+              0.5,
+              2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "right",
+            "centre_xyz": [
+              0.5,
+              -2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          }
+        ]
+      },
+      "probe_index": 0,
+      "stimulus_name": "zero",
+      "stimulus_command": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "trial": "family_episode_001",
+      "appearance_arm": "distinctive",
+      "appearance_seed": 2026090941,
+      "layout_id": "cluster_01_left_open",
+      "data_role": "train",
+      "friction_mu": 1.0,
+      "render_near_m": 0.005,
+      "visual_surface_contract": "floor_first_variable_height_union_walls",
+      "layout_index": 5
+    },
+    {
+      "scene_id": "geometry-progress-family-v1-family_episode_018",
+      "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+      "case_index": 1,
+      "kind": "straight",
+      "width_m": 1.0,
+      "procedural_seed": 2026090910,
+      "geometry": {
+        "spawn_se2_world": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "wall_boxes": [
+          {
+            "wall_id": "front_partial_panel",
+            "centre_xyz": [
+              0.69,
+              0.45,
+              0.34
+            ],
+            "size_xyz": [
+              0.08,
+              0.94,
+              0.68
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "rear",
+            "centre_xyz": [
+              -1.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "far",
+            "centre_xyz": [
+              2.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "left",
+            "centre_xyz": [
+              0.5,
+              2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "right",
+            "centre_xyz": [
+              0.5,
+              -2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          }
+        ]
+      },
+      "probe_index": 0,
+      "stimulus_name": "zero",
+      "stimulus_command": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "trial": "family_episode_018",
+      "appearance_arm": "distinctive",
+      "appearance_seed": 2026090940,
+      "layout_id": "cluster_01_right_open",
+      "data_role": "train",
+      "friction_mu": 1.0,
+      "render_near_m": 0.005,
+      "visual_surface_contract": "floor_first_variable_height_union_walls",
+      "layout_index": 6
+    },
+    {
+      "scene_id": "geometry-progress-family-v1-family_episode_011",
+      "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+      "case_index": 1,
+      "kind": "straight",
+      "width_m": 1.0,
+      "procedural_seed": 2026090910,
+      "geometry": {
+        "spawn_se2_world": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "wall_boxes": [
+          {
+            "wall_id": "front_partial_panel",
+            "centre_xyz": [
+              0.69,
+              0.45,
+              0.34
+            ],
+            "size_xyz": [
+              0.08,
+              0.94,
+              0.68
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "rear",
+            "centre_xyz": [
+              -1.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "far",
+            "centre_xyz": [
+              2.5,
+              0.0,
+              0.7
+            ],
+            "size_xyz": [
+              0.08,
+              4.0,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "left",
+            "centre_xyz": [
+              0.5,
+              2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          },
+          {
+            "wall_id": "right",
+            "centre_xyz": [
+              0.5,
+              -2.0,
+              0.7
+            ],
+            "size_xyz": [
+              4.0,
+              0.08,
+              1.4
+            ],
+            "yaw_rad": 0.0,
+            "material_id": "NEUTRAL_WALL"
+          }
+        ]
+      },
+      "probe_index": 0,
+      "stimulus_name": "zero",
+      "stimulus_command": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "trial": "family_episode_011",
+      "appearance_arm": "distinctive",
+      "appearance_seed": 2026090941,
+      "layout_id": "cluster_01_right_open",
+      "data_role": "train",
+      "friction_mu": 1.0,
+      "render_near_m": 0.005,
+      "visual_surface_contract": "floor_first_variable_height_union_walls",
+      "layout_index": 7
+    }
+  ],
+  "tape": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.2,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.16,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.16,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.2,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.16,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.16,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.2,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.16,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.16,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.2,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.16,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.16,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.2,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.16,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.16,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      -0.45
+    ],
+    [
+      0.2,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.16,
+      0.0,
+      0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.16,
+      0.0,
+      -0.45
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "phases": [
+    "heading_0_quiet",
+    "heading_0_quiet",
+    "heading_0_quiet",
+    "heading_0_quiet",
+    "heading_0_quiet",
+    "heading_0_quiet",
+    "heading_0_quiet",
+    "heading_0_quiet",
+    "heading_0_quiet",
+    "heading_0_quiet",
+    "heading_0_hold",
+    "heading_0_hold",
+    "heading_0_hold",
+    "heading_0_hold",
+    "heading_0_hold",
+    "heading_0_left_turn",
+    "heading_0_left_turn",
+    "heading_0_left_turn",
+    "heading_0_left_turn",
+    "heading_0_left_turn",
+    "heading_0_right_turn",
+    "heading_0_right_turn",
+    "heading_0_right_turn",
+    "heading_0_right_turn",
+    "heading_0_right_turn",
+    "heading_0_forward",
+    "heading_0_forward_tail",
+    "heading_0_forward_tail",
+    "heading_0_forward_tail",
+    "heading_0_forward_tail",
+    "heading_0_left_arc",
+    "heading_0_left_arc_tail",
+    "heading_0_left_arc_tail",
+    "heading_0_left_arc_tail",
+    "heading_0_left_arc_tail",
+    "heading_0_right_arc",
+    "heading_0_right_arc_tail",
+    "heading_0_right_arc_tail",
+    "heading_0_right_arc_tail",
+    "heading_0_right_arc_tail",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_0_rotation",
+    "heading_1_quiet",
+    "heading_1_quiet",
+    "heading_1_quiet",
+    "heading_1_quiet",
+    "heading_1_quiet",
+    "heading_1_quiet",
+    "heading_1_quiet",
+    "heading_1_quiet",
+    "heading_1_quiet",
+    "heading_1_quiet",
+    "heading_1_hold",
+    "heading_1_hold",
+    "heading_1_hold",
+    "heading_1_hold",
+    "heading_1_hold",
+    "heading_1_left_turn",
+    "heading_1_left_turn",
+    "heading_1_left_turn",
+    "heading_1_left_turn",
+    "heading_1_left_turn",
+    "heading_1_right_turn",
+    "heading_1_right_turn",
+    "heading_1_right_turn",
+    "heading_1_right_turn",
+    "heading_1_right_turn",
+    "heading_1_forward",
+    "heading_1_forward_tail",
+    "heading_1_forward_tail",
+    "heading_1_forward_tail",
+    "heading_1_forward_tail",
+    "heading_1_left_arc",
+    "heading_1_left_arc_tail",
+    "heading_1_left_arc_tail",
+    "heading_1_left_arc_tail",
+    "heading_1_left_arc_tail",
+    "heading_1_right_arc",
+    "heading_1_right_arc_tail",
+    "heading_1_right_arc_tail",
+    "heading_1_right_arc_tail",
+    "heading_1_right_arc_tail",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_1_rotation",
+    "heading_2_quiet",
+    "heading_2_quiet",
+    "heading_2_quiet",
+    "heading_2_quiet",
+    "heading_2_quiet",
+    "heading_2_quiet",
+    "heading_2_quiet",
+    "heading_2_quiet",
+    "heading_2_quiet",
+    "heading_2_quiet",
+    "heading_2_hold",
+    "heading_2_hold",
+    "heading_2_hold",
+    "heading_2_hold",
+    "heading_2_hold",
+    "heading_2_left_turn",
+    "heading_2_left_turn",
+    "heading_2_left_turn",
+    "heading_2_left_turn",
+    "heading_2_left_turn",
+    "heading_2_right_turn",
+    "heading_2_right_turn",
+    "heading_2_right_turn",
+    "heading_2_right_turn",
+    "heading_2_right_turn",
+    "heading_2_forward",
+    "heading_2_forward_tail",
+    "heading_2_forward_tail",
+    "heading_2_forward_tail",
+    "heading_2_forward_tail",
+    "heading_2_left_arc",
+    "heading_2_left_arc_tail",
+    "heading_2_left_arc_tail",
+    "heading_2_left_arc_tail",
+    "heading_2_left_arc_tail",
+    "heading_2_right_arc",
+    "heading_2_right_arc_tail",
+    "heading_2_right_arc_tail",
+    "heading_2_right_arc_tail",
+    "heading_2_right_arc_tail",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_2_rotation",
+    "heading_3_quiet",
+    "heading_3_quiet",
+    "heading_3_quiet",
+    "heading_3_quiet",
+    "heading_3_quiet",
+    "heading_3_quiet",
+    "heading_3_quiet",
+    "heading_3_quiet",
+    "heading_3_quiet",
+    "heading_3_quiet",
+    "heading_3_hold",
+    "heading_3_hold",
+    "heading_3_hold",
+    "heading_3_hold",
+    "heading_3_hold",
+    "heading_3_left_turn",
+    "heading_3_left_turn",
+    "heading_3_left_turn",
+    "heading_3_left_turn",
+    "heading_3_left_turn",
+    "heading_3_right_turn",
+    "heading_3_right_turn",
+    "heading_3_right_turn",
+    "heading_3_right_turn",
+    "heading_3_right_turn",
+    "heading_3_forward",
+    "heading_3_forward_tail",
+    "heading_3_forward_tail",
+    "heading_3_forward_tail",
+    "heading_3_forward_tail",
+    "heading_3_left_arc",
+    "heading_3_left_arc_tail",
+    "heading_3_left_arc_tail",
+    "heading_3_left_arc_tail",
+    "heading_3_left_arc_tail",
+    "heading_3_right_arc",
+    "heading_3_right_arc_tail",
+    "heading_3_right_arc_tail",
+    "heading_3_right_arc_tail",
+    "heading_3_right_arc_tail",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_3_rotation",
+    "heading_4_quiet",
+    "heading_4_quiet",
+    "heading_4_quiet",
+    "heading_4_quiet",
+    "heading_4_quiet",
+    "heading_4_quiet",
+    "heading_4_quiet",
+    "heading_4_quiet",
+    "heading_4_quiet",
+    "heading_4_quiet",
+    "heading_4_hold",
+    "heading_4_hold",
+    "heading_4_hold",
+    "heading_4_hold",
+    "heading_4_hold",
+    "heading_4_left_turn",
+    "heading_4_left_turn",
+    "heading_4_left_turn",
+    "heading_4_left_turn",
+    "heading_4_left_turn",
+    "heading_4_right_turn",
+    "heading_4_right_turn",
+    "heading_4_right_turn",
+    "heading_4_right_turn",
+    "heading_4_right_turn",
+    "heading_4_forward",
+    "heading_4_forward_tail",
+    "heading_4_forward_tail",
+    "heading_4_forward_tail",
+    "heading_4_forward_tail",
+    "heading_4_left_arc",
+    "heading_4_left_arc_tail",
+    "heading_4_left_arc_tail",
+    "heading_4_left_arc_tail",
+    "heading_4_left_arc_tail",
+    "heading_4_right_arc",
+    "heading_4_right_arc_tail",
+    "heading_4_right_arc_tail",
+    "heading_4_right_arc_tail",
+    "heading_4_right_arc_tail",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_4_rotation",
+    "heading_5_quiet",
+    "heading_5_quiet",
+    "heading_5_quiet",
+    "heading_5_quiet",
+    "heading_5_quiet",
+    "heading_5_quiet",
+    "heading_5_quiet",
+    "heading_5_quiet",
+    "heading_5_quiet",
+    "heading_5_quiet",
+    "heading_5_hold",
+    "heading_5_hold",
+    "heading_5_hold",
+    "heading_5_hold",
+    "heading_5_hold",
+    "heading_5_left_turn",
+    "heading_5_left_turn",
+    "heading_5_left_turn",
+    "heading_5_left_turn",
+    "heading_5_left_turn",
+    "heading_5_right_turn",
+    "heading_5_right_turn",
+    "heading_5_right_turn",
+    "heading_5_right_turn",
+    "heading_5_right_turn",
+    "heading_5_forward",
+    "heading_5_forward_tail",
+    "heading_5_forward_tail",
+    "heading_5_forward_tail",
+    "heading_5_forward_tail",
+    "heading_5_left_arc",
+    "heading_5_left_arc_tail",
+    "heading_5_left_arc_tail",
+    "heading_5_left_arc_tail",
+    "heading_5_left_arc_tail",
+    "heading_5_right_arc",
+    "heading_5_right_arc_tail",
+    "heading_5_right_arc_tail",
+    "heading_5_right_arc_tail",
+    "heading_5_right_arc_tail",
+    "final_settling",
+    "final_settling",
+    "final_settling",
+    "final_settling",
+    "final_settling",
+    "final_settling",
+    "final_settling",
+    "final_settling"
+  ],
+  "source_sha256": "e277bf356d4833ef15603c126f1af934d28856fb616babff1254bf2d750dd71a",
+  "data_role": "train",
+  "render_robot": true,
+  "old_training_render_robot": false,
+  "geometries_changed": false,
+  "intended_heading_stages": 6,
+  "heading_increment_requested_rad": 1.0800000000000003,
+  "actual_headings_measured_after_collection": true,
+  "depth_arrays_retained": false,
+  "fixed_tape_training_not_navigation": true,
+  "existing_exposed_or_prospective_mazes_used": false,
+  "workers": 2,
+  "cpu_groups": [
+    [
+      4,
+      5,
+      6,
+      7
+    ],
+    [
+      8,
+      9,
+      10,
+      11
+    ]
+  ],
+  "free_bytes": 2890153984,
+  "estimated_collection_bytes": 536870912,
+  "minimum_free_bytes": 536870912,
+  "sample_rule": "All completed pre-contact 500-ms windows with departure frame >=10.",
+  "planned_learning": "matched old-data versus half-old/half-new continuations of the same frozen-feature motion head; encoder and predictor unchanged",
+  "limitation": "Added heading coverage and robot visibility are combined; their effects are not isolated."
+}
