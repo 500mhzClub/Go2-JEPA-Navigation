@@ -1,6 +1,6 @@
 """Arrange regenerated mission runs the way the decoder contexts read them (`go2nav.data.decoder_contexts`).
 
-    python -m go2nav.data.mission_sources ROOT --cohorts outputs/cohorts [--workers 6]
+    python -m go2nav.data.mission_sources ROOT --cohorts COHORTS_ROOT [--cohorts COHORTS_ROOT ...] [--workers 6]
 
 The T7/T8 decoder data includes the decisions of three groups of missions: the C3-v3 on-policy round and the C3-v2
 fresh checks (configs/experiments/decoder_sources.yaml) and the stage-2 recordings (the cohort s2rec2 of
@@ -9,7 +9,8 @@ ROOT/go2_navigation_capability_v1_attempt_001/runs under the original programme'
 its camera frames (`go2nav.data.rerender`, every frame checked against the run's recorded pixel hashes) into the
 group's replay folder, and writes the s2rec2 plan (dev_cohorts/s2rec2/config.json) with the original names. ROOT is
 then a recordings root for `python -m go2nav.data.samples decoder`, together with the collections
-(`go2nav.data.recordings`). Runs already replayed (a `done` marker) are kept.
+(`go2nav.data.recordings`). Each cohort is taken from the first --cohorts root that has it. Runs already replayed (a
+`done` marker) are kept.
 """
 import argparse
 from concurrent.futures import ThreadPoolExecutor
@@ -46,12 +47,13 @@ def replay(run, out):
     return out.name
 
 
-def arrange(root, cohorts_root, workers=6):
-    root, cohorts_root = Path(root), Path(cohorts_root)
+def arrange(root, cohorts_roots, workers=6):
+    root = Path(root)
     runs = root/CAPABILITY/'runs'
     runs.mkdir(parents=True, exist_ok=True)
     stage2_plan, replays = [], []
     for cohort, (group, name_of) in GROUPS.items():
+        cohorts_root = next(Path(r) for r in cohorts_roots if (Path(r)/cohort/'config.json').exists())
         config = json.loads((cohorts_root/cohort/'config.json').read_text())['cohort']
         for maze, episode in config['episodes']:
             for arm in config['arms']:
@@ -77,7 +79,7 @@ def arrange(root, cohorts_root, workers=6):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('root', type=Path)
-    p.add_argument('--cohorts', type=Path, required=True)
+    p.add_argument('--cohorts', type=Path, action='append', required=True)
     p.add_argument('--workers', type=int, default=6)
     a = p.parse_args()
     arrange(a.root, a.cohorts, a.workers)
