@@ -35,6 +35,7 @@ from go2nav.training.common import FeatureStore, batch_plan, control_stats, writ
 REPO = Path(__file__).resolve().parents[2]
 ROWS = REPO/'data/training/t1_temporal/rows.jsonl'
 EPOCHS, CHECKPOINT_EPOCH, BATCH, LR, WEIGHT_DECAY, GRAD_CLIP = 24, 21, 4, 3e-4, 0.01, 1.0
+SEED = 2026080901  # the shipped T1's seed
 FRAME_KEYS = ('ctx0', 'ctx1', 'ctx2', 'y1', 'y2')
 
 
@@ -138,7 +139,7 @@ def main():
     t = sub.add_parser('train')
     t.add_argument('--features', required=True)
     t.add_argument('--out', required=True)
-    t.add_argument('--seed', type=int, default=2026080901)
+    t.add_argument('--seed', type=int, default=SEED)
     e = sub.add_parser('evaluate')
     e.add_argument('checkpoint')
     e.add_argument('--features', required=True)

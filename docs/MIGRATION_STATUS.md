@@ -82,7 +82,7 @@ to resume from.
 | training data collection | balanced-start (+horizon), moving-action switch family, geometry-progress family, short pulse, full heading, maze-view training and transfer, C3-v2 rest/turn, C3-v3 on-policy round | **done** (`go2nav.data.collect`, `go2nav.data.corridor`, `go2nav.data.rerender`; plans in `data/collections`): checked cases reproduce the original physics trace, every RGB frame and native depth exactly (full heading, maze-view training, C3-v2 rest/turn, balanced start, balanced-start horizon, geometry family, switch family, including contact-stopped trials); C3-v3 on-policy frames come from verified mission replay. **Known limitation:** short-pulse physics is exact but its frames are not (the floor renders differently in the original, recorded 16 September; not a device or cache effect), so its shipped frames are the record |
 | training samples (data/training) | the samples each original training stage saved (exported by `tools/porting/export_*`) | **done** (`go2nav.data.samples`, `go2nav.data.decoder_contexts`): `python -m go2nav.data.samples all` regenerates every file of data/training except T1's from the recordings and mission runs (with their verified replays); on the original recordings all 11 files are byte-identical to the shipped exports (the decoder contexts now name the rest/turn recording relatively instead of by an absolute path) |
 | C1 fit | `fit_go2_local_motion_controls_development.py`, `fit_go2_short_pulse_command_control_development.py` | **done** (`go2nav.training.command_model`): the refit reproduces the shipped C1 |
-| C3/C4 fits | feature caches, `fit_go2_dev_decoder_development.py`, stage-2 fits | **done** (`go2nav.training.decoder`): on the original cache the ported fit reproduces the deployed decoder-fix fit (8.509 mm) and the stage-2 fit (9.868 mm) exactly (`docs/validation/decoder_fit_port_2026-10-06.md`); rerun on the retrained T4/T5a pending |
+| C3/C4 fits | feature caches, `fit_go2_dev_decoder_development.py`, stage-2 fits | **done** (`go2nav.training.decoder`): on the original cache the ported fit reproduces the deployed decoder-fix fit (8.509 mm) and the stage-2 fit (9.868 mm) exactly (`docs/validation/decoder_fit_port_2026-10-06.md`); on the retrained chain see "Retrained chain" below |
 | verified replay, re-render, videos | replay, unmarked re-render, prelim, hero and capability videos | verified replay and re-render **done** (`go2nav.data.rerender`); mission videos **done** (`go2nav.eval.video`: egocentric frames from the hash-checked replay, a chase camera from a second physics-checked replay, route map and status panel; the prelim and capability videos differ only in labels); hero video **done** (`go2nav.eval.hero_video`, forecast fan from the new `forecast_xy_m` planning field; recording it leaves C3 prelim 30 identical in requests, trace, frames, mission rows and all 266 actions); demonstration surfaces **done** (`--demo-textures`, `go2nav.sim.demo_appearance`: meshes identical to the original's) |
 
 ### Release
@@ -130,6 +130,26 @@ contacts, 0.029 m; C2 15/20, 1 contact sample, 18 hard-violation samples, minimu
 Scope note: the clean repository implements the final harness (reserve-exit v2 with the coverage fix). Results recorded
 under the earlier v4 harness (R1, R3: the 2 October preliminary comparison, sensitivity and margins) are shipped as
 data; rerunning them here gives the v2 numbers (R4 documents the v4 to v2 change).
+
+## Retrained chain (7 October 2026): T1-T8 from scratch with the original seeds
+
+`python -m go2nav.training.chain OUT --render-root ... --recordings-root ...` retrains every stage in order (resumable;
+`--seed-offset K` for other seed chains) and writes `OUT/models.yaml` for `go2nav.eval.mission --models` and the cohort
+option `models`. Every stage lands on its original record:
+
+| Stage | Original record | Retrained |
+|---|---|---|
+| T1 temporal predictor (seed 2026080901, epoch 21) | rgb_rollout final e1 about 0.324 | 0.326 |
+| T2 native adaptation | final L1 0.228 | 0.2279 |
+| T4 horizon predictor | final L1 about 0.240 | 0.2405 |
+| T7 C3 decoder, 3 seeds (eval_onpolicy 800 ms, mm) | 9.014 / **8.509** / 7.990 | 11.812 / **8.936** / 8.896 (same median seed, 2026093011) |
+| T7 C4 | 5.463 / 5.023 / 5.468 | identical (the C4 head is bit-identical) |
+| T8 stage-2 refit (C3 / C4) | 9.868 / 6.781 | 9.821 / 6.781 (C4 bit-identical) |
+| T6 C1 command model | shipped | equal to within 6e-13 (summation order) |
+
+So only C3 changes with the retrained chain. Its closed-loop check (`configs/experiments/retrained_chain.yaml`: C3
+with the shipped vs the retrained models, prelim 30-49, recovery off, v2 harness) is running from the frozen worktree
+at 2dfe1f6.
 
 ## Progress log (6 October 2026, evening)
 

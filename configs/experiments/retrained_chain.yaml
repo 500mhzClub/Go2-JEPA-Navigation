@@ -1,8 +1,8 @@
 name: 'Retrained chain: C3 with the shipped models vs the retrained T1-T7 chain'
 description: 'Validation of the retraining code (Andrew, 6 October: retrain the learned models, then rerun the maze bench
   to verify the same performance). C3 on preliminary-test mazes 30-49, recovery off, nominal dynamics, reserve-exit v2
-  harness, once with the shipped models and once with the retrained chain. Only C3 is run: C1 (T6) and C4 refit
-  bit-identically. The retrained set (outputs/training/retrained_models.yaml) lists the retrained T4, T5b and the T7
+  harness, once with the shipped models and once with the retrained chain. Only C3 is run: C4 refits bit-identically and C1
+  (T6) to within 1e-12. The retrained set (outputs/training/retrained_models.yaml) lists the retrained T4, T5b and the T7
   median-seed fit. Paths are relative to the repository root.'
 cohorts:
 - name: c3_shipped_v2
