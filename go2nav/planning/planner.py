@@ -248,6 +248,8 @@ class Planner:
             if repositioned is not result:
                 self.clearance_turn = None
             result = sel.recover_heading_against_hold(repositioned)
+            if result is not repositioned:
+                self.clearance_turn = None
         result = sel.stopping_projection(result, prediction, clearance, q, Q, pulse=self.pulse)
         if result['planned_stopping_projection']['changed']:
             self.clearance_turn = None

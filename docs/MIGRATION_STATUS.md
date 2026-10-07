@@ -59,12 +59,12 @@ to resume from.
 | `go2nav.mazes` | 10 | 38 | **done**: regeneration reproduces capability_v1 (90 layouts, 180 episodes), c3v2 and c3v3 sets byte for byte (`tests/unit/test_mazes.py`); stage-2 qualification waits for `go2nav.sim` patches |
 | `go2nav.sim` | 34 | 1,123 | **done**: scene, appearance, sensors, contacts, mission session, snapshots (C0), dynamics (uniform friction, stage-2 strips v3 with markers and the 0.40-m/s guard, recording stall stop); driven with a recorded C1 mission's commands it reproduces all 51,010 physics samples and 1,006 sensor frames exactly (`tools/porting/sim_check.py`) |
 | `go2nav.locomotion` | 1 | 15 | **done**: training env (Genesis Go2 example port with the primitive bank), PPO training CLI with lineage, run-time policy (bit-identical actions to the original wrapper), tracking benchmark; config equals the shipped cfgs.pkl (`tests/unit/test_locomotion.py`) |
-| `go2nav.perception` | 103 | 2,200 | **done**: visual odometry, floor registration, depth obstacles, routing map; every worker output identical on 7 recorded missions (C0–C4, C1A, C1R; `tools/porting/replay_check.py`) |
-| `go2nav.planning` | 64 | 1,880 | **done** (with the C2 reactive selector); degradation, margin and pessimistic-unknown variants: todo |
+| `go2nav.perception` | 103 | 2,200 | **done**: visual odometry (with its degraded modes: measured-increment bridge, cross-camera check, direct and chained corner-flow re-association, joint-camera chained fit, plane/image consensus), floor registration, depth obstacles, routing map; every worker output identical on 11 recorded missions (C0–C4, C1A, C1R, three sensitivity hooks; `tools/porting/replay_check.py`) |
+| `go2nav.planning` | 64 | 1,880 | **done** (with the C2 reactive selector, hold-relative heading recovery, and the forecast-degradation, calibrated-margin and pessimistic-unknown variants) |
 | `go2nav.models` | 21 | 583 | **done** (see the progress log) |
-| `go2nav.controllers` | 6 | 180 | **done** for C0 (oracle), C1, C1A, C1R, C2, C3, C4: replays of recorded missions reproduce every 50 Hz request and mission row (G2), and fresh closed-loop missions reproduce the original runs exactly (G4, below). Forecast degradation (sensitivity hook) ported, not yet verified; calibrated margin and pessimistic-unknown hooks: todo |
+| `go2nav.controllers` | 6 | 180 | **done** for C0 (oracle), C1, C1A, C1R, C2, C3, C4: replays of recorded missions reproduce every 50 Hz request and mission row (G2), and fresh closed-loop missions reproduce the original runs exactly (G4, below), including the sensitivity hooks (forecast degradation, calibrated margin, look-around unknown cells) |
 | `go2nav.data`, `go2nav.training` | 10 | 299 | todo |
-| `go2nav.eval` | 24 | 719 | mission runner and episode reader **done**: the reader reproduces 15 original evaluations exactly (every arm, contact stops, technical failures); cohorts and experiment reports: todo |
+| `go2nav.eval` | 24 | 719 | mission runner, episode reader and cohort runner **done**: the reader reproduces 15 original evaluations exactly (every arm, contact stops, technical failures); R4 cohort rerun under check; experiment reports: todo |
 | experiments and reports | 7 | 513 | todo |
 | unclassified | 70 | 917 | classify |
 
@@ -105,6 +105,11 @@ executed command, the full physics trace, frame times, mission rows and outcome 
 | C2 | prelim 31 | recovery on | 8,846 |
 | C3 | prelim 30 | recovery off | 5,501 |
 | C4 | prelim 45 | recovery on (full 480-s budget) | 24,000 |
+| C1, forecast turn scale 2.0 | prelim 31 | recovery off | 11,581 |
+| C1, look-around unknown cells p95 | prelim 30 | recovery off | 6,096 |
+| C1, calibrated margin p95 | prelim 31 | recovery off (full budget) | 24,000 |
+| C1, forecast noise 40 mm | prelim 30 | recovery off; the tracker's direct-flow fallback once (frame 2596); contact stop as the original | 16,116 |
+| C1R, marked strips 0.3 | stage-2 eval 38 | recovery off; pose lost at frame 1305 as the original, after every fallback pass | 6,525 |
 
 Scope note: the clean repository implements the final harness (reserve-exit v2 with the coverage fix). Results recorded
 under the earlier v4 harness (R1, R3: the 2 October preliminary comparison, sensitivity and margins) are shipped as

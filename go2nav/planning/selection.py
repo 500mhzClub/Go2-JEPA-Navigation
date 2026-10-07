@@ -440,7 +440,9 @@ def reposition_survey(selection):
 
 
 def recover_heading_against_hold(selection):
-    """When everything but hold is blocked and the preferred turn improves on holding (not ported beyond the test)."""
+    """When everything but hold is blocked: allow the preferred turn if it never comes closer to obstacles than holding
+    does, ends at least as far from them, and scores better than holding (without a scan, it must also reduce the
+    predicted heading error)."""
     preferred = selection.get('before_memory_filter_action')
     rows = selection.get('memory_forecast_candidates', [])
     if (selection.get('action') != 'hold' or preferred not in TURNS
@@ -450,7 +452,24 @@ def recover_heading_against_hold(selection):
     hold, turn = by_action['hold']['segment_clearances_m'], by_action[preferred]['segment_clearances_m']
     if (not _finite(hold) or not _finite(turn) or min(hold) <= .45 or min(turn) < min(hold) or turn[-1] < hold[-1]):
         return selection
-    raise UnportedBranch('hold-relative heading recovery')
+    values = utilities(selection)
+    if (not all(a in values and math.isfinite(values[a]) for a in ('hold', preferred))
+            or values[preferred] <= values['hold']):
+        return selection
+    if 'scan_utilities' not in selection:
+        candidate = next(r for r in selection['candidates'] if r['action'] == preferred)
+        start = candidate['predicted_heading_error_at_commit_start_rad']
+        end = candidate['predicted_heading_error_at_commit_end_rad']
+        if not math.isfinite(start) or not math.isfinite(end) or end >= start:
+            return selection
+    result = deepcopy(selection)
+    index = ACTIONS.index(preferred)
+    result['memory_forecast_candidates'][index].update(nominal_predicted_path_clear=True, reserve_recovery_path_clear=True,
+                                                       clearance_check_mode='HEADING_PROGRESS_WITHIN_HOLD_RELATIVE_MINIMUM')
+    result.update(memory_forecast_status='HOLD_RELATIVE_HEADING_RECOVERY',
+                  clearance_turn=dict(active=False, event='HOLD_RELATIVE_HEADING_RESELECTS_EACH_PLAN'),
+                  hold_relative_heading_recovery=dict(applied=True, selected_action=preferred))
+    return choose(result, index)
 
 
 # -- dispatch-time stopping and floor coverage -----------------------------------------------------------------------

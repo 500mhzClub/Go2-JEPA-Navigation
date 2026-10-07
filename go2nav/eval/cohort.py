@@ -1,7 +1,9 @@
 """Run a cohort of missions (an experiment's plan) in parallel, read each, and tabulate the results.
 
     python -m go2nav.eval.cohort configs/experiments/r4_reserve_exit_v2.yaml [--cohort NAME] [--workers 4] [--out outputs/cohorts]
+    python -m go2nav.eval.cohort configs/experiments/r4_reserve_exit_v2.yaml --retry ASSIGNMENT [...]
     python -m go2nav.eval.cohort --summarise outputs/cohorts/rexit2_ref [...]
+    python -m go2nav.eval.cohort --rebuild outputs/cohorts/rexit2_ref
 
 An experiment config lists cohorts; each cohort is a set of arms on registered maze episodes with shared options
 (recovery, dynamics, decoder fit). Every mission runs in its own process (`go2nav.eval.mission`), then the episode
@@ -11,6 +13,9 @@ clearance, hold rates and failure taxonomy, plus how often each recovery mechani
 registered pose jumped beyond the robot's physical limits, so recovery cannot hide weak prediction.
 
 Folder: <out>/<cohort>/{config.json, result.json, summary.md, logs/}, missions in <out>/<cohort>/runs/<assignment>.
+`--retry` reruns listed missions of a finished cohort (e.g. ones stopped by an infrastructure fault); each previous
+attempt is kept beside the new one as runs/<assignment>.attempt<N> (and its log), and the tables are rewritten.
+`--rebuild` re-reads every mission of a cohort folder and rewrites result.json and summary.md.
 """
 import argparse
 from collections import Counter, defaultdict
@@ -118,14 +123,25 @@ def mission_row(run, assignment, arm, code=None):
 
 # -- running ----------------------------------------------------------------------------------------------------------
 
-def run_cohort(cohort, out, *, workers=4, c3_lanes=2):
+def run_cohort(cohort, out, *, workers=4, c3_lanes=2, retry=None):
     root = Path(out)/cohort['name']
-    (root/'logs').mkdir(parents=True, exist_ok=False)
-    (root/'runs').mkdir()
     plan = jobs(cohort)
-    (root/'config.json').write_text(json.dumps(dict(cohort=cohort, plan=plan), indent=1)+'\n')
-    rows, running, lock = {}, {}, threading.Lock()
-    pending = list(plan)
+    if retry is None:
+        (root/'logs').mkdir(parents=True, exist_ok=False)
+        (root/'runs').mkdir()
+        (root/'config.json').write_text(json.dumps(dict(cohort=cohort, plan=plan), indent=1)+'\n')
+        rows, pending = {}, list(plan)
+    else:
+        rows = {r['assignment']: r for r in json.loads((root/'result.json').read_text())['rows']}
+        pending = [j for j in plan if j[4] in retry]
+        for assignment in (j[4] for j in pending):
+            n = 1
+            while (root/'runs'/f'{assignment}.attempt{n}').exists():
+                n += 1
+            for path in (root/'runs'/assignment, root/'logs'/f'{assignment}.log'):
+                if path.exists():
+                    path.rename(path.with_name(f'{assignment}.attempt{n}{path.suffix}'))
+    running, lock = {}, threading.Lock()
 
     def attempt(arm, set_name, maze, episode, assignment):
         try:
@@ -164,6 +180,16 @@ def run_cohort(cohort, out, *, workers=4, c3_lanes=2):
     (root/'result.json').write_text(json.dumps(dict(cohort=cohort['name'], rows=ordered), indent=1)+'\n')
     (root/'summary.md').write_text(tables(ordered)+'\n')
     return ordered
+
+
+def rebuild(root):
+    """Re-read every mission of a cohort folder; rewrite result.json and summary.md (exit codes are not kept)."""
+    root = Path(root)
+    config = json.loads((root/'config.json').read_text())
+    rows = [mission_row(root/'runs'/assignment, assignment, arm) for arm, _, _, _, assignment in config['plan']]
+    (root/'result.json').write_text(json.dumps(dict(cohort=config['cohort']['name'], rows=rows), indent=1)+'\n')
+    (root/'summary.md').write_text(tables(rows)+'\n')
+    return rows
 
 
 def available_memory():
@@ -210,8 +236,13 @@ def main():
     p.add_argument('--out', type=Path, default=Path('outputs/cohorts'))
     p.add_argument('--workers', type=int, default=4)
     p.add_argument('--c3-lanes', type=int, default=2)
+    p.add_argument('--retry', nargs='+', metavar='ASSIGNMENT', help='rerun these missions of finished cohorts')
     p.add_argument('--summarise', nargs='+', type=Path, help='print the tables of finished cohort folders')
+    p.add_argument('--rebuild', type=Path, help='re-read a cohort folder and rewrite its result and tables')
     a = p.parse_args()
+    if a.rebuild:
+        print(tables(rebuild(a.rebuild)))
+        return
     if a.summarise:
         rows = [r for folder in a.summarise for r in json.loads((folder/'result.json').read_text())['rows']]
         print(tables(rows))
@@ -220,7 +251,9 @@ def main():
     for cohort in experiment['cohorts']:
         if a.cohort and cohort['name'] not in a.cohort:
             continue
-        run_cohort(cohort, a.out, workers=a.workers, c3_lanes=a.c3_lanes)
+        if a.retry and not any(j[4] in a.retry for j in jobs(cohort)):
+            continue
+        run_cohort(cohort, a.out, workers=a.workers, c3_lanes=a.c3_lanes, retry=a.retry)
 
 
 if __name__ == '__main__':
