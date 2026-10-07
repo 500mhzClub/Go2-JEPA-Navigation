@@ -1,8 +1,9 @@
 """Generate a corpus's bulk-rollout dataset, resumably: rollouts, render plans and labels (CPU), then camera frames
 (GPU, in the render environment).
 
-    python -m go2nav.corpus.datagen rollout CORPUS OUT [--split S ...] [--family F ...] [--chunk 40] [--workers 16]
-                                    [--cores-per-rollout 2] [--post-workers 8] [--seed 7] [--n-envs 48] [--n-blocks 200]
+    python -m go2nav.corpus.datagen rollout CORPUS OUT [--split S ...] [--family F ...] [--scenes LIST] [--chunk 40]
+                                    [--workers 16] [--cores-per-rollout 2] [--post-workers 8] [--seed 7] [--n-envs 48]
+                                    [--n-blocks 200]
     python -m go2nav.corpus.datagen render CORPUS OUT --render-python PYTHON [--workers 8] [--egl-device 1]
                                     [--resolution 224] [--textures] [--max-frames N] [--frames-list FILE]
 
@@ -11,7 +12,9 @@ rollout process (`go2nav.corpus.bulk`) pinned to its own --cores-per-rollout cor
 at about two cores); its scene k gets seed --seed + k. As a chunk finishes, each of its scenes gets a render plan
 (`go2nav.corpus.render_plan`) and labels (`go2nav.corpus.labels`) in a pool of --post-workers processes. The render
 stage replays every planned scene with `go2nav.corpus.render` under PYTHON (the Genesis 0.3.14 render environment)
-on EGL device --egl-device. The May corpus used the defaults, with --textures for the render. --frames-list renders
+on EGL device --egl-device. The May corpus used the defaults, with --textures for the render. --scenes rolls out only
+the listed scenes (scene ids, or <scene>/rgb/<frame> lines as in data/training/*/frames.txt), each alone but with the
+seed its chunk gives it, so the result equals that scene of a full run. --frames-list renders
 only the listed frames (lines <scene>/rgb/<frame file>, as in data/training/*/frames.txt) of the listed scenes: the
 T1 training frames are 18,101 of the corpus's 69.6 million.
 
@@ -54,6 +57,7 @@ class Chunk:
     family: str
     offset: int
     size: int
+    first_seed_index: int = 0  # the position of its first scene within its full chunk (scenes run alone)
 
     def directory(self, out: Path) -> Path:
         return out/'rollout'/self.split/self.family/f'chunk_{self.offset:04d}'
@@ -62,20 +66,28 @@ class Chunk:
         return f'{self.split}/{self.family}@{self.offset}'
 
 
-def chunks(corpus: Path, size: int, splits=None, families=None) -> list[Chunk]:
+def chunks(corpus: Path, size: int, splits=None, families=None, scenes=None) -> list[Chunk]:
     groups = {}
     for scene in find_scene_dirs(corpus):
         family, split = scene.parent.name, scene.parent.parent.name
         if (splits is None or split in splits) and (families is None or family in families):
-            groups[split, family] = groups.get((split, family), 0)+1
-    return [Chunk(split, family, offset, min(size, count-offset))
-            for (split, family), count in sorted(groups.items()) for offset in range(0, count, size)]
+            groups.setdefault((split, family), []).append(scene.name)
+    if scenes is not None:
+        return [Chunk(split, family, index, 1, index % size) for (split, family), names in sorted(groups.items())
+                for index, name in enumerate(sorted(names)) if name in scenes]
+    return [Chunk(split, family, offset, min(size, len(names)-offset))
+            for (split, family), names in sorted(groups.items()) for offset in range(0, len(names), size)]
 
 
-def rollout(corpus, out, *, splits=None, families=None, chunk_size=40, workers=16, cores_per_rollout=2,
+def listed_scenes(path):
+    """Scene ids from a list of scene ids or of <scene>/rgb/<frame> paths."""
+    return {line.split('/')[0] for line in Path(path).read_text().split()}
+
+
+def rollout(corpus, out, *, splits=None, families=None, scenes=None, chunk_size=40, workers=16, cores_per_rollout=2,
             post_workers=8, seed=7, n_envs=48, n_blocks=200):
     corpus, out = Path(corpus).resolve(), Path(out).resolve()
-    jobs = chunks(corpus, chunk_size, splits, families)
+    jobs = chunks(corpus, chunk_size, splits, families, listed_scenes(scenes) if scenes else None)
     print(f'{len(jobs)} chunks from {corpus}', flush=True)
     available = sorted(os.sched_getaffinity(0))
     core_sets = queue.Queue()
@@ -117,7 +129,8 @@ def _rollout_chunk(chunk: Chunk, corpus: Path, out: Path, core_sets: queue.Queue
         try:
             command = ['taskset', '-c', ','.join(map(str, cores)), sys.executable, '-m', 'go2nav.corpus.bulk',
                        str(corpus), str(raw), '--split', chunk.split, '--family', chunk.family,
-                       '--scene-offset', str(chunk.offset), '--scene-limit', str(chunk.size), '--seed', str(seed),
+                       '--scene-offset', str(chunk.offset), '--scene-limit', str(chunk.size),
+                       '--seed', str(seed+chunk.first_seed_index),
                        '--n-envs', str(n_envs), '--n-blocks', str(n_blocks)]
             _run(command, raw.parent/'rollout.log')
         finally:
@@ -226,6 +239,7 @@ def main():
     r.add_argument('out', type=Path)
     r.add_argument('--split', action='append', dest='splits')
     r.add_argument('--family', action='append', dest='families')
+    r.add_argument('--scenes', type=Path, help='roll out only these scenes (see the module docstring)')
     r.add_argument('--chunk', type=int, default=40)
     r.add_argument('--workers', type=int, default=16)
     r.add_argument('--cores-per-rollout', type=int, default=2)
@@ -245,7 +259,7 @@ def main():
     g.add_argument('--frames-list', type=Path)
     a = p.parse_args()
     if a.stage == 'rollout':
-        failures = rollout(a.corpus, a.out, splits=a.splits, families=a.families, chunk_size=a.chunk,
+        failures = rollout(a.corpus, a.out, splits=a.splits, families=a.families, scenes=a.scenes, chunk_size=a.chunk,
                            workers=a.workers, cores_per_rollout=a.cores_per_rollout, post_workers=a.post_workers,
                            seed=a.seed, n_envs=a.n_envs, n_blocks=a.n_blocks)
     else:
