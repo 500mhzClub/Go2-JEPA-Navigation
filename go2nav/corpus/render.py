@@ -2,11 +2,14 @@
 
     PYTHONPATH=. EGL_DEVICE_ID=1 PYOPENGL_PLATFORM=egl RENDER_VENV/bin/python -m go2nav.corpus.render \
         --plan PLAN.json --scene-corpus CORPUS --out OUT [--resolution 224] [--textures] [--max-frames N]
+        [--frames LIST]
 
 Replays every recorded camera pose in the plan's frames.jsonl (`go2nav.corpus.render_plan`) over the scene's static
 geometry, one environment at a time, and writes OUT/rgb/frame_<frame>_env_<env>.png plus a summary. Surfaces take
 the manifest's material colours and the landmark palette; --textures applies the scene's deterministic CC0 textures
-(`go2nav.corpus.textures`), as the May render did. The rollouts ran on Genesis 0.4.6; the render runs in a separate
+(`go2nav.corpus.textures`), as the May render did. --frames renders only the frame files named in LIST (one file
+name per line, e.g. frame_000246_env_06.png); each frame is rendered independently, so a subset matches the full
+render. The rollouts ran on Genesis 0.4.6; the render runs in a separate
 Genesis 0.3.14 environment, and EGL_DEVICE_ID selects the GPU that renders (device 1 on the development machine).
 """
 
@@ -188,6 +191,7 @@ def main() -> int:
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--resolution", type=int, default=224)
     ap.add_argument("--max-frames", type=int, default=0)
+    ap.add_argument("--frames", type=Path, help="render only the frame files named in this list")
     ap.add_argument(
         "--textures",
         action="store_true",
@@ -223,12 +227,16 @@ def main() -> int:
 
     n = 0
     t0 = time.time()
+    wanted = set(args.frames.read_text().split()) if args.frames else None
     with frames_jsonl.open() as fh:
         for line in fh:
             line = line.strip()
             if not line:
                 continue
             fr = json.loads(line)
+            name = f"frame_{int(fr['frame_index']):06d}_env_{int(fr.get('env_index', 0)):02d}.png"
+            if wanted is not None and name not in wanted:
+                continue
             cp = fr.get("camera_pose_world") or {}
             pos = tuple(cp.get("position", (0.0, 0.0, 1.0)))
             lookat = tuple(cp.get("lookat", (1.0, 0.0, 1.0)))
@@ -237,9 +245,7 @@ def main() -> int:
             out = cam.render(rgb=True, depth=False)
             rgb = out[0] if isinstance(out, (tuple, list)) else out
             arr = _to_hwc_uint8(rgb)
-            ei = int(fr.get("env_index", 0))
-            fi = int(fr.get("frame_index", n))
-            Image.fromarray(arr).save(rgb_dir / f"frame_{fi:06d}_env_{ei:02d}.png")
+            Image.fromarray(arr).save(rgb_dir / name)
             n += 1
             if args.max_frames and n >= args.max_frames:
                 break

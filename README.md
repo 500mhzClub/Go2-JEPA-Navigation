@@ -34,6 +34,7 @@ planning, safety vetoes, and an optional recovery layer. Only the motion forecas
 | `go2nav/planning` | candidate primitives, route planning, the reserve-exit harness, safety vetoes, recovery |
 | `go2nav/models` | V-JEPA encoder wrapper, the horizon-conditioned predictor, readouts, the C3 decoder, C4, C1 |
 | `go2nav/controllers` | C0–C4 and the development variants C1A (adaptive) and C1R (refit) |
+| `go2nav/corpus` | the May bulk-rollout corpus behind T1: scene generation, resumable bulk rollouts with the data collectors, render plans, labels, the render |
 | `go2nav/data` | data collection, verified deterministic replay, training contexts, feature caches |
 | `go2nav/training` | every learned component, retrainable from scratch with a seed and a lineage manifest |
 | `go2nav/eval` | mission and cohort runners, episode evaluation, scoring |

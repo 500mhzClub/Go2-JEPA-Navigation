@@ -3,8 +3,8 @@
     python -m go2nav.data.samples DATASET --recordings-root ROOT [--recordings-root ROOT ...] --out FILE.jsonl
     python -m go2nav.data.samples all --recordings-root ROOT [...] --out data/training
 
-`all` writes every file of data/training (except T1's, which come from the May corpus) and each folder's frames.txt
-(the sorted frames its files use); see LAYOUT.
+`all` writes every file of data/training (except T1's, which come from the May corpus: `go2nav.data.t1_rows`) and
+each folder's frames.txt (the sorted frames its files use); see LAYOUT.
 
 A recordings root holds one folder per collection, named as in FOLDERS, with one folder per trial (as written by
 `go2nav.data.corridor` and `go2nav.data.collect`, or the original recordings). A trial folder needs
