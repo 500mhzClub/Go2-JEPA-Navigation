@@ -71,11 +71,12 @@ class NavigationController:
     """See the module docstring."""
 
     def __init__(self, forecaster, *, goal_xy, home_xy, arrival_radius_m=.02, navigation_frames=4800, recovery=False,
-                 margin_m=0., unknown=None):
+                 margin_m=0., unknown=None, harness='reserve_exit_v2'):
         self.forecaster = forecaster
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
         self.routing_map, self.obstacles = RoutingMap(), DepthObstacleObserver()
-        self.planner = Planner(arrival_radius_m=arrival_radius_m, recovery=recovery, margin_m=margin_m, unknown=unknown)
+        self.planner = Planner(arrival_radius_m=arrival_radius_m, recovery=recovery, margin_m=margin_m, unknown=unknown,
+                               harness=harness)
         self.mission = RoundTripMission(goal_xy, home_xy, arrival_radius_m=arrival_radius_m, navigation_frames=navigation_frames)
         self.ledger = CommitmentLedger()
         self.plans, self.rejected, self.served = [], {}, set()

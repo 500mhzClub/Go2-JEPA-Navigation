@@ -18,6 +18,9 @@ One plan is made every fourth frame (2.5 Hz), in three steps:
 `margin_m` and `unknown` (`planning.caution`) make the forecast clearance checks cautious (calibrated-margin
 experiment).
 
+`harness` is the navigation harness version: 'reserve_exit_v2' (the final one: reserve exit, turn exit and C2's
+dispatched-path check) or 'v4' (the earlier one, without them; `selection.clearance_check`, `reactive.select_v4`).
+
 `recovery=True` adds the development recovery fixes: stall watchdog, latch timeout, deadlock escape, terminal-spin
 guard (these were the "recovery on" condition of the experiments). For C2 they are the terminal-spin break and the
 reactive escape (`_reactive_escape`; its dispatch side is `NavigationController._escape_dispatch`).
@@ -39,6 +42,7 @@ LATCH_STALL_DECISIONS, LATCH_MAX_SWITCHES, LATCH_COOLDOWN = 10, 3, 15
 ESCAPE_AFTER = 5
 TERMINAL_SPIN_TURNS = 15
 REACTIVE_ESCAPE_FLOOR_M, REACTIVE_ESCAPE_GAIN_M, REACTIVE_ESCAPE_S, ESCAPE_SLACK_M = .40, .005, .4, .003
+HARNESSES = ('reserve_exit_v2', 'v4')
 
 
 def wrap(value):
@@ -48,8 +52,11 @@ def wrap(value):
 class Planner:
     """Planning state and the route, objective and selection steps (see the module docstring)."""
 
-    def __init__(self, *, arrival_radius_m, recovery=False, margin_m=0., unknown=None):
-        self.arrival_radius_m, self.recovery = arrival_radius_m, recovery
+    def __init__(self, *, arrival_radius_m, recovery=False, margin_m=0., unknown=None, harness='reserve_exit_v2'):
+        if harness not in HARNESSES:
+            raise ValueError(f'unknown harness {harness!r}')
+        self.arrival_radius_m, self.recovery, self.harness = arrival_radius_m, recovery, harness
+        self.exits = harness == 'reserve_exit_v2'
         self.margin_m, self.unknown = margin_m, unknown  # cautious clearance (planning.caution)
         self.route_status = None
         self.panorama = routing.InitialPanorama()
@@ -231,8 +238,8 @@ class Planner:
             self._terminal_turn_guard(result, goal_body)
         if scan_error is not None:
             result = sel.scan_override(result, prediction, scan_error)
-        result = sel.clearance_check(result, prediction, self._cautious(clearance, snapshot, q), q, Q)
-        result, self.clearance_turn = sel.recover_turn(result, heading, generation, self.clearance_turn)
+        result = sel.clearance_check(result, prediction, self._cautious(clearance, snapshot, q), q, Q, exits=self.exits)
+        result, self.clearance_turn = sel.recover_turn(result, heading, generation, self.clearance_turn, exits=self.exits)
         if terminal:
             result = sel.terminal_progress(result)
             result = sel.predicted_arrival_hold(result, prediction, self.arrival_radius_m)
@@ -271,8 +278,11 @@ class Planner:
         B = np.asarray(snapshot.map_from_initial)
         q, Q = B@position, B@rotation
         clearance = grid.fine_clearance(snapshot.fine_occupied)
-        rows = reactive.path_rows(prefix, self.pulse, self._cautious(clearance, snapshot, q), q, Q)
-        result = reactive.select(goal_body, scan_error, clearance.minimum(q[:2], q[:2]), rows)
+        if self.harness == 'v4':
+            result = reactive.select_v4(goal_body, scan_error, clearance.minimum(q[:2], q[:2]))
+        else:
+            rows = reactive.path_rows(prefix, self.pulse, self._cautious(clearance, snapshot, q), q, Q)
+            result = reactive.select(goal_body, scan_error, clearance.minimum(q[:2], q[:2]), rows)
         if self.pulse:
             result = reactive.heading_first_terminal(result, self.arrival_radius_m)
         if self.recovery:

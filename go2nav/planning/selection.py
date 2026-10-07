@@ -8,7 +8,9 @@ min(0.35 m, waypoint distance). Contact is not predicted (its score is disabled)
 measured against the stored 1-cm obstacle cells. A path is clear if it keeps the 0.45-m footprint plus a 3-cm
 reserve for translations; one that starts inside the reserve may still pass if it leaves it (reserve recovery), and
 a blocked translation passes if its clearance never decreases and ends higher (reserve exit). The best-scoring clear
-action wins, else hold.
+action wins, else hold. In-place turns are re-checked with their own reserve (`reserve_turns`), and a blocked turn
+passes if its clearance does not decrease (turn exit). The two exits are the reserve-exit v2 harness's; the earlier
+v4 harness had neither (`exits=False`).
 
 **Recovery and terminal stages** then refine the choice in a fixed order (`go2nav.planning.planner.Planner.select`):
 a latched turn toward a blocked waypoint direction, the terminal approach near the goal, hold-relative recoveries,
@@ -153,8 +155,9 @@ def forecast_path(prediction, i, position, rotation):
     return np.asarray(position)[:2]+np.vstack((np.zeros(2), prediction[i, :, :2]))@np.asarray(rotation)[:2, :2].T
 
 
-def clearance_check(selection, prediction, clearance, position, rotation):
-    """Keep the choice clear of stored obstacles (see the module docstring), with reserve recovery and exit."""
+def clearance_check(selection, prediction, clearance, position, rotation, exits=True):
+    """Keep the choice clear of stored obstacles (see the module docstring), with reserve recovery and (`exits`) the
+    reserve exit."""
     rows = []
     for i, action in enumerate(ACTIONS):
         points = forecast_path(prediction, i, position, rotation)
@@ -175,24 +178,26 @@ def clearance_check(selection, prediction, clearance, position, rotation):
                          segment_clearances_m=distances,
                          clearance_check_mode='FULL_RESERVE' if full else 'RESERVE_RECOVERY' if recovery else 'BLOCKED'))
     result = selection | dict(before_memory_filter_action=selection['action'], memory_forecast_candidates=rows)
-    exits = []
-    for row in rows:
+    passed = []
+    for row in rows if exits else ():
         passes = bool(row['action'] in TRANSLATIONS and not row['nominal_predicted_path_clear']
                       and exit_clear(row['segment_clearances_m']))
         row['reserve_exit_path_clear'] = passes
         if passes:
             row.update(nominal_predicted_path_clear=True, clearance_check_mode='RESERVE_EXIT')
-            exits.append(row['action'])
+            passed.append(row['action'])
     index, eligible = best_clear(result)
     result.update(action=ACTIONS[index], action_index=index, requested_command=command(ACTIONS[index]),
                   memory_forecast_status='CLEAR_CANDIDATE_SELECTED' if eligible else 'NO_CLEAR_CANDIDATE_ZERO_REQUESTED',
-                  selected_reserve_recovery=bool(rows[index]['reserve_recovery_path_clear']),
-                  reserve_exit_candidates=exits, selected_reserve_exit=bool(rows[index]['reserve_exit_path_clear']))
+                  selected_reserve_recovery=bool(rows[index]['reserve_recovery_path_clear']))
+    if exits:
+        result.update(reserve_exit_candidates=passed, selected_reserve_exit=bool(rows[index]['reserve_exit_path_clear']))
     return result
 
 
-def reserve_turns(selection):
-    """Re-check in-place turns with a 3-cm reserve (stepwise recovery allowed), then the turn exit; reselect."""
+def reserve_turns(selection, exits=True):
+    """Re-check in-place turns with a 3-cm reserve (stepwise recovery allowed), then (`exits`) the turn exit;
+    reselect."""
     result = deepcopy(selection)
     for row in result['memory_forecast_candidates']:
         if row['action'] not in TURNS:
@@ -209,26 +214,28 @@ def reserve_turns(selection):
     index, eligible = best_clear(result)
     result['memory_forecast_status'] = 'CLEAR_CANDIDATE_SELECTED' if eligible else 'NO_CLEAR_CANDIDATE_ZERO_REQUESTED'
     choose(result, index)
-    exits = []
+    if not exits:
+        return result
+    passed = []
     for row in result['memory_forecast_candidates']:
         passes = bool(row['action'] in TURNS and not row['nominal_predicted_path_clear']
                       and turn_hold_clear(row['segment_clearances_m']))
         row['turn_exit_path_clear'] = passes
         if passes:
             row.update(nominal_predicted_path_clear=True, clearance_check_mode='TURN_EXIT')
-            exits.append(row['action'])
+            passed.append(row['action'])
     index, eligible = best_clear(result)
     result.update(memory_forecast_status='CLEAR_CANDIDATE_SELECTED' if eligible else 'NO_CLEAR_CANDIDATE_ZERO_REQUESTED',
-                  turn_exit_candidates=exits)
+                  turn_exit_candidates=passed)
     choose(result, index)
     result['selected_turn_exit'] = bool(result['memory_forecast_candidates'][index].get('turn_exit_path_clear'))
     return result
 
 
-def recover_turn(selection, heading, generation, latch):
+def recover_turn(selection, heading, generation, latch, exits=True):
     """Latch a turn the long way round when the preferred turn toward the waypoint is blocked but the other is clear;
     follow the latch until the heading is reached. Returns (selection, latch)."""
-    result = reserve_turns(selection)
+    result = reserve_turns(selection, exits)
     if latch is not None and latch['mission_generation'] != generation:
         latch = None
     if latch is not None and 'scan_utilities' not in result:

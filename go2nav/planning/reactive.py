@@ -13,6 +13,9 @@ integration at 10 ms). No eligible action: hold. No forecast is used anywhere.
 In the terminal approach (translation pulses), the heading-first rule replaces the choice while the robot's current
 position is clear of the 0.45-m footprint: hold within the arrival radius, else forward if the waypoint is within
 0.1 rad of straight ahead, else turn toward it, provided that action is eligible.
+
+Under the earlier v4 harness (`select_v4`) there is no path check: every action is ineligible (hold) unless the
+current stored clearance exceeds the 0.45-m footprint, and the feedback command is zero then.
 """
 from copy import deepcopy
 import math
@@ -80,6 +83,31 @@ def select(goal_body, scan_error, current_clearance_m, rows):
                 desired_instantaneous_command=desired, current_stored_clearance_m=current_clearance_m,
                 current_nominal_disk_clear=current_clearance_m is None or current_clearance_m > FOOTPRINT_M+1e-12,
                 path_rows=rows, rule='nearest_primitive_among_nominal_path_clear')
+
+
+def select_v4(goal_body, scan_error, current_clearance_m):
+    """The v4 harness's rule: the nearest allowed primitive to the feedback command, all held inside the footprint."""
+    goal = np.asarray(goal_body, float)
+    clear = current_clearance_m is None or current_clearance_m > FOOTPRINT_M+1e-12
+    translation = scan_error is None and np.linalg.norm(goal) > 1e-8
+    error = math.atan2(goal[1], goal[0]) if scan_error is None else scan_error
+    desired = [0., 0., 0.]
+    if clear and (translation or scan_error is not None):
+        desired[0] = MAX_FORWARD*max(0., math.cos(error)) if translation else 0.
+        desired[2] = float(np.clip(HEADING_GAIN*error, -MAX_YAW, MAX_YAW))
+    candidates = []
+    for action in ACTIONS:
+        c = command(action)
+        candidates.append(dict(action=action, requested_command=list(c), eligible=bool(clear and (not any(c[:2]) or translation)),
+                               normalized_command_distance_squared=float(((c[0]-desired[0])/MAX_FORWARD)**2
+                                                                         + ((c[2]-desired[2])/MAX_YAW)**2)))
+    eligible = [i for i, row in enumerate(candidates) if row['eligible']]
+    index = (min(eligible, key=lambda i: candidates[i]['normalized_command_distance_squared'])
+             if eligible else ACTIONS.index('hold'))
+    return dict(action=ACTIONS[index], action_index=index, requested_command=list(command(ACTIONS[index])),
+                candidates=candidates, waypoint_body_xy_m=goal.tolist(), scan_heading_error_rad=scan_error,
+                desired_instantaneous_command=desired, current_stored_clearance_m=current_clearance_m,
+                current_nominal_disk_clear=clear, rule='nearest_six_action_primitive_to_current_waypoint_feedback')
 
 
 def heading_first_terminal(selection, arrival_radius_m):
