@@ -3,7 +3,8 @@
 Timing: physics at 500 Hz, the locomotion policy at 50 Hz (10 physics steps each), frames at 10 Hz (every fifth
 policy step). The session first **settles** for 1.5 s under a zero command (750 physics steps), then every
 `step(requested)` executes one policy step and `frame()` renders the next sensor frame; frame k is at
-1.5 s + k·100 ms.
+1.5 s + k·100 ms. Optional dynamics perturbations (`go2nav.sim.dynamics`) change friction, mark the floor, raise the
+speed guard on strip missions, or stop a recording mission that has stalled.
 
 `step` applies the robot's safety limits, with the rate limit taken from the command executed at the start of the
 current 100-ms window (so requests inside a window do not each get a fresh rate budget), then runs the policy and
@@ -18,7 +19,7 @@ import numpy as np
 from go2nav.locomotion.policy import LocomotionPolicy
 from go2nav.locomotion.safety import apply_limits
 from go2nav.perception.cameras import AUXILIARY, PRIMARY
-from go2nav.sim import contacts, scene as maze_scene, sensors
+from go2nav.sim import contacts, dynamics as perturbations, scene as maze_scene, sensors
 
 SETTLE_TICKS = 15
 FRAME_PERIOD_NS, FIRST_FRAME_NS = 100_000_000, 1_500_000_000
@@ -38,9 +39,15 @@ class MissionSession:
     """The simulator side of one mission (see the module docstring). `samples` is the physics trace (one row per
     physics step); `contact_packets` and `contact_events` are the evaluator's contact records."""
 
-    def __init__(self, spec, output_dir, *, policy_checkpoint, noise_sigma_m=NOISE_SIGMA_M):
-        self.spec = spec
-        self.world = maze_scene.build(spec, output_dir)
+    def __init__(self, spec, output_dir, *, policy_checkpoint, noise_sigma_m=NOISE_SIGMA_M, dynamics=None):
+        self.spec, self.output_dir, self.dynamics = spec, output_dir, dynamics
+        self.world = maze_scene.build(spec, output_dir, dynamics)
+        strips = dynamics is not None and dynamics.strips is not None
+        self.friction_field = (perturbations.FrictionField(self.world.robot, self.world.floor, dynamics.strips, dynamics.strip_mu)
+                               if strips else None)
+        self.guard_speed_m_s = perturbations.STRIP_SPEED_LIMIT_M_S if strips else contacts.GUARD_SPEED_M_S
+        self.stall = (perturbations.StallMonitor(dynamics.stall_stop_s)
+                      if dynamics is not None and dynamics.stall_stop_s else None)
         self.policy = LocomotionPolicy(policy_checkpoint, device='cpu')
         self.policy.check_robot(self.world.robot)
         self.noise_layout, self.noise_sigma_m = spec['layout_index'] % 4, noise_sigma_m
@@ -57,7 +64,15 @@ class MissionSession:
         self.history = sensors.History(sensors.BODY_CHANNELS)
         self.fast_history = sensors.History((sensors.FAST_GYRO,))
         self.guard = None
-        self.recent_policy_packets = []
+        self._solver_fields = None
+
+    @property
+    def solver_fields(self):
+        """The mutable solver fields, for snapshots (`go2nav.sim.snapshot`)."""
+        if self._solver_fields is None:
+            from go2nav.sim.snapshot import solver_fields
+            self._solver_fields = solver_fields(self.world.scene)
+        return self._solver_fields
 
     # -- robot state ------------------------------------------------------------------------------------------------
 
@@ -105,6 +120,8 @@ class MissionSession:
 
     def step(self, requested):
         """Execute one policy step for a requested command; returns the command actually executed."""
+        if self.friction_field is not None:
+            self.friction_field.update()
         requested = np.asarray(requested, dtype=np.float32)
         window = self.sim_ns//FRAME_PERIOD_NS
         if self.window != window:
@@ -153,8 +170,10 @@ class MissionSession:
             nonfoot = contacts.nonfoot_ground_contacts(packet, self.guard)
             speed = float(np.linalg.norm(row['base_twist_world'][:3]))
             inside = bool((np.abs(row['base_pose_world'][:2]) < contacts.GUARD_HALF_EXTENT_M).all())
-            if nonfoot or speed > contacts.GUARD_SPEED_M_S or not inside:
+            if nonfoot or speed > self.guard_speed_m_s or not inside:
                 raise PhysicalStop('CONTEXT_NATIVE_CONTACT_SPEED_OR_DOMAIN_STOP')
+        if self.stall is not None and self.stall.update(float(timestamp_s), row['base_pose_world'][:2]):
+            raise PhysicalStop(perturbations.STALL_REASON)
 
     def _sense(self, row):
         ns = int(round(float(row['timestamp_s'])*1e9))

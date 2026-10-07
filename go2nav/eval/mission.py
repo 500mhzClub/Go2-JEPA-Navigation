@@ -10,8 +10,11 @@ when the robot stops physically (contact, fall or guard; `PhysicalStop`), which 
 Settings that the original fixed for reproducibility are fixed here too: Genesis on CPU seeded with the episode's
 simulation seed, 4 torch threads, single-threaded OpenCV.
 
+C0 (the simulator oracle) also writes oracle_prefix_check.json; a failed check is recorded as the run's error.
+
 The run folder: config.json, specification.json, episode.json, public_task_cues.json, requests.json,
-acquisitions.json, planning.json, mission.json, poses.json, stage_timings.json, result.json (and failure.json); native/
+acquisitions.json, planning.json, mission.json, poses.json, stage_timings.json, progress.jsonl, result.json (and
+failure.json); native/
 holds the physics trace, the contact records and the visual meshes.
 """
 import argparse
@@ -59,8 +62,30 @@ def episode_spec(set_name, maze, episode_index):
     return spec, episode
 
 
-def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fit=None):
-    """Run one mission into the folder `out` (created; must not exist). Returns the result record."""
+def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=None, strips=None, stall_stop_s=None):
+    """The `Dynamics` of a mission and its record. `strips` is (mu, marked); strip placement is seeded by the set's
+    original name (the role, or `prelim_test`), the maze and the episode."""
+    from go2nav.sim.dynamics import Dynamics, place_strips, placement_seed
+    if friction is None and strips is None and not stall_stop_s:
+        return None, None
+    dynamics, record = Dynamics(friction_mu=friction, stall_stop_s=stall_stop_s), {}
+    if friction is not None:
+        record.update(perturbation='uniform_floor_friction', mu=friction)
+    if strips is not None:
+        mu, marked = strips
+        seed = placement_seed('prelim_test' if set_name == 'prelim_test_v1' else episode['role'], maze, episode_index)
+        placement = place_strips(spec, episode, seed)
+        dynamics.strips, dynamics.strip_mu, dynamics.marked = [s['rect'] for s in placement['strips']], mu, marked
+        record.update(perturbation='low_friction_strips', mu=mu, marked=marked, placement=placement)
+    if stall_stop_s:
+        record.update(recording_stall_stop_s=stall_stop_s)
+    return dynamics, record
+
+
+def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fit=None, friction=None, strips=None,
+        stall_stop_s=None):
+    """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
+    perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions)."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -70,9 +95,11 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     out = Path(out)
     out.mkdir(parents=True)
     spec, episode = episode_spec(set_name, maze, episode_index)
+    dynamics, dynamics_record = mission_dynamics(set_name, maze, episode_index, spec, episode, friction=friction,
+                                                 strips=strips, stall_stop_s=stall_stop_s)
     save(out/'config.json', dict(arm=arm, set=set_name, maze=maze, episode=episode_index, recovery=recovery,
                                  decoder_fit=str(decoder_fit) if decoder_fit else None, step_budget=STEP_BUDGET,
-                                 physics_backend='cpu'))
+                                 physics_backend='cpu', dynamics=dynamics_record))
     save(out/'specification.json', spec)
     save(out/'episode.json', episode)
     cv2.setNumThreads(1)
@@ -82,10 +109,14 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     controller = session = error = None
     started = time.monotonic()
     try:
-        forecaster = arms.forecaster(arm, decoder_fit=decoder_fit)
+        forecaster = None if arm == 'C0' else arms.forecaster(arm, decoder_fit=decoder_fit)
         scene.init_genesis(spec['procedural_seed'])
-        session = MissionSession(spec, out/'native', policy_checkpoint=artifacts.path('go2_locomotion_policy'))
+        session = MissionSession(spec, out/'native', policy_checkpoint=artifacts.path('go2_locomotion_policy'),
+                                 dynamics=dynamics)
         cues = settled_task_cues(episode, session.settle())
+        if arm == 'C0':
+            from go2nav.controllers.oracle import OracleForecaster
+            forecaster = OracleForecaster(session)
         save(out/'public_task_cues.json', cues)
         controller = NavigationController(forecaster, goal_xy=cues['goal_initial_body_xy_m'],
                                           home_xy=cues['return_initial_body_xy_m'], arrival_radius_m=.02,
@@ -113,6 +144,10 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
             session.phase = 2
             row['applied_command'] = session.step(request['requested_command'])
             row['post_sample_index'] = len(session.samples)-1
+            if tick % 500 == 0:
+                with open(out/'progress.jsonl', 'a') as progress:
+                    progress.write(json.dumps(dict(policy_steps=tick+1, simulated_s=(tick+1)*.02,
+                                                   wall_s=time.monotonic()-started, plans=len(controller.planning)))+'\n')
             if controller.terminal is not None:
                 break
     except BaseException as exc:
@@ -130,6 +165,11 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         save(out/'stage_timings.json', timings)
         if session is not None:
             persist(session, out/'native')
+        if arm == 'C0' and requests and controller is not None:
+            check = controller.forecaster.verify_executed(requests, session.samples)
+            save(out/'oracle_prefix_check.json', check)
+            if not check['passed'] and error is None:
+                error = RuntimeError('oracle executed-prefix fidelity check failed')
         result = dict(status='EPISODE_RECORDED' if error is None else 'FAILED_ATTEMPT_PRESERVED',
                       error=None if error is None else repr(error), frames=len(acquisitions), policy_steps=len(requests),
                       simulated_s=len(requests)*.02, wall_s=time.monotonic()-started)
@@ -160,15 +200,25 @@ def persist(session, folder):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--arm', required=True, choices=('C1', 'C1A', 'C1R', 'C2', 'C3', 'C4'))
+    p.add_argument('--arm', required=True, choices=('C0', 'C1', 'C1A', 'C1R', 'C2', 'C3', 'C4'))
     p.add_argument('--set', required=True, help='registered maze set (data/mazes), e.g. prelim_test_v1')
     p.add_argument('--maze', type=int, required=True)
     p.add_argument('--episode', type=int, default=0)
     p.add_argument('--recovery', choices=('on', 'off'), default='on')
     p.add_argument('--decoder-fit', type=Path, help='C3-decoder/C4 fit file (default: the deployed T7 fit)')
+    p.add_argument('--friction', type=float, help='uniform floor and robot friction (stage 1)')
+    p.add_argument('--strips', help='low-friction strips MU:marked or MU:unmarked (stage 2)')
+    p.add_argument('--stall-stop-s', type=float, help='stop a recording mission stalled this long (60)')
     p.add_argument('--out', type=Path, required=True)
     a = p.parse_args()
-    result = run(a.arm, a.set, a.maze, a.out, episode_index=a.episode, recovery=a.recovery == 'on', decoder_fit=a.decoder_fit)
+    strips = None
+    if a.strips:
+        mu, _, mark = a.strips.partition(':')
+        if mark not in ('marked', 'unmarked'):
+            p.error('--strips needs MU:marked or MU:unmarked')
+        strips = (float(mu), mark == 'marked')
+    result = run(a.arm, a.set, a.maze, a.out, episode_index=a.episode, recovery=a.recovery == 'on', decoder_fit=a.decoder_fit,
+                 friction=a.friction, strips=strips, stall_stop_s=a.stall_stop_s)
     print(json.dumps(result))
 
 

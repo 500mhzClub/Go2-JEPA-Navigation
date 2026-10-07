@@ -79,12 +79,20 @@ def init_genesis(seed):
     gs.init(backend=gs.cpu, seed=int(seed) & 0x7FFF_FFFF, logging_level='warning')
 
 
-def build(spec, output_dir):
+def build(spec, output_dir, dynamics=None):
     """Build the scene of a maze spec (with the episode's `procedural_seed` and home pose in `geometry.spawn_se2_world`).
-    Genesis must already be initialised (`init_genesis`). Visual meshes are written to `output_dir`."""
+    Genesis must already be initialised (`init_genesis`). Visual meshes are written to `output_dir`. `dynamics`
+    (`go2nav.sim.dynamics.Dynamics`): marked strips are tinted on the floor, and a uniform friction replaces the
+    episode's after the build."""
     import genesis as gs
+    from go2nav.sim.dynamics import tint_floor
     boxes = spec['geometry']['wall_boxes']
     meshes = appearance.surfaces(boxes, spec['appearance_arm'], spec['appearance_seed'])
+    if dynamics is not None and dynamics.marked:
+        floor_mesh, tinted = tint_floor(meshes[0][1], dynamics.strips)
+        if dynamics.strips and not tinted:
+            raise ValueError('marked strips tint no floor cell')
+        meshes[0] = (meshes[0][0], floor_mesh)
     spawn_xyz, spawn_wxyz = spawn_pose(spec['geometry']['spawn_se2_world'])
     scene = gs.Scene(sim_options=gs.options.SimOptions(dt=PHYSICS_DT_S, gravity=(0., 0., -9.81)), show_viewer=False,
                      renderer=gs.renderers.Rasterizer())
@@ -109,6 +117,8 @@ def build(spec, output_dir):
     scene.build(n_envs=1)
     fix_raster_order(camera, surfaces, robot)
     set_friction(robot, floor, spec['friction_mu'])
+    if dynamics is not None and dynamics.friction_mu is not None:
+        set_friction(robot, floor, dynamics.friction_mu)
     joints = {str(j.name): j for j in robot.joints}
     leg_dofs = [int(np.asarray(joints[name].dofs_idx).reshape(-1)[0]) for name in LEG_JOINTS]
     robot.set_dofs_kp([GAINS['kp']]*12, leg_dofs)
