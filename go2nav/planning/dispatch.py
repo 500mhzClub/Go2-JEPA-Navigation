@@ -17,7 +17,6 @@ import numpy as np
 
 from go2nav.planning import grid
 from go2nav.planning.actions import COMMIT_TICKS, PERIOD_NS, PREFIX_TICKS, command
-from go2nav.perception.rigid import UnportedBranch
 
 TICK_NS = 20_000_000
 MAX_OBSERVATION_AGE_NS = 250_000_000
@@ -101,13 +100,19 @@ def _connector_clear(end_xy, cells):
 
 
 def dispatch_check(plan, obstacles, *, now_ns):
-    """The command to send now for a plan (or hold), and the reason (see the module docstring)."""
+    """The command to send now for a plan (or hold), and the reason (see the module docstring). While the forward
+    camera has no depth returns, a translating plan is held (the downward camera's obstacles allow turns only)."""
+    requested, reason = _obstacle_check(plan, obstacles, now_ns=now_ns)
+    if obstacles is not None and obstacles.returns[0] == 0 and plan is not None and any(plan.command[:2]):
+        return [0., 0., 0.], 'PRIMARY_DEPTH_UNAVAILABLE_TRANSLATION_VETO'
+    return requested, reason
+
+
+def _obstacle_check(plan, obstacles, *, now_ns):
     if plan is None:
         return [0., 0., 0.], 'NO_ON_TIME_PLAN'
     if obstacles is None or not 0 <= now_ns-obstacles.measured_ns <= MAX_OBSERVATION_AGE_NS:
         return [0., 0., 0.], 'CURRENT_OBSERVATION_UNAVAILABLE_OR_STALE'
-    if obstacles.returns[0] == 0:
-        raise UnportedBranch('primary depth unavailable (translation veto)')
     seconds = (plan.expires_ns-now_ns)/1e9
     endpoint = np.array([plan.command[0]*seconds, plan.command[1]*seconds])
     allowed = _connector_clear(endpoint, obstacles.cells)

@@ -3,7 +3,7 @@
 Each frame (independently of the visual odometry), the floor plane is fitted to both cameras' floor points along the
 gyro's up direction (`floor`). Every depth sample (every 4 px) between 3 and 65 cm above that plane marks its 1-cm
 cell of the current body frame, within 1 m of the body origin. The 50 Hz dispatch check tests commands against
-these cells.
+these cells. If the forward camera has no valid returns, the cells come from the downward camera alone.
 """
 from dataclasses import dataclass
 
@@ -61,12 +61,13 @@ class DepthObstacleObserver:
         self.frames += 1
         if not plane['available'] and plane['reason'] == 'insufficient_combined_two_axis_extent':
             raise UnportedBranch('obstacle floor plane lacks extent (the original tries a gyro-height plane)')
-        if not plane['available']:
+        if not plane['available'] or not len(clouds[1]):
             return None
-        if any(not len(points) for points in clouds):
-            raise UnportedBranch('obstacles with an empty camera (the original tries auxiliary-only obstacles)')
+        # Without forward returns, the downward camera alone gives the obstacles (the dispatch check then allows
+        # turns only; a missing forward ray is never taken as free).
+        used = clouds if len(clouds[0]) else clouds[1:]
         normal, cells = plane['normal_body'], set()
-        for points in clouds:
+        for points in used:
             height = points@normal+plane['offset_body_m']
             above = points[(height > MIN_HEIGHT_M)&(height < MAX_HEIGHT_M)]
             cells.update(tuple(map(int, k)) for k in np.unique(np.floor(above[:, :2]/CELL_M).astype(int), axis=0))
