@@ -56,7 +56,7 @@ def mission_command(cohort, arm, set_name, maze, episode, destination):
     for key, flag in (('friction', '--friction'), ('strips', '--strips'), ('stall_stop_s', '--stall-stop-s'),
                       ('decoder_fit', '--decoder-fit'), ('degrade', '--degrade'), ('margin', '--margin'),
                       ('pessimistic', '--pessimistic'), ('unknown_level', '--unknown-level'), ('models', '--models'),
-                      ('harness', '--harness')):
+                      ('harness', '--harness'), ('coverage_fix', '--coverage-fix')):
         if cohort.get(key) is not None:
             command += [flag, str(cohort[key])]
     return command

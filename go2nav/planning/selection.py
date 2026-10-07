@@ -534,13 +534,15 @@ def footprint_extension(prediction, position, rotation, floor):
             for action, path, mask in zip(ACTIONS, paths, masks)]
 
 
-def require_floor_coverage(selection, prediction, snapshot, position, rotation):
+def require_floor_coverage(selection, prediction, snapshot, position, rotation, occupied_observed=True):
     """A translation must not sweep unobserved floor: otherwise align or hold, and return the nearest unobserved cell
-    it would have swept (to be viewed). Occupied cells count as observed. Returns (selection, cell or None)."""
+    it would have swept (to be viewed). Returns (selection, cell or None). Observed occupied cells count as observed
+    (the coverage fix of 2 October); with `occupied_observed=False`, the earlier rule, only observed floor does (the
+    view target is still an unobserved cell)."""
     if selection['action'] not in TRANSLATIONS:
         return selection, None
     observed = snapshot.floor|snapshot.occupied
-    rows = footprint_extension(prediction, position, rotation, observed)
+    rows = footprint_extension(prediction, position, rotation, observed if occupied_observed else snapshot.floor)
     selected = rows[ACTIONS.index(selection['action'])]
     if selected['new_unknown_cells'] == 0 and not selected['leaves_map_bounds']:
         return selection | dict(translation_footprint_coverage=dict(rejected=False)), None

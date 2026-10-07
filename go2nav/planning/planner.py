@@ -18,6 +18,9 @@ One plan is made every fourth frame (2.5 Hz), in three steps:
 `margin_m` and `unknown` (`planning.caution`) make the forecast clearance checks cautious (calibrated-margin
 experiment).
 
+`coverage_fix` (default on) counts observed occupied cells as observed in the translation coverage rule
+(`selection.require_floor_coverage`); it was off in the experiments before 2 October.
+
 `harness` is the navigation harness version: 'reserve_exit_v2' (the final one: reserve exit, turn exit and C2's
 dispatched-path check) or 'v4' (the earlier one, without them; `selection.clearance_check`, `reactive.select_v4`).
 
@@ -52,11 +55,12 @@ def wrap(value):
 class Planner:
     """Planning state and the route, objective and selection steps (see the module docstring)."""
 
-    def __init__(self, *, arrival_radius_m, recovery=False, margin_m=0., unknown=None, harness='reserve_exit_v2'):
+    def __init__(self, *, arrival_radius_m, recovery=False, margin_m=0., unknown=None, harness='reserve_exit_v2',
+                 coverage_fix=True):
         if harness not in HARNESSES:
             raise ValueError(f'unknown harness {harness!r}')
         self.arrival_radius_m, self.recovery, self.harness = arrival_radius_m, recovery, harness
-        self.exits = harness == 'reserve_exit_v2'
+        self.exits, self.coverage_fix = harness == 'reserve_exit_v2', coverage_fix
         self.margin_m, self.unknown = margin_m, unknown  # cautious clearance (planning.caution)
         self.route_status = None
         self.panorama = routing.InitialPanorama()
@@ -260,7 +264,7 @@ class Planner:
         result = sel.stopping_projection(result, prediction, clearance, q, Q, pulse=self.pulse)
         if result['planned_stopping_projection']['changed']:
             self.clearance_turn = None
-        result, target = sel.require_floor_coverage(result, prediction, snapshot, q, Q)
+        result, target = sel.require_floor_coverage(result, prediction, snapshot, q, Q, occupied_observed=self.coverage_fix)
         if result.get('translation_footprint_coverage', {}).get('rejected'):
             self.clearance_turn = None
             if self.coverage_target is None and target is not None:

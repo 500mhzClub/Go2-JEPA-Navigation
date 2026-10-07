@@ -2,7 +2,7 @@ name: 'Decoder data sources: the C3-v3 on-policy round and the C3-v2 fresh check
 description: 'The mission runs whose decisions are T7/T8 decoder contexts (go2nav.data.decoder_contexts), rerun to
   regenerate that data: the C3-v3 on-policy round (C1 on c3v3_sets_v1 mazes 0-15 for training and 16-21 held out) and
   the C3-v2 fresh checks (C3 with the C3-v2 readout on c3v2_sets_v1 fresh-check mazes 0-9; an evaluation set). Both
-  ran on the v4 harness with no development fixes (29-30 September 2026). The stage-2 recordings are the cohort s2rec2
+  ran on the v4 harness with no development fixes (29-30 September 2026), so also without the coverage fix. The stage-2 recordings are the cohort s2rec2
   of r6_dynamics_stage2.yaml. Original runs: runs/c3v3_onpolicy_C1_mNN_ep0_attempt001 and
   runs/c3v2_check_C3_chkNN_ep0_attempt001 of the capability folder.'
 cohorts:
@@ -11,6 +11,7 @@ cohorts:
   set: c3v3_sets_v1
   recovery: 'off'
   harness: v4
+  coverage_fix: 'off'
   episodes:
   - [0, 0]
   - [1, 0]
@@ -39,6 +40,7 @@ cohorts:
   set: c3v2_sets_v1
   recovery: 'off'
   harness: v4
+  coverage_fix: 'off'
   decoder_fit: c3v2_readout
   episodes:
   - [0, 0]
