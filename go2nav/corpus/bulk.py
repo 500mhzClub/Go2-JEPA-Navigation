@@ -53,9 +53,9 @@ def run(corpus, out, *, split, family=None, scene_offset=0, scene_limit=None, se
     for index, scene_dir in enumerate(scenes):
         pack = load_scene_pack(scene_dir, platform_manifest=platform, workspace_root=REPO)
         print(f'[{index+1}/{len(scenes)}] scene={pack.scene_id} family={pack.family} split={pack.split}', flush=True)
-        build = build_scene_from_pack(pack, n_envs=n_envs, backend='cpu', show_viewer=False, render_robot=False)
+        build = build_scene_from_pack(pack, n_envs=n_envs, backend='cpu')
         config = RolloutConfig(n_blocks=n_blocks, fall_z_threshold_m=.15, out_of_bounds_pad_m=.5,
-                               rgb_capture_per_block=False, seed=seed+index, log_progress_every_blocks=0,
+                               seed=seed+index, log_progress_every_blocks=0,
                                foot_contact_source='genesis', collector_mix=None, randomize_spawn_pose=True,
                                recovery_interlock_clearance_m=0., recovery_interlock_blocks=16,
                                spawn_clearance_floor_m=.45)

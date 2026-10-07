@@ -12,9 +12,8 @@ Two products:
   ``local_graph_type``).
 
 Categorical labels are deliberately coarse: the downstream encoder isn't
-expected to consume them directly — they exist as audit splits for the
-visual-aliasing analysis ([docs/v3_topological_nav_plan.md](docs/v3_topological_nav_plan.md)
-§4.3) and as multi-task heads for ablations.
+expected to consume them directly — they exist as audit splits for
+visual-aliasing analyses and as multi-task heads for ablations.
 """
 
 from __future__ import annotations

@@ -30,9 +30,7 @@ from go2nav.corpus.manifest import (
     stable_scene_id,
 )
 from go2nav.corpus.randomization import (
-    BASE_PALETTE,
     DEFAULT_PROFILE,
-    LANDMARK_PALETTE,
     Profile,
     ROUGH_DYNAMICS_PROFILE,
     VISUAL_STRESS_PROFILE,

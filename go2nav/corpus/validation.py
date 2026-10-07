@@ -14,7 +14,6 @@ builder (to retry seeds that produce fragmented scenes) and by tests
 
 from __future__ import annotations
 
-import math
 from collections import deque
 from dataclasses import dataclass
 

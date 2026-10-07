@@ -1,31 +1,18 @@
-"""Sim-agnostic LeWM contract logic for the Genesis bulk rollout.
+"""The bulk rollout's command and state contract: safety limits, the primitive registry, command-block expansion
+and limiting, the recorded record types, and per-environment episode bookkeeping.
 
-This module lifts the bodies of the LeWM ROS 2 nodes (command_block_adapter,
-base_state_publisher, foot_contacts_publisher, reset_manager) into plain
-Python callables. The Genesis rollout calls these directly; the ROS spinners
-remain alive for the audit oracle path and for real-robot deployment.
-
-The dataclasses here mirror the LeWM ROS 2 message types field-for-field.
-``mcap_writer.py`` translates them into actual ROS-typed messages at the
-serialization boundary, so the on-disk schema is the LeWM ROS contract.
-
-Vectorized over ``n_envs``. Inputs and outputs use numpy arrays with a
-leading env dimension. Single-env wrappers exist for parity tests against
-the ROS nodes.
+The record dataclasses mirror the recorded message types field for field (`go2nav.corpus.messages` writes them).
+Functions are vectorised over environments: numpy arrays with a leading env dimension.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-
-try:
-    import yaml
-except ModuleNotFoundError:  # pragma: no cover - exercised only in minimal train envs.
-    yaml = None
+import yaml
 
 
 LEWM_FOOT_ORDER: tuple[str, ...] = ("fl", "fr", "rl", "rr")
@@ -68,7 +55,7 @@ class SafetyLimits:
 
 @dataclass(frozen=True)
 class PrimitiveRegistry:
-    """Loaded view of ``config/go2_primitive_registry.yaml``."""
+    """Loaded view of ``configs/corpus/go2_primitive_registry.yaml``."""
 
     block_size: int
     command_dt_s: float
@@ -78,12 +65,7 @@ class PrimitiveRegistry:
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> "PrimitiveRegistry":
-        text = Path(path).read_text(encoding="utf-8")
-        data = (
-            _load_simple_yaml_mapping(text)
-            if yaml is None
-            else yaml.safe_load(text)
-        ) or {}
+        data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
         return cls(
             block_size=int(data.get("block_size", 5)),
             command_dt_s=float(data.get("command_dt_s", 0.10)),
@@ -114,7 +96,7 @@ class PrimitiveRegistry:
 
 
 # ---------------------------------------------------------------------------
-# Message-shape records (mirror LeWM ROS 2 msg fields exactly)
+# Records (mirror the recorded message fields exactly)
 # ---------------------------------------------------------------------------
 
 

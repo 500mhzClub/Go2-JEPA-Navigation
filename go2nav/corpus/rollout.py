@@ -1,8 +1,9 @@
 """Per-scene Genesis bulk rollout loop.
 
-Drives one ``SceneBuild`` with a locomotion policy for ``n_blocks`` command
-blocks, captures every per-tick observation and label, and streams the
-result through an ``MCAPSceneWriter``.
+Drives one ``SceneBuild`` with the locomotion policy for ``n_blocks`` command
+blocks in parallel environments, each steered by a data collector
+(`go2nav.corpus.collectors`), and writes every per-tick observation as
+messages (`go2nav.corpus.messages`).
 
 Nesting (taken from the platform manifest):
 
@@ -11,17 +12,12 @@ Nesting (taken from the platform manifest):
 - command tick ``command_dt_s`` (0.10 s) → 5 policy steps per command tick
 - command block ``action_block_size`` ticks (5) → one block per 0.5 s
 
-Data is emitted at command-tick cadence (10 Hz). RGB renders once per command
-tick. The command request is emitted at block-start; the executed-block record
-is emitted at block-end with the full requested/executed arrays.
+Data is emitted at command-tick cadence (10 Hz); camera frames are rendered
+afterwards from the recorded poses (`go2nav.corpus.render`). The command
+request is emitted at block start; the executed-block record at block end with
+the full requested/executed arrays.
 
-Locomotion policy is pluggable via :class:`PolicyInterface`. The
-:class:`StancePolicy` shipped here is a placeholder that holds the robot in
-the default Go2 stance — fine for end-to-end smoke runs but not a
-substitute for the Tier A trained policy.
-
-Genesis is required at runtime. Import-time is safe (lazy import in
-``scene_builder``).
+Genesis is required at run time (imported lazily by `go2nav.corpus.world`).
 """
 
 from __future__ import annotations
@@ -33,13 +29,27 @@ import random
 import sys
 import time
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Protocol
+from typing import Any, Iterable
 
 import numpy as np
 
 from go2nav.corpus import messages
+from go2nav.corpus.contract import (
+    CommandBlockRecord,
+    EpisodeState,
+    PrimitiveRegistry,
+    SafetyLimits,
+    apply_safety_limits_batch,
+    base_state_from_genesis,
+    foot_contacts_record,
+    make_episode_states,
+    reconstruct_executed_block,
+    rotate_body_to_world,
+)
+from go2nav.corpus.packs import ScenePack
+from go2nav.corpus.world import SceneBuild
 
 
 def _summarize_marginal_isotropy(
@@ -51,12 +61,10 @@ def _summarize_marginal_isotropy(
 ) -> dict[str, dict[str, Any]]:
     """Per-collector marginal-isotropy stats for the per-scene summary.
 
-    The LeJEPA identifiability theory (see
-    docs/lejepa_identifiability_analysis.md) is sensitive to whether the
-    per-collector marginal over (cell, heading) and over actions is
-    isotropic. These three numbers — cell × yaw-bin coverage, mean
-    per-cell yaw entropy, and primitive entropy — make that auditable
-    without touching the raw trajectories.
+    Whether each collector's marginal over (cell, heading) and over actions
+    is close to isotropic is auditable from three numbers, without the raw
+    trajectories: cell x yaw-bin coverage, mean per-cell yaw entropy, and
+    primitive entropy.
 
     Cell-yaw counts are keyed (source -> cell_id -> 1-D histogram of
     length ``yaw_bins``). Primitive counts are keyed (source ->
@@ -98,27 +106,6 @@ def _summarize_marginal_isotropy(
             "primitive_counts": dict(primitives),
         }
     return result
-
-from go2nav.corpus.contract import (
-    BaseStateRecord,
-    CommandBlockRecord,
-    EpisodeInfoRecord,
-    EpisodeState,
-    ExecutedCommandBlockRecord,
-    FootContactsRecord,
-    PrimitiveRegistry,
-    ResetEventRecord,
-    SafetyLimits,
-    apply_safety_limits_batch,
-    base_state_from_genesis,
-    foot_contacts_record,
-    make_episode_states,
-    quat_to_rpy,
-    reconstruct_executed_block,
-    rotate_body_to_world,
-)
-from go2nav.corpus.world import SceneBuild
-from go2nav.corpus.packs import ScenePack
 
 
 # Default Go2 stance qpos for the 12 leg DOFs, ordered to match Genesis's
@@ -198,7 +185,6 @@ class RolloutConfig:
     # loudly instead of producing stuck-robot frames.
     spawn_clearance_floor_m: float = 0.45
     out_of_bounds_pad_m: float = 0.5
-    rgb_capture_per_block: bool = True
     seed: int = 0
     leg_dof_indices: tuple[int, ...] = DEFAULT_GO2_LEG_DOF_INDICES
     stance_qpos_rad: tuple[float, ...] = tuple(DEFAULT_GO2_STANCE_RAD.tolist())
@@ -458,28 +444,6 @@ def _iter_route_like_landmark_cells(
             yield int(cell)
 
 
-class PolicyInterface(Protocol):
-    """Pluggable locomotion policy.
-
-    Implementations are called once per policy step (50 Hz at platform
-    default). ``observation`` is a dict keyed by name with ``(n_envs, ...)``
-    numpy arrays; ``act`` returns per-env leg-DOF position targets.
-    """
-
-
-
-@dataclass
-class StancePolicy:
-    """Placeholder policy that commands a constant Go2 stance qpos.
-
-    Replace with the Tier A Genesis-trained PPO policy when its checkpoint
-    is available.
-    """
-
-    stance_rad: np.ndarray = field(default_factory=lambda: DEFAULT_GO2_STANCE_RAD.copy())
-
-
-
 @dataclass
 class GenesisGo2PPOPolicy:
     """RSL-RL Go2 PPO policy adapter for the Genesis bulk rollout loop.
@@ -496,7 +460,7 @@ class GenesisGo2PPOPolicy:
     cfg_path: str | Path | None = None
     rollout_leg_dof_indices: tuple[int, ...] = DEFAULT_GO2_LEG_DOF_INDICES
     policy_dof_indices: tuple[int, ...] = GENESIS_GO2_POLICY_DOF_INDICES
-    device: str | None = None
+    device: str = "cpu"
     simulate_action_latency: bool = True
     deduplicate_exact_observation_rows: bool = False
 
@@ -550,7 +514,7 @@ class GenesisGo2PPOPolicy:
             copy=True,
         )
 
-        self._device = self.device or self._default_torch_device()
+        self._device = self.device
         self._policy = self._load_policy()
         if self.deduplicate_exact_observation_rows and bool(
             getattr(self._policy, "is_recurrent", False)
@@ -768,7 +732,7 @@ class RolloutRunner:
     def __init__(
         self,
         build: SceneBuild,
-        policy: PolicyInterface,
+        policy: "GenesisGo2PPOPolicy",
         registry: PrimitiveRegistry,
         safety_limits: SafetyLimits,
         *,
@@ -845,9 +809,8 @@ class RolloutRunner:
         self._per_env_recovery_handoffs: np.ndarray = np.zeros(self.n_envs, dtype=np.int64)
         self._per_env_achieved_landmarks: list[set[str]] = [set() for _ in range(self.n_envs)]
 
-        # Per-collector marginal-isotropy counters surfaced via run() — used
-        # by the data-isotropy audit. See
-        # docs/lejepa_identifiability_analysis.md for the motivation.
+        # Per-collector marginal-isotropy counters surfaced via run() for the
+        # data-isotropy audit (`_summarize_marginal_isotropy`).
         self._isotropy_yaw_bins: int = 12
         self._isotropy_block_counts: dict[str, int] = {}
         self._isotropy_cell_yaw_counts: dict[str, dict[int, np.ndarray]] = {}
@@ -926,7 +889,7 @@ class RolloutRunner:
             for tick_idx in range(self._block_size):
                 target_cmd = block.executed[:, tick_idx]
                 self._step_command_tick(target_cmd)
-                self._emit_per_tick_records(writer, tick_idx == self._block_size - 1)
+                self._emit_per_tick_records(writer)
                 writer.write_clock(self._sim_time_ns)
 
             self._emit_executed_command_block(block, choices, writer)
@@ -1164,8 +1127,7 @@ class RolloutRunner:
                 source_counts.get(choice.command_source, 0) + 1
             )
 
-            # Per-collector marginal-isotropy counters (see
-            # docs/lejepa_identifiability_analysis.md). We bin yaw at the
+            # Per-collector marginal-isotropy counters. We bin yaw at the
             # block-request instant — the same cadence the encoder
             # ultimately consumes — and bucket primitives by name.
             source = choice.command_source
@@ -1253,13 +1215,9 @@ class RolloutRunner:
             )
         robot.control_dofs_position(targets, self._leg_dof_idx.tolist())
 
-    def _emit_per_tick_records(self, writer: Any, is_last_tick: bool) -> None:
-        """Write BaseState, FootContacts, EpisodeInfo per env at this command tick.
-
-        RGB rendering is gated on ``rgb_capture_per_block``; when True we
-        render exactly once per command block on the final tick (10 Hz at
-        platform default).
-        """
+    def _emit_per_tick_records(self, writer: Any) -> None:
+        """Write episode info, joint state, base state, odometry, IMU, mode and foot contacts per env at this
+        command tick."""
 
         robot = self.build.robot
         pos_arr = self._as_np(robot.get_pos())

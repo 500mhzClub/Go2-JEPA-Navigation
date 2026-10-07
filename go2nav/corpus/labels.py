@@ -17,8 +17,7 @@ This module computes them deterministically from:
 - a :class:`SceneManifest` (regenerable from ``topology_seed`` — see
   ``go2nav.corpus.graph.SceneGraph``),
 - a stream of per-step :class:`PoseStep` records produced by any rollout
-  source (Genesis MCAP, audit-oracle ``messages.jsonl``, or unit-test
-  fixtures),
+  source (a bulk rollout's ``messages.jsonl``, or test fixtures),
 
 and emits a stream of :class:`DerivedLabelStep` records. The computer is
 pure Python so it can run inside an offline post-processor without any
@@ -27,11 +26,13 @@ simulator runtime.
 
 from __future__ import annotations
 
+import json
 import math
 import re
 from bisect import bisect_right
 from dataclasses import dataclass, field
 from os import PathLike
+from pathlib import Path
 from typing import Any, Iterable, Iterator, Sequence
 
 from go2nav.corpus.topology import (
@@ -317,9 +318,8 @@ def pose_steps_from_message_records(
 ) -> tuple[list[PoseStep], MessagePoseJoinSummary]:
     """Extract per-step pose labels from compact raw-rollout records.
 
-    The accepted input shape is the compact JSON record emitted by
-    ``scripts/convert_smoke_bag_to_raw_rollout.py`` and by the derived-labels
-    CLI's MCAP reader. Records may be single-env (no ``env_index`` field) or
+    The accepted input shape is the JSON record of a rollout's ``messages.jsonl``
+    (`go2nav.corpus.messages`). Records may be single-env (no ``env_index`` field) or
     per-env Genesis topics (``/env_NN/...`` with ``canonical_topic`` set).
 
     Command blocks are joined by ``(env_index, sequence_id)`` so a delayed
@@ -339,9 +339,6 @@ def pose_steps_from_messages_jsonl(
     messages_path: str | PathLike[str],
 ) -> tuple[list[PoseStep], MessagePoseJoinSummary]:
     """Load pose steps from a compact ``messages.jsonl`` raw-rollout file."""
-
-    import json
-    from pathlib import Path
 
     path = Path(messages_path)
     with path.open(encoding="utf-8") as stream:
@@ -460,10 +457,7 @@ class _CollectedRecords:
         position = pose_world.get("position", {})
         x = float(position.get("x", 0.0))
         y = float(position.get("y", 0.0))
-        yaw = payload.get("yaw_rad")
-        if yaw is None:
-            quat_xyzw = payload.get("quat_world_xyzw")
-            yaw = _yaw_from_quat_xyzw(quat_xyzw)
+        yaw = payload["yaw_rad"]
 
         self.base_records.append(
             _BaseRecord(
@@ -700,26 +694,18 @@ def label_to_jsonable(label: DerivedLabelStep) -> dict:
     }
 
 
-def main() -> None:
-    import argparse
-    import json
-    from pathlib import Path
-
+def derive(scene_dir: Path, corpus: Path, out: Path) -> dict:
+    """Write out/labels.jsonl and out/summary.json for one bulk-rollout scene; returns the summary."""
     from go2nav.corpus.manifest import manifest_sha256, parse_scene_manifest_dict
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('scene_dir', type=Path)
-    p.add_argument('corpus', type=Path)
-    p.add_argument('out', type=Path)
-    a = p.parse_args()
-    rollout = json.loads((a.scene_dir/'summary.json').read_text())
-    manifest_path = a.corpus/rollout['split']/rollout['family']/rollout['scene_id']/'manifest.json'
+    scene_dir, corpus, out = Path(scene_dir), Path(corpus), Path(out)
+    rollout = json.loads((scene_dir/'summary.json').read_text())
+    manifest_path = corpus/rollout['split']/rollout['family']/rollout['scene_id']/'manifest.json'
     manifest = parse_scene_manifest_dict(json.loads(manifest_path.read_text()))
-    poses, join = pose_steps_from_messages_jsonl(a.scene_dir/'messages.jsonl')
-    config = DerivedLabelConfig()
-    a.out.mkdir(parents=True, exist_ok=True)
+    poses, join = pose_steps_from_messages_jsonl(scene_dir/'messages.jsonl')
+    out.mkdir(parents=True, exist_ok=True)
     count, graph_types = 0, {}
-    with (a.out/'labels.jsonl').open('w', encoding='utf-8') as stream:
-        for label in DerivedLabelComputer(manifest, config=config).stream(poses):
+    with (out/'labels.jsonl').open('w', encoding='utf-8') as stream:
+        for label in DerivedLabelComputer(manifest, config=DerivedLabelConfig()).stream(poses):
             payload = label_to_jsonable(label)
             graph_types[payload['local_graph_type']] = graph_types.get(payload['local_graph_type'], 0)+1
             stream.write(json.dumps(payload, sort_keys=True, separators=(',', ':'))+'\n')
@@ -727,8 +713,19 @@ def main() -> None:
     summary = dict(scene_id=manifest.scene_id, family=manifest.family, split=manifest.split,
                    manifest_sha256=manifest_sha256(manifest), labels=count, environments=list(join.env_indices),
                    missing_commands=join.missing_command_count, local_graph_type_counts=dict(sorted(graph_types.items())))
-    (a.out/'summary.json').write_text(json.dumps(summary, indent=2, sort_keys=True))
-    print(json.dumps(dict(scene_id=manifest.scene_id, labels=count)))
+    (out/'summary.json').write_text(json.dumps(summary, indent=2, sort_keys=True))
+    return summary
+
+
+def main() -> None:
+    import argparse
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument('scene_dir', type=Path)
+    p.add_argument('corpus', type=Path)
+    p.add_argument('out', type=Path)
+    a = p.parse_args()
+    summary = derive(a.scene_dir, a.corpus, a.out)
+    print(json.dumps(dict(scene_id=summary['scene_id'], labels=summary['labels'])))
 
 
 if __name__ == '__main__':

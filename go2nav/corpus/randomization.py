@@ -9,8 +9,7 @@ families use :data:`DEFAULT_PROFILE`; the visual-stress family uses
 :data:`ROUGH_DYNAMICS_PROFILE`.
 
 Landmark colors are deliberately *not* randomized: landmark identity is part
-of the task signal and changing colors per scene would break the goal-image
-contract that GoalAdapter relies on later (see ``docs/v3_topological_nav_plan.md``).
+of the task signal and changing colors per scene would break goal images.
 """
 
 from __future__ import annotations
@@ -277,7 +276,7 @@ def _sample_lighting(rng: random.Random, profile: Profile) -> LightingSpec:
     azimuth = rng.uniform(-math.pi, math.pi)
     elevation_deg = _uniform(rng, profile.light_elevation_deg_range)
     elevation = math.radians(elevation_deg)
-    # Direction points *from* the sun *toward* the scene (Gazebo convention).
+    # Direction points *from* the sun *toward* the scene (the original simulator convention).
     dx = math.cos(elevation) * math.cos(azimuth)
     dy = math.cos(elevation) * math.sin(azimuth)
     dz = -math.sin(elevation)

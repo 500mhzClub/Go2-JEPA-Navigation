@@ -1,25 +1,15 @@
-"""Load a scene corpus directory into a Genesis-ready ``ScenePack``.
+"""Load a corpus scene directory into a typed ``ScenePack``.
 
-This is the higher-level entry point that takes:
-
-- a per-scene directory written by ``lewm_worlds`` (``manifest.json`` +
-  ``genesis_scene.json``), and
-- the global platform manifest (``config/go2_platform_manifest.yaml``),
-
-and returns a typed ``ScenePack`` carrying everything the Genesis builder
-needs: resolved Go2 URDF path, camera mount, physics timing, static objects,
-and provenance fields used to stamp `EpisodeInfo` / `ResetEvent`.
-
-Manifest parsing is pure Python — no Genesis import. The build step in
-``scene_builder.py`` consumes the pack and does the lazy ``import genesis``.
+A pack combines the scene's ``manifest.json`` and ``genesis_scene.json`` (written by `go2nav.corpus.build`) with
+the platform manifest (``configs/corpus/go2_platform_manifest.yaml``): the resolved Go2 URDF and spawn pose, the
+camera mount, physics timing, static objects, randomization, and the provenance stamped on episode and reset
+records. Pure Python; `go2nav.corpus.world` builds the Genesis scene from it.
 """
 
 from __future__ import annotations
 
 import importlib.util
-
 import json
-import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -75,7 +65,7 @@ class VisualRandomization:
     material_overrides: tuple[MaterialOverride, ...]
     lighting: LightingSpec
     # Distractors are folded into ``static_objects`` at load time so the
-    # scene_builder doesn't need a second loop; this field is kept for callers
+    # scene builder needs no second loop; this field is kept for callers
     # that want to introspect distractor presence/count separately.
     distractor_object_ids: tuple[str, ...] = ()
 
@@ -118,30 +108,6 @@ class CameraMount:
     near_m: float
     far_m: float
     encoding: str
-
-
-def genesis_vertical_fov_deg(camera: CameraMount) -> float:
-    """Convert the manifest FOV contract to Genesis' vertical-FOV API.
-
-    Genesis names its argument ``fov`` but implements it as ``yfov``.  The
-    Go2 platform manifest deliberately records a horizontal FOV, so passing
-    that value through unchanged widens the rendered horizontal view.
-    """
-
-    width, height = camera.native_resolution
-    if width <= 0 or height <= 0:
-        raise ValueError("camera native resolution must be positive")
-    fov = float(camera.fov_deg)
-    if not math.isfinite(fov) or not 0.0 < fov < 180.0:
-        raise ValueError("camera FOV must lie in (0, 180) degrees")
-    if camera.fov_axis == "vertical":
-        return fov
-    if camera.fov_axis != "horizontal":
-        raise ValueError(f"unsupported camera FOV axis: {camera.fov_axis!r}")
-    aspect = float(width) / float(height)
-    return math.degrees(
-        2.0 * math.atan(math.tan(math.radians(fov) * 0.5) / aspect)
-    )
 
 
 @dataclass(frozen=True)
@@ -205,30 +171,6 @@ def load_platform_manifest(path: str | Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"platform manifest must be a mapping: {manifest_path}")
     return data
-
-
-def effective_camera_mount_xyz_rpy(
-    pack: "ScenePack",
-) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
-    """Return the camera mount ``(xyz_body_m, rpy_body_rad)`` with jitter applied.
-
-    Callers that need the platform's nominal mount keep using
-    ``pack.camera.xyz_body_m``/``pack.camera.rpy_body_rad``. Callers that
-    actually place the camera (scene build, per-tick render-replay) should use
-    this helper so per-scene camera-extrinsic jitter (data spec §14) reaches
-    the rendered image rather than only the manifest.
-    """
-
-    base_xyz = pack.camera.xyz_body_m
-    base_rpy = pack.camera.rpy_body_rad
-    if pack.camera_extrinsic_jitter is None:
-        return base_xyz, base_rpy
-    j_xyz = pack.camera_extrinsic_jitter.xyz_offset_m
-    j_rpy = pack.camera_extrinsic_jitter.rpy_offset_rad
-    return (
-        (base_xyz[0] + j_xyz[0], base_xyz[1] + j_xyz[1], base_xyz[2] + j_xyz[2]),
-        (base_rpy[0] + j_rpy[0], base_rpy[1] + j_rpy[1], base_rpy[2] + j_rpy[2]),
-    )
 
 
 def camera_mount_from_platform(platform_manifest: dict[str, Any]) -> CameraMount:
@@ -476,47 +418,12 @@ GENESIS_BUILTIN_GO2_URDF = "genesis_builtin_go2"
 
 
 def resolve_go2_urdf(platform_manifest: dict[str, Any], workspace_root: Path) -> Path:
-    """Resolve the Go2 URDF/Xacro path named by the platform manifest."""
-
-    root = Path(workspace_root)
-    robot = platform_manifest.get("robot", {})
-    urdf_values = [
-        robot.get("genesis_urdf"),
-        robot.get("urdf_xacro"),
-        "third_party/unitree_go2_ros2/unitree_go2_description/urdf/unitree_go2_robot.xacro",
-    ]
-    requested = [str(value) for value in urdf_values if value]
-    for urdf_value in requested:
-        try:
-            candidate = _resolve_urdf_value(urdf_value, root)
-        except FileNotFoundError:
-            continue
-        if candidate.is_file():
-            return candidate
-
-    upstream = platform_manifest.get("robot", {}).get("upstream_base", {})
-    local_path = root / str(upstream.get("local_path", "third_party/unitree_go2_ros2"))
-    package_path = str(platform_manifest.get("robot", {}).get("description_package", "unitree_go2_description"))
-    fallback = local_path / package_path / "urdf" / "unitree_go2_robot.xacro"
-    if fallback.is_file():
-        return fallback
-
-    raise FileNotFoundError(f"could not resolve Go2 URDF from manifest paths: {requested}")
-
-
-def _resolve_urdf_value(urdf_value: str, workspace_root: Path) -> Path:
-    if urdf_value == GENESIS_BUILTIN_GO2_URDF:
-        return _resolve_genesis_builtin_go2_urdf()
-    return Path(workspace_root) / urdf_value
-
-
-def _resolve_genesis_builtin_go2_urdf() -> Path:
-    """Locate the Go2 URDF bundled in the installed ``genesis`` package."""
-
+    """The Go2 URDF the platform manifest names: Genesis's bundled Go2 (``genesis_builtin_go2``) or a path relative
+    to ``workspace_root``."""
+    value = str(platform_manifest.get("robot", {}).get("genesis_urdf", GENESIS_BUILTIN_GO2_URDF))
+    if value != GENESIS_BUILTIN_GO2_URDF:
+        return Path(workspace_root) / value
     spec = importlib.util.find_spec("genesis")
     if spec is None or not spec.submodule_search_locations:
-        raise FileNotFoundError(
-            "robot.genesis_urdf is genesis_builtin_go2, but the genesis package is not importable"
-        )
-    package_dir = Path(next(iter(spec.submodule_search_locations)))
-    return package_dir / "assets" / "urdf" / "go2" / "urdf" / "go2.urdf"
+        raise FileNotFoundError("robot.genesis_urdf is genesis_builtin_go2, but the genesis package is not importable")
+    return Path(next(iter(spec.submodule_search_locations))) / "assets" / "urdf" / "go2" / "urdf" / "go2.urdf"

@@ -1,18 +1,13 @@
-#!/usr/bin/env python3
-"""Self-contained Vulkan render-replay for genesis-world 0.3.14 (AMD R9700).
+"""Render a scene's camera frames from its render plan (the May v03 render: genesis-world 0.3.14, Vulkan backend).
 
-Replays the recorded ``camera_pose_world`` trajectory over a scene's static
-manifest geometry, single-env (correct per-env egocentric cameras), writing RGB
-frames. Pairs with the 0.4.6 rollout output read-only — see
-docs/render_backend_amd.md for why the render runs on a separate 0.3.14 venv.
+    PYTHONPATH=. EGL_DEVICE_ID=1 PYOPENGL_PLATFORM=egl RENDER_VENV/bin/python -m go2nav.corpus.render \
+        --plan PLAN.json --scene-corpus CORPUS --out OUT [--resolution 224] [--textures] [--max-frames N]
 
-Target the discrete GPU with ``EGL_DEVICE_ID=1 PYOPENGL_PLATFORM=egl`` (the
-OpenGL render device is chosen via EGL; device 1 is the R9700 on this box).
-
-Visuals: per-scene material colours from the manifest's
-``visual_randomization.material_overrides`` plus a landmark palette. Pass
-``--textures`` to use the same deterministic CC0 surface texture selection as
-the heavier replay path while keeping this renderer RGB-only and validation-free.
+Replays every recorded camera pose in the plan's frames.jsonl (`go2nav.corpus.render_plan`) over the scene's static
+geometry, one environment at a time, and writes OUT/rgb/frame_<frame>_env_<env>.png plus a summary. Surfaces take
+the manifest's material colours and the landmark palette; --textures applies the scene's deterministic CC0 textures
+(`go2nav.corpus.textures`), as the May render did. The rollouts ran on Genesis 0.4.6; the render runs in a separate
+Genesis 0.3.14 environment, and EGL_DEVICE_ID selects the GPU that renders (device 1 on the development machine).
 """
 
 from __future__ import annotations

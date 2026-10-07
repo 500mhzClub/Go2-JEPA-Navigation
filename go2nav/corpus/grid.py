@@ -72,7 +72,7 @@ class InflatedOccupancyGrid:
             obstacles = obstacles + landmark_boxes
         # Distractors are visual-randomization decorations stored under
         # ``manifest.visual_randomization.distractor_objects``, but the
-        # scene_builder folds them into ``static_objects`` at load time, so
+        # scene loading (`go2nav.corpus.packs`) folds them into ``static_objects``, so
         # they are *real* collision geometry the robot can crash into.
         # Without this branch the route teacher plans paths straight through
         # them, which manifests as crashes + wedge episodes in

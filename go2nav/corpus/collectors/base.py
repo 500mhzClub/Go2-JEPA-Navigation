@@ -5,7 +5,7 @@ block tick. Each policy is independent and stateless across scenes (but may
 carry per-env state across blocks within the same episode).
 
 The :class:`EpisodeScheduler` draws a collector per env per episode from the
-weighted share table in ``docs/fresh_retrain_data_spec.md`` §13, so each
+weighted share table in data spec §13, so each
 episode has a coherent intent (route teacher all the way to the goal, not
 route teacher for one block then OU noise the next).
 """
@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
 
-if TYPE_CHECKING:  # avoid pulling lewm_worlds into every import path
+if TYPE_CHECKING:  # annotations only
     from go2nav.corpus.graph import SceneGraph
 
 

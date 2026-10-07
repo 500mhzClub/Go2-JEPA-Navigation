@@ -3,9 +3,7 @@
 This module is the privileged-side scene oracle. It is used at data
 generation time by collector policies (route teacher, frontier teacher,
 recovery curriculum) and at label-derivation time by Phase A1 metadata
-recovery. **It is never an input to the deployed model** — see the
-privileged-leak rule in ``docs/v3_topological_nav_plan.md`` §3.4 and
-``docs/fresh_retrain_data_spec.md`` §2.
+recovery. **It is never an input to the deployed model** (data spec §2).
 
 All graph indices are scene-scoped: the caller is responsible for pairing
 ``cell_id`` with the corresponding ``scene_id``.
@@ -17,11 +15,10 @@ import math
 import random
 from collections import deque
 from dataclasses import dataclass
-from typing import Iterable
 
 import numpy as np
 
-from go2nav.corpus.manifest import BoxObject, SceneManifest
+from go2nav.corpus.manifest import SceneManifest
 
 
 @dataclass(frozen=True)
