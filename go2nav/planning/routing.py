@@ -25,7 +25,6 @@ import numpy as np
 from go2nav.perception import cameras
 from go2nav.planning import grid
 from go2nav.planning.grid import NEIGHBOURS, centre, segment_cells
-from go2nav.perception.rigid import UnportedBranch
 
 CONNECT_RADIUS_M = 1.25
 LOOKAHEAD_M, LOOKAHEAD_CLEARANCE_M = .35, .48

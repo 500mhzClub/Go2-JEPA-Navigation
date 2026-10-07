@@ -1,7 +1,9 @@
 # Scene textures (CC0)
 
 Diffuse (albedo) color maps applied to floor / wall / obstacle surfaces at
-render time (`go2nav/corpus/textures.py`, `go2nav/corpus/world.py` and `go2nav/corpus/render.py`). Landmarks and
+render time (`go2nav/corpus/textures.py` and `go2nav/corpus/render.py`). Bricks097 and
+WoodFloor043 also colour the demonstration surfaces (`go2nav/sim/demo_appearance.py`), and
+WoodFloor043 and PaintedPlaster017 the hero video's presentation scene (`go2nav/eval/hero_video.py`). Landmarks and
 visual-stress distractors are intentionally **not** textured — their solid
 colors are task identity / decoys.
 

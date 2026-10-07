@@ -11,7 +11,6 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 
-from go2nav.controllers.forecasters import output
 from go2nav.locomotion.safety import apply_limits
 from go2nav.models.vjepa import VJepaEncoder, normalise, pool_tokens, preprocess
 from go2nav.planning.actions import COMMAND_SCALE, command_sequences

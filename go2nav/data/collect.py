@@ -17,7 +17,6 @@ import json
 from pathlib import Path
 import time
 
-import numpy as np
 from PIL import Image
 
 from go2nav import artifacts

@@ -91,7 +91,8 @@ to resume from.
 |---|---|
 | artefact hosting (Hugging Face Hub: checkpoints, maze sets, training data, result summaries) | todo |
 | paper tables and figures from result files | todo |
-| licences and pre-publication review (Andrew) | todo |
+| licences and pre-publication review (Andrew) | todo; draft `THIRD_PARTY_NOTICES.md` (Genesis-derived locomotion environment, rsl-rl, V-JEPA 2.1 weights terms to confirm, CC0 textures); no checkpoint contains encoder weights (largest: 17.2 M parameters) |
+| machine paths | none in tracked files (custody test); the git history before commit 8fde314 still has absolute paths and the username, so publish a squashed or filtered history |
 | legacy role label (for Andrew's review) | the 181 files of `data/mazes/prelim_test_v1` carry `role`/`data_role` `"sealed_test"` from before the 1 October declassification, and episode records of runs on them inherit it; the files are byte-bound to the maze-regeneration gate, so the choice is to keep the label with a note or relabel to `prelim_test` and re-bind | open |
 
 ## Gate G4 (7 October 2026): fresh closed-loop missions, clean repository vs original runs

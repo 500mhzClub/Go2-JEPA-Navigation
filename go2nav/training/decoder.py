@@ -36,7 +36,6 @@ import time
 import numpy as np
 from PIL import Image
 import torch
-from torch.nn import functional as F
 
 from go2nav.models.motion import DirectMotionPredictor, MotionDecoder, load_motion_readout
 from go2nav.models.predictor import load_horizon_predictor
