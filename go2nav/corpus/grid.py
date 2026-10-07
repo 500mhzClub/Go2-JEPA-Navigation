@@ -128,9 +128,6 @@ class InflatedOccupancyGrid:
     def shape(self) -> tuple[int, int]:
         return (self._nx, self._ny)
 
-    @property
-    def origin_xy(self) -> tuple[float, float]:
-        return self._origin
 
     @property
     def free_mask(self) -> np.ndarray:
@@ -138,11 +135,6 @@ class InflatedOccupancyGrid:
 
         return self._free
 
-    @property
-    def obstacle_clearance_grid_m(self) -> np.ndarray:
-        """Read-only view of point-to-obstacle clearance at grid-cell centers."""
-
-        return self._obstacle_clearance
 
     def to_grid(self, xy: tuple[float, float]) -> tuple[int, int]:
         ix = int(math.floor((float(xy[0]) - self._origin[0]) / self._cell_size))
@@ -160,32 +152,7 @@ class InflatedOccupancyGrid:
             return bool(self._free[ix, iy])
         return False
 
-    def obstacle_clearance_m(self, xy: tuple[float, float]) -> float:
-        """Return continuous point clearance to the nearest obstacle surface.
 
-        Unlike :meth:`is_free`, this query is evaluated at the exact world
-        coordinate rather than the containing raster cell. Points outside the
-        finite planning grid return ``0.0`` so benchmark trajectories cannot
-        treat leaving the represented world as open space.
-        """
-
-        ix, iy = self.to_grid(xy)
-        if not (0 <= ix < self._nx and 0 <= iy < self._ny):
-            return 0.0
-        point_x = np.asarray([float(xy[0])], dtype=np.float32)
-        point_y = np.asarray([float(xy[1])], dtype=np.float32)
-        return float(_batch_distance_to_boxes(point_x, point_y, self._obstacle_aabbs)[0])
-
-    def configuration_clearance_m(self, xy: tuple[float, float]) -> float:
-        """Return signed clearance after applying the configured body inflation.
-
-        Positive values are collision-free margins, zero lies on the inflated
-        configuration-space boundary, and negative values are unsafe. The
-        query is continuous with respect to the obstacle geometry even though
-        :meth:`is_free` remains a raster lookup for A*.
-        """
-
-        return self.obstacle_clearance_m(xy) - self._inflation
 
     # ------------------------------------------------------------------
     # Queries

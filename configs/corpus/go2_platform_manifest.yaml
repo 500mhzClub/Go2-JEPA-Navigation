@@ -1,0 +1,133 @@
+schema_version: 0.1
+platform_id: lewmquad_v3_go2_sim
+created: "2026-05-13"
+status: upstream_pinned_pending_license_and_build_audit
+
+stack:
+  os: ubuntu_24_04
+  ros_distro: jazzy
+  gazebo: harmonic
+  genesis: unpinned
+  dds:
+    default: system_default
+    unitree_bridge: cyclone_dds
+
+robot:
+  id: unitree_go2
+  upstream_base:
+    repository: https://github.com/khaledgabr77/unitree_go2_ros2
+    package: unitree_go2_description
+    branch: main
+    commit: 29bce68480dcc3d3bac8cc0cac983f8ac951e8e3
+    local_path: third_party/unitree_go2_ros2
+    selection_status: pinned_pending_license_and_build_audit
+    license_status: blocked_pending_upstream_license_clarification
+    rationale: closest_match_to_ubuntu_24_04_ros2_jazzy_gazebo_harmonic_go2_champ_cmd_vel_stack
+  asset_status: genesis_bundled_go2_validated_for_contract_ppo
+  description_package: unitree_go2_description
+  genesis_urdf: genesis_builtin_go2
+  urdf_xacro: unitree_go2_description/urdf/unitree_go2_robot.xacro
+  mesh_source: genesis_builtin_go2_for_bulk_rollout
+  inertial_source: genesis_builtin_go2_contract_training_asset
+  collision_source: genesis_builtin_go2_contract_training_asset
+  acceptance_required_before_data: true
+
+locomotion:
+  backend_status: genesis_contract_ppo_validated
+  preferred_backend: genesis_rsl_rl_ppo_policy
+  fallback_backend: upstream_champ_cmd_vel_controller_for_gazebo_audit
+  upstream_base:
+    repository: https://github.com/khaledgabr77/unitree_go2_ros2
+    package: champ
+    command_topic: /cmd_vel
+    commit: 29bce68480dcc3d3bac8cc0cac983f8ac951e8e3
+    local_path: third_party/unitree_go2_ros2
+    selection_status: pinned_pending_license_and_build_audit
+  command_vector:
+    order: [vx_body_mps, vy_body_mps, yaw_rate_radps]
+    dim: 3
+  policy_artifact:
+    format: rsl_rl_pt
+    path: models/tier_a_go2_locomotion/20260516_contract_ppo/model_500.pt
+    sha256: e0a20545cdccac6b60a4587c96d2de9a169dfacf520b178f51709596a6f789ff
+    cfg_path: models/tier_a_go2_locomotion/20260516_contract_ppo/cfgs.pkl
+    cfg_sha256: bc3e68c18252475199e57b30c8ac49d813e3c784a3983e0e8b1a762490dde24f
+    validation: scripts/check_genesis_go2_policy_contract.sh --exp-name lewm-go2-contract-20260516T163413Z --ckpt 500
+  safety:
+    source: lewm_contract_ppo_validation_limits
+    max_vx_mps: 0.3
+    min_vx_mps: -0.3
+    max_vy_mps: 0.0
+    min_vy_mps: 0.0
+    max_yaw_rate_radps: 0.5
+    max_command_delta_per_tick:
+      vx_mps: 0.25
+      vy_mps: 0.0
+      yaw_rate_radps: 0.35
+
+timing:
+  physics_dt_s: 0.002
+  policy_dt_s: 0.02
+  command_dt_s: 0.10
+  action_block_size: 5
+  macro_action_duration_s: 0.50
+  train_on: executed_command_block
+
+camera:
+  id: rgb_camera
+  parent_link: camera_link
+  status: upstream_pinned_pending_intrinsics_audit
+  source_topic: /rgb_image
+  camera_info_topic: manifest_intrinsics_required_for_mono_rgb
+  native_resolution: [640, 480]
+  training_resolution: [224, 224]
+  fov_axis: horizontal
+  fov_deg: 78.323
+  near_m: 0.05
+  far_m: 200.0
+  xyz_body_m: [0.326, 0.0, 0.043]
+  rpy_body_rad: [0.0, 0.0, 0.0]
+  encoding: rgb8
+  timestamp_source: sim_clock
+
+sensors_required:
+  - joint_states
+  - tf
+  - imu
+  - rgb_image
+  - camera_info_or_manifest_intrinsics
+  - base_state
+  - foot_contacts
+  - reset_event
+  - executed_command_block
+
+backends:
+  gazebo:
+    role: ros2_integration_authority
+    upstream_base:
+      repository: https://github.com/khaledgabr77/unitree_go2_ros2
+      package: unitree_go2_sim
+      launch: unitree_go2_sim/launch/unitree_go2_launch.py
+      lewm_launch_wrapper: lewm_go2_bringup/launch/go2_sim.launch.py
+      commit: 29bce68480dcc3d3bac8cc0cac983f8ac951e8e3
+      local_path: third_party/unitree_go2_ros2
+      selection_status: pinned_pending_license_and_build_audit
+    lewm_adapter_package: lewm_go2_control
+  genesis:
+    role: high_throughput_rendering_after_parity
+    package: lewm_genesis
+    parity_required_before_full_data: true
+    foot_contact_source:
+      cpu: genesis_contact_force_proxy
+      amdgpu: zero_placeholder_until_genesis_contact_force_hsa_fault_resolved
+
+hard_gates_before_data_generation:
+  - verify_selected_upstream_license_allows_project_use
+  - build_selected_upstream_under_ros2_jazzy_and_gazebo_harmonic
+  - audit_upstream_go2_description_inertials_collisions_and_camera_frames
+  - lock_champ_gait_config_and_controller_parameters
+  - verify_command_block_to_executed_command_block_round_trip
+  - verify_reset_separated_episode_ids
+  - verify_camera_intrinsics_and_extrinsics_in_gazebo_and_genesis
+  - verify_each_trainable_primitive_has_distinct_executed_motion
+  - verify_smoke_bag_to_training_chunk_conversion

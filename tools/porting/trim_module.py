@@ -30,7 +30,8 @@ def main():
     for node in ast.walk(ast.parse(text)):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             body = set(range(node.body[0].lineno, node.end_lineno+1))
-            if not body & executed:
+            docstring_only = len(node.body) == 1 and ast.get_docstring(node) is not None
+            if not body & executed and not docstring_only:  # a docstring-only body executes no line
                 start = min([node.lineno]+[d.lineno for d in node.decorator_list])
                 drop.append((start, node.end_lineno, node.name))
     removed = set()

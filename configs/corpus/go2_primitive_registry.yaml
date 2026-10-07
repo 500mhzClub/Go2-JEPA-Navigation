@@ -1,0 +1,124 @@
+schema_version: 0.1
+robot_id: unitree_go2
+command_dim: 3
+command_order: [vx_body_mps, vy_body_mps, yaw_rate_radps]
+block_size: 5
+command_dt_s: 0.10
+
+defaults:
+  train: true
+  event_allowed_in_training: false
+  source: upstream_champ_initial_limits
+
+primitives:
+  hold:
+    type: velocity_block
+    train: true
+    event_allowed_in_training: false
+    command:
+      vx_body_mps: 0.0
+      vy_body_mps: 0.0
+      yaw_rate_radps: 0.0
+
+  forward_slow:
+    type: velocity_block
+    train: true
+    command:
+      vx_body_mps: 0.20
+      vy_body_mps: 0.0
+      yaw_rate_radps: 0.0
+
+  forward_medium:
+    type: velocity_block
+    train: true
+    command:
+      vx_body_mps: 0.25
+      vy_body_mps: 0.0
+      yaw_rate_radps: 0.0
+
+  forward_fast:
+    type: velocity_block
+    train: true
+    command:
+      vx_body_mps: 0.30
+      vy_body_mps: 0.0
+      yaw_rate_radps: 0.0
+
+  backward:
+    type: velocity_block
+    train: true
+    command:
+      vx_body_mps: -0.20
+      vy_body_mps: 0.0
+      yaw_rate_radps: 0.0
+
+  yaw_left:
+    type: velocity_block
+    train: true
+    command:
+      vx_body_mps: 0.0
+      vy_body_mps: 0.0
+      yaw_rate_radps: 0.45
+
+  yaw_right:
+    type: velocity_block
+    train: true
+    command:
+      vx_body_mps: 0.0
+      vy_body_mps: 0.0
+      yaw_rate_radps: -0.45
+
+  arc_left:
+    type: velocity_block
+    train: true
+    command:
+      vx_body_mps: 0.20
+      vy_body_mps: 0.0
+      yaw_rate_radps: 0.45
+
+  arc_right:
+    type: velocity_block
+    train: true
+    command:
+      vx_body_mps: 0.20
+      vy_body_mps: 0.0
+      yaw_rate_radps: -0.45
+
+  lateral_left:
+    type: velocity_block
+    train: false
+    enable_after_validation: true
+    command:
+      vx_body_mps: 0.0
+      vy_body_mps: 0.20
+      yaw_rate_radps: 0.0
+
+  lateral_right:
+    type: velocity_block
+    train: false
+    enable_after_validation: true
+    command:
+      vx_body_mps: 0.0
+      vy_body_mps: -0.20
+      yaw_rate_radps: 0.0
+
+  recovery_stand:
+    type: mode_event
+    train: true
+    event_allowed_in_training: true
+    event_name: recovery_stand
+
+  front_jump:
+    type: mode_event
+    train: false
+    event_allowed_in_training: false
+    enable_after_validation: true
+    event_name: front_jump
+
+audit_requirements:
+  before_training:
+    - executed_command_histograms
+    - per_primitive_displacement_distribution
+    - per_primitive_yaw_distribution
+    - clipping_and_safety_override_rate
+    - unsupported_primitives_removed_from_planner

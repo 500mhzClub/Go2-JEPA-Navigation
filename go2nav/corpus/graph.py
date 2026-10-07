@@ -125,9 +125,6 @@ class SceneGraph:
     def n_nodes(self) -> int:
         return int(self._node_xy.shape[0])
 
-    @property
-    def node_xy(self) -> np.ndarray:
-        return self._node_xy
 
     @property
     def landmark_cells(self) -> tuple[tuple[str, int], ...]:
@@ -141,14 +138,7 @@ class SceneGraph:
 
         return self._nav_blocked_cells
 
-    @property
-    def beacon_cells_set(self) -> frozenset[int]:
-        """Set of cell ids whose footprint contains a landmark/beacon mesh."""
 
-        return self._beacon_cells
-
-    def neighbors(self, cell_id: int) -> tuple[int, ...]:
-        return tuple(self._adjacency.get(int(cell_id), ()))
 
     def bfs_distance(
         self,
@@ -183,51 +173,6 @@ class SceneGraph:
                 frontier.append((neighbour, depth + 1))
         return None
 
-    def shortest_path(
-        self,
-        start: int,
-        goal: int,
-        *,
-        transit_blocked: frozenset[int] | set[int] | None = None,
-    ) -> tuple[int, ...]:
-        """Return the cell ids on the shortest traversable path ``start→goal``.
-
-        Excludes ``start`` and includes ``goal``. Returns an empty tuple
-        when ``start == goal`` or when ``goal`` is unreachable. See
-        :meth:`bfs_distance` for the ``transit_blocked`` semantics — a
-        blocked node can be reached as ``goal`` but its neighbours are
-        not expanded, so paths route around blocked transit nodes.
-        """
-
-        start = int(start)
-        goal = int(goal)
-        if start == goal:
-            return ()
-        blocked = transit_blocked or frozenset()
-        parent: dict[int, int] = {start: -1}
-        frontier: deque[int] = deque([start])
-        found = False
-        while frontier and not found:
-            node = frontier.popleft()
-            if node != start and node in blocked:
-                continue
-            for neighbour in self._adjacency.get(node, ()):
-                if neighbour in parent:
-                    continue
-                parent[neighbour] = node
-                if neighbour == goal:
-                    found = True
-                    break
-                frontier.append(neighbour)
-        if goal not in parent:
-            return ()
-        path: list[int] = []
-        cursor = goal
-        while cursor != start:
-            path.append(int(cursor))
-            cursor = parent[cursor]
-        path.reverse()
-        return tuple(path)
 
     def next_waypoint(
         self,
@@ -287,25 +232,7 @@ class SceneGraph:
                 frontier.append(neighbour)
         return visited
 
-    def dead_end_cells(self) -> tuple[int, ...]:
-        """Return cell ids whose traversable degree is ≤ 1 (dead ends)."""
 
-        return tuple(
-            sorted(
-                node.node_id
-                for node in self.manifest.graph_nodes
-                if len(self._adjacency.get(node.node_id, ())) <= 1
-            )
-        )
-
-    def spawn_cells(self) -> tuple[int, ...]:
-        """Return cell ids tagged as canonical spawn cells in the manifest."""
-
-        return tuple(
-            node.node_id
-            for node in self.manifest.graph_nodes
-            if "spawn" in node.tags
-        )
 
     # ------------------------------------------------------------------
     # World-frame queries
@@ -594,11 +521,3 @@ def wrap_angle_pi(angle: float) -> float:
     return float(((angle + math.pi) % (2.0 * math.pi)) - math.pi)
 
 
-def bearing_from_to(
-    src_xy: Iterable[float], dst_xy: Iterable[float]
-) -> float:
-    """Return the world-frame bearing (radians) from ``src_xy`` to ``dst_xy``."""
-
-    sx, sy = (float(v) for v in src_xy)
-    dx, dy = (float(v) for v in dst_xy)
-    return math.atan2(dy - sy, dx - sx)
