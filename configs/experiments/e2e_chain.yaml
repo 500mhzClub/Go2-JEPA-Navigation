@@ -1,0 +1,32 @@
+name: 'End-to-end chain: C3 with the models retrained from regenerated data'
+description: 'The last step of the end-to-end check: the collections, the decoder-source missions and T1''s corpus
+  regenerated from scratch, the T1-T8 chain retrained on them (go2nav.training.chain, original seeds), then C3 on
+  preliminary-test mazes 30-49, recovery off, reserve-exit v2 harness. Compare with the shipped and retrained-chain
+  cohorts of retrained_chain.yaml. Paths are relative to the repository root.'
+cohorts:
+- name: c3_e2e_v2
+  arms: [C3]
+  set: prelim_test_v1
+  recovery: 'off'
+  models: outputs/e2e/chain/models.yaml
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
