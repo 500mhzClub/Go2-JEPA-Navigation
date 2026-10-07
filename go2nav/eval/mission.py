@@ -205,6 +205,9 @@ def persist(session, folder):
         np.savez_compressed(folder/'native_contacts.npz', **native, frame_offsets=np.cumsum([0, *sizes], dtype=np.int64),
                             frame_timestamp_s=np.asarray(session.contact_times))
     save(folder/'contact_events.json', session.contact_events)
+    if session.packet_rows:
+        np.savez_compressed(folder/'policy_histories.npz', **{key: np.stack([row[key] for row in session.packet_rows])
+                                                              for key in session.packet_rows[0]})
     save(folder/'contact_topology.json', dict(link_names=session.link_names, environment_object_ids=session.object_ids,
                                               robot_link_ids=sorted(session.world.links['robot']),
                                               support_link_ids=sorted(session.world.links['support']),

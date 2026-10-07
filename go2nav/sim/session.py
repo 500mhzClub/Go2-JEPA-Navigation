@@ -39,9 +39,10 @@ class MissionSession:
     """The simulator side of one mission (see the module docstring). `samples` is the physics trace (one row per
     physics step); `contact_packets` and `contact_events` are the evaluator's contact records."""
 
-    def __init__(self, spec, output_dir, *, policy_checkpoint, noise_sigma_m=NOISE_SIGMA_M, dynamics=None, noise_layout=None):
+    def __init__(self, spec, output_dir, *, policy_checkpoint, noise_sigma_m=NOISE_SIGMA_M, dynamics=None, noise_layout=None,
+                 robot_visible=True):
         self.spec, self.output_dir, self.dynamics = spec, output_dir, dynamics
-        self.world = maze_scene.build(spec, output_dir, dynamics)
+        self.world = maze_scene.build(spec, output_dir, dynamics, robot_visible=robot_visible)
         strips = dynamics is not None and dynamics.strips is not None
         self.friction_field = (perturbations.FrictionField(self.world.robot, self.world.floor, dynamics.strips, dynamics.strip_mu)
                                if strips else None)
@@ -66,6 +67,7 @@ class MissionSession:
         self.fast_history = sensors.History((sensors.FAST_GYRO,))
         self.guard = None
         self._solver_fields = None
+        self.packet_rows = []  # the policy histories at every frame (for training data)
 
     @property
     def solver_fields(self):
@@ -92,9 +94,9 @@ class MissionSession:
 
     # -- settle -----------------------------------------------------------------------------------------------------
 
-    def settle(self):
-        """Reset to the spawn pose and stance, settle 1.5 s under a zero command, warm the renderer up, and arm the
-        guard. Returns the settled base pose (x, y, z, qx, qy, qz, qw)."""
+    def settle(self, warm_renderer=True):
+        """Reset to the spawn pose and stance, settle 1.5 s under a zero command, warm the renderer up (missions), and
+        arm the guard. Returns the settled base pose (x, y, z, qx, qy, qz, qw)."""
         robot, dofs = self.world.robot, self.world.leg_dofs
         xyz, wxyz = maze_scene.spawn_pose(self.spec['geometry']['spawn_se2_world'])
         stance = self.policy.stance.reshape(1, 12).astype(np.float32)
@@ -113,16 +115,19 @@ class MissionSession:
                     self.world.scene.step()
                     self._sample(zero, zero, base_time+(k+1)*maze_scene.PHYSICS_DT_S)
                 self.sim_ns += int(maze_scene.POLICY_DT_S*1e9)
-        self.render_pair()  # renderer warm-up; never an observation
+        if warm_renderer:
+            self.render_pair()  # renderer warm-up; never an observation
         self.guard = self.world.guard_geoms
         return self.samples[-1]['base_pose_world']
 
     # -- 50 Hz step -------------------------------------------------------------------------------------------------
 
-    def step(self, requested):
-        """Execute one policy step for a requested command; returns the command actually executed."""
+    def step(self, requested, record_as=None):
+        """Execute one policy step for a requested command; returns the command actually executed. `record_as` is the
+        request as the physics trace records it (default: the float32 command)."""
         if self.friction_field is not None:
             self.friction_field.update()
+        recorded = requested if record_as is None else record_as
         requested = np.asarray(requested, dtype=np.float32)
         window = self.sim_ns//FRAME_PERIOD_NS
         if self.window != window:
@@ -134,8 +139,13 @@ class MissionSession:
             self.world.scene.step()
             self.sim_ns = base_ns+(k+1)*2_000_000
             self.last_executed = command[None, :].copy()
-            self._sample(requested, command, base_time+(k+1)*maze_scene.PHYSICS_DT_S)
+            self._sample(requested if record_as is None else recorded, command, base_time+(k+1)*maze_scene.PHYSICS_DT_S)
         return command.tolist()
+
+    def command_tick(self, requested):
+        """One 100-ms command tick (five policy steps) as the older collections ran it; the request is recorded as
+        given (float64)."""
+        return [self.step(requested, record_as=np.asarray(requested, float)) for _ in range(maze_scene.POLICY_STEPS_PER_COMMAND)][0]
 
     def _sample(self, requested, applied, timestamp_s):
         """Record one physics step (state, contacts, sensors) and apply the stop rules."""
@@ -190,6 +200,26 @@ class MissionSession:
 
     # -- 10 Hz frames -----------------------------------------------------------------------------------------------
 
+    def capture(self):
+        """A primary-camera-only frame (the older corridor collections): (frame index, RGB, native depth, policy
+        packet). Frames are at 1.5 s + k·100 ms, as `frame`."""
+        now, index = self.sim_ns, self.frames
+        if now != FIRST_FRAME_NS+index*FRAME_PERIOD_NS:
+            raise ValueError('captures must be taken every fifth step after settling')
+        rgb, depth = render_primary(self.world.robot, self.world.camera)
+        policy = sensors.policy_packet(self.history, rgb, now)
+        self._record_packet(policy, now)
+        self.frames += 1
+        return index, rgb, depth, policy
+
+    def _record_packet(self, policy, now):
+        row = dict(image_ns=np.int64(now), decision_ns=np.int64(now))
+        for channel in sensors.BODY_CHANNELS:
+            history = policy['sensor_state'][channel.role][channel.name]
+            for field in ('values', 'valid', 'measured_ns', 'available_ns'):
+                row[f'{channel.name}_{field}'] = history[field]
+        self.packet_rows.append(row)
+
     def render_pair(self):
         """RGB and depth from the primary and auxiliary mounts at the current pose: [(rgb, depth), (rgb, depth)]."""
         return render_pair(self.world.robot, self.world.camera)
@@ -203,6 +233,7 @@ class MissionSession:
         (rgb, depth), (auxiliary_rgb, auxiliary_depth) = self.render_pair()
         self.last_native_depth = (depth, auxiliary_depth)  # the renderer's depth before packaging and noise
         policy = sensors.policy_packet(self.history, rgb, now)
+        self._record_packet(policy, now)
         depth = sensors.depth_packet(depth, policy, now)
         auxiliary_depth = sensors.depth_packet(auxiliary_depth, policy, now, auxiliary=True)
         fast = sensors.fast_gyro_packet(self.fast_history, now)
@@ -213,6 +244,18 @@ class MissionSession:
         auxiliary_rgb = sensors.auxiliary_rgb_packet(auxiliary_rgb, auxiliary_depth, policy, now)
         self.frames += 1
         return policy, depth, fast, auxiliary_depth, auxiliary_rgb, now
+
+
+def render_primary(robot, camera):
+    """The primary camera's RGB and depth at the robot's current pose (one RGB and one depth render)."""
+    p = array(robot.get_pos()).reshape(-1, 3)[0]
+    q = array(robot.get_quat()).reshape(-1, 4)[0]
+    R = sensors.rotation_xyzw(q[[1, 2, 3, 0]])
+    position = p+R@PRIMARY[:3, 3]
+    camera.set_pose(pos=position, lookat=position+R[:, 0], up=R[:, 2])
+    rgb = np.asarray(camera.render(rgb=True, depth=False, segmentation=False, normal=False)[0]).reshape(480, 640, 3).copy()
+    depth = np.asarray(camera.render(rgb=False, depth=True, segmentation=False, normal=False)[1]).reshape(480, 640).copy()
+    return rgb, depth
 
 
 def render_pair(robot, camera):

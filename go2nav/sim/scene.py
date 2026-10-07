@@ -79,11 +79,12 @@ def init_genesis(seed):
     gs.init(backend=gs.cpu, seed=int(seed) & 0x7FFF_FFFF, logging_level='warning')
 
 
-def build(spec, output_dir, dynamics=None):
+def build(spec, output_dir, dynamics=None, robot_visible=True):
     """Build the scene of a maze spec (with the episode's `procedural_seed` and home pose in `geometry.spawn_se2_world`).
     Genesis must already be initialised (`init_genesis`). Visual meshes are written to `output_dir`. `dynamics`
     (`go2nav.sim.dynamics.Dynamics`): marked strips are tinted on the floor, and a uniform friction replaces the
-    episode's after the build."""
+    episode's after the build. `robot_visible=False` builds the robot without visual geometry (the older corridor
+    collections rendered only the floor and walls)."""
     import genesis as gs
     from go2nav.sim.dynamics import tint_floor
     boxes = spec['geometry']['wall_boxes']
@@ -102,7 +103,7 @@ def build(spec, output_dir, dynamics=None):
                                             fixed=True, visualization=False), material=wall_material, name=b['wall_id'])
              for b in boxes]
     robot = scene.add_entity(gs.morphs.URDF(file=str(go2_urdf()), pos=spawn_xyz, quat=spawn_wxyz, fixed=False,
-                                            visualization=True, collision=True), name='go2')
+                                            visualization=robot_visible, collision=True), name='go2')
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     surfaces = []
