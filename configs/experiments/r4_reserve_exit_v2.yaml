@@ -1,0 +1,148 @@
+name: 'R4: the controllers under the reserve-exit v2 harness'
+record: go2_navigation_reserve_exit_rerun_results_2026-10-03.md (LeWMQuad-v3 docs)
+description: C1, C2 and C4 on preliminary-test mazes 30-49 (recovery off), and the C0 and C1 gates on the ten dev-tune mazes
+  (both episodes). C3 under v2 runs in R6 (s2ref_c3) and R5 (dyn1v2_mu030_c3).
+cohorts:
+- name: rexit2_ref
+  original_cohort: rexit2_ref
+  arms:
+  - C1
+  - C4
+  - C2
+  set: prelim_test_v1
+  recovery: 'off'
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 0
+  - - 33
+    - 0
+  - - 34
+    - 0
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 0
+  - - 38
+    - 0
+  - - 39
+    - 0
+  - - 40
+    - 0
+  - - 41
+    - 0
+  - - 42
+    - 0
+  - - 43
+    - 0
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 0
+  - - 47
+    - 0
+  - - 48
+    - 0
+  - - 49
+    - 0
+- name: rexit2_gate_c0
+  original_cohort: rexit2_gate_c0
+  arms:
+  - C0
+  set: dev_tune
+  recovery: 'off'
+  episodes:
+  - - 0
+    - 0
+  - - 1
+    - 0
+  - - 2
+    - 0
+  - - 3
+    - 0
+  - - 4
+    - 0
+  - - 5
+    - 0
+  - - 6
+    - 0
+  - - 7
+    - 0
+  - - 8
+    - 0
+  - - 9
+    - 0
+  - - 0
+    - 1
+  - - 1
+    - 1
+  - - 2
+    - 1
+  - - 3
+    - 1
+  - - 4
+    - 1
+  - - 5
+    - 1
+  - - 6
+    - 1
+  - - 7
+    - 1
+  - - 8
+    - 1
+  - - 9
+    - 1
+- name: rexit2_gate_c1
+  original_cohort: rexit2_gate_c1
+  arms:
+  - C1
+  set: dev_tune
+  recovery: 'off'
+  episodes:
+  - - 0
+    - 0
+  - - 1
+    - 0
+  - - 2
+    - 0
+  - - 3
+    - 0
+  - - 4
+    - 0
+  - - 5
+    - 0
+  - - 6
+    - 0
+  - - 7
+    - 0
+  - - 8
+    - 0
+  - - 9
+    - 0
+  - - 0
+    - 1
+  - - 1
+    - 1
+  - - 2
+    - 1
+  - - 3
+    - 1
+  - - 4
+    - 1
+  - - 5
+    - 1
+  - - 6
+    - 1
+  - - 7
+    - 1
+  - - 8
+    - 1
+  - - 9
+    - 1

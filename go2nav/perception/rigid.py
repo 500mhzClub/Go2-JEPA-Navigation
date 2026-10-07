@@ -35,6 +35,10 @@ class PlaneImageConflict(Rejected):
     """The retained image fit disagrees with the measured floor height."""
 
 
+class PoseLost(RuntimeError):
+    """The visual pose is lost (terminal, as in the original tracker): the mission ends as a pose loss."""
+
+
 class UnportedBranch(NotImplementedError):
     """A branch of the original runtime that no traced mission reached, so it was not ported.
 

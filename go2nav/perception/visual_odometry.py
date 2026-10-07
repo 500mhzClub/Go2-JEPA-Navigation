@@ -28,7 +28,7 @@ import numpy as np
 
 from go2nav.perception import cameras, floor, rigid
 from go2nav.perception.features import FeatureFrame, match
-from go2nav.perception.rigid import Candidate, Registration, Rejected, UnportedBranch
+from go2nav.perception.rigid import Candidate, PoseLost, Registration, Rejected, UnportedBranch
 from go2nav.perception.rotations import GyroAttitude, angle
 
 MAX_REFERENCES = 8
@@ -119,7 +119,10 @@ class VisualOdometry:
             self.keyframes += 1
             self.selected_reference = 0
         else:
-            candidate, fallback = self._measure(current, G, now)
+            try:
+                candidate, fallback = self._measure(current, G, now)
+            except Rejected as rejected:  # no camera or reference registers the frame: the tracker has failed
+                raise PoseLost(f'measured visual pose unavailable (tracking): {rejected}') from rejected
             measured = True
             R, p, reg, ref = candidate.R, candidate.p, candidate.registration, candidate.reference
             ref_frame = ref.frame
@@ -206,7 +209,7 @@ class VisualOdometry:
                     return self._measure_with(current, G)
                 except Rejected:
                     if camera == 'auxiliary':
-                        raise UnportedBranch('visual odometry failure: no camera measures the current frame')
+                        raise PoseLost('measured visual pose unavailable (tracking): neither camera measures the current frame')
         finally:
             self.references, self.stable, self.floors = saved
 

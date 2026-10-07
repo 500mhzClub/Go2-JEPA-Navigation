@@ -1,0 +1,221 @@
+name: 'R6: marked low-friction strips (stage 2)'
+record: go2_navigation_dynamics_perturbation_plan_2026-10-02.md, stage-2 sections; go2_navigation_stage2_strip_stall_diagnosis_2026-10-05.md
+  (LeWMQuad-v3 docs)
+description: 'Stage-2 evaluation mazes 30-49 (one registered episode each), recovery off: reference runs without strips (C1,
+  C4, C3), then C1, C1A and C1R with marked strips at 0.3. s2rec2 records the C1 missions on the fit and held-out mazes (marked
+  strips, 60-s stall stop) whose frames trained the stage-2 refits.'
+cohorts:
+- name: s2ref_cpu
+  original_cohort: s2ref_cpu
+  arms:
+  - C1
+  - C4
+  set: stage2_sets_v1
+  recovery: 'off'
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 1
+  - - 33
+    - 1
+  - - 34
+    - 1
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 1
+  - - 38
+    - 0
+  - - 39
+    - 1
+  - - 40
+    - 0
+  - - 41
+    - 1
+  - - 42
+    - 0
+  - - 43
+    - 1
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 1
+  - - 47
+    - 1
+  - - 48
+    - 1
+  - - 49
+    - 0
+- name: s2ref_c3
+  original_cohort: s2ref_c3
+  arms:
+  - C3
+  set: stage2_sets_v1
+  recovery: 'off'
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 1
+  - - 33
+    - 1
+  - - 34
+    - 1
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 1
+  - - 38
+    - 0
+  - - 39
+    - 1
+  - - 40
+    - 0
+  - - 41
+    - 1
+  - - 42
+    - 0
+  - - 43
+    - 1
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 1
+  - - 47
+    - 1
+  - - 48
+    - 1
+  - - 49
+    - 0
+- name: s2eval_cpu
+  original_cohort: s2eval_cpu
+  arms:
+  - C1
+  - C1A
+  - C1R
+  set: stage2_sets_v1
+  recovery: 'off'
+  strips: 0.3:marked
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 1
+  - - 33
+    - 1
+  - - 34
+    - 1
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 1
+  - - 38
+    - 0
+  - - 39
+    - 1
+  - - 40
+    - 0
+  - - 41
+    - 1
+  - - 42
+    - 0
+  - - 43
+    - 1
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 1
+  - - 47
+    - 1
+  - - 48
+    - 1
+  - - 49
+    - 0
+- name: s2rec2
+  original_cohort: s2rec2
+  arms:
+  - C1
+  set: stage2_sets_v1
+  recovery: 'off'
+  strips: 0.3:marked
+  stall_stop_s: 60.0
+  episodes:
+  - - 0
+    - 1
+  - - 1
+    - 0
+  - - 2
+    - 1
+  - - 3
+    - 0
+  - - 4
+    - 0
+  - - 5
+    - 0
+  - - 6
+    - 1
+  - - 7
+    - 0
+  - - 8
+    - 1
+  - - 9
+    - 0
+  - - 10
+    - 0
+  - - 11
+    - 0
+  - - 12
+    - 1
+  - - 13
+    - 1
+  - - 14
+    - 0
+  - - 15
+    - 1
+  - - 16
+    - 1
+  - - 17
+    - 0
+  - - 18
+    - 0
+  - - 19
+    - 1
+  - - 20
+    - 1
+  - - 21
+    - 0
+  - - 22
+    - 0
+  - - 23
+    - 1
+  - - 24
+    - 0
+  - - 25
+    - 1
+  - - 26
+    - 0
+  - - 27
+    - 0
+  - - 28
+    - 1
+  - - 29
+    - 1

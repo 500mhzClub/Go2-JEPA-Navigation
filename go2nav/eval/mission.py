@@ -21,6 +21,7 @@ import argparse
 from collections import deque
 import dataclasses
 import json
+import os
 from pathlib import Path
 import time
 import traceback
@@ -199,6 +200,8 @@ def persist(session, folder):
 
 
 def main():
+    os.environ.setdefault('PYOPENGL_PLATFORM', 'egl')  # headless rendering (read when Genesis is first imported)
+    os.environ.setdefault('EGL_DEVICE_ID', '0')
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--arm', required=True, choices=('C0', 'C1', 'C1A', 'C1R', 'C2', 'C3', 'C4'))
     p.add_argument('--set', required=True, help='registered maze set (data/mazes), e.g. prelim_test_v1')
