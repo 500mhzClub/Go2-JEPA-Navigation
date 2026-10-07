@@ -84,9 +84,12 @@ def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=N
 
 
 def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fit=None, friction=None, strips=None,
-        stall_stop_s=None):
+        stall_stop_s=None, degrade=None, margin=None, pessimistic=None, unknown_level=None):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
-    perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions)."""
+    perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions). Experiment
+    hooks: `degrade` (a forecast degradation, `controllers.degraded`), `margin` (p95/p99 calibrated clearance margin),
+    `pessimistic` (never-observed cells block: revised, seeded or lookaround; bound at `unknown_level`, else the
+    margin level, else p99; `planning.caution`)."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -98,9 +101,14 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     spec, episode = episode_spec(set_name, maze, episode_index)
     dynamics, dynamics_record = mission_dynamics(set_name, maze, episode_index, spec, episode, friction=friction,
                                                  strips=strips, stall_stop_s=stall_stop_s)
+    from go2nav.planning import caution
+    margin_m = caution.calibrated_bound(arm, margin) if margin else 0.
+    unknown_bound = caution.calibrated_bound(arm, unknown_level or margin or 'p99') if pessimistic else None
     save(out/'config.json', dict(arm=arm, set=set_name, maze=maze, episode=episode_index, recovery=recovery,
                                  decoder_fit=str(decoder_fit) if decoder_fit else None, step_budget=STEP_BUDGET,
-                                 physics_backend='cpu', dynamics=dynamics_record))
+                                 physics_backend='cpu', dynamics=dynamics_record, forecast_degradation=degrade,
+                                 clearance_margin=dict(level=margin, margin_m=margin_m) if margin else None,
+                                 pessimistic_unknown=dict(variant=pessimistic, bound_m=unknown_bound) if pessimistic else None))
     save(out/'specification.json', spec)
     save(out/'episode.json', episode)
     cv2.setNumThreads(1)
@@ -212,6 +220,10 @@ def main():
     p.add_argument('--friction', type=float, help='uniform floor and robot friction (stage 1)')
     p.add_argument('--strips', help='low-friction strips MU:marked or MU:unmarked (stage 2)')
     p.add_argument('--stall-stop-s', type=float, help='stop a recording mission stalled this long (60)')
+    p.add_argument('--degrade', help='forecast degradation: scale:S, fwdscale:S, turnscale:S or noise:E_mm')
+    p.add_argument('--margin', choices=('p95', 'p99'), help='calibrated clearance margin')
+    p.add_argument('--pessimistic', choices=('revised', 'seeded', 'lookaround'), help='never-observed cells block')
+    p.add_argument('--unknown-level', choices=('p95', 'p99'), help='bound for never-observed cells (default: the margin level, else p99)')
     p.add_argument('--out', type=Path, required=True)
     a = p.parse_args()
     strips = None
@@ -221,7 +233,8 @@ def main():
             p.error('--strips needs MU:marked or MU:unmarked')
         strips = (float(mu), mark == 'marked')
     result = run(a.arm, a.set, a.maze, a.out, episode_index=a.episode, recovery=a.recovery == 'on', decoder_fit=a.decoder_fit,
-                 friction=a.friction, strips=strips, stall_stop_s=a.stall_stop_s)
+                 friction=a.friction, strips=strips, stall_stop_s=a.stall_stop_s, degrade=a.degrade, margin=a.margin,
+                 pessimistic=a.pessimistic, unknown_level=a.unknown_level)
     print(json.dumps(result))
 
 

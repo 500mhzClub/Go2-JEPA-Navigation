@@ -1,0 +1,210 @@
+{
+ "schema": "go2_calibrated_forecast_margins.v1",
+ "created": "2026-10-02T13:27:21+01:00",
+ "label": "PRELIMINARY development mode",
+ "calibration": {
+  "cohort": "prelim_on",
+  "mazes": "50-89 (prelim_test_v1)",
+  "recovery": "on",
+  "coverage_rule_fix": false,
+  "evaluation_mazes": "30-49 (disjoint)",
+  "near_wall_true_path_clearance_below_m": 0.6,
+  "excluded": "decisions issued by recovery interventions",
+  "possible_shift": "calibration recovery on with the nominal disc; evaluation recovery off with the inflated disc"
+ },
+ "guarantee": "per decision, marginal under exchangeability; not per mission. p99 is the safety-relevant level.",
+ "controllers": {
+  "C1": {
+   "missions": 40,
+   "mazes": [
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89
+   ],
+   "near_wall_decisions": 11504,
+   "excluded_intervention_decisions": 64,
+   "all_decisions": 15857,
+   "p95": {
+    "margin_m": 0.021,
+    "alpha": 0.05,
+    "block_bootstrap_95_m": [
+     0.0202,
+     0.0223
+    ]
+   },
+   "p99": {
+    "margin_m": 0.0289,
+    "alpha": 0.01,
+    "block_bootstrap_95_m": [
+     0.0255,
+     0.0304
+    ]
+   }
+  },
+  "C3": {
+   "missions": 40,
+   "mazes": [
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89
+   ],
+   "near_wall_decisions": 10538,
+   "excluded_intervention_decisions": 34,
+   "all_decisions": 14762,
+   "p95": {
+    "margin_m": 0.0539,
+    "alpha": 0.05,
+    "block_bootstrap_95_m": [
+     0.0526,
+     0.0552
+    ]
+   },
+   "p99": {
+    "margin_m": 0.0719,
+    "alpha": 0.01,
+    "block_bootstrap_95_m": [
+     0.0697,
+     0.0755
+    ]
+   }
+  },
+  "C4": {
+   "missions": 40,
+   "mazes": [
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89
+   ],
+   "near_wall_decisions": 10592,
+   "excluded_intervention_decisions": 22,
+   "all_decisions": 14865,
+   "p95": {
+    "margin_m": 0.0264,
+    "alpha": 0.05,
+    "block_bootstrap_95_m": [
+     0.0258,
+     0.0268
+    ]
+   },
+   "p99": {
+    "margin_m": 0.0344,
+    "alpha": 0.01,
+    "block_bootstrap_95_m": [
+     0.0336,
+     0.0353
+    ]
+   }
+  }
+ }
+}

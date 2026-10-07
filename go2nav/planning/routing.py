@@ -155,11 +155,12 @@ def _fine_search(floor, occupied, fine_occupied, radius, seed, target):
     return _FINE_SEARCHES[key]
 
 
-def clear_route_target(points, position, fine_occupied):
-    """The look-ahead target on a route (see the module docstring)."""
+def clear_route_target(points, position, fine_occupied, clearance=None):
+    """The look-ahead target on a route (see the module docstring). `clearance` replaces the stored-obstacle clearance
+    (the cautious variants of `planning.caution`)."""
     position = np.asarray(position, float)
     points = [np.asarray(p, float) for p in points]
-    clearance = grid.fine_clearance(fine_occupied)
+    clearance = clearance or grid.fine_clearance(fine_occupied)
 
     def clear_to(target):
         value = clearance.minimum(position, target)

@@ -191,24 +191,7 @@ class MissionSession:
 
     def render_pair(self):
         """RGB and depth from the primary and auxiliary mounts at the current pose: [(rgb, depth), (rgb, depth)]."""
-        robot, camera = self.world.robot, self.world.camera
-        p = array(robot.get_pos()).reshape(-1, 3)[0]
-        q = array(robot.get_quat()).reshape(-1, 4)[0]
-        R = sensors.rotation_xyzw(q[[1, 2, 3, 0]])
-        images = []
-        for E in (PRIMARY, AUXILIARY):
-            H = np.eye(4)
-            H[:3, :3], H[:3, 3] = R@E[:3, :3], p+R@E[:3, 3]
-            camera.set_pose(pos=H[:3, 3], lookat=H[:3, 3]+H[:3, 2], up=-H[:3, 1])
-            np.testing.assert_allclose(np.asarray(camera.transform, float)@np.diag([1., -1., -1., 1.]), H, atol=1e-6, rtol=0)
-            rgb = np.asarray(camera.render(rgb=True, depth=False, segmentation=False, normal=False)[0]).reshape(480, 640, 3).copy()
-            depth = np.asarray(camera.render(rgb=False, depth=True, segmentation=False, normal=False)[1]).reshape(480, 640).copy()
-            if rgb.dtype != np.uint8 or depth.dtype != np.float32:
-                raise ValueError('uint8 RGB and float32 depth expected from the renderer')
-            images.append((rgb, depth))
-        position = p+R@PRIMARY[:3, 3]
-        camera.set_pose(pos=position, lookat=position+R[:, 0], up=R[:, 2])
-        return images
+        return render_pair(self.world.robot, self.world.camera)
 
     def frame(self):
         """The next 10 Hz sensor frame: (policy, depth, fast gyro, auxiliary depth, auxiliary RGB, time) packets, with
@@ -217,6 +200,7 @@ class MissionSession:
         if now != FIRST_FRAME_NS+index*FRAME_PERIOD_NS or len(self.samples) != 750+50*index:
             raise ValueError('frames must be taken every fifth step after settling')
         (rgb, depth), (auxiliary_rgb, auxiliary_depth) = self.render_pair()
+        self.last_native_depth = (depth, auxiliary_depth)  # the renderer's depth before packaging and noise
         policy = sensors.policy_packet(self.history, rgb, now)
         depth = sensors.depth_packet(depth, policy, now)
         auxiliary_depth = sensors.depth_packet(auxiliary_depth, policy, now, auxiliary=True)
@@ -228,6 +212,28 @@ class MissionSession:
         auxiliary_rgb = sensors.auxiliary_rgb_packet(auxiliary_rgb, auxiliary_depth, policy, now)
         self.frames += 1
         return policy, depth, fast, auxiliary_depth, auxiliary_rgb, now
+
+
+def render_pair(robot, camera):
+    """Render RGB and depth from the primary and auxiliary mounts at the robot's current pose (the one camera is moved
+    to each mount, then back to the primary): [(rgb uint8, depth float32), (rgb, depth)]."""
+    p = array(robot.get_pos()).reshape(-1, 3)[0]
+    q = array(robot.get_quat()).reshape(-1, 4)[0]
+    R = sensors.rotation_xyzw(q[[1, 2, 3, 0]])
+    images = []
+    for E in (PRIMARY, AUXILIARY):
+        H = np.eye(4)
+        H[:3, :3], H[:3, 3] = R@E[:3, :3], p+R@E[:3, 3]
+        camera.set_pose(pos=H[:3, 3], lookat=H[:3, 3]+H[:3, 2], up=-H[:3, 1])
+        np.testing.assert_allclose(np.asarray(camera.transform, float)@np.diag([1., -1., -1., 1.]), H, atol=1e-6, rtol=0)
+        rgb = np.asarray(camera.render(rgb=True, depth=False, segmentation=False, normal=False)[0]).reshape(480, 640, 3).copy()
+        depth = np.asarray(camera.render(rgb=False, depth=True, segmentation=False, normal=False)[1]).reshape(480, 640).copy()
+        if rgb.dtype != np.uint8 or depth.dtype != np.float32:
+            raise ValueError('uint8 RGB and float32 depth expected from the renderer')
+        images.append((rgb, depth))
+    position = p+R@PRIMARY[:3, 3]
+    camera.set_pose(pos=position, lookat=position+R[:, 0], up=R[:, 2])
+    return images
 
 
 def rotation_from_pose(base_pose_world):

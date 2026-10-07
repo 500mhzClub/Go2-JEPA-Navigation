@@ -109,6 +109,17 @@ def record(a, mission):
         if value:
             os.environ[name] = value
     from scripts import run_go2_navigation_capability_completed_support_v4_development as owner
+    if a.pessimistic_variant:
+        # As the pinned v2 entry: the chosen pessimistic-unknown variant, bound at --unknown-level (else the run's level).
+        from lewm import dev_harness_fixes_development as fixes
+        from lewm.dev_pessimistic_unknown_lookaround_development import lookaround_exempt_pessimistic_unknown_mixin
+        from lewm.dev_pessimistic_unknown_seeded_development import seeded_pessimistic_unknown_mixin
+        chosen = dict(seeded=seeded_pessimistic_unknown_mixin, lookaround=lookaround_exempt_pessimistic_unknown_mixin)[a.pessimistic_variant]
+        arm = mission[mission.index('--controller')+1]
+        bounds = json.loads(Path('docs/go2_navigation_calibrated_margins_2026-10-02.json').read_text())['controllers'][arm]
+        level = a.unknown_level
+        fixes.pessimistic_unknown_mixin = (lambda bound_m, run_level: chosen(bounds[level]['margin_m'], level) if level
+                                           else chosen(bound_m, run_level))
     controller_stream = StreamWriter(out/'controller.stream')
     original_cues = owner.install_task_cues
 
@@ -133,6 +144,7 @@ def record(a, mission):
     capability_root = Path(json.loads(owner.PROTOCOL.read_text())['output_root'])
     (out/'bundle.json').write_text(json.dumps(dict(
         mission=mission, harness=a.harness, dynamics=a.dynamics, stall_stop_s=a.stall_stop_s, launch_pin=launch,
+        pessimistic_variant=a.pessimistic_variant, unknown_level=a.unknown_level,
         run=str(capability_root/'runs'/assignment)), indent=1))
     sys.argv = [str(entry)]+mission
     try:
@@ -150,6 +162,8 @@ def main():
     p.add_argument('--harness', default='reserve_exit_v2')
     p.add_argument('--dynamics')
     p.add_argument('--stall-stop-s', type=float)
+    p.add_argument('--pessimistic-variant', choices=('seeded', 'lookaround'), help='with --pessimistic-unknown in the mission')
+    p.add_argument('--unknown-level', choices=('p95', 'p99'))
     a = p.parse_args(argv[:split])
     record(a, argv[split+1:])
 

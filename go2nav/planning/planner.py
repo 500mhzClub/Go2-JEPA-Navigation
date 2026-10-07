@@ -15,6 +15,9 @@ One plan is made every fourth frame (2.5 Hz), in three steps:
 
 `select_reactive` replaces step 3 for the model-free C2 (`planning.reactive`).
 
+`margin_m` and `unknown` (`planning.caution`) make the forecast clearance checks cautious (calibrated-margin
+experiment).
+
 `recovery=True` adds the development recovery fixes: stall watchdog, latch timeout, deadlock escape, terminal-spin
 guard (these were the "recovery on" condition of the experiments). For C2 they are the terminal-spin break and the
 reactive escape (`_reactive_escape`; its dispatch side is `NavigationController._escape_dispatch`).
@@ -23,7 +26,7 @@ import math
 
 import numpy as np
 
-from go2nav.planning import grid, reactive, routing, selection as sel
+from go2nav.planning import caution, grid, reactive, routing, selection as sel
 from go2nav.planning.actions import ACTIONS, TRANSLATIONS, TURNS, command
 from go2nav.planning.grid import centre
 from go2nav.perception.rigid import UnportedBranch
@@ -45,8 +48,10 @@ def wrap(value):
 class Planner:
     """Planning state and the route, objective and selection steps (see the module docstring)."""
 
-    def __init__(self, *, arrival_radius_m, recovery=False):
+    def __init__(self, *, arrival_radius_m, recovery=False, margin_m=0., unknown=None):
         self.arrival_radius_m, self.recovery = arrival_radius_m, recovery
+        self.margin_m, self.unknown = margin_m, unknown  # cautious clearance (planning.caution)
+        self.route_status = None
         self.panorama = routing.InitialPanorama()
         self.frontier_visits = routing.CommittedFrontierVisits()
         self.coverage_views = routing.CoverageViews()
@@ -122,7 +127,9 @@ class Planner:
             else:
                 route = dict(status='INITIAL_PANORAMA_REQUIRES_VIEW', route_cells=[], view_heading_rad=survey['heading_rad'])
         route = self._coverage(route, snapshot, q, Q, goal_map, now_ns, generation)
-        return self._stall_watchdog(route, q, now_ns, phase) if self.recovery else route
+        route = self._stall_watchdog(route, q, now_ns, phase) if self.recovery else route
+        self.route_status = route.get('status')
+        return route
 
     def _coverage(self, route, snapshot, q, Q, goal_map, now_ns, generation):
         if self.coverage_generation != generation:
@@ -201,7 +208,8 @@ class Planner:
         points = [centre(c) for c in route['route_cells']]
         if route.get('status') == 'OBSERVED_FLOOR_ROUTE_TO_GOAL_CELL' and 'goal_map_xy_m' in route:
             points.append(np.asarray(route['goal_map_xy_m'], float))
-        target = routing.clear_route_target(points, position, snapshot.fine_occupied)
+        cautious = self._cautious(grid.fine_clearance(snapshot.fine_occupied), snapshot, position)
+        target = routing.clear_route_target(points, position, snapshot.fine_occupied, clearance=cautious)
         exact = bool(route['status'] == 'OBSERVED_FLOOR_ROUTE_TO_GOAL_CELL'
                      and np.linalg.norm(target-np.asarray(route['goal_map_xy_m'])) < 1e-9)
         self.terminal_approach = bool(exact and np.linalg.norm(target-np.asarray(position)) <= TERMINAL_APPROACH_RADIUS_M)
@@ -223,7 +231,7 @@ class Planner:
             self._terminal_turn_guard(result, goal_body)
         if scan_error is not None:
             result = sel.scan_override(result, prediction, scan_error)
-        result = sel.clearance_check(result, prediction, clearance, q, Q)
+        result = sel.clearance_check(result, prediction, self._cautious(clearance, snapshot, q), q, Q)
         result, self.clearance_turn = sel.recover_turn(result, heading, generation, self.clearance_turn)
         if terminal:
             result = sel.terminal_progress(result)
@@ -261,7 +269,7 @@ class Planner:
         B = np.asarray(snapshot.map_from_initial)
         q, Q = B@position, B@rotation
         clearance = grid.fine_clearance(snapshot.fine_occupied)
-        rows = reactive.path_rows(prefix, self.pulse, clearance, q, Q)
+        rows = reactive.path_rows(prefix, self.pulse, self._cautious(clearance, snapshot, q), q, Q)
         result = reactive.select(goal_body, scan_error, clearance.minimum(q[:2], q[:2]), rows)
         if self.pulse:
             result = reactive.heading_first_terminal(result, self.arrival_radius_m)
@@ -269,6 +277,13 @@ class Planner:
             result = self._terminal_spin_guard(result)
             result = self._reactive_escape(result, clearance, q, Q)
         return result
+
+    def _cautious(self, clearance, snapshot, position):
+        """The clearance seen by the forecast checks: shifted by the margin, with never-observed cells if pessimistic."""
+        if not self.margin_m and self.unknown is None:
+            return clearance
+        context = self.unknown.context(snapshot, position, self.route_status) if self.unknown is not None else None
+        return caution.CautiousClearance(clearance, self.margin_m, context) if self.margin_m or context is not None else clearance
 
     def _terminal_turn_guard(self, result, goal_body):
         distance = float(np.linalg.norm(goal_body))
