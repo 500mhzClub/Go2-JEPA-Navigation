@@ -51,6 +51,13 @@ artifacts:
     url: null
     source: <recovery>/.generated/navigation_development_artifacts_v1/go2_maze_view_readout_v1_attempt_003/maze_data_final.pt
     note: "T5b maze-view readout (readout_arm maze_view_maze_data; from T5a)"
+  - name: c3v2_readout
+    kind: checkpoint
+    bytes: 3413325
+    sha256: 11a61e419159e7e0591c60c0e5eb6921eff926f2edb81c247988e7276094923c
+    url: null
+    source: <recovery>/.generated/navigation_development_artifacts_v1/go2_navigation_capability_v1_attempt_001/c3v2_readout_fit_v1/readout_v2_final.pt
+    note: "C3-v2 readout (T5b architecture, development; the C3 model of the C3-v2 fresh checks, whose decisions are a T7 evaluation set)"
   - name: t6_c1_command_model
     kind: checkpoint
     bytes: 31698

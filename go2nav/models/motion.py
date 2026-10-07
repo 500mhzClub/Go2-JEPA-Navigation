@@ -130,6 +130,27 @@ def load_motion_readout(path):
     return readout.eval().requires_grad_(False)
 
 
+class ReadoutDecoder(nn.Module):
+    """A plain `MotionReadout` behind the C3 decoder's interface: the v4-era C3 read motion from the current and
+    predicted features alone (the C3-v2 fresh checks used one with C3-v2 weights)."""
+
+    def __init__(self, readout):
+        super().__init__()
+        self.readout = readout
+
+    def forward(self, current, future, past05=None, past10=None):
+        return self.readout(current, future)
+
+
+def load_c3_decoder(path, base_readout):
+    """The C3 decoder of a fit file: a decoder-fix/stage-2 fit (`load_decoder_and_c4`) or a plain readout checkpoint
+    ({'model_state_dict': ...}, wrapped in `ReadoutDecoder`)."""
+    state = torch.load(path, map_location='cpu', weights_only=False)
+    if 'readout_config' in state:
+        return load_decoder_and_c4(path, base_readout)[0]
+    return ReadoutDecoder(load_motion_readout(path)).eval()
+
+
 def load_decoder_and_c4(path, base_readout):
     """The C3 decoder and the matched C4 from one fit file ({'readout', 'readout_config', 'variant', 'c4'})."""
     state = torch.load(path, map_location='cpu', weights_only=False)
