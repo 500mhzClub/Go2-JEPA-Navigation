@@ -92,6 +92,7 @@ to resume from.
 | artefact hosting (Hugging Face Hub: checkpoints, maze sets, training data, result summaries) | todo |
 | paper tables and figures from result files | todo |
 | licences and pre-publication review (Andrew) | todo |
+| legacy role label (for Andrew's review) | the 181 files of `data/mazes/prelim_test_v1` carry `role`/`data_role` `"sealed_test"` from before the 1 October declassification, and episode records of runs on them inherit it; the files are byte-bound to the maze-regeneration gate, so the choice is to keep the label with a note or relabel to `prelim_test` and re-bind | open |
 
 ## Gate G4 (7 October 2026): fresh closed-loop missions, clean repository vs original runs
 
