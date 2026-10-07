@@ -35,6 +35,7 @@ def _shipped_files(set_names):
     ('configs/mazes/c3v2_sets_v1.yaml', ['c3v2_sets_v1']),
     ('configs/mazes/c3v3_sets_v1.yaml', ['c3v3_sets_v1']),
     ('configs/mazes/capability_v1.yaml', ['dev_tune', 'validation', 'prelim_test_v1']),
+    ('configs/mazes/stage2_sets_v1.yaml', ['stage2_sets_v1']),
 ])
 def test_regeneration_reproduces_registered_sets(config, shipped):
     _, generated = generate_from_config(config)

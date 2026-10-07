@@ -1,0 +1,16 @@
+# Mazes for dynamics stage 2 (5 October 2026): a selected family of routes with long straights. A layout qualifies
+# when its first qualifying episode (0, then 1) gets low-friction strips over at least 20% of the route under the
+# stage-2 placement (`go2nav.sim.dynamics.place_strips`, seeded by role, maze and episode); one episode each.
+# The original registration tried construction seeds 2026100501.. in order and used the first that gave 50
+# qualifying layouts (2026100504; the first three gave 47, 45 and 43).
+description: 'stage-2 slip-strip layouts, a selected family (routes with long straights): fit 0-23, held-out 24-29, evaluation 30-49'
+scene_id_prefix: navigation-stage2-patch
+family: NAVIGATION_STAGE2_LONG_STRAIGHTS_SELECTED
+seeds: {construction: 2026100504, physics_base: 2026115000, appearance_base: 2026115100, episode_base: 2026115200}
+exclude: [data/mazes/registries/capability_v1_prior_graphs.json, data/mazes/dev_tune, data/mazes/validation,
+          data/mazes/prelim_test_v1, data/mazes/c3v2_sets_v1, data/mazes/c3v3_sets_v1]
+qualify: {strip_coverage: 0.2}
+roles:
+  - {name: stage2_fit, count: 24, episodes: [0, 1]}
+  - {name: stage2_heldout, count: 6, episodes: [0, 1]}
+  - {name: stage2_eval, count: 20, episodes: [0, 1]}

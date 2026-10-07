@@ -4,6 +4,8 @@
 
 A config gives the scene-id prefix, family, seeds, the exclusions and the roles (see configs/mazes/). Each `exclude`
 entry is either a graph registry (a JSON list of {'name', 'edges'}) or a set folder, whose mazes are all excluded.
+`qualify: {strip_coverage: F}` keeps only layouts with an episode whose stage-2 strips (`go2nav.sim.dynamics`) cover
+at least F of the route (the stage-2 selection).
 For a new set, exclude data/mazes/registries/built_graphs_2026-10-06.json plus any set built since.
 """
 import argparse
@@ -38,8 +40,21 @@ def load_config(path):
     return config, roles, Seeds(**config['seeds'])
 
 
+def strip_coverage(minimum):
+    """The stage-2 qualification: the episode's strip placement (seeded by role, maze and episode) covers at least
+    `minimum` of the route."""
+    from go2nav.sim.dynamics import place_strips, placement_seed
+
+    def qualifies(spec, episode):
+        seed = placement_seed(spec['data_role'], spec['layout_index'], episode['episode_index'])
+        return place_strips(spec, episode, seed)['coverage'] >= minimum
+    return qualifies
+
+
 def generate_from_config(path, qualify=None):
     config, roles, seeds = load_config(path)
+    if qualify is None and config.get('qualify'):
+        qualify = strip_coverage(config['qualify']['strip_coverage'])
     generated = generate(roles, seeds=seeds, excluded_graphs=excluded_graphs(config['exclude']),
                          scene_id_prefix=config['scene_id_prefix'], family=config['family'], qualify=qualify)
     return config, generated
