@@ -7,8 +7,12 @@ A collection is data/collections/<name>/plan.json: per trial, the scene specific
 Each trial settles (no renderer warm-up), then at every 100-ms tick captures a frame (primary RGB and native depth)
 and executes the tick's command for five policy steps; a final frame follows the last tick. Physical stops end a trial
 early and are kept. Tapes:
-- switch_family: 3 quiet ticks, 10 ticks of the prefix action, the suffix action's 40-tick candidate plan (30 ticks
-  of motion then 10 of zero; arcs straighten for their last 10 motion ticks), 10 zero ticks (63 ticks).
+- geometry_progress_family: 3 quiet ticks, then the action's 40-tick candidate plan (30 ticks of motion then 10 of
+  zero; arcs straighten for their last 10 motion ticks);
+- switch_family: 3 quiet ticks, 10 ticks of the prefix action, the suffix action's candidate plan, 10 zero ticks;
+- short_pulse: 3 quiet ticks, 10 ticks of the preceding action, 3 zero ticks, one tick of the pulse action, 8 zero;
+- balanced_start (balanced_start_horizon): 10 zero ticks, then 5 (8) ticks of the action. These also capture one
+  frame at the moment of a physical stop.
 
 A trial folder holds rgb_NNNN.png and native_depth_NNNN.npz per frame, frames.json, command_tape.json,
 physics_trace.npz, policy_histories.npz, contact_events.json and result.json.
@@ -55,7 +59,28 @@ def switch_tape(trial):
     return rows
 
 
-TAPES = dict(switch_family=switch_tape)
+def family_tape(trial):
+    return [([0., 0., 0.], 1, 'common_quiet_history')]*QUIET_TICKS+[
+        (c, 2 if i < 30 else 3, 'candidate_prefix' if i < 30 else 'candidate_brake')
+        for i, c in enumerate(candidate_plan(trial['action']))]
+
+
+def short_pulse_tape(trial):
+    blocks = [(3, 'quiet', None), (10, 'preceding_action', trial['prefix_action']), (3, 'committed_zero', None),
+              (1, 'translation_pulse', trial['pulse_action']), (8, 'zero_drain', None)]
+    return [(candidate_plan(action)[0] if action else [0., 0., 0.], 2 if action else 3, role)
+            for count, role, action in blocks for _ in range(count)]
+
+
+def balanced_tape(ticks):
+    def tape(trial):
+        return [([0., 0., 0.], 1, 'quiet')]*10+[(candidate_plan(trial['action'])[0], 2, 'action')]*ticks
+    return tape
+
+
+TAPES = dict(geometry_progress_family=family_tape, switch_family=switch_tape, short_pulse=short_pulse_tape,
+             balanced_start=balanced_tape(5), balanced_start_horizon=balanced_tape(8))
+CAPTURE_AT_STOP = ('balanced_start', 'balanced_start_horizon')
 
 
 def collect(name, trial_name, out):
@@ -78,8 +103,8 @@ def collect(name, trial_name, out):
     session = MissionSession(spec, out/'visual_meshes', policy_checkpoint=artifacts.path('go2_locomotion_policy'),
                              noise_sigma_m=0., noise_layout=0, robot_visible=False)
 
-    def capture():
-        index, rgb, depth, _ = session.capture()
+    def capture(aligned=True):
+        index, rgb, depth, _ = session.capture(aligned=aligned)
         Image.fromarray(rgb).save(out/f'rgb_{index:04d}.png')
         np.savez_compressed(out/f'native_depth_{index:04d}.npz', optical_depth_m=depth)
         frames.append(dict(frame=index, measured_ns=session.sim_ns, physical_sample_index=len(session.samples)-1))
@@ -95,6 +120,8 @@ def collect(name, trial_name, out):
         capture()
     except PhysicalStop as error:
         stop = str(error)
+        if name in CAPTURE_AT_STOP:
+            capture(aligned=False)
     finally:
         persist(session, out)
         save(out/'frames.json', frames)

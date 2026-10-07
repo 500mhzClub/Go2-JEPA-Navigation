@@ -200,11 +200,11 @@ class MissionSession:
 
     # -- 10 Hz frames -----------------------------------------------------------------------------------------------
 
-    def capture(self):
+    def capture(self, aligned=True):
         """A primary-camera-only frame (the older corridor collections): (frame index, RGB, native depth, policy
-        packet). Frames are at 1.5 s + k·100 ms, as `frame`."""
-        now, index = self.sim_ns, self.frames
-        if now != FIRST_FRAME_NS+index*FRAME_PERIOD_NS:
+        packet). Frames are at 1.5 s + k·100 ms, as `frame` (unless `aligned=False`: a frame at a physical stop)."""
+        now, index = int(round(float(self.samples[-1]['timestamp_s'])*1e9)), self.frames
+        if aligned and now != FIRST_FRAME_NS+index*FRAME_PERIOD_NS:
             raise ValueError('captures must be taken every fifth step after settling')
         rgb, depth = render_primary(self.world.robot, self.world.camera)
         policy = sensors.policy_packet(self.history, rgb, now)

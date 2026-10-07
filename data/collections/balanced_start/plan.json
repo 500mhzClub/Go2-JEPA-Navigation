@@ -1,0 +1,5336 @@
+{
+ "name": "balanced_start",
+ "description": "Balanced starts from rest (48 training cells): 10 zero ticks, then 5 ticks of one action.",
+ "original": "go2_balanced_start_actions_v1_attempt_001",
+ "session": "corridor",
+ "trials": {
+  "case_00": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_001",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        -0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_001",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_01_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_arc",
+   "geometry_trial": "family_episode_001"
+  },
+  "case_01": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_002",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        -0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_002",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_00_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_arc",
+   "geometry_trial": "family_episode_002"
+  },
+  "case_02": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_005",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        -0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_005",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_00_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_turn",
+   "geometry_trial": "family_episode_005"
+  },
+  "case_03": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_006",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        -0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_006",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_00_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_turn",
+   "geometry_trial": "family_episode_006"
+  },
+  "case_04": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_008",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_008",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_00_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_turn",
+   "geometry_trial": "family_episode_008"
+  },
+  "case_05": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_011",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_011",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_01_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_arc",
+   "geometry_trial": "family_episode_011"
+  },
+  "case_06": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_013",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        -0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_013",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_00_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "hold",
+   "geometry_trial": "family_episode_013"
+  },
+  "case_07": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_018",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_018",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_01_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "hold",
+   "geometry_trial": "family_episode_018"
+  },
+  "case_08": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_020",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        -0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_020",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_01_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "forward",
+   "geometry_trial": "family_episode_020"
+  },
+  "case_09": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_021",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        -0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_021",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_01_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_arc",
+   "geometry_trial": "family_episode_021"
+  },
+  "case_10": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_023",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        -0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_023",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_01_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "forward",
+   "geometry_trial": "family_episode_023"
+  },
+  "case_11": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_025",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_025",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_01_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_turn",
+   "geometry_trial": "family_episode_025"
+  },
+  "case_12": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_027",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        -0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_027",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_00_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_turn",
+   "geometry_trial": "family_episode_027"
+  },
+  "case_13": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_028",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        -0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_028",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_01_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_turn",
+   "geometry_trial": "family_episode_028"
+  },
+  "case_14": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_029",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_029",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_01_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_arc",
+   "geometry_trial": "family_episode_029"
+  },
+  "case_15": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_030",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        -0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_030",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_00_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "forward",
+   "geometry_trial": "family_episode_030"
+  },
+  "case_16": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_031",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_031",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_00_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_arc",
+   "geometry_trial": "family_episode_031"
+  },
+  "case_17": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_033",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_033",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_01_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "hold",
+   "geometry_trial": "family_episode_033"
+  },
+  "case_18": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_035",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_035",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_01_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_turn",
+   "geometry_trial": "family_episode_035"
+  },
+  "case_19": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_036",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        -0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_036",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_01_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_turn",
+   "geometry_trial": "family_episode_036"
+  },
+  "case_20": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_037",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_037",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_00_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_arc",
+   "geometry_trial": "family_episode_037"
+  },
+  "case_21": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_039",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_039",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_00_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "forward",
+   "geometry_trial": "family_episode_039"
+  },
+  "case_22": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_044",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_044",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_00_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_arc",
+   "geometry_trial": "family_episode_044"
+  },
+  "case_23": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_045",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        -0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_045",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_00_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_arc",
+   "geometry_trial": "family_episode_045"
+  },
+  "case_24": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_048",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        -0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_048",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_01_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_turn",
+   "geometry_trial": "family_episode_048"
+  },
+  "case_25": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_049",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        -0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_049",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_01_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_arc",
+   "geometry_trial": "family_episode_049"
+  },
+  "case_26": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_050",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_050",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_00_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "hold",
+   "geometry_trial": "family_episode_050"
+  },
+  "case_27": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_051",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_051",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_00_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "forward",
+   "geometry_trial": "family_episode_051"
+  },
+  "case_28": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_052",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        -0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_052",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_00_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_arc",
+   "geometry_trial": "family_episode_052"
+  },
+  "case_29": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_054",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        -0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_054",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_00_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_turn",
+   "geometry_trial": "family_episode_054"
+  },
+  "case_30": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_055",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_055",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_00_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_turn",
+   "geometry_trial": "family_episode_055"
+  },
+  "case_31": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_057",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_057",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_00_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_turn",
+   "geometry_trial": "family_episode_057"
+  },
+  "case_32": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_058",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_058",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_01_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "forward",
+   "geometry_trial": "family_episode_058"
+  },
+  "case_33": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_061",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        -0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_061",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_00_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "hold",
+   "geometry_trial": "family_episode_061"
+  },
+  "case_34": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_062",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_062",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_01_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_turn",
+   "geometry_trial": "family_episode_062"
+  },
+  "case_35": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_065",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        -0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_065",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_00_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_arc",
+   "geometry_trial": "family_episode_065"
+  },
+  "case_36": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_067",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_067",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_00_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_turn",
+   "geometry_trial": "family_episode_067"
+  },
+  "case_37": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_070",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_070",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_01_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_turn",
+   "geometry_trial": "family_episode_070"
+  },
+  "case_38": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_078",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        -0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_078",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_01_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "hold",
+   "geometry_trial": "family_episode_078"
+  },
+  "case_39": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_080",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_080",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_01_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_arc",
+   "geometry_trial": "family_episode_080"
+  },
+  "case_40": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_081",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_081",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_01_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "forward",
+   "geometry_trial": "family_episode_081"
+  },
+  "case_41": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_082",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_082",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_00_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_arc",
+   "geometry_trial": "family_episode_082"
+  },
+  "case_42": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_083",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        -0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_083",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_01_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "hold",
+   "geometry_trial": "family_episode_083"
+  },
+  "case_43": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_087",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        -0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_087",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_00_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "forward",
+   "geometry_trial": "family_episode_087"
+  },
+  "case_44": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_090",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.63,
+        0.45,
+        0.38
+       ],
+       "size_xyz": [
+        0.08,
+        1.02,
+        0.76
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_090",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_00_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "hold",
+   "geometry_trial": "family_episode_090"
+  },
+  "case_45": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_092",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_092",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_01_right_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_arc",
+   "geometry_trial": "family_episode_092"
+  },
+  "case_46": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_093",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        -0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_093",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090940,
+    "layout_id": "cluster_01_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "right_turn",
+   "geometry_trial": "family_episode_093"
+  },
+  "case_47": {
+   "specification": {
+    "scene_id": "geometry-progress-family-v1-family_episode_094",
+    "family": "GEOMETRY_PROGRESS_LAYOUT_TRANSFER_DEVELOPMENT",
+    "case_index": 1,
+    "kind": "straight",
+    "width_m": 1.0,
+    "procedural_seed": 2026090910,
+    "geometry": {
+     "spawn_se2_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "wall_boxes": [
+      {
+       "wall_id": "front_partial_panel",
+       "centre_xyz": [
+        0.69,
+        -0.45,
+        0.34
+       ],
+       "size_xyz": [
+        0.08,
+        0.94,
+        0.68
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "rear",
+       "centre_xyz": [
+        -1.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "far",
+       "centre_xyz": [
+        2.5,
+        0.0,
+        0.7
+       ],
+       "size_xyz": [
+        0.08,
+        4.0,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "left",
+       "centre_xyz": [
+        0.5,
+        2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      },
+      {
+       "wall_id": "right",
+       "centre_xyz": [
+        0.5,
+        -2.0,
+        0.7
+       ],
+       "size_xyz": [
+        4.0,
+        0.08,
+        1.4
+       ],
+       "yaw_rad": 0.0,
+       "material_id": "NEUTRAL_WALL"
+      }
+     ]
+    },
+    "probe_index": 0,
+    "stimulus_name": "zero",
+    "stimulus_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "trial": "family_episode_094",
+    "appearance_arm": "distinctive",
+    "appearance_seed": 2026090941,
+    "layout_id": "cluster_01_left_open",
+    "data_role": "train",
+    "friction_mu": 1.0,
+    "render_near_m": 0.005,
+    "visual_surface_contract": "floor_first_variable_height_union_walls"
+   },
+   "action": "left_arc",
+   "geometry_trial": "family_episode_094"
+  }
+ }
+}
