@@ -83,7 +83,7 @@ to resume from.
 | training samples (data/training) | the samples each original training stage saved (exported by `tools/porting/export_*`) | **done** (`go2nav.data.samples`, `go2nav.data.decoder_contexts`): `python -m go2nav.data.samples all` regenerates every file of data/training except T1's from the recordings and mission runs (with their verified replays); on the original recordings all 11 files are byte-identical to the shipped exports (the decoder contexts now name the rest/turn recording relatively instead of by an absolute path) |
 | C1 fit | `fit_go2_local_motion_controls_development.py`, `fit_go2_short_pulse_command_control_development.py` | **done** (`go2nav.training.command_model`): the refit reproduces the shipped C1 |
 | C3/C4 fits | feature caches, `fit_go2_dev_decoder_development.py`, stage-2 fits | **done** (`go2nav.training.decoder`): on the original cache the ported fit reproduces the deployed decoder-fix fit (8.509 mm) and the stage-2 fit (9.868 mm) exactly (`docs/validation/decoder_fit_port_2026-10-06.md`); rerun on the retrained T4/T5a pending |
-| verified replay, re-render, videos | replay, unmarked re-render, prelim, hero and capability videos | verified replay and re-render **done** (`go2nav.data.rerender`); videos todo |
+| verified replay, re-render, videos | replay, unmarked re-render, prelim, hero and capability videos | verified replay and re-render **done** (`go2nav.data.rerender`); mission videos **done** (`go2nav.eval.video`: egocentric frames from the hash-checked replay, a chase camera from a second physics-checked replay, route map and status panel; the prelim and capability videos differ only in labels); hero video todo |
 
 ### Release
 
