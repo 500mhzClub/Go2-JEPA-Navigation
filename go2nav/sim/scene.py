@@ -18,7 +18,7 @@ from types import MethodType
 
 import numpy as np
 
-from go2nav.sim import appearance
+from go2nav.sim import appearance, demo_appearance
 
 PHYSICS_DT_S, POLICY_DT_S, COMMAND_DT_S = .002, .02, .1
 PHYSICS_STEPS_PER_POLICY = 10
@@ -79,16 +79,22 @@ def init_genesis(seed):
     gs.init(backend=gs.cpu, seed=int(seed) & 0x7FFF_FFFF, logging_level='warning')
 
 
-def build(spec, output_dir, dynamics=None, robot_visible=True):
+def build(spec, output_dir, dynamics=None, robot_visible=True, demo_textures=False):
     """Build the scene of a maze spec (with the episode's `procedural_seed` and home pose in `geometry.spawn_se2_world`).
     Genesis must already be initialised (`init_genesis`). Visual meshes are written to `output_dir`. `dynamics`
     (`go2nav.sim.dynamics.Dynamics`): marked strips are tinted on the floor, and a uniform friction replaces the
     episode's after the build. `robot_visible=False` builds the robot without visual geometry (the older corridor
-    collections rendered only the floor and walls)."""
+    collections rendered only the floor and walls). `demo_textures` draws the demonstration brick and parquet surfaces
+    (`go2nav.sim.demo_appearance`) instead of the maze's appearance arm."""
     import genesis as gs
     from go2nav.sim.dynamics import tint_floor
     boxes = spec['geometry']['wall_boxes']
-    meshes = appearance.surfaces(boxes, spec['appearance_arm'], spec['appearance_seed'])
+    if demo_textures:
+        if dynamics is not None and dynamics.marked:
+            raise ValueError('marked strips are drawn on the standard floor only')
+        meshes = demo_appearance.surfaces(boxes)
+    else:
+        meshes = appearance.surfaces(boxes, spec['appearance_arm'], spec['appearance_seed'])
     if dynamics is not None and dynamics.marked:
         floor_mesh, tinted = tint_floor(meshes[0][1], dynamics.strips)
         if dynamics.strips and not tinted:

@@ -160,7 +160,7 @@ def make(run, out, *, note=None):
         trace = {key: archive[key].copy() for key in rerender.TRACE_FIELDS}
     scene.init_genesis(spec['procedural_seed'])  # pass 2: chase camera
     session = MissionSession(spec, out/'chase_meshes', policy_checkpoint=artifacts.path('go2_locomotion_policy'),
-                             dynamics=rerender.run_dynamics(run))
+                             dynamics=rerender.run_dynamics(run), demo_textures=rerender.run_demo_textures(run))
     session.settle()
     checked = rerender.check_samples(session, trace, 0)
     epoch_s = requests[0]['simulator_ns']/1e9

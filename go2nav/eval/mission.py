@@ -84,12 +84,13 @@ def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=N
 
 
 def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fit=None, friction=None, strips=None,
-        stall_stop_s=None, degrade=None, margin=None, pessimistic=None, unknown_level=None):
+        stall_stop_s=None, degrade=None, margin=None, pessimistic=None, unknown_level=None, demo_textures=False):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions). Experiment
     hooks: `degrade` (a forecast degradation, `controllers.degraded`), `margin` (p95/p99 calibrated clearance margin),
     `pessimistic` (never-observed cells block: revised, seeded or lookaround; bound at `unknown_level`, else the
-    margin level, else p99; `planning.caution`)."""
+    margin level, else p99; `planning.caution`). `demo_textures`: demonstration surfaces (`go2nav.sim.demo_appearance`;
+    presentation only, never seen in training)."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -108,7 +109,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  decoder_fit=str(decoder_fit) if decoder_fit else None, step_budget=STEP_BUDGET,
                                  physics_backend='cpu', dynamics=dynamics_record, forecast_degradation=degrade,
                                  clearance_margin=dict(level=margin, margin_m=margin_m) if margin else None,
-                                 pessimistic_unknown=dict(variant=pessimistic, bound_m=unknown_bound) if pessimistic else None))
+                                 pessimistic_unknown=dict(variant=pessimistic, bound_m=unknown_bound) if pessimistic else None,
+                                 **(dict(demo_textures=True) if demo_textures else {})))
     save(out/'specification.json', spec)
     save(out/'episode.json', episode)
     cv2.setNumThreads(1)
@@ -121,7 +123,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         forecaster = None if arm == 'C0' else arms.forecaster(arm, decoder_fit=decoder_fit)
         scene.init_genesis(spec['procedural_seed'])
         session = MissionSession(spec, out/'native', policy_checkpoint=artifacts.path('go2_locomotion_policy'),
-                                 dynamics=dynamics)
+                                 dynamics=dynamics, demo_textures=demo_textures)
         cues = settled_task_cues(episode, session.settle())
         if arm == 'C0':
             from go2nav.controllers.oracle import OracleForecaster
@@ -231,6 +233,7 @@ def main():
     p.add_argument('--margin', choices=('p95', 'p99'), help='calibrated clearance margin')
     p.add_argument('--pessimistic', choices=('revised', 'seeded', 'lookaround'), help='never-observed cells block')
     p.add_argument('--unknown-level', choices=('p95', 'p99'), help='bound for never-observed cells (default: the margin level, else p99)')
+    p.add_argument('--demo-textures', action='store_true', help='brick and parquet demonstration surfaces (presentation only)')
     p.add_argument('--out', type=Path, required=True)
     a = p.parse_args()
     strips = None
@@ -241,7 +244,7 @@ def main():
         strips = (float(mu), mark == 'marked')
     result = run(a.arm, a.set, a.maze, a.out, episode_index=a.episode, recovery=a.recovery == 'on', decoder_fit=a.decoder_fit,
                  friction=a.friction, strips=strips, stall_stop_s=a.stall_stop_s, degrade=a.degrade, margin=a.margin,
-                 pessimistic=a.pessimistic, unknown_level=a.unknown_level)
+                 pessimistic=a.pessimistic, unknown_level=a.unknown_level, demo_textures=a.demo_textures)
     print(json.dumps(result))
 
 

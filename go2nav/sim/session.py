@@ -12,7 +12,6 @@ current 100-ms window (so requests inside a window do not each get a fresh rate 
 (`go2nav.sim.sensors`), and stops the mission (`PhysicalStop`) on a disallowed contact, a body below 0.15 m or tilted
 past 0.7 rad, or (after settling) the contact, speed and domain guard (`go2nav.sim.contacts`).
 """
-import math
 
 import numpy as np
 
@@ -40,9 +39,9 @@ class MissionSession:
     physics step); `contact_packets` and `contact_events` are the evaluator's contact records."""
 
     def __init__(self, spec, output_dir, *, policy_checkpoint, noise_sigma_m=NOISE_SIGMA_M, dynamics=None, noise_layout=None,
-                 robot_visible=True):
+                 robot_visible=True, demo_textures=False):
         self.spec, self.output_dir, self.dynamics = spec, output_dir, dynamics
-        self.world = maze_scene.build(spec, output_dir, dynamics, robot_visible=robot_visible)
+        self.world = maze_scene.build(spec, output_dir, dynamics, robot_visible=robot_visible, demo_textures=demo_textures)
         strips = dynamics is not None and dynamics.strips is not None
         self.friction_field = (perturbations.FrictionField(self.world.robot, self.world.floor, dynamics.strips, dynamics.strip_mu)
                                if strips else None)

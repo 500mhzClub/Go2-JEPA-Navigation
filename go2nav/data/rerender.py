@@ -46,6 +46,16 @@ def run_dynamics(run):
     return dynamics
 
 
+def run_demo_textures(run):
+    """Whether the run drew the demonstration surfaces (`go2nav.sim.demo_appearance`)."""
+    run = Path(run)
+    config = load(run, 'config.json')
+    if 'arm' in config:
+        return bool(config.get('demo_textures'))
+    record = load(run, 'dev_run.json') if (run/'dev_run.json').exists() else {}
+    return bool((record.get('dynamics') or {}).get('demo_textures'))
+
+
 def recorded_hashes(run):
     """{frame: {'primary': sha256, 'auxiliary': sha256}} of the frames' RGB, when the run recorded them."""
     path = Path(run)/'native/in_memory_camera_observations.json'
@@ -77,7 +87,7 @@ def replay(run, out, *, auxiliary=False, depth=False):
             folder.mkdir(parents=True, exist_ok=True)
     scene.init_genesis(spec['procedural_seed'])
     session = MissionSession(spec, out/'visual_meshes', policy_checkpoint=artifacts.path('go2_locomotion_policy'),
-                             dynamics=run_dynamics(run))
+                             dynamics=run_dynamics(run), demo_textures=run_demo_textures(run))
     session.settle()
     checked = check_samples(session, trace, 0)
 

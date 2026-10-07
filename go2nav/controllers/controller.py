@@ -14,6 +14,9 @@ it passes the dispatch check, the mission and the committed-prefix check; otherw
 
 With no forecaster the controller is the model-free C2: the planner's reactive selection replaces forecasting and
 scoring (`Planner.select_reactive`).
+
+Each plan is logged in `planning`: the frame and time, the selected action, the route, the selection record and
+`forecast_xy_m`, the scored forecast's body-frame positions (6 candidates x 8 ticks of 100 ms; None for C2).
 """
 from dataclasses import dataclass
 
@@ -142,6 +145,7 @@ class NavigationController:
             self.planning.append(dict(frame=frame.frame, reason='VIEW_BUDGET_EXHAUSTED'))
             return
         goal_body, scan_error = objective
+        forecast_xy = None
         if self.forecaster is None:
             selected = self.planner.select_reactive(goal_body, scan_error, snapshot, registered.position, registered.rotation,
                                                     prefix)
@@ -152,10 +156,12 @@ class NavigationController:
             prediction = self.forecaster.forecast(context, prefix, pulse=self.planner.pulse)
             selected = self.planner.select(prediction, goal_body, scan_error, snapshot, registered.position,
                                            registered.rotation, generation=generation)
+            forecast_xy = np.asarray(prediction)[:, :, :2].tolist()
         plan = ScheduledCommand.prepare(selected['action'], observed_ns=now,
                                         pulse=self.planner.pulse and selected['action'] in ('forward', 'left_arc', 'right_arc'))
         self.planning.append(dict(frame=frame.frame, measured_ns=now, map_frame=snapshot.frame, action=selected['action'],
-                                  route_status=route['status'], committed_prefix=prefix, selection=selected, route=route))
+                                  route_status=route['status'], committed_prefix=prefix, selection=selected, route=route,
+                                  forecast_xy_m=forecast_xy))
         self.ledger.commit(plan, now, prefix)
         self.plans.append(plan)
 
