@@ -74,6 +74,34 @@ already present.
 Matching lifts with the 5×5 local inverse-depth estimate (cached per observation); feature detection lifts with raw
 depth.
 
+Degraded modes (ported 7 October from the MRO, `_measure` and `_candidate` chains; `docs/porting/worker_pose.json`):
+- `TemporalAnchorRGBDPose`: measured-increment bridge (previous frame alone, budget 10 frames, no promotion, no
+  age refresh);
+- `DualCameraAnchorPose`: cross-camera check against a qualified forward increment;
+- `DirectFlowDualCameraAnchorPose`: the whole measurement repeated with LK corner flow for previous-frame pairs when
+  both cameras are unmeasured, checked against every qualified candidate of the first attempt;
+- `ChainedAnchorDualCameraPose`: repeated once more with corner flow chained through 32 cached images to retained
+  references, when the first pass bridged or failed; bridge state restored before it, and the first outcome restored
+  if it does not anchor with a chained fit;
+- `_JointCameras`: both-camera fit of the previous pair (downward camera) or of a chainable reference, descriptor
+  first, then chained flow;
+- `PlaneConsensusPose` / `PairLocalPlaneConsensusPose`: an image fit that contradicts the measured floor height
+  (> 3 mm) is pruned to a plane-consistent inlier set and refined; if that fails, only that reference pair is
+  rejected. Every plane/image conflict ends as a pair rejection (`GyroConsensusPairPose` converts it), so the
+  measured-plane conflict latch never fires in the final class.
+
+Rotation witnesses (`rotation_measurements`): the inner fit appends one, the measured-plane layer replaces its pose
+with the refined pose or deletes it if refinement fails, and the gyro-conditioned layer replaces it again with the
+final refit or deletes it. So a witness is exactly a qualified candidate's final pose; the port records
+(reference frame, R, p) when `_candidate` succeeds.
+
+The `_Direct`/`_Chained` helper classes are `use()` copies of the same method code whose `super()` still resolves
+from the defining class, so only the outermost copy runs; its globals bind the batched gyro consensus (as the
+nominal path), the 5×5 local lift for flow endpoints, and sensor-depth lifts for intermediate chain links. In the
+noise-40 sensitivity mission (prelim 30) the original used a fallback once: direct flow, forward camera, frame
+2596; the replay reproduces all 3,224 poses. Bridges and chains never ran in a recorded bundle. Plane/image
+consensus: R4 C4 prelim 41 (frame 873) reproduces the original run exactly.
+
 ### Floor registration, obstacles, routing map (ported, exact on C1_on_prelim30)
 
 - Registration: joint floor plane along the visual up → minimal tilt + heading-restoring twist + height correction

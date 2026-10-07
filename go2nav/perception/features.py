@@ -9,6 +9,14 @@ A `FeatureFrame` holds one camera's grey image, its depth, and up to 150 corners
 
 `match` pairs the corners of a reference and a current frame (mutual SIFT ratio test, one corner per half-pixel,
 forward-backward Lucas–Kanade check) and lifts both ends to body-frame points with the locally smoothed depth.
+
+The visual odometry's fallbacks use corner flow instead of descriptors:
+- `track` follows the reference corners into the current image by pyramidal Lucas–Kanade from the same pixel; a track
+  is kept if the backward flow returns within 0.5 px, the 11 x 11 patches around both ends agree (zero-normalised
+  correlation at least 0.90, both standard deviations at least 2 grey levels), and its end is the first at its
+  half-pixel;
+- `chain` follows a reference frame's corners through consecutive frames, link by link; a track survives a link only
+  if both of its ends have valid sensor depth, and lost tracks never return.
 """
 import cv2
 import numpy as np
@@ -24,6 +32,8 @@ RATIO = .7
 LK = dict(winSize=(21, 21), maxLevel=3, criteria=(cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 30, .01),
           flags=cv2.OPTFLOW_USE_INITIAL_FLOW)
 FORWARD_BACKWARD_PX, FLOW_AGREEMENT_PX = .5, 1.
+FLOW_LK = dict(winSize=(21, 21), maxLevel=3, criteria=(cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 30, .01))
+PATCH_WIDTH, MIN_PATCH_STD, MIN_PATCH_ZNCC = 11, 2., .90
 
 
 def cell_index(x, y):
@@ -129,3 +139,116 @@ def match(reference, current):
     b, vb = cameras.lift(*current.local_depth(), ub)
     use = va&vb
     return a[use], b[use], ua[use], ub[use]
+
+
+# -- corner flow (the visual odometry's fallback associations) ------------------------------------------------------
+
+def half_pixel(point):
+    return tuple(np.rint(np.asarray(point)*2).astype(int))
+
+
+def _patch_agrees(left, right, p, q):
+    half = PATCH_WIDTH//2
+    if any(not (half <= x <= 639-half and half <= y <= 479-half) for x, y in (p, q)):
+        return False
+    a = cv2.getRectSubPix(left, (PATCH_WIDTH, PATCH_WIDTH), tuple(map(float, p))).astype(float)
+    b = cv2.getRectSubPix(right, (PATCH_WIDTH, PATCH_WIDTH), tuple(map(float, q))).astype(float)
+    a -= a.mean()
+    b -= b.mean()
+    if min(float(a.std()), float(b.std())) < MIN_PATCH_STD:
+        return False
+    return float(np.sum(a*b)/np.sqrt(np.sum(a*a)*np.sum(b*b))) >= MIN_PATCH_ZNCC
+
+
+def patches_agree(left, right, p, q):
+    """Which tracks' end patches agree. Batched; a decision within 1e-10 of a threshold is recomputed alone, as the
+    original did, so that the summation order cannot change it."""
+    half = PATCH_WIDTH//2
+    inside = np.ones(len(p), bool)
+    for pixels in (p, q):
+        inside &= (pixels[:, 0] >= half)&(pixels[:, 0] <= 639-half)&(pixels[:, 1] >= half)&(pixels[:, 1] <= 479-half)
+    indices = np.flatnonzero(inside)
+    result = np.zeros(len(p), bool)
+    if not len(indices):
+        return result
+    size = (PATCH_WIDTH, PATCH_WIDTH)
+    a = np.stack([cv2.getRectSubPix(left, size, tuple(map(float, p[i]))) for i in indices]).astype(float)
+    b = np.stack([cv2.getRectSubPix(right, size, tuple(map(float, q[i]))) for i in indices]).astype(float)
+    a -= a.mean(axis=(1, 2), keepdims=True)
+    b -= b.mean(axis=(1, 2), keepdims=True)
+    spread = np.minimum(a.std(axis=(1, 2)), b.std(axis=(1, 2)))
+    denominator = np.sqrt(np.sum(a*a, axis=(1, 2))*np.sum(b*b, axis=(1, 2)))
+    correlation = np.divide(np.sum(a*b, axis=(1, 2)), denominator, out=np.zeros(len(indices)), where=denominator > 0)
+    result[indices] = (spread >= MIN_PATCH_STD)&(correlation >= MIN_PATCH_ZNCC)
+    near = (np.abs(spread-MIN_PATCH_STD) <= 1e-10)|(np.abs(correlation-MIN_PATCH_ZNCC) <= 1e-10)
+    for i in indices[near]:
+        result[i] = _patch_agrees(left, right, p[i], q[i])
+    return result
+
+
+def track(reference, current, pixels=None, *, local=True):
+    """Corner flow from `reference` to `current`: (reference points, current points, reference pixels, current
+    pixels), as `match` returns. `pixels` are the reference pixels to follow (default: its corners). Both ends are
+    lifted with their frame's local depth, or with its sensor depth if `local` is False (frames then need only `gray`,
+    `depth_m` and `valid`)."""
+    if pixels is None:
+        pixels = [np.asarray(k.pt, float) for k in reference.keypoints]
+    empty = (np.empty((0, 3)), np.empty((0, 3)), np.empty((0, 2)), np.empty((0, 2)))
+    points, seen = [], set()
+    for point in pixels:
+        if half_pixel(point) not in seen:
+            points.append(point)
+            seen.add(half_pixel(point))
+    if not points:
+        return empty
+    p = np.asarray(points, np.float32).reshape(-1, 1, 2)
+    q, ok, _ = cv2.calcOpticalFlowPyrLK(reference.gray, current.gray, p, None, **FLOW_LK)
+    good = ok.ravel().astype(bool)&np.isfinite(q).all((1, 2))
+    p, q = p[good], q[good]
+    if not len(p):
+        return empty
+    back, ok, _ = cv2.calcOpticalFlowPyrLK(current.gray, reference.gray, q, None, **FLOW_LK)
+    good = ok.ravel().astype(bool)&np.isfinite(back).all((1, 2))
+    good &= np.linalg.norm(back[:, 0]-p[:, 0], axis=1) <= FORWARD_BACKWARD_PX
+    p, q = p[good, 0], q[good, 0]
+    good = patches_agree(reference.gray, current.gray, p, q)
+    p, q = p[good], q[good]
+    keep, seen = [], set()
+    for i, point in enumerate(q):
+        if half_pixel(point) not in seen:
+            keep.append(i)
+            seen.add(half_pixel(point))
+    p, q = p[keep], q[keep]
+    if local:
+        a, va = cameras.lift(*reference.local_depth(), p)
+        b, vb = cameras.lift(*current.local_depth(), q)
+    else:
+        a, va = cameras.lift(reference.depth_m, reference.valid, p)
+        b, vb = cameras.lift(current.depth_m, current.valid, q)
+    valid = va&vb&np.isfinite(a).all(1)&np.isfinite(b).all(1)
+    return a[valid], b[valid], p[valid], q[valid]
+
+
+def chain(frames):
+    """Corner flow from the first to the last of consecutive frames (see the module docstring), as `match` returns.
+
+    The first frame's corners seed the tracks and every link is a `track` with sensor depth; the surviving tracks'
+    original reference pixels and final pixels are then lifted with local depth. The first and last frames are
+    FeatureFrames; the frames between need only `gray`, `depth_m` and `valid`."""
+    reference = frames[0]
+    origins = {}
+    for keypoint in reference.keypoints:
+        point = np.asarray(keypoint.pt, np.float32)
+        origins.setdefault(half_pixel(point), point.copy())
+    view, pixels = reference, None
+    origin_pixels = current_pixels = np.empty((0, 2), np.float32)
+    for current in frames[1:]:
+        _, _, before, after = track(view, current, pixels, local=False)
+        origin_pixels = np.asarray([origins[half_pixel(p)] for p in before], np.float32).reshape(-1, 2)
+        current_pixels = np.asarray(after, np.float32).reshape(-1, 2)
+        origins = {half_pixel(p): origin.copy() for p, origin in zip(current_pixels, origin_pixels)}
+        view, pixels = current, list(current_pixels)
+    a, va = cameras.lift(*reference.local_depth(), origin_pixels)
+    b, vb = cameras.lift(*frames[-1].local_depth(), current_pixels)
+    valid = va&vb&np.isfinite(a).all(1)&np.isfinite(b).all(1)
+    return a[valid], b[valid], origin_pixels[valid], current_pixels[valid]

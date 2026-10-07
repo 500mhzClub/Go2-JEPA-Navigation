@@ -5,7 +5,10 @@ corners (`features.match`), in three steps:
 1. `consensus`: robust translation with the rotation fixed to the gyro's relative rotation (best of the full set and
    128 seeded three-point proposals, then pruning to a stable inlier set; a strict inlier majority is required);
 2. `refine_on_planes`: the inlier set refitted with both frames' measured floor planes as constraints (rotation and
-   translation); used for its admission checks and its pose, against which step 3 must agree;
+   translation); used for its admission checks and its pose, against which step 3 must agree. If the refit loses an
+   image inlier, the image fit is kept when it agrees with the plane fit (`refine_if_supported`); if it then
+   contradicts the measured floor height by more than 3 mm, `plane_consensus` prunes the inliers to a plane-consistent
+   set and refines that;
 3. `gyro_consensus_refit`: the final pose, with the gyro rotation and the translation's height fixed by the
    gyro-coherent floor constraint (`floor.FloorConstraint`), after re-pruning the inliers.
 
@@ -67,6 +70,7 @@ class Registration:
     lifted_matches: int
     residual_rms_m: float
     split: int | None = None  # joint fits: the number of primary-camera points (the rest are auxiliary)
+    association: str = 'descriptor'  # or 'direct_flow', 'chained_flow' (see features)
     floor_constraint: dict | None = None
     plane_refinement_applied: bool | None = None
     joint_retained_anchor: bool = False
@@ -261,15 +265,58 @@ def refine_if_supported(candidate, reference_plane, current_plane, *, camera, gy
     global_R, global_p = ref.rotation@R, ref.position+ref.rotation@t
     if (float(np.linalg.norm(global_p-candidate.p)) > MAX_MEASUREMENT_DISAGREEMENT_M
             or angle(candidate.R.T@global_R) > MAX_MEASUREMENT_DISAGREEMENT_RAD):
-        raise UnportedBranch('plane/image conflict (the original latches a plane conflict here)')
+        raise Rejected('qualified image and measured-plane estimates conflict')
     check_step(t, global_R, global_p, last_R, last_p)
     if angle(gyro.T@R) > MAX_GYRO_DISAGREEMENT_RAD:
         raise Rejected('plane refit disagrees with the gyro')
     na = np.asarray(reference_plane['normal_body'])
     offset_residual = abs(float(na@candidate.t-current_plane['offset_body_m']+reference_plane['offset_body_m']))
     if offset_residual > MAX_FLOOR_OFFSET_RESIDUAL_M:
-        raise UnportedBranch('plane/image conflict: the original tries plane_consensus here')
+        try:
+            return plane_consensus(candidate, reference_plane, current_plane, camera=camera, gyro=gyro,
+                                   last_p=last_p, last_R=last_R)
+        except Rejected:
+            raise Rejected('retained image fit conflicts with measured floor height') from None
     return replace(candidate, registration=replace(reg, plane_refinement_applied=False))
+
+
+def plane_consensus(candidate, reference_plane, current_plane, *, camera, gyro, last_p, last_R):
+    """Step 2 for an image fit that conflicts with the measured floor height: prune its inliers to those the
+    plane-constrained fit explains (refitting until stable; at least 12 points, a strict majority of the original
+    matches and, for joint fits, 3 per camera), then refine on the pruned set with all of step 2's checks."""
+    reg = candidate.registration
+    a, b, ua, ub = reg.reference_points, reg.current_points, reg.reference_pixels, reg.current_pixels
+    check = image_check(reg, camera)
+    mask = np.ones(len(a), dtype=bool)
+    while True:
+        count = int(mask.sum())
+        if count < MIN_MATCHES or 2*count <= reg.lifted_matches:
+            raise Rejected('plane/image consensus requires the match count and a strict majority')
+        if reg.split is not None and min(int(mask[:reg.split].sum()), int(mask[reg.split:].sum())) < 3:
+            raise Rejected('plane/image consensus needs support from both cameras')
+        R, t = plane_fit(a[mask], b[mask], reference_plane, current_plane)
+        good, _ = check(a, b, ua, ub, R, t)
+        use = mask&good
+        if np.array_equal(use, mask):
+            break
+        mask = use
+    split = None if reg.split is None else int(mask[:reg.split].sum())
+    pruned = replace(reg, reference_points=a[mask], current_points=b[mask], reference_pixels=ua[mask],
+                     current_pixels=ub[mask], split=split)
+    return refine_on_planes(replace(candidate, registration=pruned), reference_plane, current_plane, camera=camera,
+                            gyro=gyro, last_p=last_p, last_R=last_R)
+
+
+def image_check(reg, camera):
+    """`inliers` for a registration's body-frame points: joint fits project each point into its own camera; auxiliary
+    fits are checked in the adapter frame."""
+    if reg.split is not None:
+        project = reg.projector()
+        return lambda a, b, ua, ub, R, t: inliers(a, b, ua, ub, R, t, project)
+    if camera == 'auxiliary':
+        A, offset = cameras.ADAPTER_ROTATION, cameras.ADAPTER_OFFSET
+        return lambda a, b, ua, ub, R, t: inliers((a-offset)@A, (b-offset)@A, ua, ub, A.T@R@A, A.T@(t-offset+R@offset))
+    return inliers
 
 
 def constrain_translation(t, constraint):
@@ -311,18 +358,7 @@ def gyro_consensus_refit(candidate, gyro, *, camera, last_p, last_R):
     least 3 points per camera."""
     reg = candidate.registration
     a, b, ua, ub = reg.reference_points, reg.current_points, reg.reference_pixels, reg.current_pixels
-    if reg.split is not None:
-        project = reg.projector()
-
-        def check(a, b, ua, ub, R, t):
-            return inliers(a, b, ua, ub, R, t, project)
-    elif camera == 'auxiliary':
-        A, offset = cameras.ADAPTER_ROTATION, cameras.ADAPTER_OFFSET
-
-        def check(a, b, ua, ub, R, t):
-            return inliers((a-offset)@A, (b-offset)@A, ua, ub, A.T@R@A, A.T@(t-offset+R@offset))
-    else:
-        check = inliers
+    check = image_check(reg, camera)
     mask = np.ones(len(a), dtype=bool)
     while True:
         count = int(mask.sum())
