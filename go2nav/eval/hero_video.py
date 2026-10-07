@@ -358,6 +358,9 @@ def end_card(frame, run):
 def make(run_dir, out, *, ego=None, still=None):
     run_dir, out = Path(run_dir), Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
+    if not (run_dir/'episode_evaluation.json').exists():  # a single mission run is not evaluated yet
+        from go2nav.eval.episode import evaluate
+        evaluate(run_dir)
     if ego is None:  # the verified replay's egocentric frames
         import genesis as gs
         from go2nav.data import rerender

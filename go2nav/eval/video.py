@@ -3,7 +3,8 @@ route and a status panel.
 
     python -m go2nav.eval.video RUN_DIR OUT_DIR [--note TEXT]
 
-RUN_DIR is a mission run (`go2nav.eval.mission`, or an original run that `go2nav.data.rerender` accepts).
+RUN_DIR is a mission run (`go2nav.eval.mission`, or an original run that `go2nav.data.rerender` accepts); a run
+without episode_evaluation.json is evaluated first (`go2nav.eval.episode`).
 - Pass 1 is the verified replay (`go2nav.data.rerender.replay`): the run's commands are re-executed from its seed,
   every physics sample is checked against the recorded trace and every frame against its recorded pixel hash, and
   the primary RGB frames (what the controller saw, 10 Hz) are kept for the left panel.
@@ -150,6 +151,9 @@ def make(run, out, *, note=None):
     import genesis as gs
     run, out = Path(run), Path(out)
     out.mkdir(parents=True, exist_ok=True)
+    if not (run/'episode_evaluation.json').exists():
+        from go2nav.eval.episode import evaluate
+        evaluate(run)
     config, spec = json.loads((run/'config.json').read_text()), json.loads((run/'specification.json').read_text())
     stem = f'{config["arm"]}_{config["set"]}_{config["maze"]}_ep{config["episode"]}'+('_recovery-on' if config['recovery'] else '')
     frames = rerender.replay(run, out/'replay')  # pass 1: verified replay, egocentric frames
