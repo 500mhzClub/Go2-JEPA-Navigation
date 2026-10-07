@@ -145,7 +145,6 @@ class Panel:
 
 
 def make(run, out, *, note=None):
-    from go2nav import artifacts
     from go2nav.sim import scene
     from go2nav.sim.session import MissionSession, PhysicalStop
     import genesis as gs
@@ -163,7 +162,7 @@ def make(run, out, *, note=None):
     with np.load(run/'native/physics_trace.npz') as archive:
         trace = {key: archive[key].copy() for key in rerender.TRACE_FIELDS}
     scene.init_genesis(spec['procedural_seed'])  # pass 2: chase camera
-    session = MissionSession(spec, out/'chase_meshes', policy_checkpoint=artifacts.path('go2_locomotion_policy'),
+    session = MissionSession(spec, out/'chase_meshes', policy_checkpoint=rerender.run_policy(run),
                              dynamics=rerender.run_dynamics(run), demo_textures=rerender.run_demo_textures(run))
     session.settle()
     checked = rerender.check_samples(session, trace, 0)

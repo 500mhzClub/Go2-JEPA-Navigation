@@ -98,7 +98,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     `pessimistic` (never-observed cells block: revised, seeded or lookaround; bound at `unknown_level`, else the
     margin level, else p99; `planning.caution`). `demo_textures`: demonstration surfaces (`go2nav.sim.demo_appearance`;
     presentation only, never seen in training). `models`: artefact name -> checkpoint, replacing shipped models (a
-    retrained chain); recorded with each file's SHA-256. `harness`: 'reserve_exit_v2' (the final harness) or 'v4' (the
+    retrained chain, or the locomotion policy `go2_locomotion_policy`); recorded with each file's SHA-256. `harness`: 'reserve_exit_v2' (the final harness) or 'v4' (the
     earlier one, for the experiments recorded under it; `go2nav.planning.planner`)."""
     import cv2
     import torch
@@ -134,7 +134,9 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     try:
         forecaster = None if arm == 'C0' else arms.forecaster(arm, decoder_fit=decoder_fit, models=models)
         scene.init_genesis(spec['procedural_seed'])
-        session = MissionSession(spec, out/'native', policy_checkpoint=artifacts.path('go2_locomotion_policy'),
+        policy = Path(models['go2_locomotion_policy']) if models and 'go2_locomotion_policy' in models \
+            else artifacts.path('go2_locomotion_policy')
+        session = MissionSession(spec, out/'native', policy_checkpoint=policy,
                                  dynamics=dynamics, demo_textures=demo_textures)
         cues = settled_task_cues(episode, session.settle())
         if arm == 'C0':

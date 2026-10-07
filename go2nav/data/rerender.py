@@ -56,6 +56,14 @@ def run_demo_textures(run):
     return bool((record.get('dynamics') or {}).get('demo_textures'))
 
 
+def run_policy(run):
+    """The locomotion policy the run used: its `models` override, else the shipped policy."""
+    from go2nav import artifacts
+    config = load(Path(run), 'config.json')
+    override = (config.get('models') or {}).get('go2_locomotion_policy') if 'arm' in config else None
+    return Path(override['path']) if override else artifacts.path('go2_locomotion_policy')
+
+
 def recorded_hashes(run):
     """{frame: {'primary': sha256, 'auxiliary': sha256}} of the frames' RGB, when the run recorded them."""
     path = Path(run)/'native/in_memory_camera_observations.json'
@@ -73,7 +81,6 @@ def recorded_hashes(run):
 
 def replay(run, out, *, auxiliary=False, depth=False):
     """Replay a run and write its frames (see the module docstring). Returns the number of frames written."""
-    from go2nav import artifacts
     from go2nav.sim import scene
     from go2nav.sim.session import MissionSession, PhysicalStop
     run, out = Path(run), Path(out)
@@ -86,7 +93,7 @@ def replay(run, out, *, auxiliary=False, depth=False):
         if folder is not None:
             folder.mkdir(parents=True, exist_ok=True)
     scene.init_genesis(spec['procedural_seed'])
-    session = MissionSession(spec, out/'visual_meshes', policy_checkpoint=artifacts.path('go2_locomotion_policy'),
+    session = MissionSession(spec, out/'visual_meshes', policy_checkpoint=run_policy(run),
                              dynamics=run_dynamics(run), demo_textures=run_demo_textures(run))
     session.settle()
     checked = check_samples(session, trace, 0)

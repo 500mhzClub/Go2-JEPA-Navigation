@@ -1,0 +1,33 @@
+name: 'Retrained locomotion policy: C1, C2 and C4 on the retrained Go2 policy'
+description: 'Validation of the locomotion retraining (go2nav.locomotion.train, seed 11; accepted on the tracking benchmark).
+  The navigation stack on the retrained policy instead of the shipped one: C1, C2 and C4 on preliminary-test mazes 30-49,
+  recovery off, nominal dynamics, reserve-exit v2 harness. The shipped-policy baseline is the R4 cohort rexit2_ref
+  (configs/experiments/r4_reserve_exit_v2.yaml), which reproduces the original runs exactly. Paths are relative to the
+  repository root.'
+cohorts:
+- name: loco_retrained_v2
+  arms: [C1, C2, C4]
+  set: prelim_test_v1
+  recovery: 'off'
+  models: outputs/locomotion/retrained_policy.yaml
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
