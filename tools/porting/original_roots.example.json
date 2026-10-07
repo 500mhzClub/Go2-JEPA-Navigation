@@ -1,0 +1,7 @@
+{
+  "original": "/path/to/LeWMQuad-v3",
+  "recovery": "/path/to/RecoveryStorage/LeWMQuad-v3",
+  "workspace": "/path/to/workspace_drive/LeWMQuad-v3",
+  "steam": "/path/to/steam_drive/LeWMQuad-v3",
+  "cache": "/path/to/user/.cache"
+}

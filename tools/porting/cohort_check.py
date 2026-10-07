@@ -14,8 +14,9 @@ import sys
 
 import numpy as np
 
-CAPABILITY = Path('/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/'
-                  'go2_navigation_capability_v1_attempt_001')
+import original
+
+CAPABILITY = original.path('recovery', '.generated/navigation_development_artifacts_v1/go2_navigation_capability_v1_attempt_001')
 REPO = Path(__file__).resolve().parents[2]
 FIELDS = ('round_trip_success', 'beacon_success', 'home_success', 'disallowed_contact_samples', 'failure_and_stall_taxonomy')
 

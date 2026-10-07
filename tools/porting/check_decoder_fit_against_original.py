@@ -14,11 +14,12 @@ import numpy as np
 
 from go2nav.training import decoder as d
 from go2nav.training.common import control_stats
+import original
 
-ROOT = Path('/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_navigation_capability_v1_attempt_001')
+ROOT = original.path('recovery', '.generated/navigation_development_artifacts_v1/go2_navigation_capability_v1_attempt_001')
 CACHE = ROOT/'stage2_feature_cache_v1'
 ORIGINAL_FIT = ROOT/'dev_decoder_fits/p3_large_past_frames_s2026093011.json'
-T5A = Path('/mnt/workspace_drive/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_full_heading_readout_v1_attempt_001/mixed_data_final.pt')
+T5A = original.path('workspace', '.generated/navigation_development_artifacts_v1/go2_full_heading_readout_v1_attempt_001/mixed_data_final.pt')
 MARKER = 'navigation_development_artifacts_v1/'
 
 

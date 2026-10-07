@@ -2,7 +2,7 @@
  "mro": [
   {
    "cls": "Runtime_C1R_off",
-   "module": "/home/andrewknowles/Workspace/Go2-JEPA-Navigation/tools/porting/runtime_mro.py"
+   "module": "tools/porting/runtime_mro.py"
   },
   {
    "cls": "DevStartupRecoveryRuntimeMixin",

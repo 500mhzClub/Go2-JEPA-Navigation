@@ -16,10 +16,12 @@ Usage: python tools/porting/export_native_predictor_datasets.py
 import json
 from pathlib import Path
 
+import original
+
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO/'data/training/native_predictor'
-T2 = Path('/mnt/steam_drive/LeWMQuad-v3/navigation_development_artifacts_v1/go2_frozen_vjepa_native_adaptation_v1_attempt_001')
-W = Path('/mnt/workspace_drive/LeWMQuad-v3/.generated/navigation_development_artifacts_v1')
+T2 = original.path('steam', 'navigation_development_artifacts_v1/go2_frozen_vjepa_native_adaptation_v1_attempt_001')
+W = original.path('workspace', '.generated/navigation_development_artifacts_v1')
 T3, T4 = W/'go2_balanced_start_predictor_v1_attempt_001', W/'go2_horizon_dense_predictor_v1_attempt_001'
 MARKER = 'navigation_development_artifacts_v1/'
 

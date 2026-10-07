@@ -16,14 +16,14 @@ import os
 from pathlib import Path
 import sys
 
-import numpy as np
+import original
 
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO/'data/training/readouts'
 MARKER = 'navigation_development_artifacts_v1/'
-R = Path('/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1')
-W = Path('/mnt/workspace_drive/LeWMQuad-v3/.generated/navigation_development_artifacts_v1')
-ST = Path('/mnt/steam_drive/LeWMQuad-v3/navigation_development_artifacts_v1')
+R = original.path('recovery', '.generated/navigation_development_artifacts_v1')
+W = original.path('workspace', '.generated/navigation_development_artifacts_v1')
+ST = original.path('steam', 'navigation_development_artifacts_v1')
 
 
 def name(path):

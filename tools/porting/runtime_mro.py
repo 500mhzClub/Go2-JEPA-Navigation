@@ -25,11 +25,17 @@ def executed_functions(trace_path):
     return {(path, name) for path, v in files.items() for name in v['executed_functions']}
 
 
+REPO = Path(__file__).resolve().parents[2]
+
+
 def module_path(cls):
+    """The class's file, relative to the snapshot or to this repository."""
     try:
-        return str(Path(inspect.getfile(cls)).resolve()).split('snapshot-2026-10-06/', 1)[-1]
+        path = str(Path(inspect.getfile(cls)).resolve())
     except TypeError:
         return '<builtin>'
+    path = path.split('snapshot-2026-10-06/', 1)[-1]
+    return path[len(str(REPO))+1:] if path.startswith(f'{REPO}/') else path
 
 
 def flatten(cls, executed):

@@ -8,3 +8,6 @@ __pycache__/
 
 # Training datasets ship as a hosted artefact (artifacts/manifest.yaml), not in git
 /data/training/*/
+
+# Machine-specific locations of the original programme (tools/porting/original.py)
+/tools/porting/original_roots.json

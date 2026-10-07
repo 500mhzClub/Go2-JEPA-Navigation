@@ -17501,9 +17501,9 @@
   ],
   "source_sha256": "c0a341042190aff46ea14bfbe751f54806399ec824bee038c4b2b27cda71d9ab",
   "dependencies": {
-    "/home/andrewknowles/Workspace/LeWMQuad-v3/scripts/collect_go2_full_heading_training_development.py": "e277bf356d4833ef15603c126f1af934d28856fb616babff1254bf2d750dd71a",
-    "/home/andrewknowles/Workspace/LeWMQuad-v3/scripts/collect_go2_maze_view_training_development.py": "c3b57473d587a370c3610ba4b4c059a45a07822cc14a500dafe69d7fc1269540",
-    "/home/andrewknowles/Workspace/LeWMQuad-v3/lewm/c3v2_recording_layouts_development.py": "b8b2e6138bab250839f6d2e115072c9a534788de3c9c3f00b1f7b6260781d28a"
+    "<original>/scripts/collect_go2_full_heading_training_development.py": "e277bf356d4833ef15603c126f1af934d28856fb616babff1254bf2d750dd71a",
+    "<original>/scripts/collect_go2_maze_view_training_development.py": "c3b57473d587a370c3610ba4b4c059a45a07822cc14a500dafe69d7fc1269540",
+    "<original>/lewm/c3v2_recording_layouts_development.py": "b8b2e6138bab250839f6d2e115072c9a534788de3c9c3f00b1f7b6260781d28a"
   },
   "data_role": "train",
   "splits": {

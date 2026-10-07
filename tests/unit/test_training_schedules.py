@@ -5,8 +5,9 @@ from pathlib import Path
 import pytest
 
 from go2nav.training import native_predictor as native
+from tools.porting import original
 
-ORIGINAL = Path('/mnt/workspace_drive/LeWMQuad-v3/.generated/navigation_development_artifacts_v1')
+ORIGINAL = original.path('workspace', '.generated/navigation_development_artifacts_v1') if original.available('workspace') else Path('/nonexistent')
 needs = pytest.mark.skipif(not (ORIGINAL.exists() and native.DATA.exists()), reason='original run folders or exported datasets missing')
 
 
@@ -23,7 +24,8 @@ def test_t4_schedule_matches_original():
     assert native.t4_schedule(native.load_samples('t4_samples')) == original
 
 
-MAZE_VIEW = Path('/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_maze_view_readout_v1_attempt_003')
+MAZE_VIEW = (original.path('recovery', '.generated/navigation_development_artifacts_v1/go2_maze_view_readout_v1_attempt_003') if original.available('recovery')
+             else Path('/nonexistent'))
 
 
 @pytest.mark.skipif(not MAZE_VIEW.exists(), reason='original T5b run folder missing')

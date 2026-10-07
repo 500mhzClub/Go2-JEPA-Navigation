@@ -14,10 +14,11 @@ Usage: python tools/porting/export_decoder_dataset.py
 import json
 from pathlib import Path
 
+import original
+
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO/'data/training/decoder'
-CACHE = Path('/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/'
-             'go2_navigation_capability_v1_attempt_001/stage2_feature_cache_v1')
+CACHE = original.path('recovery', '.generated/navigation_development_artifacts_v1/go2_navigation_capability_v1_attempt_001/stage2_feature_cache_v1')
 MARKER = 'navigation_development_artifacts_v1/'
 DECODER_FIX_CONTEXTS = 34745
 KEPT = ('set', 'group', 'category', 'tape', 'past', 'targets', 'horizons')

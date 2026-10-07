@@ -1,104 +1,106 @@
 # Artefacts shipped with Go2-JEPA-Navigation. sha256 and bytes are of the source files on the original machine.
-# Hosting: Hugging Face Hub (to be set up); "url" is filled in at upload. "source" is the original path (provenance only).
+# Hosting: Hugging Face Hub (to be set up); "url" is filled in at upload. "source" is the original file, as
+# <root>/path under one of the original programme's roots (tools/porting/original.py; provenance only).
 artifacts:
   - name: vjepa2_1_vitl_encoder
     kind: external
     bytes: 5151198524
     sha256: 7ea9b7cb4a75d10644a8a8d42cff9e177b10dca8f02173f0eaf2b0bed82838c6
     url: null
-    source: /home/andrewknowles/.cache/vjepa2_1_vitl_dist_vitG_384.pt
+    source: <cache>/vjepa2_1_vitl_dist_vitG_384.pt
     note: "V-JEPA 2.1 ViT-L (distilled from ViT-G, 384 px), Meta. Not re-hosted: `python artifacts/fetch.py vjepa` downloads it from dl.fbaipublicfiles.com and the source (facebookresearch/vjepa2, MIT with Apache-2.0 portions) at the pinned commit."
   - name: t1_temporal_predictor
     kind: checkpoint
     bytes: 206534551
     sha256: 75e7a8f5eb5416100dd91fdd07c6aeae1c8fa2255ef189bfde2a5ce300f881b4
     url: null
-    source: /home/andrewknowles/.cache/lewm_go2_temporal_v03/factorial_v1/seed_2026080901/seed_2026080901_rgb_rollout_epoch21.pt
+    source: <cache>/lewm_go2_temporal_v03/factorial_v1/seed_2026080901/seed_2026080901_rgb_rollout_epoch21.pt
     note: "T1 August temporal action predictor, rgb_rollout cell, seed 2026080901, fixed epoch 21"
   - name: t2_native_adaptation
     kind: checkpoint
     bytes: 206532207
     sha256: beb9e4abd69d652126e7618ef9a18261b627578ea01aa894e287004734e609e7
     url: null
-    source: /mnt/steam_drive/LeWMQuad-v3/navigation_development_artifacts_v1/go2_frozen_vjepa_native_adaptation_v1_attempt_001/action_latest.pt
+    source: <steam>/navigation_development_artifacts_v1/go2_frozen_vjepa_native_adaptation_v1_attempt_001/action_latest.pt
     note: "T2 native adaptation (from T1)"
   - name: t3_balanced_start_predictor
     kind: checkpoint
     bytes: 68835269
     sha256: e9399ecfaca28373ad7cdddc71e93c26226dfbe94ca098b87f792411ea8c6198
     url: null
-    source: /mnt/workspace_drive/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_balanced_start_predictor_v1_attempt_001/mixed_action_final.pt
+    source: <workspace>/.generated/navigation_development_artifacts_v1/go2_balanced_start_predictor_v1_attempt_001/mixed_action_final.pt
     note: "T3 balanced-start predictor (from T2)"
   - name: t4_horizon_dense_predictor
     kind: checkpoint
     bytes: 68847259
     sha256: 5d39753fbdc7714c60bf8c24c1757fd0ffbbdfe9485d776d65b5c3caa9fbb7ca
     url: null
-    source: /mnt/workspace_drive/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_horizon_dense_predictor_v1_attempt_001/action_final.pt
+    source: <workspace>/.generated/navigation_development_artifacts_v1/go2_horizon_dense_predictor_v1_attempt_001/action_final.pt
     note: "T4 frozen JEPA predictor used by C3 and C4 features (from T3)"
   - name: t5a_full_heading_readout
     kind: checkpoint
     bytes: 3413963
     sha256: bbbb05fd2e2984ac4d818abc986ec0401e24e9d91f53ee4e5b49443b832bdf85
     url: null
-    source: /mnt/workspace_drive/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_full_heading_readout_v1_attempt_001/mixed_data_final.pt
+    source: <workspace>/.generated/navigation_development_artifacts_v1/go2_full_heading_readout_v1_attempt_001/mixed_data_final.pt
     note: "T5a full-heading readout"
   - name: t5b_maze_view_readout
     kind: checkpoint
     bytes: 3413949
     sha256: aa853c6f16d7f78e01ade2bb91c1dfceebda2b1a12b0657a223b184fe2005fb8
     url: null
-    source: /home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_maze_view_readout_v1_attempt_003/maze_data_final.pt
+    source: <recovery>/.generated/navigation_development_artifacts_v1/go2_maze_view_readout_v1_attempt_003/maze_data_final.pt
     note: "T5b maze-view readout (readout_arm maze_view_maze_data; from T5a)"
   - name: t6_c1_command_model
     kind: checkpoint
     bytes: 31698
     sha256: 46a74b8473d35b66b28c6bb6361efe0a70dbf0b57a0c0c98d055c962c0f79da2
     url: null
-    source: /home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_short_pulse_command_control_v1_attempt_001/command_only.npz
+    source: <recovery>/.generated/navigation_development_artifacts_v1/go2_short_pulse_command_control_v1_attempt_001/command_only.npz
     note: "C1 command-history ridge model"
   - name: t7_c3_decoder_and_c4
     kind: checkpoint
     bytes: 121131229
     sha256: 20abad2f6109e16bdbec78a3fb2de2882f291e9b790ad3fea583db55d7beeaf3
     url: null
-    source: /home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_navigation_capability_v1_attempt_001/dev_decoder_fits/p3_large_past_frames_s2026093011.pt
+    source: <recovery>/.generated/navigation_development_artifacts_v1/go2_navigation_capability_v1_attempt_001/dev_decoder_fits/p3_large_past_frames_s2026093011.pt
     note: "C3 large past-frames decoder and matched C4 (one file)"
   - name: t8_stage2_c3_c4_refit
     kind: checkpoint
     bytes: 121131489
     sha256: 3eee7881bf43c6ded8bfa5d346b32b43c825e6f3c87eee6448cf3e86018d86aa
     url: null
-    source: /home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_navigation_capability_v1_attempt_001/stage2_decoder_fits/stage2_p3_large_past_frames_s2026093012.pt
+    source: <recovery>/.generated/navigation_development_artifacts_v1/go2_navigation_capability_v1_attempt_001/stage2_decoder_fits/stage2_p3_large_past_frames_s2026093012.pt
     note: "stage-2 matched refit, median seed (development; failed off-patch acceptance)"
   - name: t8_stage2_c1_refit
     kind: checkpoint
     bytes: 27261
     sha256: 876a5e91b8fb6614b2150d4e0523e2e66fa371b918a98d8dfea5c2fba23605a2
     url: null
-    source: /home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_navigation_capability_v1_attempt_001/stage2_c1_refit_v1/command_only.npz
+    source: <recovery>/.generated/navigation_development_artifacts_v1/go2_navigation_capability_v1_attempt_001/stage2_c1_refit_v1/command_only.npz
     note: "stage-2 C1 fairness refit (C1R)"
   - name: proprio_norm_stats
     kind: checkpoint
     bytes: 2329
     sha256: 9380b4c6d9b59099e43bba9898e1417c273f88075d1ed122401cbb3272e18f94
     url: null
-    source: /home/andrewknowles/.cache/lewm_go2_temporal_v03/proprio_v1/proprio_norm_stats.json
+    source: <cache>/lewm_go2_temporal_v03/proprio_v1/proprio_norm_stats.json
     note: "command and proprio normalisation statistics"
   - name: go2_locomotion_policy
     kind: checkpoint
     bytes: 4547691
     sha256: e0a20545cdccac6b60a4587c96d2de9a169dfacf520b178f51709596a6f789ff
     url: null
-    source: /home/andrewknowles/Workspace/LeWMQuad-v3/models/tier_a_go2_locomotion/20260516_contract_ppo/model_500.pt
+    source: <original>/models/tier_a_go2_locomotion/20260516_contract_ppo/model_500.pt
     note: "Go2 PPO locomotion policy (contract), iteration 500"
   - name: go2_locomotion_policy_cfgs
     kind: checkpoint
     bytes: 2409
     sha256: bc3e68c18252475199e57b30c8ac49d813e3c784a3983e0e8b1a762490dde24f
     url: null
-    source: /home/andrewknowles/Workspace/LeWMQuad-v3/models/tier_a_go2_locomotion/20260516_contract_ppo/cfgs.pkl
-    note: "its training configuration"
+    source: <original>/models/tier_a_go2_locomotion/20260516_contract_ppo/cfgs.pkl
+    folder: go2_locomotion_policy
+    note: "its training configuration (cached beside the policy, where the policy loader reads it)"
 datasets:  # hosted with the checkpoints; regenerated by tools/porting/* from the original programme's files
   - name: t1_temporal
     contents: data/training/t1_temporal/rows.jsonl (4,397 rows) and frames.txt; the 18,101 May-corpus frames (render_textured_v03)

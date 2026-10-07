@@ -16,7 +16,6 @@ import os
 from pathlib import Path
 import sys
 
-import numpy as np
 
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO/'data/training/c1_command_model'

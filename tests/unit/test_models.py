@@ -6,16 +6,14 @@ import sys
 import pytest
 import torch
 
+from go2nav import artifacts
 from go2nav.models.motion import load_decoder_and_c4, load_motion_readout
 from go2nav.models.predictor import DensePredictor, load_horizon_predictor
 from go2nav.models.vjepa import pool_tokens
 
-CHECKPOINTS = dict(
-    t4=Path('/mnt/workspace_drive/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_horizon_dense_predictor_v1_attempt_001/action_final.pt'),
-    t5b=Path('/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_maze_view_readout_v1_attempt_003/maze_data_final.pt'),
-    t7=Path('/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_navigation_capability_v1_attempt_001/dev_decoder_fits/p3_large_past_frames_s2026093011.pt'),
-)
-needs_artifacts = pytest.mark.skipif(not all(p.exists() for p in CHECKPOINTS.values()), reason='original checkpoints not available')
+CHECKPOINTS = dict(t4=artifacts.cached('t4_horizon_dense_predictor'), t5b=artifacts.cached('t5b_maze_view_readout'),
+                   t7=artifacts.cached('t7_c3_decoder_and_c4'))
+needs_artifacts = pytest.mark.skipif(not all(p.exists() for p in CHECKPOINTS.values()), reason='shipped checkpoints not in the cache')
 needs_snapshot = pytest.mark.skipif('GO2NAV_SNAPSHOT' not in os.environ, reason='needs the frozen snapshot')
 
 
@@ -80,10 +78,10 @@ def test_shipped_models_match_original_modules():
         assert torch.equal(c4(features, control, commands, horizon), original_c4.eval()(features, control, commands, horizon))
 
 
-C1_MODEL = Path('/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_short_pulse_command_control_v1_attempt_001/command_only.npz')
+C1_MODEL = artifacts.cached('t6_c1_command_model')
 
 
-@pytest.mark.skipif(not C1_MODEL.exists(), reason='original C1 model not available')
+@pytest.mark.skipif(not C1_MODEL.exists(), reason='shipped C1 model not in the cache')
 @needs_snapshot
 def test_command_model_matches_original():
     import numpy as np

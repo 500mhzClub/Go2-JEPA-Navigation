@@ -31,6 +31,7 @@ SNAPSHOT = Path(os.environ.get('GO2NAV_SNAPSHOT', Path.home()/'Workspace/LeWMQua
 sys.path[:0] = [str(REPO), str(SNAPSHOT), str(SNAPSHOT/'lewm_genesis'), str(SNAPSHOT/'lewm_worlds')]
 sys.path.insert(0, str(REPO/"tools/porting"))
 from replay_bundle import read_stream  # noqa: E402
+import original  # noqa: E402
 
 
 def calls(bundle, pool):
@@ -193,8 +194,7 @@ def sensor_frame(packet):
                        packet.policy['sensor_state']['sensed']['specific_force']['values'], packet.policy, tuple(packet.history))
 
 
-C1_MODEL = Path('/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/'
-                'go2_short_pulse_command_control_v1_attempt_001/command_only.npz')
+C1_MODEL = original.path('recovery', '.generated/navigation_development_artifacts_v1/go2_short_pulse_command_control_v1_attempt_001/command_only.npz')
 C1R_MODEL = C1_MODEL.parents[1]/'go2_navigation_capability_v1_attempt_001/stage2_c1_refit_v1/command_only.npz'
 
 
@@ -237,8 +237,8 @@ def build_controller(bundle):
                                 margin_m=caution.calibrated_bound(arm, margin) if margin else 0., unknown=unknown), run
 
 
-T4 = '/mnt/workspace_drive/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_horizon_dense_predictor_v1_attempt_001/action_final.pt'
-T5B = '/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/go2_maze_view_readout_v1_attempt_003/maze_data_final.pt'
+T4 = original.path('workspace', '.generated/navigation_development_artifacts_v1/go2_horizon_dense_predictor_v1_attempt_001/action_final.pt')
+T5B = original.path('recovery', '.generated/navigation_development_artifacts_v1/go2_maze_view_readout_v1_attempt_003/maze_data_final.pt')
 
 
 def jepa_forecaster(decoder_path):

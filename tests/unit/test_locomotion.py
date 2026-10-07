@@ -8,15 +8,16 @@ import numpy as np
 import pytest
 import yaml
 
+from go2nav import artifacts
+
 REPO = Path(__file__).resolve().parents[2]
 CONFIG = yaml.safe_load((REPO/'configs/locomotion/contract_ppo.yaml').read_text())
-SHIPPED = Path(os.environ.get('GO2NAV_LOCOMOTION_CHECKPOINT',
-                              '/home/andrewknowles/Workspace/LeWMQuad-v3/models/tier_a_go2_locomotion/20260516_contract_ppo/model_500.pt'))
+SHIPPED, SHIPPED_CFGS = artifacts.cached('go2_locomotion_policy'), artifacts.cached('go2_locomotion_policy_cfgs')
 
 
 @pytest.mark.skipif(not SHIPPED.exists(), reason='shipped locomotion checkpoint not available')
 def test_config_matches_shipped_training_config():
-    env, obs, reward, command, train = pickle.loads((SHIPPED.parent/'cfgs.pkl').read_bytes())
+    env, obs, reward, command, train = pickle.loads(SHIPPED_CFGS.read_bytes())
     assert CONFIG['env'] == env
     assert CONFIG['obs'] == obs
     assert CONFIG['reward'] == reward

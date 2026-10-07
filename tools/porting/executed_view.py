@@ -19,9 +19,10 @@ import os
 from pathlib import Path
 import re
 
+import original
+
 REPO = Path(__file__).resolve().parents[2]
-TRACE = Path('/home/andrewknowles/RecoveryStorage/LeWMQuad-v3/.generated/navigation_development_artifacts_v1/'
-             'go2_navigation_capability_v1_attempt_001/p1_runtime_trace')
+TRACE = original.path('recovery', '.generated/navigation_development_artifacts_v1/go2_navigation_capability_v1_attempt_001/p1_runtime_trace')
 SNAPSHOT = Path(os.environ.get('GO2NAV_SNAPSHOT', Path.home()/'Workspace/LeWMQuad-v3-snapshot-2026-10-06'))
 BLOCK_HEADER = re.compile(r'^\s*(else|try|finally)\s*:')
 
