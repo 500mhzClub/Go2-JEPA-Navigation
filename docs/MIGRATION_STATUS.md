@@ -64,7 +64,7 @@ to resume from.
 | `go2nav.models` | 21 | 583 | **done** (see the progress log) |
 | `go2nav.controllers` | 6 | 180 | **done** for C0 (oracle), C1, C1A, C1R, C2, C3, C4: replays of recorded missions reproduce every 50 Hz request and mission row (G2), and fresh closed-loop missions reproduce the original runs exactly (G4, below), including the sensitivity hooks (forecast degradation, calibrated margin, look-around unknown cells) |
 | `go2nav.data`, `go2nav.training` | 10 | 299 | todo |
-| `go2nav.eval` | 24 | 719 | mission runner, episode reader and cohort runner **done**: the reader reproduces 15 original evaluations exactly (every arm, contact stops, technical failures); R4 cohort rerun under check; experiment reports: todo |
+| `go2nav.eval` | 24 | 719 | mission runner, episode reader and cohort runner **done**: the reader reproduces 15 original evaluations exactly (every arm, contact stops, technical failures); R4 rerun reproduces the original cohort exactly (below); R5/R6 running; experiment reports: todo |
 | experiments and reports | 7 | 513 | todo |
 | unclassified | 70 | 917 | classify |
 
@@ -110,6 +110,18 @@ executed command, the full physics trace, frame times, mission rows and outcome 
 | C1, calibrated margin p95 | prelim 31 | recovery off (full budget) | 24,000 |
 | C1, forecast noise 40 mm | prelim 30 | recovery off; the tracker's direct-flow fallback once (frame 2596); contact stop as the original | 16,116 |
 | C1R, marked strips 0.3 | stage-2 eval 38 | recovery off; pose lost at frame 1305 as the original, after every fallback pass | 6,525 |
+
+## R4 rerun (7 October 2026): reserve-exit v2 cohort, clean repository vs original cohort
+
+`python -m go2nav.eval.cohort configs/experiments/r4_reserve_exit_v2.yaml --workers 8`, checked with
+`tools/porting/cohort_check.py --traces` (outcome fields, every request and the physics trace): **100 of 100 missions
+identical** (rexit2_ref 60: C1, C2, C4 on prelim mazes 30-49; gates 20 + 20: C0 and C1 on dev-tune). The first pass
+gave 95; the other five were three missions started during a broken edit of the live tree and two that reached
+unported branches (tracker plane/image consensus, hold-relative heading recovery). Both branches were ported and the
+five reruns are identical; earlier attempts are kept as `runs/<assignment>.attempt1`.
+
+Preliminary R4 table (recovery off): C1 20/20 round trips, 0 contacts, minimum clearance 0.075 m; C4 19/20, 0
+contacts, 0.029 m; C2 15/20, 1 contact sample, 18 hard-violation samples, minimum clearance 0.000 m.
 
 Scope note: the clean repository implements the final harness (reserve-exit v2 with the coverage fix). Results recorded
 under the earlier v4 harness (R1, R3: the 2 October preliminary comparison, sensitivity and margins) are shipped as
