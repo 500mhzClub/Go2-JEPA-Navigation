@@ -1,6 +1,10 @@
 """Training samples derived from the recordings: regenerates the files of data/training/ from recorded trials.
 
     python -m go2nav.data.samples DATASET --recordings-root ROOT [--recordings-root ROOT ...] --out FILE.jsonl
+    python -m go2nav.data.samples all --recordings-root ROOT [...] --out data/training
+
+`all` writes every file of data/training (except T1's, which come from the May corpus) and each folder's frames.txt
+(the sorted frames its files use); see LAYOUT.
 
 A recordings root holds one folder per collection, named as in FOLDERS, with one folder per trial (as written by
 `go2nav.data.corridor` and `go2nav.data.collect`, or the original recordings). A trial folder needs
@@ -74,12 +78,15 @@ class Recordings:
     def __init__(self, roots):
         self.roots = [Path(r) for r in roots]
 
-    def trial(self, source, trial):
-        name = f'{FOLDERS[source]}/{trial}'
+    def find(self, name):
+        """The path of `name` (relative to a recordings root) under the first root that has it."""
         for root in self.roots:
-            if (root/name).is_dir():
+            if (root/name).exists():
                 return root/name
         raise FileNotFoundError(name)
+
+    def trial(self, source, trial):
+        return self.find(f'{FOLDERS[source]}/{trial}')
 
     def trace(self, source, trial):
         with np.load(self.trial(source, trial)/'physics_trace.npz') as archive:
@@ -378,22 +385,63 @@ def c1(recordings):
     return out
 
 
+def decoder(recordings):
+    from go2nav.data.decoder_contexts import contexts
+    return contexts(recordings)
+
+
 DATASETS = dict(t2=t2, t3=t3, t4=t4, t5_original=t5_original, t5_full_heading=t5_full_heading,
-                t5_maze_view=t5_maze_view, c1=c1)
+                t5_maze_view=t5_maze_view, c1=c1, decoder=decoder)
+
+
+LAYOUT = {'native_predictor': dict(t2_samples='t2', t3_balanced_start_samples='t3', t4_samples='t4'),
+          'readouts': dict(t5_original='t5_original', t5_full_heading='t5_full_heading', t5_maze_view='t5_maze_view'),
+          'c1_command_model': dict(contexts='c1'),
+          'decoder': dict(contexts='decoder')}
+FRAME_LISTS = ('native_predictor', 'readouts', 'decoder')
+
+
+def write(data, out):
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if isinstance(data, list):
+        out.write_text(''.join(json.dumps(r)+'\n' for r in data))
+    else:
+        out.write_text(json.dumps(data)+'\n')
+
+
+def frames_in(value):
+    """Every frame name (a string ending in .png) inside a dataset."""
+    if isinstance(value, str):
+        return {value} if value.endswith('.png') else set()
+    items = value.values() if isinstance(value, dict) else value if isinstance(value, (list, tuple)) else ()
+    return set().union(*(frames_in(v) for v in items))
+
+
+def write_all(recordings, out):
+    for folder, files in LAYOUT.items():
+        frames = set()
+        for name, dataset in files.items():
+            data = DATASETS[dataset](recordings)
+            write(data, out/folder/(name+('.jsonl' if isinstance(data, list) else '.json')))
+            frames |= frames_in(data)
+            print(json.dumps(dict(file=f'{folder}/{name}', rows=len(data))), flush=True)
+        if folder in FRAME_LISTS:
+            (out/folder/'frames.txt').write_text('\n'.join(sorted(frames))+'\n')
 
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('dataset', choices=sorted(DATASETS))
+    p.add_argument('dataset', choices=sorted(DATASETS)+['all'])
     p.add_argument('--recordings-root', action='append', required=True)
-    p.add_argument('--out', type=Path, required=True, help='a .jsonl file (one sample per line), or .json for t5_maze_view')
+    p.add_argument('--out', type=Path, required=True,
+                   help='a .jsonl file (one sample per line; .json for t5_maze_view), or the data/training folder for all')
     a = p.parse_args()
-    data = DATASETS[a.dataset](Recordings(a.recordings_root))
-    a.out.parent.mkdir(parents=True, exist_ok=True)
-    if isinstance(data, list):
-        a.out.write_text(''.join(json.dumps(r)+'\n' for r in data))
-    else:
-        a.out.write_text(json.dumps(data)+'\n')
+    recordings = Recordings(a.recordings_root)
+    if a.dataset == 'all':
+        write_all(recordings, a.out)
+        return
+    data = DATASETS[a.dataset](recordings)
+    write(data, a.out)
     print(json.dumps(dict(dataset=a.dataset, rows=len(data))))
 
 
