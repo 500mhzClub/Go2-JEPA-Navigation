@@ -46,6 +46,11 @@ planning, safety vetoes, and an optional recovery layer. Only the motion forecas
 | `env` | the locked ROCm environment and the corpus render environment |
 | `tools/porting` | the porting gates against the original programme (replay, mission, evaluation and cohort checks) |
 
+## Reproducing
+
+[docs/REPRODUCE.md](docs/REPRODUCE.md) gives every stage's command, from mazes and the locomotion policy to the
+corpus, the learned chain (T1-T8, with seeds), the missions and the comparisons, and what each was checked against.
+
 ## Platform
 
 AMD ROCm 7.2, torch 2.12, Genesis 0.4.6, Python 3.12. See [env/](env/). CPU physics is deterministic, and logged
