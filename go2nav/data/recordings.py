@@ -1,0 +1,91 @@
+"""Regenerate the training recordings: every case of every fixed-tape collection, in the layout that the sample
+builders read (`go2nav.data.samples`, `go2nav.data.decoder_contexts`) and the training chain encodes.
+
+    python -m go2nav.data.recordings ROOT [--collection NAME ...] [--workers 8]
+
+Trials go to ROOT/<folder>/<trial> with the original programme's names (FOLDERS): the corridor collections
+(`go2nav.data.corridor`) by their plan's trial names, the others (`go2nav.data.collect`) as case_NN. Each trial runs in
+its own process; a trial with a result.json is kept and a partial one is redone, so an interrupted run resumes.
+
+The decoder contexts also use mission runs (the C3-v3 on-policy rounds, the C3-v2 fresh checks and the stage-2
+recordings); those are cohorts (`go2nav.eval.cohort`), not collections.
+"""
+from __future__ import annotations
+
+import argparse
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+REPO = Path(__file__).resolve().parents[2]
+COLLECTIONS = REPO/'data/collections'
+CAPABILITY = 'go2_navigation_capability_v1_attempt_001'
+FOLDERS = {  # collection: (recordings folder, regenerating module)
+    'geometry_progress_family': ('go2_geometry_progress_family_v1_attempt_001', 'corridor'),
+    'switch_family': ('go2_moving_action_switch_family_v1_attempt_001', 'corridor'),
+    'short_pulse': ('go2_short_pulse_learning_v1_attempt_001', 'corridor'),
+    'balanced_start': ('go2_balanced_start_actions_v1_attempt_001', 'corridor'),
+    'balanced_start_horizon': ('go2_balanced_start_horizon_actions_v1_attempt_001', 'corridor'),
+    'full_heading': ('go2_full_heading_training_v1_attempt_001', 'collect'),
+    'maze_view_training': ('go2_maze_view_training_v1_attempt_001', 'collect'),
+    'maze_view_transfer': ('go2_maze_view_transfer_v1_attempt_001', 'collect'),
+    'c3v2_rest_turn': (f'{CAPABILITY}/c3v2_rest_turn_recordings_v1', 'collect'),
+}
+
+
+def trials(collection):
+    """[(trial folder name, the regenerating module's trial argument)] of a collection, in order."""
+    plan = json.loads((COLLECTIONS/collection/'plan.json').read_text())
+    if FOLDERS[collection][1] == 'corridor':
+        return [(name, name) for name in sorted(plan['trials'])]
+    return [(f'case_{i:02d}', str(i)) for i in range(len(plan['specifications']))]
+
+
+def regenerate(collection, trial, argument, root):
+    folder, module = FOLDERS[collection]
+    out = Path(root)/folder/trial
+    if (out/'result.json').exists():
+        return 'kept'
+    shutil.rmtree(out, ignore_errors=True)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out.parent/f'{trial}.log', 'w') as log:
+        code = subprocess.run([sys.executable, '-m', f'go2nav.data.{module}', collection, argument, str(out)], cwd=REPO,
+                              stdout=log, stderr=subprocess.STDOUT).returncode
+    if code or not (out/'result.json').exists():
+        raise RuntimeError(f'exit {code}; see {out.parent/f"{trial}.log"}')
+    return 'done'
+
+
+def run(root, collections=None, workers=8):
+    jobs = [(c, t, a) for c in (collections or FOLDERS) for t, a in trials(c)]
+    print(f'{len(jobs)} trials', flush=True)
+    failures = []
+    with ThreadPoolExecutor(workers) as pool:
+        futures = {pool.submit(regenerate, c, t, a, root): (c, t) for c, t, a in jobs}
+        while futures:
+            finished, _ = wait(futures, return_when=FIRST_COMPLETED)
+            for future in finished:
+                collection, trial = futures.pop(future)
+                try:
+                    print(f'[{future.result()}] {collection}/{trial}', flush=True)
+                except Exception as error:
+                    failures.append(f'{collection}/{trial}: {error}')
+                    print(f'[FAIL] {collection}/{trial}: {error}', flush=True)
+    print(json.dumps(dict(trials=len(jobs), failures=failures)), flush=True)
+    return failures
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument('root', type=Path)
+    p.add_argument('--collection', action='append', choices=sorted(FOLDERS), dest='collections')
+    p.add_argument('--workers', type=int, default=8)
+    a = p.parse_args()
+    sys.exit(1 if run(a.root.resolve(), a.collections, a.workers) else 0)
+
+
+if __name__ == '__main__':
+    main()
