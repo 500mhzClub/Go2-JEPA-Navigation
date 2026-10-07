@@ -9,6 +9,7 @@ motion forecaster.
 - **C0**: the simulator oracle (`go2nav.controllers.oracle`).
 """
 import json
+from pathlib import Path
 
 from go2nav import artifacts
 from go2nav.models.motion import load_decoder_and_c4, load_motion_readout
@@ -22,27 +23,31 @@ def control_stats():
     return stats['control_mean'], stats['control_std']
 
 
-def forecaster(arm, *, decoder_fit=None, device='cuda:0'):
-    """The forecaster of a learned arm (None for C2). `decoder_fit` is the C3-decoder/C4 fit file (default: the
-    deployed T7 fit)."""
+def forecaster(arm, *, decoder_fit=None, models=None, device='cuda:0'):
+    """The forecaster of a learned arm (None for C2). The models are the shipped artefacts unless `models` maps an
+    artefact name to another checkpoint (a retrained one); `decoder_fit` is the C3-decoder/C4 fit file (default: the
+    T7 fit)."""
     from go2nav.controllers.adaptive import AdaptiveTravelForecaster
     from go2nav.controllers.forecasters import CommandHistoryForecaster
+
+    def model(name):
+        return Path(models[name]) if models and name in models else artifacts.path(name)
     if arm == 'C1':
-        return CommandHistoryForecaster(artifacts.path('t6_c1_command_model'))
+        return CommandHistoryForecaster(model('t6_c1_command_model'))
     if arm == 'C1A':
-        return AdaptiveTravelForecaster(CommandHistoryForecaster(artifacts.path('t6_c1_command_model')))
+        return AdaptiveTravelForecaster(CommandHistoryForecaster(model('t6_c1_command_model')))
     if arm == 'C1R':
-        return CommandHistoryForecaster(artifacts.path('t8_stage2_c1_refit'))
+        return CommandHistoryForecaster(model('t8_stage2_c1_refit'))
     if arm == 'C2':
         return None
     if arm in ('C3', 'C4'):
         from go2nav.controllers.neural import DirectForecaster, JepaForecaster
-        decoder, c4 = load_decoder_and_c4(decoder_fit or artifacts.path('t7_c3_decoder_and_c4'),
-                                          load_motion_readout(artifacts.path('t5b_maze_view_readout')))
+        decoder, c4 = load_decoder_and_c4(decoder_fit or model('t7_c3_decoder_and_c4'),
+                                          load_motion_readout(model('t5b_maze_view_readout')))
         mean, std = control_stats()
         if arm == 'C4':
             return DirectForecaster(c4, mean, std, device=device)
         from go2nav.models.predictor import load_horizon_predictor
-        return JepaForecaster(load_horizon_predictor(artifacts.path('t4_horizon_dense_predictor')), decoder, mean, std,
+        return JepaForecaster(load_horizon_predictor(model('t4_horizon_dense_predictor')), decoder, mean, std,
                               device=device)
     raise ValueError(f'unknown or unported arm {arm!r}')

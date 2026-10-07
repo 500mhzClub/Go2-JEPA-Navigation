@@ -20,6 +20,7 @@ holds the physics trace, the contact records and the visual meshes.
 import argparse
 from collections import deque
 import dataclasses
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -27,6 +28,7 @@ import time
 import traceback
 
 import numpy as np
+import yaml
 
 from go2nav import artifacts
 from go2nav.mazes.sets import MazeSet
@@ -52,6 +54,10 @@ def plain(value):
 
 def save(path, value):
     Path(path).write_text(json.dumps(plain(value), allow_nan=False)+'\n')
+
+
+def sha256(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
 def episode_spec(set_name, maze, episode_index):
@@ -84,13 +90,15 @@ def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=N
 
 
 def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fit=None, friction=None, strips=None,
-        stall_stop_s=None, degrade=None, margin=None, pessimistic=None, unknown_level=None, demo_textures=False):
+        stall_stop_s=None, degrade=None, margin=None, pessimistic=None, unknown_level=None, demo_textures=False,
+        models=None):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions). Experiment
     hooks: `degrade` (a forecast degradation, `controllers.degraded`), `margin` (p95/p99 calibrated clearance margin),
     `pessimistic` (never-observed cells block: revised, seeded or lookaround; bound at `unknown_level`, else the
     margin level, else p99; `planning.caution`). `demo_textures`: demonstration surfaces (`go2nav.sim.demo_appearance`;
-    presentation only, never seen in training)."""
+    presentation only, never seen in training). `models`: artefact name -> checkpoint, replacing shipped models (a
+    retrained chain); recorded with each file's SHA-256."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -110,7 +118,9 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  physics_backend='cpu', dynamics=dynamics_record, forecast_degradation=degrade,
                                  clearance_margin=dict(level=margin, margin_m=margin_m) if margin else None,
                                  pessimistic_unknown=dict(variant=pessimistic, bound_m=unknown_bound) if pessimistic else None,
-                                 **(dict(demo_textures=True) if demo_textures else {})))
+                                 **(dict(demo_textures=True) if demo_textures else {}),
+                                 **(dict(models={name: dict(path=str(path), sha256=sha256(path)) for name, path in models.items()})
+                                    if models else {})))
     save(out/'specification.json', spec)
     save(out/'episode.json', episode)
     cv2.setNumThreads(1)
@@ -120,7 +130,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     controller = session = error = None
     started = time.monotonic()
     try:
-        forecaster = None if arm == 'C0' else arms.forecaster(arm, decoder_fit=decoder_fit)
+        forecaster = None if arm == 'C0' else arms.forecaster(arm, decoder_fit=decoder_fit, models=models)
         scene.init_genesis(spec['procedural_seed'])
         session = MissionSession(spec, out/'native', policy_checkpoint=artifacts.path('go2_locomotion_policy'),
                                  dynamics=dynamics, demo_textures=demo_textures)
@@ -234,6 +244,7 @@ def main():
     p.add_argument('--pessimistic', choices=('revised', 'seeded', 'lookaround'), help='never-observed cells block')
     p.add_argument('--unknown-level', choices=('p95', 'p99'), help='bound for never-observed cells (default: the margin level, else p99)')
     p.add_argument('--demo-textures', action='store_true', help='brick and parquet demonstration surfaces (presentation only)')
+    p.add_argument('--models', type=Path, help='YAML mapping artefact names to checkpoints that replace the shipped ones')
     p.add_argument('--out', type=Path, required=True)
     a = p.parse_args()
     strips = None
@@ -244,7 +255,8 @@ def main():
         strips = (float(mu), mark == 'marked')
     result = run(a.arm, a.set, a.maze, a.out, episode_index=a.episode, recovery=a.recovery == 'on', decoder_fit=a.decoder_fit,
                  friction=a.friction, strips=strips, stall_stop_s=a.stall_stop_s, degrade=a.degrade, margin=a.margin,
-                 pessimistic=a.pessimistic, unknown_level=a.unknown_level, demo_textures=a.demo_textures)
+                 pessimistic=a.pessimistic, unknown_level=a.unknown_level, demo_textures=a.demo_textures,
+                 models=yaml.safe_load(a.models.read_text()) if a.models else None)
     print(json.dumps(result))
 
 
