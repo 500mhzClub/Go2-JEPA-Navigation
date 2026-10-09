@@ -1,5 +1,9 @@
 # Go2-JEPA-Navigation
 
+[![JEPA navigation demo: a simulated Unitree Go2 reaches the goal in a textured maze](assets/demo/jepa-navigation-preview.webp)](assets/demo/jepa-navigation.mp4)
+
+**[Full navigation demo — 1080p, 30 fps, 52 seconds](assets/demo/jepa-navigation.mp4)** · Reach the goal, then return home.
+
 When do JEPA world-model representations carry decision-relevant information for robot navigation, beyond kinematic
 prediction, reactive control and explicit memory?
 
