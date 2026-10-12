@@ -14,8 +14,9 @@ to resume from.
   - training of every learned component;
   - inference for each controller type (C0–C4, plus the C1A and C1R development variants);
   - every experiment that compares the controllers.
-- **Public repository,** named Go2-JEPA-Navigation. **Nothing is pushed until Andrew's pre-publication review:** licences
-  (V-JEPA 2.1 weights, Go2 URDF), secrets, absolute paths, personal data, sealed material.
+- **Public repository,** named Go2-JEPA-Navigation. Pushed to `github.com/500mhzClub/Go2-JEPA-Navigation` with its
+  full history on Andrew's instruction. Still for Andrew's review before it is announced: licences (V-JEPA 2.1
+  weights, Go2 URDF) and the legacy role label (see "Release").
 - **Ship checkpoints with their lineage, and the code to retrain each component from scratch with a seed.** Multi-seed
   full-chain retraining comes later, for publication.
 - **ROCm** (7.2, torch 2.12, Genesis 0.4.6).
@@ -59,12 +60,12 @@ to resume from.
 | `go2nav.mazes` | 10 | 38 | **done**: regeneration reproduces capability_v1 (90 layouts, 180 episodes), c3v2, c3v3 and the stage-2 sets (with their strip-coverage qualification) byte for byte (`tests/unit/test_mazes.py`) |
 | `go2nav.sim` | 34 | 1,123 | **done**: scene, appearance, sensors, contacts, mission session, snapshots (C0), dynamics (uniform friction, stage-2 strips v3 with markers and the 0.40-m/s guard, recording stall stop); driven with a recorded C1 mission's commands it reproduces all 51,010 physics samples and 1,006 sensor frames exactly (`tools/porting/sim_check.py`) |
 | `go2nav.locomotion` | 1 | 15 | **done**: training env (Genesis Go2 example port with the primitive bank), PPO training CLI with lineage, run-time policy (bit-identical actions to the original wrapper), tracking benchmark; config equals the shipped cfgs.pkl (`tests/unit/test_locomotion.py`) |
-| `go2nav.perception` | 103 | 2,200 | **done**: visual odometry (with its degraded modes: measured-increment bridge, cross-camera check, direct and chained corner-flow re-association, joint-camera chained fit, plane/image consensus), floor registration, depth obstacles, routing map; every worker output identical on 11 recorded missions (C0–C4, C1A, C1R, three sensitivity hooks; `tools/porting/replay_check.py`) |
+| `go2nav.perception` | 103 | 2,200 | **done**: visual odometry (with its degraded modes: measured-increment bridge, cross-camera check, direct and chained corner-flow re-association, joint-camera chained fit, plane/image consensus), floor registration, depth obstacles, routing map; every worker output identical on 11 recorded missions (C0–C4, C1A, C1R, three sensitivity hooks; `tools/porting/replay_check.py`). Added 12 October, each checked on a fresh mission against its original: floor patches too narrow for a plane (height along a known normal), floor re-acquisition after a rejected floor measurement, the visual-support view recovery |
 | `go2nav.planning` | 64 | 1,880 | **done** (with the C2 reactive selector, hold-relative heading recovery, and the forecast-degradation, calibrated-margin and pessimistic-unknown variants) |
 | `go2nav.models` | 21 | 583 | **done** (see the progress log) |
 | `go2nav.controllers` | 6 | 180 | **done** for C0 (oracle), C1, C1A, C1R, C2, C3, C4: replays of recorded missions reproduce every 50 Hz request and mission row (G2), and fresh closed-loop missions reproduce the original runs exactly (G4, below), including the sensitivity hooks (forecast degradation, calibrated margin, look-around unknown cells) |
 | `go2nav.data`, `go2nav.training` | 10 | 299 | **done** (see "Outside the runtime trace" and "Retrained chain") |
-| `go2nav.eval` | 24 | 719 | mission runner, episode reader and cohort runner **done**: the reader reproduces 15 original evaluations exactly (every arm, contact stops, technical failures); R4 rerun reproduces the original cohort exactly (below); R5/R6 running; experiment reports: todo |
+| `go2nav.eval` | 24 | 719 | mission runner, episode reader and cohort runner **done**: the reader reproduces 15 original evaluations exactly (every arm, contact stops, technical failures); R1 and R3-R6 rerun against the original cohorts (see "Cohort reruns"); experiment reports: todo |
 | experiments | 7 | 513 | **done**: one config per comparison in `configs/experiments` (R1, R3-R6, the retrained-chain and retrained-locomotion checks, the decoder data sources); paper tables: todo |
 | unclassified | 70 | 917 | classify |
 
@@ -92,7 +93,7 @@ to resume from.
 | artefact hosting (Hugging Face Hub: checkpoints, maze sets, training data, result summaries) | todo |
 | paper tables and figures from result files | todo |
 | licences and pre-publication review (Andrew) | todo; draft `THIRD_PARTY_NOTICES.md` (Genesis-derived locomotion environment, rsl-rl, V-JEPA 2.1 weights terms to confirm, CC0 textures); no checkpoint contains encoder weights (largest: 17.2 M parameters) |
-| machine paths | none in tracked files (custody test); the git history before commit 8fde314 still has absolute paths and the username, so publish a squashed or filtered history |
+| machine paths | none in tracked files (custody test); the git history before commit 8fde314 has absolute paths and the username, and was pushed as it is (Andrew's choice) |
 | legacy role label (for Andrew's review) | the 181 files of `data/mazes/prelim_test_v1` carry `role`/`data_role` `"sealed_test"` from before the 1 October declassification, and episode records of runs on them inherit it; the files are byte-bound to the maze-regeneration gate, so the choice is to keep the label with a note or relabel to `prelim_test` and re-bind | open |
 
 ## Gate G4 (7 October 2026): fresh closed-loop missions, clean repository vs original runs
@@ -127,9 +128,8 @@ five reruns are identical; earlier attempts are kept as `runs/<assignment>.attem
 Preliminary R4 table (recovery off): C1 20/20 round trips, 0 contacts, minimum clearance 0.075 m; C4 19/20, 0
 contacts, 0.029 m; C2 15/20, 1 contact sample, 18 hard-violation samples, minimum clearance 0.000 m.
 
-Scope note: the clean repository implements the final harness (reserve-exit v2 with the coverage fix). Results recorded
-under the earlier v4 harness (R1, R3: the 2 October preliminary comparison, sensitivity and margins) are shipped as
-data; rerunning them here gives the v2 numbers (R4 documents the v4 to v2 change).
+The default harness is the final one (reserve-exit v2 with the coverage fix). The experiments recorded under the
+earlier v4 harness (R1, R3 and the decoder's source missions) rerun under `--harness v4` (next section).
 
 ## v4 harness and the remaining verification (7 October 2026, evening)
 
@@ -148,7 +148,7 @@ mission rows, outcome):
 | decoder source, C3-v3 round | c3v3_onpolicy_C1 m00 | v4, no fixes |
 | R3, C1 forecast scale 0.5 | dev_sens_scale0p5_C1 prelim 30 | v4, coverage fix on |
 
-Configs: `r1_preliminary_comparison.yaml` (332 missions) and `r3_sensitivity_and_margins.yaml` (520), from the
+Configs: `r1_preliminary_comparison.yaml` (332 missions) and `r3_sensitivity_and_margins.yaml` (500), from the
 original cohort plans; `decoder_sources.yaml` (the C3-v3 round and the C3-v2 fresh checks).
 
 Also new: `python -m go2nav.data.recordings` regenerates every case of every collection (428) in the original
@@ -156,6 +156,65 @@ layout, checked trial by trial against the originals by `tools/porting/collectio
 `python -m go2nav.data.mission_sources` arranges regenerated decoder-source runs with their verified replays; missions
 can run on another locomotion policy (`models: go2_locomotion_policy`; cohort `retrained_locomotion.yaml`); the datagen
 rollout takes a scene list (`--scenes`, e.g. T1's 80 scenes with their chunk seeds).
+
+## Regeneration and reruns (12 October 2026)
+
+What has been regenerated or rerun from this repository and compared with the original programme's records.
+
+**Data**
+
+| Stage | Regenerated | Result |
+|---|---|---|
+| mazes | every registered set, the stage-2 sets with their qualification | byte-identical |
+| training collections | all 428 trials of the nine collections (`go2nav.data.recordings`), compared trial by trial (`tools/porting/collection_check.py`: physics trace, command histories, every RGB frame, native depth) | 392 identical; the 36 short-pulse trials have identical physics and different frames (the known limitation above) |
+| training samples | T2, T3, T4, the three T5 sets and C1's contexts, rebuilt from the regenerated recordings | all seven byte-identical to the shipped files |
+| May corpus for T1 | all 80 scenes T1 uses: rollouts with the per-scene seeds (`data/corpus/may_2026_rollout_seeds.json`), rows, and the 18,101 frames rendered | rows byte-identical to the shipped ones. The seeds file is needed: two scenes were replaced after the May first pass, which moved 36 others one place in the name order the chunk seed rule uses |
+| decoder source missions | the C3-v3 on-policy round (22 missions) and the stage-2 recordings (30) | every mission identical to its original. The C3-v2 fresh checks (10 C3 missions): running |
+
+**v4 harness gates.** With the four in the table above, fresh missions also reproduce exactly: C2 (dev_prelim_off_C2
+prelim 30, the full 480-s budget), C3 (dev_prelim_off_C3 prelim 30), C4 (dev_prelim_off_C4 prelim 30) and the first
+C3-v2 fresh check (C3 with the C3-v2 readout, full budget). Every arm is now checked on the v4 harness.
+
+**Branches ported after the cohorts reached them** (each checked on a fresh mission against its original: requests,
+physics trace, frames, mission rows, outcome):
+- obstacles from the downward camera alone, when the forward camera has no returns (ported 7 October);
+- a floor patch too narrow for a plane normal: its height along a known normal, for the obstacle observer and for
+  the floor registration (sens_fwdscale0p25 C1 prelim 40; sens_noise160 C1 prelim 33);
+- view recovery when visual support drops low (s2eval_cpu C1R stage-2 eval 47, episode 1: the same 20 recovery
+  plans at the same frames, all 1,086 plan actions equal);
+- floor re-acquisition after a rejected floor measurement (s2eval_cpu C1 stage-2 eval 49, episode 0: 12 rejected
+  frames, 38 held frames and 190 held requests, as in the original);
+- the recovery fixes that R1's recovery-on condition uses beyond those already ported: the terminal position burst
+  (C1 prelim 38), the scripted backup (C1 prelim 59 and 79, C4 prelim 44, C0 prelim 32, which ends in the original's
+  oracle prefix-check failure), the forecasting controllers' deadlock escape with its relaxed dispatch (C1 prelim 61
+  and 55, the full budget: 10 escapes, 10 backup steps, 5 relaxed dispatches). Two parts never occur in the original
+  R1 runs and are ported from reading: the frontier exclusion after a repeated stall, and the backup's relaxed dispatch.
+
+Still stopping with `UnportedBranch` (no rerun mission reaches them): the start-up recovery when the first frame
+has no floor; tracker frames or references without a floor plane, and its measured-plane height constraint without
+a gyro-coherent floor constraint; a floor plane rejected for another reason than too few points or too narrow a patch;
+floor and transport corrections beyond their bounds (a pipeline fault in the original too); and a veto view recovery
+across a mission phase change.
+
+**Cohort reruns** (`tools/porting/cohort_check.py --traces`: evaluation outcome, every request, the physics trace).
+Missions that the original did not evaluate (physical stops) are compared by their recorded ending and traces.
+
+| Experiment | Missions | Identical to the original |
+|---|---:|---|
+| R1 preliminary comparison (v4 harness; recovery on and off) | 332 | running, from the commit with the recovery fixes (e6817fd) |
+| R3 forecast sensitivity and margins (v4 harness) | 500 | 500 |
+| R4 reserve-exit v2 | 100 | 100 |
+| R5 dynamics stage 1 | 120 | 118; the other two (C3, uniform friction 0.30, prelim 31 and 48) are being rerun |
+| R6 dynamics stage 2 | 150 | 150 |
+| decoder sources | 32 | the C3-v3 round 22 of 22; the ten C3-v2 fresh checks running |
+
+40 of these missions first stopped at a branch not yet ported and were rerun after its port (earlier attempts are kept
+as `runs/<assignment>.attempt<N>`). The original `margin_c4_nominal` cohort of R3 was never run (it was relaunched as
+`margin_c4_nominal_b`), so the R3 config has 23 cohorts.
+
+**End-to-end run** (regenerated data, then the chain, then the maze test): the data stage is done (table above);
+the decoder contexts, the chain trained on the regenerated frames and its C3 maze test follow once the C3-v2 fresh
+checks finish (`outputs/run_e2e_stages_bcd.sh`).
 
 ## Retrained chain (7 October 2026): T1-T8 from scratch with the original seeds
 
@@ -173,9 +232,20 @@ option `models`. Every stage lands on its original record:
 | T8 stage-2 refit (C3 / C4) | 9.868 / 6.781 | 9.821 / 6.781 (C4 bit-identical) |
 | T6 C1 command model | shipped | equal to within 6e-13 (summation order) |
 
-So only C3 changes with the retrained chain. Its closed-loop check (`configs/experiments/retrained_chain.yaml`: C3
-with the shipped vs the retrained models, prelim 30-49, recovery off, v2 harness) is running from the frozen worktree
-at 2dfe1f6.
+So only C3 changes with the retrained chain.
+
+**Closed loop on the retrained components** (preliminary; one seed, prelim mazes 30-49, recovery off, v2 harness;
+`configs/experiments/retrained_chain.yaml` and `retrained_locomotion.yaml`):
+
+| Arm | Component retrained | Shipped: round trips, contact samples, hard-clearance samples, minimum clearance, median outbound SPL | Retrained |
+|---|---|---|---|
+| C3 | the learned chain (T1-T8) | 20/20, 0, 0, 0.091 m, 0.835 | 18/20, 0, 0, 0.083 m, 0.829 (mazes 39 and 40 used up the step budget holding) |
+| C1 | locomotion policy (seed 11) | 20/20, 0, 0, 0.075 m, 0.832 | 17/20, 1, 1,969, -0.005 m, 0.786 (maze 32 stopped on a contact) |
+| C2 | locomotion policy | 15/20, 1, 18, -0.000 m, 0.788 | 20/20, 0, 0, 0.017 m, 0.768 |
+| C4 | locomotion policy | 19/20, 0, 0, 0.029 m, 0.811 | 19/20, 1, 28, -0.000 m, 0.802 (maze 44 stopped on a contact) |
+
+The shipped C1 command model and the learned arms' training data describe the shipped policy's response; with another
+policy they are used unchanged here. Retraining them on the new policy's response is the full seed chain, not yet run.
 
 ## Progress log (6 October 2026, evening)
 

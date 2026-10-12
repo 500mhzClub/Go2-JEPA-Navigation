@@ -88,6 +88,9 @@ The chain writes `outputs/chain/models.yaml`.
 
 - Each experiment config in `configs/experiments` is one comparison. A cohort can take `models:` to run on a retrained
   chain.
+- The experiments before the final harness ran on the earlier one: the R1, R3 and decoder-source configs set
+  `harness: v4` (and `coverage_fix: 'off'` where the run predates the 2 October coverage fix); missions take
+  `--harness v4 --coverage-fix off`.
 - `python -m go2nav.eval.episode RUN` evaluates a single mission; cohorts evaluate their missions themselves.
 - The porting gates compare reruns with the original runs: `tools/porting/mission_check.py` and
   `tools/porting/cohort_check.py --traces`.
