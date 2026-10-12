@@ -226,6 +226,24 @@ def route_viewpoint(snapshot, route, position, rotation, unknown_cell, *, exclud
     return None
 
 
+class StickyExclusions(set):
+    """Excluded frontier cells, some of them until a set time (`sticky`: cell -> expiry): `clear` (new map evidence)
+    keeps those, `expire` drops the ones whose time has come."""
+
+    def __init__(self, items=()):
+        super().__init__(items)
+        self.sticky = {}
+
+    def clear(self):
+        super().clear()
+        self.update(self.sticky)
+
+    def expire(self, now_ns):
+        for cell in [c for c, until in self.sticky.items() if until <= now_ns]:
+            del self.sticky[cell]
+            self.discard(cell)
+
+
 class CameraFrontierVisits:
     """Visits to frontier (or requested) cells until a camera has seen them (see the module docstring).
 
@@ -292,7 +310,7 @@ class CameraFrontierVisits:
             if view is None:
                 self.excluded.add(target)  # until new map evidence arrives
                 return 'replan', None
-            self.visit = dict(unknown_neighbour=list(unknown), started_ns=now_ns, aligned_ns=None,
+            self.visit = dict(target_cell=list(target), unknown_neighbour=list(unknown), started_ns=now_ns, aligned_ns=None,
                               heading_rad=view['view_heading_rad'], camera_viewpoint=view)
         v = self.visit
         unknown = tuple(v['unknown_neighbour'])

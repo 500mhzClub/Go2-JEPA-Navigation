@@ -1,11 +1,16 @@
-"""The rarely reached recovery branches: view recovery, narrow floor patches and a frame without a registered pose."""
+"""The rarely reached recovery branches: view recovery, narrow floor patches, a frame without a registered pose,
+and the scripted backup and frontier exclusions of the recovery fixes."""
 import math
+from types import SimpleNamespace
 
 import numpy as np
 
 from go2nav.perception import floor
 from go2nav.perception.visual_support import SupportedView
+from go2nav.planning import routing
+from go2nav.planning.actions import ACTIONS
 from go2nav.planning.mission import RoundTripMission
+from go2nav.planning.planner import Planner
 
 FRAME_NS = 100_000_000
 
@@ -75,3 +80,40 @@ def test_a_frame_without_a_pose_holds_and_restarts_the_arrival_dwell():
     state = mission.unavailable(frame=8)
     assert state['hold_required'] and state['quiet_intervals'] == 0 and state['observed_goal_distance_m'] is None
     assert mission.advance(np.array([1., 0., 0.]), frame=9, requested=(0., 0., 0.))['quiet_intervals'] == 0
+
+
+def test_sticky_exclusions_survive_new_map_evidence_until_they_expire():
+    excluded = routing.StickyExclusions({(0, 0)})
+    excluded.sticky[(1, 1)] = 100
+    excluded.add((1, 1))
+    excluded.clear()
+    assert excluded == {(1, 1)}
+    excluded.expire(99)
+    assert excluded == {(1, 1)}
+    excluded.expire(100)
+    assert not excluded
+
+
+def open_floor(half_cells=20):
+    cells = {(i, j) for i in range(-half_cells, half_cells) for j in range(-half_cells, half_cells)}
+    return SimpleNamespace(floor=cells, occupied=set(), fine_occupied=frozenset())
+
+
+def hold():
+    return dict(action='hold', action_index=ACTIONS.index('hold'), requested_command=[0., 0., 0.])
+
+
+def test_a_scripted_backup_is_five_reverse_steps_recorded_as_holds():
+    planner = Planner(arrival_radius_m=.02, recovery=True)
+    planner._request_backup('stall')
+    steps = [planner._scripted_backup(hold(), open_floor(), np.zeros(3), np.eye(3)) for _ in range(6)]
+    assert all(s['action'] == 'hold' and s['requested_command'] == [-.10, 0., 0.] for s in steps[:5])
+    assert [s['backup']['step'] for s in steps[:5]] == [1, 2, 3, 4, 5]
+    assert steps[5]['requested_command'] == [0., 0., 0.] and not planner.backup_plan
+
+
+def test_a_backup_step_off_observed_floor_ends_the_script():
+    planner = Planner(arrival_radius_m=.02, recovery=True)
+    planner._request_backup('deadlock_no_clear_turn')
+    step = planner._scripted_backup(hold(), open_floor(), np.array([-.99, 0., 0.]), np.eye(3))
+    assert 'backup_aborted' in step and step['requested_command'] == [0., 0., 0.] and planner.backup is None

@@ -22,7 +22,7 @@ scoring (`Planner.select_reactive`).
 Each plan is logged in `planning`: the frame and time, the selected action, the route, the selection record and
 `forecast_xy_m`, the scored forecast's body-frame positions (6 candidates x 8 ticks of 100 ms; None for C2).
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -32,6 +32,7 @@ from go2nav.perception.registration import FloorRegistration
 from go2nav.perception.visual_odometry import VisualOdometry
 from go2nav.perception.visual_support import SupportedView
 from go2nav.planning import grid
+from go2nav.planning.actions import COMMIT_TICKS, PERIOD_NS
 from go2nav.planning.dispatch import PASSED, CommitmentLedger, ScheduledCommand, dispatch_check
 from go2nav.planning.mission import RoundTripMission
 from go2nav.planning.planner import Planner
@@ -39,7 +40,9 @@ from go2nav.planning.planner import Planner
 MAP_PERIOD_FRAMES = 4
 FIRST_PLAN_FRAME = 10
 CONTEXT_WINDOW_NS = 1_500_000_000
-ESCAPE_DISPATCH_RADIUS_M = .40
+ESCAPE_DISK_M = dict(turn=.42, reactive=.40)  # by the armed escape (`Planner.escape_armed`)
+BACKUP_DISK_M, BACKUP_SLACK_M = .40, .005
+VETOES = ('CURRENT_OBSERVED_OBSTACLE_VETO', 'COMMAND_WINDOW_VETO_LATCHED')
 POSE_WINDOW_FRAMES = 256
 FLOOR_HOLD = 'FLOOR_REACQUISITION_HOLD'
 VIEW_RECOVERY_HOLD = 'WAITING_FOR_POST_VISUAL_RECOVERY_PLAN'
@@ -86,6 +89,7 @@ class NavigationController:
         self.mission = RoundTripMission(goal_xy, home_xy, arrival_radius_m=arrival_radius_m, navigation_frames=navigation_frames)
         self.ledger = CommitmentLedger()
         self.plans, self.rejected, self.served = [], {}, set()
+        self.backup_plans = set()  # observation times of the plans carrying a scripted reverse command
         self.goal, self.generation = np.asarray(goal_xy, float), 0
         self.mission_state = self.terminal = None
         self.latest_map = self.latest_obstacles = None
@@ -181,6 +185,10 @@ class NavigationController:
             forecast_xy = np.asarray(prediction)[:, :, :2].tolist()
         plan = ScheduledCommand.prepare(selected['action'], observed_ns=now,
                                         pulse=self.planner.pulse and selected['action'] in ('forward', 'left_arc', 'right_arc'))
+        if self.planner.backup_plan:  # recorded as a hold; a translation, so a pulse in the terminal approach
+            plan = replace(plan, command=tuple(selected['requested_command']),
+                           expires_ns=plan.dispatch_ns+(1 if self.planner.pulse else COMMIT_TICKS)*PERIOD_NS)
+            self.backup_plans.add(plan.observed_ns)
         self.planning.append(dict(frame=frame.frame, measured_ns=now, map_frame=snapshot.frame, action=selected['action'],
                                   route_status=route['status'], committed_prefix=prefix, selection=selected, route=route,
                                   forecast_xy_m=forecast_xy))
@@ -218,30 +226,53 @@ class NavigationController:
         if reason in ('CURRENT_STOPPING_MARGIN_VETO', 'CURRENT_OBSERVED_OBSTACLE_VETO') and plan is not None:
             self.planner.veto(plan, now_ns, self.generation)
         response = dict(requested_command=requested, reason=reason)
-        if self.planner.escape_armed and reason in ('CURRENT_OBSERVED_OBSTACLE_VETO', 'COMMAND_WINDOW_VETO_LATCHED'):
+        if self.planner.escape_armed and reason in VETOES:
             response = self._escape_dispatch(response, plan, now_ns)
+        self.backup_plans = {ns for ns in self.backup_plans if any(p.observed_ns == ns for p in self.plans)}
+        if response['reason'] in VETOES and plan is not None and plan.observed_ns in self.backup_plans:
+            response = self._backup_dispatch(response, plan, now_ns)
         return response
 
     def _escape_dispatch(self, response, plan, now_ns):
-        """While C2's reactive escape is armed, a vetoed escape command is sent anyway if a 0.40-m disk swept to its
-        endpoint is clear and the endpoint is no nearer the observed obstacles. The ledger keeps the veto and the zero
+        """While a deadlock escape is armed, a vetoed escape command is sent anyway if a smaller disk (0.42 m for the
+        forecasting controllers' turn, 0.40 m for C2's move or turn) swept to its endpoint is clear and the endpoint
+        is no nearer the observed obstacles. Only C2's escape may translate. The ledger keeps the veto and the zero
         request; only the command sent changes, and the window is no longer latched.
 
-        As in the original, these two tests read the 1-cm body obstacle cells with the 5-cm map cell size (cell (i, j)
+        As in the original, these tests read the 1-cm body obstacle cells with the 5-cm map cell size (cell (i, j)
         taken as the 5-cm square at 5i, 5j cm), kept so that missions reproduce."""
-        current = self.latest_obstacles
+        armed, current = self.planner.escape_armed, self.latest_obstacles
         if plan is None or current is None or not any(plan.command):
             return response
         translating = any(plan.command[:2])
+        if translating and armed != 'reactive':
+            return response
         cells = sorted(current.cells)
         start, endpoint = np.zeros(2), np.zeros(2)
         if translating:
             seconds = (plan.expires_ns-now_ns)/1e9
             endpoint = np.array([plan.command[0]*seconds, plan.command[1]*seconds])
-        clear = grid.disk_connector(start, endpoint, cells, radius_m=ESCAPE_DISPATCH_RADIUS_M, cell_m=grid.CELL_M)
+        clear = grid.disk_connector(start, endpoint, cells, radius_m=ESCAPE_DISK_M[armed], cell_m=grid.CELL_M)
         away = (not translating
                 or grid.nearest_cell_distance(endpoint, cells, grid.CELL_M) >= grid.nearest_cell_distance(start, cells, grid.CELL_M))
         if not clear or not away:
             return response
         self.rejected.pop(plan.observed_ns, None)
         return dict(requested_command=plan.request(now_ns=now_ns, allowed=True), reason=PASSED, escape_dispatch=True)
+
+    def _backup_dispatch(self, response, plan, now_ns):
+        """A vetoed scripted-backup command is sent anyway if a 0.40-m disk swept to its endpoint is clear of the
+        observed obstacles and the endpoint is no more than 5 mm nearer to them (read as in `_escape_dispatch`)."""
+        current = self.latest_obstacles
+        if current is None:
+            return response
+        cells = sorted(current.cells)
+        start = np.zeros(2)
+        endpoint = np.array([plan.command[0]*(plan.expires_ns-now_ns)/1e9, 0.])
+        clear = grid.disk_connector(start, endpoint, cells, radius_m=BACKUP_DISK_M, cell_m=grid.CELL_M)
+        away = (grid.nearest_cell_distance(endpoint, cells, grid.CELL_M)
+                >= grid.nearest_cell_distance(start, cells, grid.CELL_M)-BACKUP_SLACK_M)
+        if not clear or not away:
+            return response
+        self.rejected.pop(plan.observed_ns, None)
+        return dict(requested_command=plan.request(now_ns=now_ns, allowed=True), reason=PASSED, backup_dispatch=True)

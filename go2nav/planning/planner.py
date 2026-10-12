@@ -26,9 +26,18 @@ experiment).
 `harness` is the navigation harness version: 'reserve_exit_v2' (the final one: reserve exit, turn exit and C2's
 dispatched-path check) or 'v4' (the earlier one, without them; `selection.clearance_check`, `reactive.select_v4`).
 
-`recovery=True` adds the development recovery fixes: stall watchdog, latch timeout, deadlock escape, terminal-spin
-guard (these were the "recovery on" condition of the experiments). For C2 they are the terminal-spin break and the
-reactive escape (`_reactive_escape`; its dispatch side is `NavigationController._escape_dispatch`).
+`recovery=True` adds the development recovery fixes (the "recovery on" condition of the experiments):
+- *terminal burst*: after 15 turn choices in a row within 10 cm of the waypoint, three plans are chosen by position
+  progress alone (C2: after 15 heading-first turns the same way, one forward pulse);
+- *latch timeout*: a latched turn that makes no heading progress in 10 plans, or flips three times, is released;
+- *deadlock escape*: after five holds with nothing clear, a turn whose forecast keeps at least 0.42 m (or the current
+  clearance less 3 mm), toward the waypoint side (C2: `_reactive_escape`); while armed, the dispatch check is relaxed
+  for it (`NavigationController._escape_dispatch`);
+- *stall watchdog*: 30 s within 15 cm while routing to a frontier (outbound) ends the frontier visit and excludes the
+  frontier's surroundings (1 m) for 90 s, unless that leaves no route;
+- *scripted backup*: five 400-ms reverse steps at 0.10 m/s, on observed floor with 0.40 m of stored clearance. It
+  is requested when a deadlock has no clear turn or move, and by the first stall at a place before any exclusion.
+  The plan is recorded as a hold carrying the reverse command.
 """
 import math
 
@@ -45,10 +54,14 @@ VIEW_RECOVERY = 'LOW_VISUAL_SUPPORT_REQUIRES_MEASURED_VIEW'
 SCAN_OFFSETS = (math.pi/4, math.pi/2, -math.pi/4, -math.pi/2, math.pi)
 VETO_VIEW_ANGLE_RAD = math.pi/4
 STALL_RADIUS_M, STALL_NS = .15, 30_000_000_000
+STALL_EXCLUSION_RADIUS_M, STALL_EXCLUSION_NS = 1.0, 90_000_000_000
 LATCH_STALL_DECISIONS, LATCH_MAX_SWITCHES, LATCH_COOLDOWN = 10, 3, 15
-ESCAPE_AFTER = 5
-TERMINAL_SPIN_TURNS = 15
+ESCAPE_AFTER, ESCAPE_FLOOR_M = 5, .42
+TERMINAL_SPIN_TURNS, TERMINAL_BURST_PLANS = 15, 3
 REACTIVE_ESCAPE_FLOOR_M, REACTIVE_ESCAPE_GAIN_M, REACTIVE_ESCAPE_S, ESCAPE_SLACK_M = .40, .005, .4, .003
+BACKUP_SPEED_M_S, BACKUP_PLANS, BACKUP_STEP_S = .10, 5, .4
+BACKUP_FLOOR_M, BACKUP_REPEAT_RADIUS_M = .40, .30
+ROUTES = ('OBSERVED_FLOOR_ROUTE_TO_FRONTIER', 'OBSERVED_FLOOR_ROUTE_TO_GOAL_CELL')
 HARNESSES = ('reserve_exit_v2', 'v4')
 
 
@@ -84,9 +97,13 @@ class Planner:
         # Recovery fixes.
         self.stall_window = None
         self.latch_track, self.latch_cooldown = None, 0
-        self.deadlock_holds, self.escape_armed = 0, None
-        self.terminal_turns = 0
+        self.deadlock_holds, self.escape_armed = 0, None  # armed: 'turn' or 'reactive'
+        self.terminal_turns, self.terminal_burst = 0, 0
         self.terminal_spin = (None, 0)
+        self.backup, self.backup_request, self.backup_sites = None, None, []
+        self.backup_plan = False            # this plan carries the reverse command
+        if recovery:
+            self.frontier_visits.excluded = routing.StickyExclusions()
 
     # -- route ------------------------------------------------------------------------------------------------------
 
@@ -130,6 +147,15 @@ class Planner:
     def route(self, snapshot, position, rotation, goal, now_ns, *, phase, generation, view=None):
         """The route for a registered pose (initial-body frame) toward the mission's active goal (initial-body xy).
         `view`: the active supported view while visual support is low (`perception.visual_support`), else None."""
+        def propose():
+            return self._route(snapshot, position, rotation, goal, now_ns, phase=phase, generation=generation, view=view)
+        route = propose()
+        if self.recovery:
+            route = self._stall_watchdog(route, propose, snapshot, np.asarray(snapshot.map_from_initial)@position, now_ns, phase)
+        self.route_status = route.get('status')
+        return route
+
+    def _route(self, snapshot, position, rotation, goal, now_ns, *, phase, generation, view):
         B = np.asarray(snapshot.map_from_initial)
         q, Q = B@position, B@rotation
         goal_map = (B@np.r_[goal, 0.])[:2]
@@ -154,8 +180,6 @@ class Planner:
         route = self._coverage(route, snapshot, q, Q, goal_map, now_ns, generation)
         route = self._interrupted_camera_view(route, view, snapshot, q)
         self.weak_trigger = view['trigger_ns'] if route['status'] == VIEW_RECOVERY else None
-        route = self._stall_watchdog(route, q, now_ns, phase) if self.recovery else route
-        self.route_status = route.get('status')
         return route
 
     def _visual_view(self, route, view, B, position, rotation):
@@ -225,17 +249,44 @@ class Planner:
             return query
         return route
 
-    def _stall_watchdog(self, route, q, now_ns, phase):
+    def _stall_watchdog(self, route, propose, snapshot, q, now_ns, phase):
+        """The stall fix (see the module docstring). `propose` recomputes the route after an exclusion."""
+        visits = self.frontier_visits
+        visits.excluded.expire(now_ns)
         if phase != 'OUTBOUND' or route.get('status') != 'OBSERVED_FLOOR_ROUTE_TO_FRONTIER':
             self.stall_window = None
             return route
+        q = q[:2]
         window = self.stall_window
-        if window is None or np.linalg.norm(q[:2]-window['start_xy']) > STALL_RADIUS_M:
-            self.stall_window = dict(start_ns=now_ns, start_xy=q[:2])
+        if window is None or np.linalg.norm(q-window['start_xy']) > STALL_RADIUS_M:
+            self.stall_window = dict(start_ns=now_ns, start_xy=q)
             return route
         if now_ns-window['start_ns'] < STALL_NS:
             return route
-        raise UnportedBranch('frontier stall (the original backs up and excludes the frontier)')
+        self.stall_window = dict(start_ns=now_ns, start_xy=q)
+        if not any(np.linalg.norm(q-site) <= BACKUP_REPEAT_RADIUS_M for site in self.backup_sites):
+            self.backup_sites.append(q)
+            self._request_backup('stall')
+            return route
+        target = tuple(route['route_cells'][-1])
+        if visits.visit is not None:
+            visit = visits.visit
+            tried = visits.attempted.setdefault(tuple(visit['unknown_neighbour']), set())
+            viewpoint = np.asarray(visit['camera_viewpoint']['viewpoint_map_xy_m'])
+            tried.update(c for c in snapshot.floor if np.linalg.norm(centre(c)-viewpoint) <= .10)
+            target = tuple(visit['target_cell'])
+            visits._finish('DEV_NO_PROGRESS_STALL')
+        cells = {c for c in snapshot.floor if np.linalg.norm(centre(c)-centre(target)) <= STALL_EXCLUSION_RADIUS_M} | {target}
+        for cell in cells:
+            visits.excluded.sticky[cell] = now_ns+STALL_EXCLUSION_NS
+        visits.excluded.update(cells)
+        rerouted = propose()
+        if rerouted.get('status') not in ROUTES:  # never retire the last reachable frontier
+            for cell in cells:
+                visits.excluded.sticky.pop(cell, None)
+                visits.excluded.discard(cell)
+            rerouted = propose()
+        return rerouted | dict(stall_reroute=dict(frontier_cell=list(target), excluded_cells=len(cells)))
 
     # -- objective --------------------------------------------------------------------------------------------------
 
@@ -292,7 +343,7 @@ class Planner:
         terminal = self.terminal_approach
         result = sel.score(prediction, goal_body)
         if self.recovery:
-            self._terminal_turn_guard(result, goal_body)
+            result = self._terminal_position_burst(result, goal_body)
         if scan_error is not None:
             result = sel.scan_override(result, prediction, scan_error)
         result = sel.clearance_check(result, prediction, self._cautious(clearance, snapshot, q), q, Q, exits=self.exits)
@@ -332,7 +383,8 @@ class Planner:
         if self.recovery:
             result = self._terminal_spin_guard(result)
             result = self._latch_timeout(result, heading)
-            self._deadlock(result)
+            result = self._deadlock_escape(result)
+            result = self._scripted_backup(result, snapshot, q, Q)
         return result
 
     def select_reactive(self, goal_body, scan_error, snapshot, position, rotation, prefix):
@@ -350,6 +402,7 @@ class Planner:
         if self.recovery:
             result = self._terminal_spin_guard(result)
             result = self._reactive_escape(result, clearance, q, Q)
+            result = self._scripted_backup(result, snapshot, q, Q)
         return result
 
     def _cautious(self, clearance, snapshot, position):
@@ -359,14 +412,23 @@ class Planner:
         context = self.unknown.context(snapshot, position, self.route_status) if self.unknown is not None else None
         return caution.CautiousClearance(clearance, self.margin_m, context) if self.margin_m or context is not None else clearance
 
-    def _terminal_turn_guard(self, result, goal_body):
-        distance = float(np.linalg.norm(goal_body))
-        if not np.any(np.asarray(goal_body, float)) or distance >= TERMINAL_APPROACH_RADIUS_M:
-            self.terminal_turns = 0
-            return
-        self.terminal_turns = self.terminal_turns+1 if result['action'] in TURNS else 0
-        if self.terminal_turns >= TERMINAL_SPIN_TURNS:
-            raise UnportedBranch('terminal spin burst')
+    def _terminal_position_burst(self, result, goal_body):
+        """The terminal burst (see the module docstring): the score's heading term dropped for three plans."""
+        if not np.any(np.asarray(goal_body, float)) or float(np.linalg.norm(goal_body)) >= TERMINAL_APPROACH_RADIUS_M:
+            self.terminal_turns, self.terminal_burst = 0, 0
+            return result
+        if self.terminal_burst == 0:
+            self.terminal_turns = self.terminal_turns+1 if result['action'] in TURNS else 0
+            if self.terminal_turns < TERMINAL_SPIN_TURNS:
+                return result
+            self.terminal_burst, self.terminal_turns = TERMINAL_BURST_PLANS, 0
+        self.terminal_burst -= 1
+        for row in result['candidates']:
+            row['utility_m'] = row['position_contact_utility_m']
+        index = max(range(len(ACTIONS)), key=lambda i: result['candidates'][i]['utility_m'])
+        result.update(action=ACTIONS[index], action_index=index, requested_command=command(ACTIONS[index]),
+                      terminal_position_burst=True)
+        return result
 
     def _terminal_spin_guard(self, result):
         """After 15 consecutive heading-first terminal turns the same way, a forward pulse instead (if eligible)."""
@@ -411,7 +473,8 @@ class Planner:
             gains = [clearance.minimum(c, c) for c in (p+.1*np.array([math.cos(yaw+h), math.sin(yaw+h)]) for h in headings)]
             best = int(np.argmax(gains))
             if gains[best] < current+REACTIVE_ESCAPE_GAIN_M:
-                raise UnportedBranch('scripted backup after a reactive deadlock with no move')
+                self._request_backup('reactive_deadlock_no_move')
+                return result
             action = 'left_turn' if headings[best] > 0 else 'right_turn'
         result.update(action=action, action_index=ACTIONS.index(action), requested_command=list(command(action)),
                       reactive_escape=dict(consecutive_holds=self.deadlock_holds, current_clearance_m=current))
@@ -452,19 +515,67 @@ class Planner:
         result['clearance_turn'] = dict(active=False, event=event)
         return result
 
-    def _deadlock(self, result):
+    def _deadlock_escape(self, result):
+        """The deadlock escape of the forecasting controllers (see the module docstring)."""
         rows = result.get('memory_forecast_candidates')
         if not rows or result['action'] != 'hold':
-            self.deadlock_holds = 0
-            return
+            self.deadlock_holds, self.escape_armed = 0, None
+            return result
         values = sel.utilities(result)
         movable = [r for r in rows if r['action'] != 'hold' and r['action'] in values and r['nominal_predicted_path_clear']]
         if movable or (result.get('clearance_turn') or {}).get('active'):
-            self.deadlock_holds = 0
-            return
+            self.deadlock_holds, self.escape_armed = 0, None
+            return result
         self.deadlock_holds += 1
-        if self.deadlock_holds >= ESCAPE_AFTER:
-            raise UnportedBranch('deadlock escape')
+        if self.deadlock_holds < ESCAPE_AFTER:
+            return result
+        current = next(r['minimum_predicted_path_clearance_m'] for r in rows if r['action'] == 'hold')
+        floor = max(ESCAPE_FLOOR_M, (current or ESCAPE_FLOOR_M)-ESCAPE_SLACK_M)
+        options = [i for i, r in enumerate(rows) if r['action'] in TURNS and r['action'] in values
+                   and r['minimum_predicted_path_clearance_m'] is not None and r['minimum_predicted_path_clearance_m'] >= floor]
+        if not options:
+            self._request_backup('deadlock_no_clear_turn')
+            return result
+        goal = result.get('waypoint_body_xy_m')
+        side = 'left_turn' if goal is None or math.atan2(goal[1], goal[0]) > 0 else 'right_turn'
+        index = max(options, key=lambda i: (rows[i]['action'] == side, rows[i]['minimum_predicted_path_clearance_m']))
+        sel.choose(result, index)
+        self.escape_armed = 'turn'
+        result['deadlock_escape'] = dict(consecutive_holds=self.deadlock_holds, current_clearance_m=current,
+                                         clearance_floor_m=floor)
+        return result
+
+    def _request_backup(self, reason):
+        if self.backup is None and self.backup_request is None:
+            self.backup_request = reason
+
+    def _scripted_backup(self, result, snapshot, q, Q):
+        """One step of the scripted backup (see the module docstring), or the selection unchanged. A step that would
+        leave observed floor, or lacks clearance (0.40 m, and no more than 1 cm below the current), ends the script."""
+        self.backup_plan = False
+        if self.backup is None and self.backup_request is None:
+            return result
+        if self.backup is None:
+            self.backup, self.backup_request = dict(reason=self.backup_request, step=0), None
+        clearance = grid.fine_clearance(snapshot.fine_occupied)
+        p, yaw = np.asarray(q, float)[:2], math.atan2(Q[1][0], Q[0][0])
+        end = p-BACKUP_SPEED_M_S*BACKUP_STEP_S*np.array([math.cos(yaw), math.sin(yaw)])
+        current, path = clearance.minimum(p, p), clearance.minimum(p, end)
+        on_floor = all(tuple(c) in snapshot.floor for c in grid.segment_cells(p, end))
+        clear = path is None or (path >= BACKUP_FLOOR_M and (current is None or path >= current-.01))
+        detail = dict(reason=self.backup['reason'], step=self.backup['step']+1, current_clearance_m=current,
+                      path_clearance_m=path, on_observed_floor=on_floor)
+        if not (on_floor and clear):
+            result['backup_aborted'] = detail
+            self.backup = None
+            return result
+        result.update(action='hold', action_index=ACTIONS.index('hold'), requested_command=[-BACKUP_SPEED_M_S, 0., 0.],
+                      backup=detail)
+        self.backup_plan = True
+        self.backup['step'] += 1
+        if self.backup['step'] >= BACKUP_PLANS:
+            self.backup = None
+        return result
 
     def veto(self, plan, now_ns, generation):
         """A dispatched translation was vetoed: look 45° to the side of its yaw (left for straight) unless already."""
