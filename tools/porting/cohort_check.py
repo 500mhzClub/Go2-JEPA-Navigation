@@ -5,7 +5,8 @@
 For each mission the original run is `<capability root>/runs/dev_<cohort>_<arm>_<set><maze:02d>_ep<episode>` (the
 original set names: prelim_test, stage2_*, dev_tune). Compared: the evaluation outcome (round trip, beacon, home,
 contacts, hard and operating violations, minimum clearance, SPL, failure taxonomy) and, with --traces, the requests and
-the physics trace (exact).
+the physics trace (exact). The original did not evaluate missions that ended in a physical stop (a disallowed contact,
+a recording stall stop); for those the recorded ending (error, frames, policy steps) is compared instead.
 """
 import argparse
 import json
@@ -61,10 +62,17 @@ def main():
     for arm, set_name, maze, episode, assignment in config['plan']:
         ported = a.cohort/'runs'/assignment
         original = original_run(arm, set_name, maze, episode, original_cohort)
-        if not (ported/'episode_evaluation.json').exists() or not (original/'episode_evaluation.json').exists():
-            print(f'{assignment}: not comparable (missing evaluation)')
+        if not (ported/'result.json').exists() or not (original/'result.json').exists():
+            print(f'{assignment}: not comparable (missing run)')
             continue
-        got, want = (outcome(json.loads((r/'episode_evaluation.json').read_text())) for r in (ported, original))
+        if (original/'episode_evaluation.json').exists():
+            if not (ported/'episode_evaluation.json').exists():
+                print(f'{assignment}: not comparable (missing evaluation)')
+                continue
+            got, want = (outcome(json.loads((r/'episode_evaluation.json').read_text())) for r in (ported, original))
+        else:
+            got, want = ({k: json.loads((r/'result.json').read_text())[k] for k in ('error', 'frames', 'policy_steps')}
+                         for r in (ported, original))
         diffs = [k for k in want if got[k] != want[k]]
         if a.traces:
             trace = traces_differ(original, ported)

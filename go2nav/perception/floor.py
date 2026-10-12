@@ -9,6 +9,13 @@ every point is within 3 mm (at most 8 rounds; at least a quarter of the pool mus
 at least 100 points, a second covariance eigenvalue of at least (2 cm)², a normal within acos(0.97) of up, and every
 point within 3 mm.
 
+**Narrow patches.** A selection too narrow for a normal (the joint plane fails the second eigenvalue test) can
+still give the floor's height along a normal known otherwise (`condition_narrow_patch`): its points are pruned to
+those within 3 mm of the level through their mean along that normal (at most 8 rounds; at least 100 points and a
+quarter of the pool must remain, else the selection stays as it was). The obstacle observer does this along the gyro's
+up direction and takes the level plane through the points (`gyro_height_plane`); the floor registration does it along
+the floor normal carried from its last registered frame (`registration`).
+
 **Paired floor constraint.** For a reference and a current frame related by a gyro rotation: one common normal fitted
 to both frames' raw floor points (the current frame's rotated into the reference), refined until every point is within
 3 mm. It fixes the relative height (translation along the normal) of the visual odometry's fit.
@@ -27,6 +34,7 @@ MIN_PLANE_POINTS = 100
 # 2 cm second extent: the original configures this at start-up (two_cm_floor_extent_development.configure).
 MIN_SECOND_EXTENT_M = .02
 MIN_UP_ALIGNMENT = .97
+TOO_FEW_POINTS, TOO_NARROW = 'insufficient_combined_measured_candidates', 'insufficient_combined_two_axis_extent'
 CAMERAS = (('primary', cameras.PRIMARY), ('auxiliary', cameras.AUXILIARY))
 
 
@@ -83,10 +91,40 @@ def dominant_height_cluster(clouds, up):
     return keep[:split], keep[split:]
 
 
-def paired_floor_points(primary, auxiliary, up):
-    """Selected floor points of both cameras' depth ((depth_m, valid) pairs) and the size of the pooled candidates."""
+def condition_narrow_patch(clouds, masks, up, normal, *, per_camera_mean):
+    """The masks of a selection too narrow for a normal, pruned along `normal` (see the module docstring); the masks
+    unchanged for any other selection. `per_camera_mean`: the mean as the count-weighted mean of the cameras' means
+    (the registration's summation order) rather than of the pooled points (the obstacle observer's)."""
+    plane = joint_plane(*(cloud[keep] for cloud, keep in zip(clouds, masks)), up)
+    if plane['available'] or plane['reason'] != TOO_NARROW:
+        return masks
+    revised = [keep.copy() for keep in masks]
+    minimum = max(MIN_PLANE_POINTS, MIN_CLUSTER_FRACTION*sum(map(len, clouds)))
+    for _ in range(MAX_REFINEMENTS):
+        selected = [cloud[keep] for cloud, keep in zip(clouds, revised)]
+        count = sum(map(len, selected))
+        if count < minimum:
+            return masks
+        if per_camera_mean:
+            mean = sum(len(points)*points.mean(0) for points in selected if len(points))/count
+        else:
+            mean = np.concatenate(selected).mean(0)
+        level = float(mean@normal)
+        residuals = [np.abs(points@normal-level) for points in selected]
+        if max(float(r.max()) for r in residuals if len(r)) <= SLAB_RESIDUAL_M:
+            return revised
+        for keep, residual in zip(revised, residuals):
+            keep[np.flatnonzero(keep)[residual > SLAB_RESIDUAL_M]] = False
+    return masks
+
+
+def paired_floor_points(primary, auxiliary, up, *, narrow_normal=None, per_camera_mean=False):
+    """Selected floor points of both cameras' depth ((depth_m, valid) pairs) and the size of the pooled candidates.
+    With `narrow_normal`, a selection too narrow for a normal is pruned along it (`condition_narrow_patch`)."""
     clouds = [candidates(depth_m, valid, mount, up) for (depth_m, valid), (_, mount) in zip((primary, auxiliary), CAMERAS)]
     masks = dominant_height_cluster(clouds, up)
+    if narrow_normal is not None:
+        masks = condition_narrow_patch(clouds, masks, up, np.asarray(narrow_normal, float), per_camera_mean=per_camera_mean)
     return [cloud[keep] for cloud, keep in zip(clouds, masks)], sum(map(len, clouds))
 
 
@@ -95,16 +133,16 @@ def _compose(statistics, up):
     total = sum(count for count, _, _ in statistics)
     plane = dict(available=False, candidate_count=total, min_second_eigenvalue_m2=MIN_SECOND_EXTENT_M**2)
     if total < MIN_PLANE_POINTS:
-        return plane | dict(reason='insufficient_combined_measured_candidates')
+        return plane | dict(reason=TOO_FEW_POINTS)
     mean = sum(count*center for count, center, _ in populated)/total
     covariance = sum(count*(cov+np.outer(center-mean, center-mean)) for count, center, cov in populated)/total
     values, vectors = np.linalg.eigh(covariance)
     normal = vectors[:, 0]
     if normal@up < 0:
         normal = -normal
-    plane.update(normal_body=normal, offset_body_m=-float(normal@mean))
+    plane.update(normal_body=normal, offset_body_m=-float(normal@mean), mean_body=mean)
     if values[1] < MIN_SECOND_EXTENT_M**2:
-        return plane | dict(reason='insufficient_combined_two_axis_extent')
+        return plane | dict(reason=TOO_NARROW)
     if normal@up < MIN_UP_ALIGNMENT:
         return plane | dict(reason='combined_plane_up_disagreement')
     return plane | dict(available=True, reason=None)
@@ -112,7 +150,7 @@ def _compose(statistics, up):
 
 def joint_plane(primary_points, auxiliary_points, up):
     """The floor plane through both cameras' selected points (dict: available, reason, normal_body, offset_body_m,
-    candidate_count, min_second_eigenvalue_m2, up_body)."""
+    mean_body, candidate_count, min_second_eigenvalue_m2, up_body)."""
     statistics, clouds = [], []
     for points in (primary_points, auxiliary_points):
         points = np.asarray(points, float)
@@ -129,6 +167,20 @@ def joint_plane(primary_points, auxiliary_points, up):
         if len(points) and float(np.abs(points@plane['normal_body']+plane['offset_body_m']).max()) > SLAB_RESIDUAL_M:
             return plane | dict(available=False, reason='combined_points_not_one_coherent_plane')
     return plane
+
+
+def gyro_height_plane(primary_points, auxiliary_points, up):
+    """The joint plane or, for too narrow a patch, the level plane through the points along `up`, available if every
+    point is within 3 mm of it."""
+    plane = joint_plane(primary_points, auxiliary_points, up)
+    if plane['available'] or plane['reason'] != TOO_NARROW:
+        return plane
+    points = np.concatenate((primary_points, auxiliary_points))
+    normal = np.asarray(up, float)
+    offset = -float(points.mean(0)@normal)
+    if float(np.abs(points@normal+offset).max()) > SLAB_RESIDUAL_M:
+        return plane
+    return plane | dict(available=True, reason='height_on_gyro_normal', normal_body=normal, offset_body_m=offset)
 
 
 def floor_constraint(reference_points, current_points, gyro, *, reference_pool, current_pool, reference_up, current_up,

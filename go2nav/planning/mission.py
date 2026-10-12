@@ -5,6 +5,8 @@ is confirmed when the robot has been within the arrival radius for 10 consecutiv
 command was zero and the measured motion was quiet (at most 5 cm/s between frames, at both ends of the interval). A
 fast interval, or a requested motion at its start, restarts the count. The robot holds while within the radius, during
 the first 3 frames, and once the mission is over.
+
+A frame without a registered position (`unavailable`: its floor measurement was rejected) holds and restarts the count.
 """
 import numpy as np
 
@@ -68,4 +70,19 @@ class RoundTripMission:
                          quiet_intervals=self.quiet, hold_required=hold or self.terminal is not None,
                          arrival_confirmed_this_frame=arrival, terminal=self.terminal, observed_interval_speed_m_s=speed,
                          arrivals=[dict(a) for a in self.arrivals])
+        return self.last
+
+    def unavailable(self, *, frame):
+        """This frame's mission state when there is no registered position."""
+        if self.terminal is not None:
+            return self.last
+        self.frame = frame
+        self.quiet, self.was_within = 0, False
+        self.previous_position, self.previous_quiet, self.previous_stopped = None, False, False
+        if frame >= WARMUP_FRAMES+self.navigation_frames:
+            self.terminal = 'MISSION_TICK_BUDGET_EXHAUSTED'
+        self.last = dict(frame=frame, phase=self.phase, phase_transition=None, evaluated_phase=self.phase,
+                         active_goal_initial_body_xy_m=self.target().tolist(), observed_goal_distance_m=None,
+                         quiet_intervals=0, hold_required=True, arrival_confirmed_this_frame=False, terminal=self.terminal,
+                         observed_interval_speed_m_s=None, arrivals=[dict(a) for a in self.arrivals])
         return self.last

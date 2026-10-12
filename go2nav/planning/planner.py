@@ -5,7 +5,9 @@ One plan is made every fourth frame (2.5 Hz), in three steps:
 1. **Route** (`route`). In order: the initial panorama (eight 45° views at the start); the route on the observed map
    (`routing.propose`, clearance-preferred, with the fine goal-cell route) toward the active mission target; a view
    recovery after a dispatch veto (turn 45° toward the vetoed command's yaw side); frontier visits (outbound only:
-   approach a viewpoint and turn to see the frontier's unobserved neighbour); coverage views (see floor that a
+   approach a viewpoint and turn to see the frontier's unobserved neighbour); a view recovery while visual support is
+   low (turn to the supported view's heading, `perception.visual_support`; it has priority over everything above
+   and below, and a recovery during the initial panorama ends the panorama); coverage views (see floor that a
    translation was refused for sweeping unobserved).
 2. **Objective**. A view heading to turn to; or the look-ahead target on the route (`routing.clear_route_target`) as
    a body-frame waypoint; or, with no route, a scan through five headings. Near the goal (within 10 cm of the exact goal
@@ -36,8 +38,10 @@ from go2nav.planning import caution, grid, reactive, routing, selection as sel
 from go2nav.planning.actions import ACTIONS, TRANSLATIONS, TURNS, command
 from go2nav.planning.grid import centre
 from go2nav.perception.rigid import UnportedBranch
+from go2nav.perception.visual_support import MAX_VIEW_DISTANCE_M
 
 TERMINAL_APPROACH_RADIUS_M = .10
+VIEW_RECOVERY = 'LOW_VISUAL_SUPPORT_REQUIRES_MEASURED_VIEW'
 SCAN_OFFSETS = (math.pi/4, math.pi/2, -math.pi/4, -math.pi/2, math.pi)
 VETO_VIEW_ANGLE_RAD = math.pi/4
 STALL_RADIUS_M, STALL_NS = .15, 30_000_000_000
@@ -63,11 +67,14 @@ class Planner:
         self.exits, self.coverage_fix = harness == 'reserve_exit_v2', coverage_fix
         self.margin_m, self.unknown = margin_m, unknown  # cautious clearance (planning.caution)
         self.route_status = None
-        self.panorama = routing.InitialPanorama()
+        self.panorama, self.panorama_ended = routing.InitialPanorama(), False
         self.frontier_visits = routing.CommittedFrontierVisits()
         self.coverage_views = routing.CoverageViews()
         self.coverage_target, self.coverage_view_status, self.coverage_generation = None, None, 0
         self.view_recovery = None          # set by a translation veto at dispatch
+        self.view_body = None              # the supported view's body-frame position during a visual view recovery
+        self.weak_trigger = None           # that recovery's start time (for the route-turn memory)
+        self.camera_view_request, self.last_view_trigger = None, -1
         self.scan_target, self.scan_index = None, 0
         self.clearance_turn = None         # the latched long-way turn (selection.recover_turn)
         self.route_turn_memory = sel.RouteTurnMemory()
@@ -120,8 +127,9 @@ class Planner:
                                 frontier_visit=visit)
         return route
 
-    def route(self, snapshot, position, rotation, goal, now_ns, *, phase, generation):
-        """The route for a registered pose (initial-body frame) toward the mission's active goal (initial-body xy)."""
+    def route(self, snapshot, position, rotation, goal, now_ns, *, phase, generation, view=None):
+        """The route for a registered pose (initial-body frame) toward the mission's active goal (initial-body xy).
+        `view`: the active supported view while visual support is low (`perception.visual_support`), else None."""
         B = np.asarray(snapshot.map_from_initial)
         q, Q = B@position, B@rotation
         goal_map = (B@np.r_[goal, 0.])[:2]
@@ -129,17 +137,59 @@ class Planner:
         self.terminal_target_distance = None
         self.frontier_visits.context = (q, Q)
         heading = math.atan2(Q[1, 0], Q[0, 0])
+        if view is not None and self.panorama.state is not None and not self.panorama.complete:
+            self.panorama_ended = True  # its remaining views stay unobserved
         if self.panorama.complete:
             route = self._frontier_route(snapshot, q, Q, goal_map, now_ns, phase, generation)
+        elif self.panorama_ended:
+            route = self._frontier_route(snapshot, q, Q, goal_map, now_ns, phase, generation) | dict(
+                initial_survey=dict(self.panorama.state))
         else:
             survey = self.panorama.advance(snapshot, q[:2], heading, now_ns)
             if survey['complete']:
                 route = self._frontier_route(snapshot, q, Q, goal_map, now_ns, phase, generation) | dict(initial_survey=survey)
             else:
                 route = dict(status='INITIAL_PANORAMA_REQUIRES_VIEW', route_cells=[], view_heading_rad=survey['heading_rad'])
+        route = self._visual_view(route, view, B, position, rotation)
         route = self._coverage(route, snapshot, q, Q, goal_map, now_ns, generation)
+        route = self._interrupted_camera_view(route, view, snapshot, q)
+        self.weak_trigger = view['trigger_ns'] if route['status'] == VIEW_RECOVERY else None
         route = self._stall_watchdog(route, q, now_ns, phase) if self.recovery else route
         self.route_status = route.get('status')
+        return route
+
+    def _visual_view(self, route, view, B, position, rotation):
+        """While visual support is low: turn to the supported view's heading instead of following the route."""
+        self.view_body = None
+        if view is None:
+            return route
+        target = B@view['rotation']
+        self.clearance_turn = None
+        self.view_body = rotation.T@(view['position']-position)
+        return route | dict(route_cells=[], view_heading_rad=math.atan2(target[1, 0], target[0, 0]), status=VIEW_RECOVERY)
+
+    def _interrupted_camera_view(self, route, view, snapshot, q):
+        """A frontier or coverage view that a new view recovery interrupts is given up
+        (`routing.retire_interrupted_view`); the next plan after the recovery chooses another viewpoint."""
+        if route['status'] != VIEW_RECOVERY:
+            self.camera_view_request = None
+            if 'view_heading_rad' in route:
+                name = ('coverage_views' if self.coverage_view_status == 'view' else
+                        'frontier_visits' if 'frontier_visit' in route else None)
+                visit = None if name is None else getattr(self, name).visit
+                if visit is not None:
+                    self.camera_view_request = (name, visit['started_ns'])
+            return route
+        if view['trigger_ns'] <= self.last_view_trigger:
+            return route
+        self.last_view_trigger = view['trigger_ns']
+        request, self.camera_view_request = self.camera_view_request, None
+        if request is not None:
+            name, started = request
+            visits = getattr(self, name)
+            if visits.visit is not None and visits.visit['started_ns'] == started \
+                    and routing.retire_interrupted_view(visits, snapshot, q):
+                route = route | dict(interrupted_camera_viewpoints={name: True})
         return route
 
     def _coverage(self, route, snapshot, q, Q, goal_map, now_ns, generation):
@@ -151,6 +201,9 @@ class Planner:
             return route
         if target in snapshot.floor|snapshot.occupied:
             self.coverage_views.visit, self.coverage_target, self.coverage_view_status = None, None, 'REQUESTED_PATCH_OBSERVED'
+            return route
+        if route['status'] == VIEW_RECOVERY:
+            self.coverage_view_status = 'WEAK_VIEW_RECOVERY_HAS_PRIORITY'
             return route
         query = route | dict(status='OBSERVED_FLOOR_ROUTE_TO_FRONTIER', target_map_xy_m=centre(target).tolist())
         self.coverage_views.context = (q, Q)
@@ -264,13 +317,18 @@ class Planner:
         result = sel.stopping_projection(result, prediction, clearance, q, Q, pulse=self.pulse)
         if result['planned_stopping_projection']['changed']:
             self.clearance_turn = None
+        if self.view_body is not None:
+            arc = sel.recover_view_with_arc(result, prediction, self.view_body, MAX_VIEW_DISTANCE_M)
+            if arc is not result:
+                self.clearance_turn = None
+            result = arc
         result, target = sel.require_floor_coverage(result, prediction, snapshot, q, Q, occupied_observed=self.coverage_fix)
         if result.get('translation_footprint_coverage', {}).get('rejected'):
             self.clearance_turn = None
             if self.coverage_target is None and target is not None:
                 self.coverage_target, self.coverage_view_status = target, 'TRANSLATION_REQUIRES_COVERAGE'
         if not terminal:
-            result = self.route_turn_memory.select(result, q, heading, generation, None)
+            result = self.route_turn_memory.select(result, q, heading, generation, self.weak_trigger)
         if self.recovery:
             result = self._terminal_spin_guard(result)
             result = self._latch_timeout(result, heading)

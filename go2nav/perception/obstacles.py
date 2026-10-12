@@ -1,7 +1,8 @@
 """Depth obstacles: what both cameras currently see above the floor, near the robot.
 
 Each frame (independently of the visual odometry), the floor plane is fitted to both cameras' floor points along the
-gyro's up direction (`floor`). Every depth sample (every 4 px) between 3 and 65 cm above that plane marks its 1-cm
+gyro's up direction (`floor`); after the first frame, a patch too narrow for a plane still gives the floor height
+along that direction (`floor.gyro_height_plane`). Every depth sample (every 4 px) between 3 and 65 cm above that plane marks its 1-cm
 cell of the current body frame, within 1 m of the body origin. The 50 Hz dispatch check tests commands against
 these cells. If the forward camera has no valid returns, the cells come from the downward camera alone.
 """
@@ -10,7 +11,6 @@ from dataclasses import dataclass
 import numpy as np
 
 from go2nav.perception import cameras, floor
-from go2nav.perception.rigid import UnportedBranch
 from go2nav.perception.rotations import GyroAttitude
 
 CELL_M = .01
@@ -55,12 +55,10 @@ class DepthObstacleObserver:
             self.initial_up = up/np.linalg.norm(up)
         up = G.T@self.initial_up
         clouds = [sampled_points(*depth, cameras.PRIMARY), sampled_points(*auxiliary_depth, cameras.AUXILIARY)]
-        floor_points, _ = floor.paired_floor_points(depth, auxiliary_depth, up)
-        plane = floor.joint_plane(*floor_points, up)
+        floor_points, _ = floor.paired_floor_points(depth, auxiliary_depth, up, narrow_normal=up)
         frame = self.frames
         self.frames += 1
-        if not plane['available'] and plane['reason'] == 'insufficient_combined_two_axis_extent':
-            raise UnportedBranch('obstacle floor plane lacks extent (the original tries a gyro-height plane)')
+        plane = (floor.gyro_height_plane if frame else floor.joint_plane)(*floor_points, up)
         if not plane['available'] or not len(clouds[1]):
             return None
         # Without forward returns, the downward camera alone gives the obstacles (the dispatch check then allows

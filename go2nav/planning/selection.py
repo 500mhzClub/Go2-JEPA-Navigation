@@ -14,7 +14,8 @@ v4 harness had neither (`exits=False`).
 
 **Recovery and terminal stages** then refine the choice in a fixed order (`go2nav.planning.planner.Planner.select`):
 a latched turn toward a blocked waypoint direction, the terminal approach near the goal, hold-relative recoveries,
-stopping projection at dispatch time, unseen-floor coverage, and memory of turns already tried here.
+stopping projection at dispatch time, an arc toward a supported view during a view recovery, unseen-floor coverage,
+and memory of turns already tried here.
 
 A selection is a dict passed through the stages; its main fields are `action`, `candidates` (score terms per action),
 `scan_utilities` (when a view heading is being searched), `memory_forecast_candidates` (clearance per action) and
@@ -28,7 +29,6 @@ import numpy as np
 
 from go2nav.planning import grid
 from go2nav.planning.actions import ACTIONS, COMMIT_TICKS, PREFIX_TICKS, TRANSLATIONS, TURNS, command
-from go2nav.perception.rigid import UnportedBranch
 
 CONTACT_PENALTY_M = 1.2
 SCAN_ANGULAR_SCALE_M = .35
@@ -562,50 +562,138 @@ def require_floor_coverage(selection, prediction, snapshot, position, rotation, 
 
 # -- memory of turns tried at this place -----------------------------------------------------------------------------
 
+def recover_view_with_arc(selection, prediction, view_body, max_distance_m):
+    """During a view recovery (`perception.visual_support`), when the search holds because neither turn is clear: take
+    an arc toward the view's heading instead, if one is already clear. `view_body`: the supported view's position in
+    the body frame. The arc must be clear under the full or recovery reserve and its stopping projection, turn the
+    right way, reduce the heading error by more than hold does, and keep within `max_distance_m` of the view."""
+    if selection['action'] != 'hold' or 'scan_utilities' not in selection:
+        return selection
+    rows = {r['action']: r for r in selection['memory_forecast_candidates']}
+    if any(rows[a]['nominal_predicted_path_clear'] for a in TURNS) or not rows['hold']['nominal_footprint_path_clear']:
+        return selection
+    stopping = {r['action']: r['projection_clear'] for r in selection['planned_stopping_projection']['candidates']}
+    prediction, view = np.asarray(prediction, float), np.asarray(view_body, float)
+    error = selection['scan_heading_error_rad']
+    if np.linalg.norm(view) > max_distance_m or abs(error) <= .1:
+        return selection
+
+    def heading_gain(index):
+        yaw = math.atan2(prediction[index, 6, 2], prediction[index, 6, 3])
+        yaw -= math.atan2(prediction[index, 2, 2], prediction[index, 2, 3])
+        return abs(error)-abs(wrap(error-yaw))
+
+    hold_gain = heading_gain(ACTIONS.index('hold'))
+    eligible = []
+    for action in ('left_arc', 'right_arc'):
+        i, row = ACTIONS.index(action), rows[action]
+        if not (row['nominal_predicted_path_clear'] and row['nominal_footprint_path_clear']
+                and row['clearance_check_mode'] in ('FULL_RESERVE', 'RESERVE_RECOVERY') and stopping[action]):
+            continue
+        if command(action)[2]*error <= 0:
+            continue
+        gain = heading_gain(i)
+        path = np.column_stack((prediction[i, :, :2], np.zeros(8)))
+        distance = float(np.linalg.norm(path-view, axis=1).max())
+        if gain <= max(0., hold_gain) or distance > max_distance_m:
+            continue
+        eligible.append((gain, -i, distance))
+    if not eligible:
+        return selection
+    gain, negative_index, distance = max(eligible)
+    result = deepcopy(selection)
+    choose(result, -negative_index)
+    result['measured_view_arc_recovery'] = dict(applied=True, previous_action='hold', selected_action=result['action'],
+                                                predicted_heading_gain_rad=gain, hold_heading_gain_rad=hold_gain,
+                                                maximum_predicted_distance_from_reference_m=distance)
+    return result
+
+
 class RouteTurnMemory:
-    """Remembers the turn being attempted toward the waypoint at this place (within 20 cm and 0.3 rad); a mission
-    phase change or a translation clears it. (Recovery from failed attempts never triggered in the traced missions.)"""
+    """Remembers turns toward the waypoint that ended in a view recovery, and tries the other direction next time.
+
+    The *attempt* is the turn being made toward the waypoint at this place (within 20 cm and 0.3 rad). If a view
+    recovery starts (`weak_trigger`) after it has turned at least 0.025 rad, the attempt is recorded as failed (the
+    last 16 are kept). When the preferred turn has failed here and the other direction has not and is clear, the other
+    direction is latched (*active*) until the waypoint is within 0.1 rad, the place changes or the turn passes the
+    target; while latched, that turn is chosen if clear, else hold. A latched direction that is no longer clear is
+    released. A mission phase change clears everything; a translation or a view search clears the attempt and latch."""
 
     def __init__(self):
         self.generation = 0
         self.attempt = self.active = None
         self.failed = []
+        self.last_trigger = -1
 
     @staticmethod
     def nearby(record, position, target):
         return np.linalg.norm(position-record['position']) <= .20 and abs(wrap(target-record['target_heading_rad'])) <= .30
 
     def select(self, selection, position, heading, generation, weak_trigger):
+        released = None
+        if self.active is not None and self.generation == generation and weak_trigger is None \
+                and 'scan_utilities' not in selection:
+            action = 'left_turn' if self.active['direction'] == 1 else 'right_turn'
+            row = next(r for r in selection['memory_forecast_candidates'] if r['action'] == action)
+            if not row['nominal_predicted_path_clear']:
+                released = dict(action=action, target_heading_rad=self.active['target_heading_rad'])
+                self.active = self.attempt = None
+        result = self._select(selection, position, heading, generation, weak_trigger)
+        return result if released is None else result | dict(released_visual_route_turn_memory=released)
+
+    def _select(self, selection, position, heading, generation, weak_trigger):
         position = np.asarray(position, float)[:2]
         if generation != self.generation:
             self.attempt = self.active = None
             self.failed = []
             self.generation = generation
         if weak_trigger is not None:
-            raise UnportedBranch('route-turn memory recovery after weak visual support')
+            if weak_trigger > self.last_trigger:
+                self.last_trigger = weak_trigger
+                attempt = self.attempt
+                if attempt is not None and np.linalg.norm(position-attempt['position']) <= .20 \
+                        and attempt['direction']*wrap(heading-attempt['start_heading_rad']) >= .025:
+                    self.failed = (self.failed+[attempt | dict(trigger_ns=weak_trigger)])[-16:]
+                self.attempt = self.active = None
+            return selection
         if 'scan_utilities' in selection:
             self.attempt = self.active = None
             return selection
         error = math.atan2(*selection['waypoint_body_xy_m'][::-1])
         target = wrap(heading+error)
         if self.active is not None:
-            raise UnportedBranch('route-turn memory recovery')
+            remaining = (self.active['direction']*wrap(self.active['target_heading_rad']-heading))%(2*math.pi)
+            crossed = remaining-self.active['previous_remaining_rad'] > math.pi
+            if not self.nearby(self.active, position, target) or abs(error) <= .10 or crossed:
+                self.active = None
+            else:
+                self.active['previous_remaining_rad'] = remaining
         by_action = {r['action']: r for r in selection['memory_forecast_candidates']}
         if selection['action'] in TRANSLATIONS:
             self.attempt = self.active = None
             return selection
         failed = {r['direction'] for r in self.failed if self.nearby(r, position, target)}
         preferred = selection.get('before_memory_filter_action')
-        if preferred in TURNS and abs(error) > .10:
+        if self.active is None and preferred in TURNS and abs(error) > .10:
             direction = -TURNS[preferred]
             alternative = 'left_turn' if direction == 1 else 'right_turn'
             if TURNS[preferred] in failed and direction not in failed and by_action[alternative]['nominal_predicted_path_clear']:
-                raise UnportedBranch('route-turn memory recovery')
-        action = selection['action']
+                self.active = dict(position=position.copy(), target_heading_rad=target, direction=direction,
+                                   previous_remaining_rad=(direction*error)%(2*math.pi))
+        result = selection
+        if self.active is not None:
+            action = 'left_turn' if self.active['direction'] == 1 else 'right_turn'
+            eligible = by_action[action]['nominal_predicted_path_clear']
+            result = deepcopy(selection)
+            choose(result, ACTIONS.index(action if eligible else 'hold'))
+            result['visual_route_turn_memory'] = dict(active=True, direction=self.active['direction'],
+                                                      target_heading_rad=self.active['target_heading_rad'],
+                                                      failed_directions=sorted(failed), selected_turn_forecast_clear=eligible)
+        action = result['action']
         if action in TURNS:
             if self.attempt is None or self.attempt['direction'] != TURNS[action] or not self.nearby(self.attempt, position, target):
                 self.attempt = dict(position=position.copy(), target_heading_rad=target, direction=TURNS[action],
                                     start_heading_rad=heading)
-        else:
+        elif self.active is None:
             self.attempt = None
-        return selection
+        return result

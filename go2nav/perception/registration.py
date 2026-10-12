@@ -8,8 +8,15 @@ corrected so that this plane coincides with the first frame's plane:
 - a translation along the normal correcting the height (the in-plane position is kept).
 Corrections are bounded (0.1 rad tilt, 5 cm height).
 
-When a frame has too few floor points for a plane (fewer than 100), the last registered frame's correction is carried
-forward instead (the visual motion since then, composed onto its registered pose; bounded to 5 cm and 0.1 rad).
+When a frame's floor points cannot give a plane, the last registered frame's correction is carried forward instead
+(*transport*: the visual motion since then, composed onto its registered pose; bounded to 5 cm and 0.1 rad):
+- fewer than 100 points: the transported pose as it is;
+- at least 100 points but too narrow a patch for a normal: the transported pose with its height corrected so that the
+  points' mean lies on the transported floor (the update and the total correction bounded to 5 cm). Such a patch is
+  first pruned along the transported floor normal (`floor.condition_narrow_patch`).
+Every current floor point must then lie within 3 mm of the transported floor. If one does not, the frame's floor
+measurement is rejected: `observe` returns None (no pose for this frame) and the controller holds until the floor is
+measured again (`NavigationController`, floor re-acquisition).
 """
 from dataclasses import dataclass
 
@@ -21,6 +28,7 @@ from go2nav.perception.rotations import angle
 
 MAX_TILT_RAD, MAX_HEIGHT_M = .10, .05
 MAX_TRANSPORT_M, MAX_TRANSPORT_RAD = .05, .10
+MAX_TRANSPORT_RESIDUAL_M = .003
 
 
 @dataclass
@@ -62,7 +70,8 @@ def register_pose(p, R, reference_plane, current_plane):
 
 
 class FloorRegistration:
-    """See the module docstring. `observe` takes one frame's depth images and visual pose."""
+    """See the module docstring. `observe` takes one frame's depth images and visual pose and returns the
+    `RegisteredPose`, or None if the floor measurement is rejected."""
 
     def __init__(self):
         self.initial_up = None
@@ -77,11 +86,12 @@ class FloorRegistration:
             self.initial_up = up/np.linalg.norm(up)
         p, R = np.asarray(visual.position, float), np.asarray(visual.rotation, float)
         up = R.T@self.initial_up
-        clouds, _ = floor.paired_floor_points(depth, auxiliary_depth, up)
+        carried = None if self.anchor is None else self._carried_rotation(R).T@self.reference_plane['normal_body']
+        clouds, _ = floor.paired_floor_points(depth, auxiliary_depth, up, narrow_normal=carried, per_camera_mean=True)
         plane = floor.joint_plane(*clouds, up)
         if not plane['available']:
-            if plane['reason'] == 'insufficient_combined_measured_candidates' and self.anchor is not None:
-                return self._transport(visual, p, R, plane)
+            if plane['reason'] in (floor.TOO_FEW_POINTS, floor.TOO_NARROW) and self.anchor is not None:
+                return self._transport(visual, p, R, plane, clouds)
             raise UnportedBranch(f"floor plane unavailable for registration: {plane['reason']}")
         if self.reference_plane is None:
             self.reference_plane = plane
@@ -89,11 +99,27 @@ class FloorRegistration:
         self.anchor = RegisteredPose(visual.frame, visual.measured_ns, position, rotation, p, R, False, plane)
         return self.anchor
 
-    def _transport(self, visual, p, R, plane):
+    def _carried_rotation(self, R):
+        """The visual rotation `R` with the last registered frame's correction."""
+        return self.anchor.rotation@self.anchor.visual_rotation.T@R
+
+    def _transport(self, visual, p, R, plane, clouds):
         anchor = self.anchor
         correction = anchor.rotation@anchor.visual_rotation.T
-        transported_p = anchor.position+correction@(p-anchor.visual_position)
-        transported_R = correction@R
-        if float(np.linalg.norm(transported_p-p)) > MAX_TRANSPORT_M or angle(R.T@transported_R) > MAX_TRANSPORT_RAD:
+        position = anchor.position+correction@(p-anchor.visual_position)
+        rotation = correction@R
+        if float(np.linalg.norm(position-p)) > MAX_TRANSPORT_M or angle(R.T@rotation) > MAX_TRANSPORT_RAD:
             raise UnportedBranch('floor transport correction out of bounds')
-        return RegisteredPose(visual.frame, visual.measured_ns, transported_p, transported_R, p, R, True, plane)
+        normal = np.asarray(self.reference_plane['normal_body'], float)
+        floor_normal = rotation.T@normal  # the reference floor in the current body frame, through the transported pose
+        floor_offset = float(self.reference_plane['offset_body_m']+normal@position)
+        if plane['reason'] == floor.TOO_NARROW:  # enough points for the height, not for a normal
+            update = -float(floor_normal@plane['mean_body']+floor_offset)
+            position = position+update*normal
+            if float(np.linalg.norm(position-p)) > MAX_TRANSPORT_M or abs(update) > MAX_TRANSPORT_M:
+                raise UnportedBranch('partial floor height correction out of bounds')
+            floor_offset = float(self.reference_plane['offset_body_m']+normal@position)
+        for points in clouds:
+            if len(points) and float(np.abs(points@floor_normal+floor_offset).max()) > MAX_TRANSPORT_RESIDUAL_M:
+                return None
+        return RegisteredPose(visual.frame, visual.measured_ns, position, rotation, p, R, True, plane)

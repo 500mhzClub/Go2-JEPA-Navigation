@@ -1,10 +1,14 @@
 """The navigation controller: perception, mission, planning and dispatch for one mission.
 
 `on_frame` takes each 10 Hz sensor frame and runs, in order (all synchronous, at the frame's time):
-1. visual odometry (`perception.visual_odometry`) and floor registration (`perception.registration`); visual support
-   (the frame's corner counts) is checked for the low-support recovery;
+1. visual odometry (`perception.visual_odometry`) and floor registration (`perception.registration`); then the
+   visual support (`perception.visual_support`): when a view recovery starts, every plan made before it is vetoed,
+   and plans turn to the supported view until it is released;
 2. the mission (`planning.mission`) on the registered position, with the command requested over the last interval;
    while it requires holding, every queued plan is vetoed;
+   *floor re-acquisition*: a frame whose floor measurement the registration rejects has no pose. The mission holds,
+   every queued plan is vetoed, nothing is mapped or planned from the frame, and the robot holds until four
+   consecutive frames are registered again; planning resumes no earlier than 400 ms after the rejected frame;
 3. every fourth frame: the routing map (`perception.mapping`), then from frame 10 a plan (`planning.planner` with the
    controller's forecaster), committed in the ledger (`planning.dispatch`);
 4. the depth obstacles for dispatch (`perception.obstacles`).
@@ -25,8 +29,8 @@ import numpy as np
 from go2nav.perception.mapping import RoutingMap
 from go2nav.perception.obstacles import DepthObstacleObserver
 from go2nav.perception.registration import FloorRegistration
-from go2nav.perception.rigid import UnportedBranch
 from go2nav.perception.visual_odometry import VisualOdometry
+from go2nav.perception.visual_support import SupportedView
 from go2nav.planning import grid
 from go2nav.planning.dispatch import PASSED, CommitmentLedger, ScheduledCommand, dispatch_check
 from go2nav.planning.mission import RoundTripMission
@@ -37,7 +41,9 @@ FIRST_PLAN_FRAME = 10
 CONTEXT_WINDOW_NS = 1_500_000_000
 ESCAPE_DISPATCH_RADIUS_M = .40
 POSE_WINDOW_FRAMES = 256
-STRONG_FEATURES, LOW_FEATURES = 96, 48
+FLOOR_HOLD = 'FLOOR_REACQUISITION_HOLD'
+VIEW_RECOVERY_HOLD = 'WAITING_FOR_POST_VISUAL_RECOVERY_PLAN'
+FLOOR_STREAK_FRAMES, FLOOR_PLAN_DELAY_NS = 4, 400_000_000
 
 
 @dataclass
@@ -84,7 +90,8 @@ class NavigationController:
         self.mission_state = self.terminal = None
         self.latest_map = self.latest_obstacles = None
         self.policy_packets, self.registered_poses = {}, {}
-        self.support_good = None
+        self.supported_view, self.view, self.view_plan_minimum_ns = SupportedView(), None, -1
+        self.floor_waiting, self.floor_streak, self.floor_plan_minimum_ns = False, 0, -1
         self.planning, self.mission_rows, self.poses = [], [], []
 
     # -- frames ---------------------------------------------------------------------------------------------------
@@ -96,22 +103,31 @@ class NavigationController:
         visual = self.odometry.observe(frame.rgb, frame.depth, frame.auxiliary_rgb, frame.auxiliary_depth,
                                        frame.gyro_rates, frame.specific_force, frame.measured_ns)
         registered = self.registration.observe(frame.depth, frame.auxiliary_depth, visual, frame.specific_force)
-        self.registered_poses[frame.frame] = registered
-        self.registered_poses = {f: p for f, p in self.registered_poses.items() if f > frame.frame-POSE_WINDOW_FRAMES}
-        self._visual_support(visual)
-        state = self.mission.advance(registered.position, frame=frame.frame, requested=requested)
-        self.mission_rows.append(state | dict(measured_ns=frame.measured_ns, preceding_request=list(requested)))
-        self.poses.append(dict(frame=frame.frame, visual=visual, registered=registered))
+        if registered is None:
+            state = self.mission.unavailable(frame=frame.frame)
+            self.floor_waiting, self.floor_streak = True, 0
+            self.floor_plan_minimum_ns = frame.measured_ns+FLOOR_PLAN_DELAY_NS
+        else:
+            self.registered_poses[frame.frame] = registered
+            self.registered_poses = {f: p for f, p in self.registered_poses.items() if f > frame.frame-POSE_WINDOW_FRAMES}
+            self._visual_support(visual, registered, frame.measured_ns)
+            state = self.mission.advance(registered.position, frame=frame.frame, requested=requested)
+            self.poses.append(dict(frame=frame.frame, visual=visual, registered=registered))
+            self.floor_streak += 1
+            if self.floor_streak >= FLOOR_STREAK_FRAMES:
+                self.floor_waiting = False
+        self.mission_rows.append(state | dict(measured_ns=frame.measured_ns, preceding_request=list(requested),
+                                              floor_reacquisition_hold=self.floor_waiting))
         self.mission_state, self.terminal = state, state['terminal']
         self.goal = np.asarray(state['active_goal_initial_body_xy_m'], float)
         if state['phase_transition'] is not None:
             self.generation += 1
             self.planner.scan_target, self.planner.scan_index = None, 0
-        if state['hold_required']:
+        if self.floor_waiting or state['hold_required']:
             for plan in self.plans:
-                self.rejected[plan.observed_ns] = 'MISSION_SETTLING_OR_TERMINAL'
+                self.rejected[plan.observed_ns] = FLOOR_HOLD if self.floor_waiting else 'MISSION_SETTLING_OR_TERMINAL'
                 self.ledger.veto(plan, frame.measured_ns)
-        if frame.frame%MAP_PERIOD_FRAMES == 0:
+        if registered is not None and frame.frame%MAP_PERIOD_FRAMES == 0:
             self.latest_map = self.routing_map.update(frame.frame, frame.measured_ns, registered.position, registered.rotation,
                                                       frame.depth, frame.auxiliary_depth, frame.specific_force)
             if frame.frame >= MAP_PERIOD_FRAMES:
@@ -119,19 +135,24 @@ class NavigationController:
         self.latest_obstacles = self.obstacles.observe(frame.depth, frame.auxiliary_depth, frame.gyro_rates,
                                                        frame.specific_force, frame.measured_ns)
 
-    def _visual_support(self, visual):
-        """Remember the last pose with strong corner support; very weak support afterwards would start the visual
-        recovery (never reached in the traced missions)."""
-        strength = max(visual.feature_counts)
-        if strength >= STRONG_FEATURES:
-            self.support_good = visual.frame
-        if strength < LOW_FEATURES and self.support_good is not None:
-            raise UnportedBranch('low visual support recovery')
+    def _visual_support(self, visual, registered, now_ns):
+        """Advance the view recovery with this frame; when one starts, veto every plan made before it."""
+        self.view = self.supported_view.advance(visual.feature_counts, registered.position, registered.rotation, now_ns)
+        if self.view is None or self.view['trigger_ns'] <= self.view_plan_minimum_ns:
+            return
+        self.view_plan_minimum_ns = trigger = self.view['trigger_ns']
+        for plan in self.plans:
+            if plan.observed_ns < trigger and plan.expires_ns > now_ns:
+                self.rejected[plan.observed_ns] = VIEW_RECOVERY_HOLD
+                self.ledger.veto(plan, now_ns)
 
     def _plan(self, frame, registered):
         now = frame.measured_ns
         if frame.frame < FIRST_PLAN_FRAME:
             self.planning.append(dict(frame=frame.frame, reason='NATIVE_DENSE_CONTEXT_WARMUP'))
+            return
+        if self.floor_waiting or now < self.floor_plan_minimum_ns:
+            self.planning.append(dict(frame=frame.frame, reason=FLOOR_HOLD, measured_ns=now))
             return
         if self.mission_state is None or self.mission_state['hold_required']:
             self.planning.append(dict(frame=frame.frame, reason='MISSION_HOLD', measured_ns=now))
@@ -140,7 +161,7 @@ class NavigationController:
         prefix = self.ledger.prefix_at(now)
         phase = self.mission_state['phase']
         route = self.planner.route(snapshot, registered.position, registered.rotation, self.goal.copy(), now,
-                                   phase=phase, generation=generation)
+                                   phase=phase, generation=generation, view=self.view)
         objective = self.planner.objective(route, snapshot, registered.position, registered.rotation, prefix)
         if objective is None:
             self.planning.append(dict(frame=frame.frame, reason='VIEW_BUDGET_EXHAUSTED'))
@@ -183,6 +204,10 @@ class NavigationController:
                 self.rejected[plan.observed_ns] = reason
         if self.mission_state is None or self.mission_state['hold_required']:
             requested, reason = [0., 0., 0.], 'MISSION_SETTLING_OR_TERMINAL'
+        if self.floor_waiting:
+            requested, reason = [0., 0., 0.], FLOOR_HOLD
+        if reason == PASSED and plan.observed_ns < self.view_plan_minimum_ns:
+            requested, reason = [0., 0., 0.], VIEW_RECOVERY_HOLD
         if plan is not None:
             if not self.ledger.prefix_was_requested(plan):
                 requested, reason = [0., 0., 0.], 'COMMITTED_PREFIX_NOT_EXECUTED'

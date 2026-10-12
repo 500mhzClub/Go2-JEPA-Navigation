@@ -330,6 +330,24 @@ class CameraFrontierVisits:
         return 'route', None
 
 
+def retire_interrupted_view(visits, snapshot, position):
+    """Give up a camera view interrupted by a view recovery (`visits`: the frontier or coverage visits), if the robot
+    was at its viewpoint (within 10 cm): the viewing position (the floor cells within 10 cm and the viewpoint cell) is
+    not tried again for the same target. Returns whether the visit ended."""
+    visit = visits.visit
+    position = np.asarray(position)[:2]
+    if visit is None or np.linalg.norm(position-np.asarray(visit['camera_viewpoint']['viewpoint_map_xy_m'])) > .10:
+        return False
+    target = tuple(visit['unknown_neighbour'])
+    tried = visits.attempted.setdefault(target, set())
+    tried.update(c for c in snapshot.floor if np.linalg.norm(centre(c)-position) <= .10)
+    tried.add(tuple(visit['camera_viewpoint']['viewpoint_cell']))
+    if visit['camera_viewpoint'].get('current_measured_position_view'):
+        visits.failed_current_positions.setdefault(target, []).append(position.copy())
+    visits._finish('WEAK_VISUAL_SUPPORT_INTERRUPTED_VIEW')
+    return True
+
+
 class CommittedFrontierVisits(CameraFrontierVisits):
     """Frontier visits whose viewing turn, once started, is completed before the patch is re-assessed."""
 

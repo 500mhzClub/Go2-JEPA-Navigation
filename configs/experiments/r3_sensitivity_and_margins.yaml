@@ -1,7 +1,7 @@
 name: 'R3: forecast sensitivity and calibrated clearance margins (2-4 October 2026, v4 harness)'
 record: go2_navigation_forecast_sensitivity_results_2026-10-02.md and the margin results (LeWMQuad-v3 docs)
 description: C1 on preliminary-test mazes 30-49 (recovery off) with its forecast degraded by scale, forward or turn scale
-  and positional noise; C1 and C4 with the calibrated clearance margins (p95, p99) and the C4 nominal reruns; C1 with never-observed
+  and positional noise; C1 and C4 with the calibrated clearance margins (p95, p99) and the C4 nominal rerun; C1 with never-observed
   cells blocked (look-around, p95 bound). The v4 harness with the coverage fix.
 cohorts:
 - name: sens_base
@@ -993,54 +993,6 @@ cohorts:
   recovery: 'off'
   harness: v4
   margin: p99
-  episodes:
-  - - 30
-    - 0
-  - - 31
-    - 0
-  - - 32
-    - 0
-  - - 33
-    - 0
-  - - 34
-    - 0
-  - - 35
-    - 0
-  - - 36
-    - 0
-  - - 37
-    - 0
-  - - 38
-    - 0
-  - - 39
-    - 0
-  - - 40
-    - 0
-  - - 41
-    - 0
-  - - 42
-    - 0
-  - - 43
-    - 0
-  - - 44
-    - 0
-  - - 45
-    - 0
-  - - 46
-    - 0
-  - - 47
-    - 0
-  - - 48
-    - 0
-  - - 49
-    - 0
-- name: margin_c4_nominal
-  original_cohort: margin_c4_nominal
-  arms:
-  - C4
-  set: prelim_test_v1
-  recovery: 'off'
-  harness: v4
   episodes:
   - - 30
     - 0
