@@ -28,14 +28,17 @@ The retrained policy was accepted against the shipped one (`docs/validation/loco
 ## 3. The May corpus (T1's data)
 
     python -m go2nav.corpus.build outputs/corpus                         # the May plan: 1,450 scenes
-    python -m go2nav.corpus.datagen rollout outputs/corpus outputs/datagen
+    python -m go2nav.corpus.datagen rollout outputs/corpus outputs/datagen --seeds data/corpus/may_2026_rollout_seeds.json \
+        [--scenes data/training/t1_temporal/frames.txt]                  # only T1's 80 scenes
     python -m go2nav.corpus.datagen render outputs/corpus outputs/datagen --render-python RENDER_VENV/bin/python \
         --textures --frames-list data/training/t1_temporal/frames.txt   # T1's 18,101 frames; omit for all 69.6 M
     python -m go2nav.data.t1_rows outputs/datagen --out t1_rows.jsonl --render-root outputs/datagen/render
 
 - The scene files are byte-identical to the May build.
-- The rollout messages are line-identical to the May rollouts, apart from a scene-id integer (one lineage scene per
-  family checked).
+- The rollout messages are line-identical to the May rollouts, apart from a scene-id integer (11 scenes checked,
+  across all eight families). The seeds file is needed: two scenes were replaced after the May first pass, which
+  moved 36 others one place in the name order that the chunk rule (seed 7 + position) uses.
+- From all 80 T1 scenes regenerated from scratch, the T1 rows are byte-identical to the shipped rows.
 - Render plans and labels are identical.
 - The T1 rows equal `data/training/t1_temporal/rows.jsonl`.
 - Rendered frames are not bit-reproducible on this Vulkan stack, in the original either (a small fraction of pixels

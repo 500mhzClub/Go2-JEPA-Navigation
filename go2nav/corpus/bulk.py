@@ -2,11 +2,13 @@
 messages.
 
     python -m go2nav.corpus.bulk CORPUS OUT --split SPLIT [--family F] [--scene-offset N] [--scene-limit M]
-                                 [--seed 7] [--n-envs 48] [--n-blocks 200]
+                                 [--seed 7] [--seeds FILE] [--n-envs 48] [--n-blocks 200]
 
 Scenes are taken in name order within (split, family) and the scene at position k of the selected range (after
---scene-offset) is rolled out with seed `--seed + k`; the May corpus ran each (split, family) in chunks of 40 scenes
-with the default seed, so its scene at index i of a chunk had seed 7 + i. Physics runs on the CPU backend with the
+--scene-offset) is rolled out with seed `--seed + k`, or with its seed in FILE (a JSON map scene id -> seed) when
+--seeds is given. The May corpus ran each (split, family) in chunks of 40 scenes with the default seed, so a scene at
+index i of a chunk had seed 7 + i; its exact seeds, which differ from that rule for scenes displaced by two
+replacements, are data/corpus/may_2026_rollout_seeds.json. Physics runs on the CPU backend with the
 shipped locomotion policy (the May settings: no RGB, recovery interlock disabled, randomised spawns with a 0.45-m
 wall-clearance floor, 0.15-m fall height, 0.5-m out-of-bounds pad).
 
@@ -35,7 +37,8 @@ PLATFORM = REPO/'configs/corpus/go2_platform_manifest.yaml'
 PRIMITIVES = REPO/'configs/corpus/go2_primitive_registry.yaml'
 
 
-def run(corpus, out, *, split, family=None, scene_offset=0, scene_limit=None, seed=7, n_envs=48, n_blocks=200):
+def run(corpus, out, *, split, family=None, scene_offset=0, scene_limit=None, seed=7, seeds=None, n_envs=48,
+        n_blocks=200):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     platform = load_platform_manifest(PLATFORM)
@@ -54,8 +57,9 @@ def run(corpus, out, *, split, family=None, scene_offset=0, scene_limit=None, se
         pack = load_scene_pack(scene_dir, platform_manifest=platform, workspace_root=REPO)
         print(f'[{index+1}/{len(scenes)}] scene={pack.scene_id} family={pack.family} split={pack.split}', flush=True)
         build = build_scene_from_pack(pack, n_envs=n_envs, backend='cpu')
+        scene_seed = seeds[pack.scene_id] if seeds is not None else seed+index
         config = RolloutConfig(n_blocks=n_blocks, fall_z_threshold_m=.15, out_of_bounds_pad_m=.5,
-                               seed=seed+index, log_progress_every_blocks=0,
+                               seed=scene_seed, log_progress_every_blocks=0,
                                foot_contact_source='genesis', collector_mix=None, randomize_spawn_pose=True,
                                recovery_interlock_clearance_m=0., recovery_interlock_blocks=16,
                                spawn_clearance_floor_m=.45)
@@ -73,7 +77,7 @@ def run(corpus, out, *, split, family=None, scene_offset=0, scene_limit=None, se
             continue
         writer.close()
         record = dict(scene_id=pack.scene_id, family=pack.family, split=pack.split,
-                      difficulty_tier=pack.difficulty_tier, manifest_sha256=pack.manifest_sha256, seed=seed+index,
+                      difficulty_tier=pack.difficulty_tier, manifest_sha256=pack.manifest_sha256, seed=scene_seed,
                       n_envs=n_envs, messages=sum(writer.counts.values()), per_topic_counts=writer.counts,
                       first_stamp_ns=writer.first_ns, last_stamp_ns=writer.last_ns, wall_s=time.time()-started,
                       rollout_stats=stats)
@@ -92,11 +96,12 @@ def main():
     p.add_argument('--scene-offset', type=int, default=0)
     p.add_argument('--scene-limit', type=int)
     p.add_argument('--seed', type=int, default=7)
+    p.add_argument('--seeds', type=Path, help='JSON map scene id -> seed (instead of --seed + position)')
     p.add_argument('--n-envs', type=int, default=48)
     p.add_argument('--n-blocks', type=int, default=200)
     a = p.parse_args()
     run(a.corpus, a.out, split=a.split, family=a.family, scene_offset=a.scene_offset, scene_limit=a.scene_limit,
-        seed=a.seed, n_envs=a.n_envs, n_blocks=a.n_blocks)
+        seed=a.seed, seeds=json.loads(a.seeds.read_text()) if a.seeds else None, n_envs=a.n_envs, n_blocks=a.n_blocks)
 
 
 if __name__ == '__main__':

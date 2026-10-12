@@ -2,8 +2,8 @@
 (GPU, in the render environment).
 
     python -m go2nav.corpus.datagen rollout CORPUS OUT [--split S ...] [--family F ...] [--scenes LIST] [--chunk 40]
-                                    [--workers 16] [--cores-per-rollout 2] [--post-workers 8] [--seed 7] [--n-envs 48]
-                                    [--n-blocks 200]
+                                    [--workers 16] [--cores-per-rollout 2] [--post-workers 8] [--seed 7]
+                                    [--seeds FILE] [--n-envs 48] [--n-blocks 200]
     python -m go2nav.corpus.datagen render CORPUS OUT --render-python PYTHON [--workers 8] [--egl-device 1]
                                     [--resolution 224] [--textures] [--max-frames N] [--frames-list FILE]
 
@@ -14,7 +14,9 @@ at about two cores); its scene k gets seed --seed + k. As a chunk finishes, each
 stage replays every planned scene with `go2nav.corpus.render` under PYTHON (the Genesis 0.3.14 render environment)
 on EGL device --egl-device. The May corpus used the defaults, with --textures for the render. --scenes rolls out only
 the listed scenes (scene ids, or <scene>/rgb/<frame> lines as in data/training/*/frames.txt), each alone but with the
-seed its chunk gives it, so the result equals that scene of a full run. --frames-list renders
+seed its chunk gives it, so the result equals that scene of a full run. --seeds gives every scene its seed from a JSON
+map instead of the chunk rule: reproducing the May corpus needs data/corpus/may_2026_rollout_seeds.json, because two
+scenes were replaced after its first pass, which displaced 36 others in the name order. --frames-list renders
 only the listed frames (lines <scene>/rgb/<frame file>, as in data/training/*/frames.txt) of the listed scenes: the
 T1 training frames are 18,101 of the corpus's 69.6 million.
 
@@ -85,7 +87,7 @@ def listed_scenes(path):
 
 
 def rollout(corpus, out, *, splits=None, families=None, scenes=None, chunk_size=40, workers=16, cores_per_rollout=2,
-            post_workers=8, seed=7, n_envs=48, n_blocks=200):
+            post_workers=8, seed=7, seeds=None, n_envs=48, n_blocks=200):
     corpus, out = Path(corpus).resolve(), Path(out).resolve()
     jobs = chunks(corpus, chunk_size, splits, families, listed_scenes(scenes) if scenes else None)
     print(f'{len(jobs)} chunks from {corpus}', flush=True)
@@ -95,7 +97,7 @@ def rollout(corpus, out, *, splits=None, families=None, scenes=None, chunk_size=
         core_sets.put([available[(slot*cores_per_rollout+k) % len(available)] for k in range(cores_per_rollout)])
     failures, skipped = [], []
     with ThreadPoolExecutor(workers) as rollouts, ProcessPoolExecutor(post_workers) as post:
-        active = {rollouts.submit(_rollout_chunk, chunk, corpus, out, core_sets, seed=seed, n_envs=n_envs,
+        active = {rollouts.submit(_rollout_chunk, chunk, corpus, out, core_sets, seed=seed, seeds=seeds, n_envs=n_envs,
                                   n_blocks=n_blocks): chunk for chunk in jobs}
         while active:
             finished, _ = wait(active, return_when=FIRST_COMPLETED)
@@ -119,7 +121,7 @@ def rollout(corpus, out, *, splits=None, families=None, scenes=None, chunk_size=
     return failures
 
 
-def _rollout_chunk(chunk: Chunk, corpus: Path, out: Path, core_sets: queue.Queue, *, seed, n_envs, n_blocks):
+def _rollout_chunk(chunk: Chunk, corpus: Path, out: Path, core_sets: queue.Queue, *, seed, seeds, n_envs, n_blocks):
     raw = chunk.directory(out)/'raw'
     if not (raw/'.done').exists():
         for stage in ('raw', 'plan', 'labels'):  # plans and labels of an earlier, partial rollout are stale
@@ -132,6 +134,7 @@ def _rollout_chunk(chunk: Chunk, corpus: Path, out: Path, core_sets: queue.Queue
                        '--scene-offset', str(chunk.offset), '--scene-limit', str(chunk.size),
                        '--seed', str(seed+chunk.first_seed_index),
                        '--n-envs', str(n_envs), '--n-blocks', str(n_blocks)]
+            command += ['--seeds', str(Path(seeds).resolve())] if seeds else []
             _run(command, raw.parent/'rollout.log')
         finally:
             core_sets.put(cores)
@@ -245,6 +248,7 @@ def main():
     r.add_argument('--cores-per-rollout', type=int, default=2)
     r.add_argument('--post-workers', type=int, default=8)
     r.add_argument('--seed', type=int, default=7)
+    r.add_argument('--seeds', type=Path, help='JSON map scene id -> seed, instead of the chunk rule')
     r.add_argument('--n-envs', type=int, default=48)
     r.add_argument('--n-blocks', type=int, default=200)
     g = stages.add_parser('render', help='camera frames for every planned scene')
@@ -261,7 +265,7 @@ def main():
     if a.stage == 'rollout':
         failures = rollout(a.corpus, a.out, splits=a.splits, families=a.families, scenes=a.scenes, chunk_size=a.chunk,
                            workers=a.workers, cores_per_rollout=a.cores_per_rollout, post_workers=a.post_workers,
-                           seed=a.seed, n_envs=a.n_envs, n_blocks=a.n_blocks)
+                           seed=a.seed, seeds=a.seeds, n_envs=a.n_envs, n_blocks=a.n_blocks)
     else:
         failures = render(a.corpus, a.out, render_python=a.render_python, workers=a.workers, egl_device=a.egl_device,
                           resolution=a.resolution, textures=a.textures, max_frames=a.max_frames,
