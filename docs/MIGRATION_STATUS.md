@@ -201,12 +201,12 @@ Missions that the original did not evaluate (physical stops) are compared by the
 
 | Experiment | Missions | Identical to the original |
 |---|---:|---|
-| R1 preliminary comparison (v4 harness; recovery on and off) | 332 | running, from the commit with the recovery fixes (e6817fd) |
+| R1 preliminary comparison (v4 harness; recovery on and off) | 332 | running, from the commit with the recovery fixes (e6817fd); the first 13 finished are identical (evening of 12 October) |
 | R3 forecast sensitivity and margins (v4 harness) | 500 | 500 |
 | R4 reserve-exit v2 | 100 | 100 |
-| R5 dynamics stage 1 | 120 | 118; the other two (C3, uniform friction 0.30, prelim 31 and 48) are being rerun |
+| R5 dynamics stage 1 | 120 | 119; the last one (C3, uniform friction 0.30, prelim 48) is being rerun |
 | R6 dynamics stage 2 | 150 | 150 |
-| decoder sources | 32 | the C3-v3 round 22 of 22; the ten C3-v2 fresh checks running |
+| decoder sources | 32 | the C3-v3 round 22 of 22; of the ten C3-v2 fresh checks, the first two are identical and eight are running |
 
 40 of these missions first stopped at a branch not yet ported and were rerun after its port (earlier attempts are kept
 as `runs/<assignment>.attempt<N>`). The original `margin_c4_nominal` cohort of R3 was never run (it was relaunched as
