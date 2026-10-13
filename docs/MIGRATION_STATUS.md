@@ -169,7 +169,8 @@ What has been regenerated or rerun from this repository and compared with the or
 | training collections | all 428 trials of the nine collections (`go2nav.data.recordings`), compared trial by trial (`tools/porting/collection_check.py`: physics trace, command histories, every RGB frame, native depth) | 392 identical; the 36 short-pulse trials have identical physics and different frames (the known limitation above) |
 | training samples | T2, T3, T4, the three T5 sets and C1's contexts, rebuilt from the regenerated recordings | all seven byte-identical to the shipped files |
 | May corpus for T1 | all 80 scenes T1 uses: rollouts with the per-scene seeds (`data/corpus/may_2026_rollout_seeds.json`), rows, and the 18,101 frames rendered | rows byte-identical to the shipped ones. The seeds file is needed: two scenes were replaced after the May first pass, which moved 36 others one place in the name order the chunk seed rule uses |
-| decoder source missions | the C3-v3 on-policy round (22 missions) and the stage-2 recordings (30) | every mission identical to its original. The C3-v2 fresh checks (10 C3 missions): running |
+| decoder source missions | the C3-v3 on-policy round (22 missions), the C3-v2 fresh checks (10) and the stage-2 recordings (30) | every mission identical to its original |
+| decoder contexts | rebuilt from those 62 regenerated missions with their verified replays and the regenerated rest/turn recordings (43,265 rows) | byte-identical to the shipped file |
 
 **v4 harness gates.** With the four in the table above, fresh missions also reproduce exactly: C2 (dev_prelim_off_C2
 prelim 30, the full 480-s budget), C3 (dev_prelim_off_C3 prelim 30), C4 (dev_prelim_off_C4 prelim 30) and the first
@@ -201,20 +202,21 @@ Missions that the original did not evaluate (physical stops) are compared by the
 
 | Experiment | Missions | Identical to the original |
 |---|---:|---|
-| R1 preliminary comparison (v4 harness; recovery on and off) | 332 | running, from the commit with the recovery fixes (e6817fd); the first 13 finished are identical (evening of 12 October) |
+| R1 preliminary comparison (v4 harness; recovery on and off) | 332 | running, from the commit with the recovery fixes (e6817fd); the 201 finished by midday 13 October are all identical |
 | R3 forecast sensitivity and margins (v4 harness) | 500 | 500 |
 | R4 reserve-exit v2 | 100 | 100 |
-| R5 dynamics stage 1 | 120 | 119; the last one (C3, uniform friction 0.30, prelim 48) is being rerun |
+| R5 dynamics stage 1 | 120 | 120 |
 | R6 dynamics stage 2 | 150 | 150 |
-| decoder sources | 32 | the C3-v3 round 22 of 22; of the ten C3-v2 fresh checks, the first two are identical and eight are running |
+| decoder sources (the C3-v3 round and the C3-v2 fresh checks) | 32 | 32 |
 
 40 of these missions first stopped at a branch not yet ported and were rerun after its port (earlier attempts are kept
 as `runs/<assignment>.attempt<N>`). The original `margin_c4_nominal` cohort of R3 was never run (it was relaunched as
 `margin_c4_nominal_b`), so the R3 config has 23 cohorts.
 
-**End-to-end run** (regenerated data, then the chain, then the maze test): the data stage is done (table above);
-the decoder contexts, the chain trained on the regenerated frames and its C3 maze test follow once the C3-v2 fresh
-checks finish (`outputs/run_e2e_stages_bcd.sh`).
+**End-to-end run** (regenerated data, then the chain, then the maze test): the data stage is done. Every training
+file regenerated from this repository alone (T1's rows, the seven sample files and the decoder contexts) is
+byte-identical to the shipped one. The chain is training on the regenerated T1 frames (13 October); its C3 maze test
+follows (`outputs/run_e2e_stages_bcd.sh`).
 
 ## Retrained chain (7 October 2026): T1-T8 from scratch with the original seeds
 
