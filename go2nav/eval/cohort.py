@@ -2,6 +2,7 @@
 
     python -m go2nav.eval.cohort configs/experiments/r4_reserve_exit_v2.yaml [--cohort NAME] [--workers 4] [--out outputs/cohorts]
     python -m go2nav.eval.cohort configs/experiments/r4_reserve_exit_v2.yaml --retry ASSIGNMENT [...]
+    python -m go2nav.eval.cohort configs/experiments/r4_reserve_exit_v2.yaml --resume
     python -m go2nav.eval.cohort --summarise outputs/cohorts/rexit2_ref [...]
     python -m go2nav.eval.cohort --rebuild outputs/cohorts/rexit2_ref
 
@@ -15,6 +16,9 @@ registered pose jumped beyond the robot's physical limits, so recovery cannot hi
 Folder: <out>/<cohort>/{config.json, result.json, summary.md, logs/}, missions in <out>/<cohort>/runs/<assignment>.
 `--retry` reruns listed missions of a finished cohort (e.g. ones stopped by an infrastructure fault); each previous
 attempt is kept beside the new one as runs/<assignment>.attempt<N> (and its log), and the tables are rewritten.
+`--resume` continues an interrupted experiment: finished cohorts are skipped; in an interrupted one (a folder without
+result.json) the finished missions are kept (and evaluated if they were not), unfinished ones are set aside as attempts
+and rerun with the missions not yet started.
 `--rebuild` re-reads every mission of a cohort folder and rewrites result.json and summary.md.
 """
 import argparse
@@ -123,10 +127,33 @@ def mission_row(run, assignment, arm, code=None):
 
 # -- running ----------------------------------------------------------------------------------------------------------
 
-def run_cohort(cohort, out, *, workers=4, c3_lanes=2, retry=None):
+def set_aside(root, assignment):
+    """Keep a previous attempt of a mission as runs/<assignment>.attempt<N> (and its log)."""
+    n = 1
+    while (root/'runs'/f'{assignment}.attempt{n}').exists():
+        n += 1
+    for path in (root/'runs'/assignment, root/'logs'/f'{assignment}.log'):
+        if path.exists():
+            path.rename(path.with_name(f'{assignment}.attempt{n}{path.suffix}'))
+
+
+def run_cohort(cohort, out, *, workers=4, c3_lanes=2, retry=None, resume=False):
     root = Path(out)/cohort['name']
     plan = jobs(cohort)
-    if retry is None:
+    if resume and root.exists():
+        if json.loads((root/'config.json').read_text())['plan'] != [list(j) for j in plan]:
+            raise ValueError(f'{root} was run with another plan')
+        rows, pending = {}, []
+        for job in plan:
+            run = root/'runs'/job[4]
+            if (run/'result.json').exists():
+                if not (run/'episode_evaluation.json').exists():
+                    subprocess.run([sys.executable, '-m', 'go2nav.eval.episode', str(run)], check=True)
+                rows[job[4]] = mission_row(run, job[4], job[0])
+            else:
+                set_aside(root, job[4])
+                pending.append(job)
+    elif retry is None:
         (root/'logs').mkdir(parents=True, exist_ok=False)
         (root/'runs').mkdir()
         (root/'config.json').write_text(json.dumps(dict(cohort=cohort, plan=plan), indent=1)+'\n')
@@ -135,12 +162,7 @@ def run_cohort(cohort, out, *, workers=4, c3_lanes=2, retry=None):
         rows = {r['assignment']: r for r in json.loads((root/'result.json').read_text())['rows']}
         pending = [j for j in plan if j[4] in retry]
         for assignment in (j[4] for j in pending):
-            n = 1
-            while (root/'runs'/f'{assignment}.attempt{n}').exists():
-                n += 1
-            for path in (root/'runs'/assignment, root/'logs'/f'{assignment}.log'):
-                if path.exists():
-                    path.rename(path.with_name(f'{assignment}.attempt{n}{path.suffix}'))
+            set_aside(root, assignment)
     running, lock = {}, threading.Lock()
 
     def attempt(arm, set_name, maze, episode, assignment):
@@ -237,6 +259,7 @@ def main():
     p.add_argument('--workers', type=int, default=4)
     p.add_argument('--c3-lanes', type=int, default=2)
     p.add_argument('--retry', nargs='+', metavar='ASSIGNMENT', help='rerun these missions of finished cohorts')
+    p.add_argument('--resume', action='store_true', help='continue an interrupted experiment')
     p.add_argument('--summarise', nargs='+', type=Path, help='print the tables of finished cohort folders')
     p.add_argument('--rebuild', type=Path, help='re-read a cohort folder and rewrite its result and tables')
     a = p.parse_args()
@@ -253,7 +276,10 @@ def main():
             continue
         if a.retry and not any(j[4] in a.retry for j in jobs(cohort)):
             continue
-        run_cohort(cohort, a.out, workers=a.workers, c3_lanes=a.c3_lanes, retry=a.retry)
+        if a.resume and (a.out/cohort['name']/'result.json').exists():
+            print(f"{cohort['name']}: finished", flush=True)
+            continue
+        run_cohort(cohort, a.out, workers=a.workers, c3_lanes=a.c3_lanes, retry=a.retry, resume=a.resume)
 
 
 if __name__ == '__main__':
