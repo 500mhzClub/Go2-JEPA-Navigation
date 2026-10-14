@@ -50,10 +50,148 @@ planning, safety vetoes, and an optional recovery layer. Only the motion forecas
 | `env` | the locked ROCm environment and the corpus render environment |
 | `tools/porting` | the porting gates against the original programme (replay, mission, evaluation and cohort checks) |
 
-## Reproducing
+## Getting started
 
-[docs/REPRODUCE.md](docs/REPRODUCE.md) gives every stage's command, from mazes and the locomotion policy to the
-corpus, the learned chain (T1-T8, with seeds), the missions and the comparisons, and what each was checked against.
+The pipeline runs in five stages: mazes → locomotion policy → training data → learned models → navigation benchmarks.
+Commands run from the repository root, in the main environment, with `PYTHONPATH=.`. Long stages resume where they
+stopped. [docs/REPRODUCE.md](docs/REPRODUCE.md) has the detail of each stage and how it was checked against the
+original programme.
+
+### 0. Set up
+
+```bash
+git clone https://github.com/500mhzClub/Go2-JEPA-Navigation.git && cd Go2-JEPA-Navigation
+env/setup_rocm_env.sh .venv && source .venv/bin/activate   # ROCm 7.2, torch 2.12, Genesis 0.4.6 (CPU physics)
+env/setup_render_env.sh .venv-render                         # only for rendering T1's corpus (Genesis 0.3.14, Vulkan)
+export PYTHONPATH=.
+python artifacts/fetch.py vjepa                              # V-JEPA 2.1 ViT-L weights (5.2 GB) and source
+```
+
+> **Artefacts.** The pipeline reads trained checkpoints from the go2nav cache (`$GO2NAV_CACHE`, default
+> `~/.cache/go2nav`), and training lists and samples from `data/training/`. Both are listed in `artifacts/manifest.yaml`.
+> Their hosted download is not published yet. Until it is:
+> - a fresh clone can generate the mazes, train the locomotion policy, and run C0 and C2 missions on that policy;
+> - the data collectors drive the robot with the shipped policy (`go2_locomotion_policy` in the cache);
+> - the decoder-source missions (step 3) run shipped models, including the earlier C3-v2 decoder;
+> - T1 trains on a fixed scene and row selection (`data/training/t1_temporal/`).
+
+### 1. Mazes
+
+```bash
+python -m go2nav.mazes.cli configs/mazes/capability_v1.yaml --out outputs/mazes   # dev_tune, validation, prelim_test_v1
+python -m go2nav.mazes.cli configs/mazes/stage2_sets_v1.yaml --out outputs/mazes  # also c3v2_sets_v1, c3v3_sets_v1
+```
+
+The registered sets that missions use ship in `data/mazes`, and regenerating them reproduces their files byte for byte.
+A config for a new set lists the maze graphs it must not repeat (`exclude:`); include
+`data/mazes/registries/built_graphs_2026-10-06.json` and any set built since.
+
+### 2. Locomotion policy (PPO, rsl-rl)
+
+```bash
+python -m go2nav.locomotion.train --out outputs/locomotion/seed11 --seed 11       # about 8 min on one GPU
+python -m go2nav.locomotion.benchmark outputs/locomotion/seed11/model_500.pt --out outputs/locomotion/seed11.json
+python -m go2nav.locomotion.benchmark ~/.cache/go2nav/go2_locomotion_policy/model_500.pt --out outputs/locomotion/shipped.json
+python -m go2nav.locomotion.benchmark --compare outputs/locomotion/shipped.json outputs/locomotion/seed11.json
+```
+
+The benchmark measures how well a policy tracks each velocity command. The training defaults reproduce the shipped
+policy's run (seed 11, 4,096 environments, 501 iterations); other seeds give a seed chain. Missions take the new policy
+through a models file, a YAML map from artefact name to checkpoint (step 5):
+`go2_locomotion_policy: outputs/locomotion/seed11/model_500.pt`.
+
+### 3. Training data
+
+The recordings drive the robot through fixed command tapes in the training mazes. Some of these stages take hours;
+see the resource notes at the end.
+
+```bash
+# Recordings for T2-T8 and C1: 428 trials in nine collections
+python -m go2nav.data.recordings outputs/recordings --workers 8
+
+# Missions whose replays also train the decoder: the C3-v3 on-policy round, the C3-v2 checks, the stage-2 recordings
+python -m go2nav.eval.cohort configs/experiments/decoder_sources.yaml --out outputs/cohorts
+python -m go2nav.eval.cohort configs/experiments/r6_dynamics_stage2.yaml --cohort s2rec2 --out outputs/cohorts
+python -m go2nav.data.mission_sources outputs/recordings --cohorts outputs/cohorts
+
+# Training samples (every file of data/training except T1's)
+python -m go2nav.data.samples all --recordings-root outputs/recordings --out data/training
+
+# T1's data, from the May bulk-rollout corpus: its 80 scenes and 18,101 rendered frames
+python -m go2nav.corpus.build outputs/corpus
+python -m go2nav.corpus.datagen rollout outputs/corpus outputs/datagen \
+    --scenes data/training/t1_temporal/frames.txt --seeds data/corpus/may_2026_rollout_seeds.json
+python -m go2nav.data.t1_rows outputs/datagen --out outputs/t1_rows.jsonl   # equals data/training/t1_temporal/rows.jsonl
+python -m go2nav.corpus.datagen render outputs/corpus outputs/datagen --render-python .venv-render/bin/python \
+    --textures --frames-list data/training/t1_temporal/frames.txt
+```
+
+`--egl-device` picks the render GPU (default 1). Without `--scenes` and `--frames-list`, `datagen` builds the whole
+corpus: 1,450 scenes × 48 robots, 69.6 M frames, about 400 GB.
+
+### 4. Learned models
+
+One command retrains every learned component in order, resumably, and writes `outputs/chain/models.yaml`:
+
+```bash
+python -m go2nav.training.chain outputs/chain --render-root outputs/datagen/render \
+    --recordings-root outputs/recordings [--seed-offset K]
+```
+
+| Stage | Module | Trains | Used by |
+|---|---|---|---|
+| T1 | `t1_temporal` | temporal action-conditioned predictor over frozen V-JEPA features (May corpus) | starts T2 |
+| T2 → T3 → T4 | `native_predictor` | adaptation to the Go2's own camera, balanced starts, the horizon-conditioned predictor | **C3** (T4) |
+| T5-0 → T5a → T5b | `readouts` | the motion readout: body motion between a frame and a future frame (T5a adds full-heading turns, T5b maze views) | C3, C4 (T5b) |
+| T7 | `decoder` | the C3 decoder (reads motion from predicted features) and the matched C4 head (features straight to motion); three seeds, the median kept | **C3**, **C4** |
+| T8 | `decoder` | the stage-2 refit of T7 with decisions near low-friction strips | not deployed (it failed its no-loss check away from the strips); `--decoder-fit t8_stage2_c3_c4_refit` loads it |
+| T6 | `command_model` | the C1 command-history ridge model (closed form) | **C1** |
+
+C0 (oracle) and C2 (reactive) have nothing to train. With `--seed-offset 0` every stage uses its original seed, and
+other offsets give independent seed chains. Each stage also runs on its own
+(`python -m go2nav.training.<module> --help`), and each writes a lineage file with its seed, parents and data.
+
+### 5. Navigation benchmarks and evaluation
+
+One mission: the robot must find a beacon from a goal image, then return home.
+
+```bash
+python -m go2nav.eval.mission --arm C3 --set prelim_test_v1 --maze 30 --out outputs/runs/C3_30 \
+    [--recovery on] [--models outputs/chain/models.yaml]
+python -m go2nav.eval.episode outputs/runs/C3_30       # writes episode_evaluation.json
+python -m go2nav.eval.video outputs/runs/C3_30 outputs/videos/C3_30
+```
+
+The episode evaluation gives round-trip, beacon and home success, SPL, contacts, clearance violations, minimum clearance
+and a stall and failure taxonomy. `--arm` takes C0–C4 or the development variants C1A and C1R. Other mission options
+are degraded forecasts (`--degrade`), low friction (`--friction`, `--strips`), clearance margins and the earlier v4
+harness; `--help` lists them all.
+
+Each comparison is one experiment config. Running it evaluates every mission and writes `result.json` and
+`summary.md` per cohort:
+
+```bash
+python -m go2nav.eval.cohort configs/experiments/r4_reserve_exit_v2.yaml --workers 8 --out outputs/cohorts
+python -m go2nav.eval.cohort --summarise outputs/cohorts/rexit2_ref    # the tables again
+```
+
+| Config | Missions | Comparison |
+|---|---:|---|
+| `r1_preliminary_comparison` | 332 | all controllers on the preliminary test mazes, recovery on and off (v4 harness) |
+| `r3_sensitivity_and_margins` | 500 | degraded forecasts and calibrated clearance margins (v4 harness) |
+| `r4_reserve_exit_v2` | 100 | the controllers under the final reserve-exit v2 harness |
+| `r5_dynamics_stage1` | 120 | uniform low floor friction, zero-shot |
+| `r6_dynamics_stage2` | 150 | marked low-friction strips |
+| `retrained_chain`, `retrained_locomotion`, `e2e_chain` | 40-60 | shipped vs retrained models or policy |
+
+A cohort runs on retrained models with `models: outputs/chain/models.yaml`. `--resume` continues an interrupted
+experiment, and `--retry ASSIGNMENT` reruns single missions.
+
+**Resource notes:**
+- Physics runs on the CPU and is deterministic: rerun with the same models, a mission reproduces its earlier run.
+- C3 and C4 use the GPU for the encoder. A C3 mission takes about 30 minutes, and `--c3-lanes` caps how many run at
+  once (keep it at 4 or fewer on one GPU).
+- The full chain takes about a day on one AMD R9700 GPU, and its T7 cache needs about 63 GB of disk.
 
 ## Platform
 

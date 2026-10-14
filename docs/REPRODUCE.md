@@ -48,7 +48,11 @@ The retrained policy was accepted against the shipped one (`docs/validation/loco
 
 ## 4. Training recordings and samples (T2-T8 data)
 
-Fixed-tape collections, one case per process:
+All collections at once (resumable; 428 trials in the layout the sample builders and the chain read):
+
+    python -m go2nav.data.recordings ROOT [--collection NAME ...] [--workers 8]
+
+or one case per process:
 
     python -m go2nav.data.corridor COLLECTION TRIAL OUT_DIR   # geometry_progress_family, switch_family, short_pulse,
                                                               # balanced_start, balanced_start_horizon
@@ -65,6 +69,10 @@ The decoder contexts also use mission runs, with frames from their verified repl
 - the stage-2 recordings (cohort `s2rec2` in `configs/experiments/r6_dynamics_stage2.yaml`).
 
 Missions are deterministic: rerun missions are identical to the original runs (gate G4).
+
+    python -m go2nav.eval.cohort configs/experiments/decoder_sources.yaml --out outputs/cohorts
+    python -m go2nav.eval.cohort configs/experiments/r6_dynamics_stage2.yaml --cohort s2rec2 --out outputs/cohorts
+    python -m go2nav.data.mission_sources ROOT --cohorts outputs/cohorts   # links the runs into ROOT, with replays
 
     python -m go2nav.data.samples all --recordings-root ROOT [--recordings-root ROOT ...] --out data/training
 
