@@ -22,9 +22,9 @@ home, from onboard RGB-D only.
 All controllers share one harness, the reserve-exit-v2 navigation stack: RGB-D tracking, an occupancy map, route
 planning, safety vetoes, and an optional recovery layer. Only the motion forecast differs.
 
-> **Status: under construction.** This is the consolidation of the LeWMQuad-v3 development programme into a clean,
-> reproducible artefact. Code is being ported module by module. Every port is gated against a frozen reproduction
-> snapshot of the original code, by exact replay of logged missions and exact reproduction of logged fits. See
+> **Status:** the LeWMQuad-v3 development programme is consolidated here as a clean, reproducible artefact. Every
+> port was gated against a frozen snapshot of the original code: rerun missions and experiments reproduce the original
+> runs exactly, and every component retrains from scratch with its seed. See
 > [docs/MIGRATION_STATUS.md](docs/MIGRATION_STATUS.md). All results so far are **preliminary** (development mode).
 
 ## What is here
@@ -59,3 +59,8 @@ corpus, the learned chain (T1-T8, with seeds), the missions and the comparisons,
 
 AMD ROCm 7.2, torch 2.12, Genesis 0.4.6, Python 3.12. See [env/](env/). CPU physics is deterministic, and logged
 missions replay bit-exactly.
+
+## Licence
+
+Apache License 2.0: [LICENSE](LICENSE) and [NOTICE](NOTICE). Third-party components (Genesis, the Go2 model, rsl-rl,
+the V-JEPA 2.1 encoder, CC0 textures) are listed with their terms in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

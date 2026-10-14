@@ -5,6 +5,11 @@ This repository consolidates the navigation-capability programme of LeWMQuad-v3
 `docs/go2_research_artifact_migration_plan_2026-10-06.md` in that repository. This file records progress and is the place
 to resume from.
 
+**Migration complete (14 October 2026, Andrew).** Every pipeline stage is ported and gated: rerun missions and
+experiments reproduce the original runs exactly, every training file regenerates byte for byte, and the chain retrained
+end to end from regenerated data drives the mazes as well as the shipped models. Open for later: paper tables and figures, Hugging Face hosting
+of checkpoints and data, multi-seed retraining, and the full seed chain on the retrained locomotion policy.
+
 ## Decisions (Andrew, 6 October 2026)
 
 - **Port all of it:**
@@ -15,8 +20,8 @@ to resume from.
   - inference for each controller type (C0–C4, plus the C1A and C1R development variants);
   - every experiment that compares the controllers.
 - **Public repository,** named Go2-JEPA-Navigation. Pushed to `github.com/500mhzClub/Go2-JEPA-Navigation` with its
-  full history on Andrew's instruction. Still for Andrew's review before it is announced: licences (V-JEPA 2.1
-  weights, Go2 URDF) and the legacy role label (see "Release").
+  full history on Andrew's instruction. Licensed Apache-2.0 (14 October); third-party terms in
+  `THIRD_PARTY_NOTICES.md`.
 - **Ship checkpoints with their lineage, and the code to retrain each component from scratch with a seed.** Multi-seed
   full-chain retraining comes later, for publication.
 - **ROCm** (7.2, torch 2.12, Genesis 0.4.6).
@@ -90,11 +95,11 @@ to resume from.
 
 | Item | Status |
 |---|---|
-| artefact hosting (Hugging Face Hub: checkpoints, maze sets, training data, result summaries) | todo |
+| artefact hosting (Hugging Face Hub: checkpoints, maze sets, training data, result summaries) | deferred (Andrew, 14 October) |
 | paper tables and figures from result files | todo |
-| licences and pre-publication review (Andrew) | todo; draft `THIRD_PARTY_NOTICES.md` (Genesis-derived locomotion environment, rsl-rl, V-JEPA 2.1 weights terms to confirm, CC0 textures); no checkpoint contains encoder weights (largest: 17.2 M parameters) |
+| licences | **done** (14 October): Apache-2.0 (`LICENSE`, `NOTICE`; `go2nav/locomotion/env.py` is a modified port of Genesis's Apache-2.0 Go2 example). `THIRD_PARTY_NOTICES.md`: Genesis, the Go2 model (loaded from the Genesis package, not redistributed), rsl-rl, CC0 textures, and V-JEPA 2.1, whose weights are the official checkpoint linked from the MIT-licensed vjepa2 repository, which states no separate terms for them (not re-hosted). No checkpoint contains encoder weights (largest: 17.2 M parameters) |
 | machine paths | none in tracked files (custody test); the git history before commit 8fde314 has absolute paths and the username, and was pushed as it is (Andrew's choice) |
-| legacy role label (for Andrew's review) | the 181 files of `data/mazes/prelim_test_v1` carry `role`/`data_role` `"sealed_test"` from before the 1 October declassification, and episode records of runs on them inherit it; the files are byte-bound to the maze-regeneration gate, so the choice is to keep the label with a note or relabel to `prelim_test` and re-bind | open |
+| legacy role label | **done** (14 October): kept. The 181 files of `data/mazes/prelim_test_v1` keep `role`/`data_role` `"sealed_test"`, so the set regenerates byte for byte and original run records still match; `data/mazes/prelim_test_v1/README.md` states that the name is historical and that the rigorous-phase test set is not in this repository |
 
 ## Gate G4 (7 October 2026): fresh closed-loop missions, clean repository vs original runs
 

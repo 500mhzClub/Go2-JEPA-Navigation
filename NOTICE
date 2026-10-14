@@ -1,0 +1,12 @@
+Go2-JEPA-Navigation
+Copyright 2026 the Go2-JEPA-Navigation authors
+
+Licensed under the Apache License, Version 2.0 (LICENSE).
+
+This product includes software derived from Genesis (https://github.com/Genesis-Embodied-AI/Genesis), licensed under
+the Apache License, Version 2.0: go2nav/locomotion/env.py is a modified port of examples/locomotion/go2_env.py; the
+change is stated in that module's docstring.
+
+The textures in assets/textures are from ambientCG (https://ambientcg.com), released under CC0 1.0.
+
+Third-party components that are used but not distributed here are listed in THIRD_PARTY_NOTICES.md.
