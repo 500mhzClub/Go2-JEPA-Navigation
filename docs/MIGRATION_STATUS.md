@@ -202,12 +202,17 @@ Missions that the original did not evaluate (physical stops) are compared by the
 
 | Experiment | Missions | Identical to the original |
 |---|---:|---|
-| R1 preliminary comparison (v4 harness; recovery on and off) | 332 | running, from the commit with the recovery fixes (e6817fd); the 201 finished by midday 13 October are all identical |
+| R1 preliminary comparison (v4 harness; recovery on and off) | 332 | 332 |
 | R3 forecast sensitivity and margins (v4 harness) | 500 | 500 |
 | R4 reserve-exit v2 | 100 | 100 |
 | R5 dynamics stage 1 | 120 | 120 |
 | R6 dynamics stage 2 | 150 | 150 |
 | decoder sources (the C3-v3 round and the C3-v2 fresh checks) | 32 | 32 |
+
+R1 as rerun (preliminary; the original's figures, reproduced exactly): recovery on, prelim 33-89, round trips C1 56/57,
+C2 57/57, C3 57/57, C4 56/57, C0 7/7; recovery off, prelim 30-49, C1 20/20, C2 11/20, C3 19/20, C4 20/20; the trial and
+maze-55 missions all round trips. No contact samples and no hard-clearance samples in any of the 332; minimum clearance
+0.022 m (C3, recovery on).
 
 40 of these missions first stopped at a branch not yet ported and were rerun after its port (earlier attempts are kept
 as `runs/<assignment>.attempt<N>`). The original `margin_c4_nominal` cohort of R3 was never run (it was relaunched as
