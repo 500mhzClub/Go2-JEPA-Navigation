@@ -227,8 +227,13 @@ records like the first retrain:
 | T8 stage-2 C3 (mm) | 9.868 | 9.821 | 10.370 |
 
 The same median seed is chosen each time. C4 differs end to end (its training frames include the re-rendered
-short-pulse frames). The maze test on the end-to-end models (C3 and C4, prelim 30-49; `configs/experiments/e2e_chain.yaml`)
-is running.
+short-pulse frames). Maze test on the end-to-end models (prelim 30-49, recovery off, reserve-exit v2 harness, one
+seed; `configs/experiments/e2e_chain.yaml`):
+
+| Arm | Shipped models: round trips, contact samples, hard-clearance samples, minimum clearance, median outbound SPL | End-to-end models |
+|---|---|---|
+| C4 | 19/20, 0, 0, 0.029 m, 0.811 (R4 rexit2_ref) | 20/20, 0, 0, 0.061 m, 0.813 |
+| C3 | 20/20, 0, 0, 0.091 m, 0.835 (c3_shipped_v2) | running: 10/10 so far, 0 contacts, 0 hard, 0.081 m |
 
 **Interruption (14 October, 05:03).** A memory-heavy comparison started from this session's tool shell (two whole
 feature caches read into memory, 78 GB) was killed by the kernel, and systemd then stopped that shell's scope, which
