@@ -27,6 +27,7 @@ import json
 import math
 from pathlib import Path
 import shutil
+import statistics
 import subprocess
 import sys
 import threading
@@ -237,17 +238,17 @@ def tables(rows):
     by = defaultdict(list)
     for r in rows:
         by[r['controller']].append(r)
-    lines += ['', '| Ctrl | Missions read | Round trips | Beacon | Home | Missions with any recovery | Contacts (samples) | Hard violations (samples) | Min clearance (m) | Median outbound SPL |',
+    lines += ['', '| Ctrl | Missions read | Round trips | Beacon | Home | Missions with any recovery | Contacts (samples) | Hard violations (samples) | Min clearance (m) | Median outbound SPL (all missions read) |',
               '|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|']
     for ctrl, rs in sorted(by.items()):
         read = [r for r in rs if r.get('round_trip') is not None]
         helped = sum(1 for r in rs if r.get('latch_timeouts') or r.get('reactive_escapes') or r.get('terminal_spin_breaks'))
         clearances = [r['min_clearance_m'] for r in read if r.get('min_clearance_m') is not None]
-        spl = sorted(r['outbound_spl'] for r in read)
+        spl = [r['outbound_spl'] for r in read]
         lines.append(f"| {ctrl} | {len(read)} | {sum(bool(r['round_trip']) for r in read)} | {sum(bool(r['beacon']) for r in read)} "
                      f"| {sum(bool(r['home']) for r in read)} | {helped} | {sum(r.get('contacts') or 0 for r in read)} "
                      f"| {sum(r.get('hard') or 0 for r in read)} | {fmt(min(clearances) if clearances else None)} "
-                     f"| {fmt(spl[len(spl)//2] if spl else None)} |")
+                     f"| {fmt(statistics.median(spl) if spl else None)} |")
     return '\n'.join(lines)
 
 

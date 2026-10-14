@@ -237,8 +237,8 @@ seed; `configs/experiments/e2e_chain.yaml`):
 
 | Arm | Shipped models: round trips, contact samples, hard-clearance samples, minimum clearance, median outbound SPL | End-to-end models |
 |---|---|---|
-| C4 | 19/20, 0, 0, 0.029 m, 0.811 (R4 rexit2_ref) | 20/20, 0, 0, 0.061 m, 0.813 |
-| C3 | 20/20, 0, 0, 0.091 m, 0.835 (c3_shipped_v2) | 20/20, 0, 0, 0.064 m, 0.832 |
+| C4 | 19/20, 0, 0, 0.029 m, 0.796 (R4 rexit2_ref) | 20/20, 0, 0, 0.061 m, 0.801 |
+| C3 | 20/20, 0, 0, 0.091 m, 0.829 (c3_shipped_v2) | 20/20, 0, 0, 0.064 m, 0.828 |
 
 Mazes 39 and 40, which used up the step budget holding on the first retrain's models, are round trips here.
 
@@ -249,6 +249,9 @@ the committed `data/training/` files (each regenerated here byte-identical, but 
 `control_norm_stats.json` was carried over, not regenerated); the robot walks on the shipped locomotion policy (the
 retrained policy is tested separately above); the V-JEPA encoder is frozen third-party weights. Re-collecting the
 recordings with the retrained policy and retraining the chain on them is the full seed chain, not yet run.
+
+Median outbound SPL, in every closed-loop table of this document: the median, over every mission read (failed ones included), of the mission's
+outbound SPL from its evaluation (`go2nav.eval.cohort` tables; corrected 14 October from the upper middle value).
 
 **Interruption (14 October, 05:03).** A memory-heavy comparison started from this session's tool shell (two whole
 feature caches read into memory, 78 GB) was killed by the kernel, and systemd then stopped that shell's scope, which
@@ -279,10 +282,10 @@ So only C3 changes with the retrained chain.
 
 | Arm | Component retrained | Shipped: round trips, contact samples, hard-clearance samples, minimum clearance, median outbound SPL | Retrained |
 |---|---|---|---|
-| C3 | the learned chain (T1-T8) | 20/20, 0, 0, 0.091 m, 0.835 | 18/20, 0, 0, 0.083 m, 0.829 (mazes 39 and 40 used up the step budget holding) |
-| C1 | locomotion policy (seed 11) | 20/20, 0, 0, 0.075 m, 0.832 | 17/20, 1, 1,969, -0.005 m, 0.786 (maze 32 stopped on a contact) |
-| C2 | locomotion policy | 15/20, 1, 18, -0.000 m, 0.788 | 20/20, 0, 0, 0.017 m, 0.768 |
-| C4 | locomotion policy | 19/20, 0, 0, 0.029 m, 0.811 | 19/20, 1, 28, -0.000 m, 0.802 (maze 44 stopped on a contact) |
+| C3 | the learned chain (T1-T8) | 20/20, 0, 0, 0.091 m, 0.829 | 18/20, 0, 0, 0.083 m, 0.824 (mazes 39 and 40 used up the step budget holding) |
+| C1 | locomotion policy (seed 11) | 20/20, 0, 0, 0.075 m, 0.832 | 17/20, 1, 1,969, -0.005 m, 0.779 (maze 32 stopped on a contact) |
+| C2 | locomotion policy | 15/20, 1, 18, -0.000 m, 0.776 | 20/20, 0, 0, 0.017 m, 0.764 |
+| C4 | locomotion policy | 19/20, 0, 0, 0.029 m, 0.796 | 19/20, 1, 28, -0.000 m, 0.781 (maze 44 stopped on a contact) |
 
 The shipped C1 command model and the learned arms' training data describe the shipped policy's response; with another
 policy they are used unchanged here. Retraining them on the new policy's response is the full seed chain, not yet run.
