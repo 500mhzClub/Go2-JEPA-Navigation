@@ -213,10 +213,28 @@ Missions that the original did not evaluate (physical stops) are compared by the
 as `runs/<assignment>.attempt<N>`). The original `margin_c4_nominal` cohort of R3 was never run (it was relaunched as
 `margin_c4_nominal_b`), so the R3 config has 23 cohorts.
 
-**End-to-end run** (regenerated data, then the chain, then the maze test): the data stage is done. Every training
-file regenerated from this repository alone (T1's rows, the seven sample files and the decoder contexts) is
-byte-identical to the shipped one. The chain is training on the regenerated T1 frames (13 October); its C3 maze test
-follows (`outputs/run_e2e_stages_bcd.sh`).
+**End-to-end run** (regenerated data, then the chain, then the maze test). Every training file regenerated from
+this repository alone (T1's rows, the seven sample files and the decoder contexts) is byte-identical to the shipped
+one. The chain retrained from the regenerated frames (13 October; new encoder features, original seeds) lands on the
+records like the first retrain:
+
+| Stage | Original record | First retrain (original frames) | End-to-end (regenerated frames) |
+|---|---|---|---|
+| T1 e1 | about 0.324 | 0.326 | 0.326 |
+| T2 / T4 final L1 | 0.228 / about 0.240 | 0.2279 / 0.2405 | 0.2253 / 0.2465 |
+| T7 C3, 3 seeds (mm) | 9.014 / **8.509** / 7.990 | 11.812 / **8.936** / 8.896 | 9.980 / **8.565** / 7.615 |
+| T7 C4 (median seed, mm) | 5.023 | 5.023 (bit-identical) | 4.834 |
+| T8 stage-2 C3 (mm) | 9.868 | 9.821 | 10.370 |
+
+The same median seed is chosen each time. C4 differs end to end (its training frames include the re-rendered
+short-pulse frames). The maze test on the end-to-end models (C3 and C4, prelim 30-49; `configs/experiments/e2e_chain.yaml`)
+is running.
+
+**Interruption (14 October, 05:03).** A memory-heavy comparison started from this session's tool shell (two whole
+feature caches read into memory, 78 GB) was killed by the kernel, and systemd then stopped that shell's scope, which
+held the R1 runners and the end-to-end maze test. Nothing finished was lost; both were resumed with
+`python -m go2nav.eval.cohort ... --resume` (new: keeps finished missions, sets aside unfinished ones as attempts),
+now as their own systemd user services so a tool-shell failure cannot stop them.
 
 ## Retrained chain (7 October 2026): T1-T8 from scratch with the original seeds
 
