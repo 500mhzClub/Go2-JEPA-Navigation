@@ -233,7 +233,17 @@ seed; `configs/experiments/e2e_chain.yaml`):
 | Arm | Shipped models: round trips, contact samples, hard-clearance samples, minimum clearance, median outbound SPL | End-to-end models |
 |---|---|---|
 | C4 | 19/20, 0, 0, 0.029 m, 0.811 (R4 rexit2_ref) | 20/20, 0, 0, 0.061 m, 0.813 |
-| C3 | 20/20, 0, 0, 0.091 m, 0.835 (c3_shipped_v2) | running: 10/10 so far, 0 contacts, 0 hard, 0.081 m |
+| C3 | 20/20, 0, 0, 0.091 m, 0.835 (c3_shipped_v2) | 20/20, 0, 0, 0.064 m, 0.832 |
+
+Mazes 39 and 40, which used up the step budget holding on the first retrain's models, are round trips here.
+
+What the end-to-end run takes from this repository: all code; T1's frames (rolled out and rendered here, the three
+re-seeded scenes included); every recording (the 428 collection trials and the 62 decoder-source missions); the
+encoder features, the decoder cache and every model. What it does not: the chain reads its row and sample lists from
+the committed `data/training/` files (each regenerated here byte-identical, but the chain read the committed copy;
+`control_norm_stats.json` was carried over, not regenerated); the robot walks on the shipped locomotion policy (the
+retrained policy is tested separately above); the V-JEPA encoder is frozen third-party weights. Re-collecting the
+recordings with the retrained policy and retraining the chain on them is the full seed chain, not yet run.
 
 **Interruption (14 October, 05:03).** A memory-heavy comparison started from this session's tool shell (two whole
 feature caches read into memory, 78 GB) was killed by the kernel, and systemd then stopped that shell's scope, which
