@@ -14,11 +14,15 @@ An **episode** is a home pose and a beacon position in one layout, chosen from a
 The home heading is then drawn uniformly. Every controller gets identical episodes.
 
 The specification and episode dicts reproduce the registered set files exactly (key order included), so regenerating a
-set with its recorded seeds reproduces its files byte for byte.
+set with its recorded seeds reproduces its files byte for byte. A set on another grid shape (`grid.Shape`; the LeWM
+training sets) records it as `grid_shape` [columns, rows] in each specification; 4 x 4 specifications have no such field.
 """
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 import math
+import multiprocessing
+import os
 import random
 
 import numpy as np
@@ -63,7 +67,8 @@ def identities(links):
                              wall_height_m=grid.WALL_HEIGHT_M)
 
 
-def accepted_layouts(construction_seed, excluded_graphs, rejections, *, maximum_candidates=MAXIMUM_CANDIDATES):
+def accepted_layouts(construction_seed, excluded_graphs, rejections, *, maximum_candidates=MAXIMUM_CANDIDATES,
+                     shape=grid.SQUARE):
     """Yield every layout the acceptance rules admit, in candidate order, as (candidate_index, links, identity).
 
     `excluded_graphs` is a list of {'name', 'edges'} for every earlier maze. Each rejected candidate is appended to
@@ -75,9 +80,9 @@ def accepted_layouts(construction_seed, excluded_graphs, rejections, *, maximum_
     topology, metric = set(), set()
     rng = random.Random(construction_seed)
     for number in range(maximum_candidates):
-        links = grid.random_spanning_tree(rng)
+        links = grid.random_spanning_tree(rng, shape)
         identity = identities(links)
-        route = grid.farthest_route(links)
+        route = grid.farthest_route(links, shape)
         if len(route) < MIN_ROUTE_CELLS or grid.route_turns(route) < MIN_ROUTE_TURNS:
             reason = 'insufficient_declared_route_structure'
         elif identity['abstract_topology_code'] in old_topology:
@@ -99,21 +104,23 @@ def accepted_layouts(construction_seed, excluded_graphs, rejections, *, maximum_
 
 
 def make_spec(index, links, identity, candidate_index, *, seeds, scene_id_prefix, family, role,
-              wall_id_prefix='independent_round_trip_wall', spec_fields=None):
+              wall_id_prefix='independent_round_trip_wall', spec_fields=None, shape=grid.SQUARE):
     """The maze specification (schema v1: the format of every registered set)."""
-    route = grid.farthest_route(links)
+    route = grid.farthest_route(links, shape)
     spec = dict(
         scene_id=f'{scene_id_prefix}-{index:02d}', layout_index=index, family=family, data_role=role,
         procedural_seed=seeds.physics_base+index, appearance_seed=seeds.appearance_base+index,
         appearance_arm='distinctive', friction_mu=1., render_near_m=.005,
         visual_surface_contract='floor_first_variable_height_union_walls',
         geometry=dict(spawn_se2_world=[grid.START[0]*grid.PITCH_M, grid.START[1]*grid.PITCH_M, 0.],
-                      wall_boxes=grid.wall_boxes(links, wall_id_prefix=wall_id_prefix)),
-        evaluation_layout=dict(cells=[list(c) for c in grid.CELLS], edges=[[list(a), list(b)] for a, b in links],
+                      wall_boxes=grid.wall_boxes(links, wall_id_prefix=wall_id_prefix, shape=shape)),
+        evaluation_layout=dict(cells=[list(c) for c in shape.cells], edges=[[list(a), list(b)] for a, b in links],
                                goal_cell=list(route[-1]), shortest_outbound_route=[list(c) for c in route],
                                shortest_outbound_distance_m=(len(route)-1)*grid.PITCH_M, pitch_m=grid.PITCH_M, **identity),
         construction_candidate_index=candidate_index, native_execution=False, final_evaluation=False,
         navigation_qualified=False)
+    if shape != grid.SQUARE:
+        spec['grid_shape'] = [shape.columns, shape.rows]
     return spec | (spec_fields or {})
 
 
@@ -122,13 +129,14 @@ def make_episode(spec, episode_index, *, seeds, rules=EpisodeRules()):
     index = spec['layout_index']
     seed = seeds.episode_base+2*index+episode_index
     rng = random.Random(seed)
-    cells = [list(c) for c in grid.CELLS]
+    shape = grid.Shape(*spec['grid_shape']) if 'grid_shape' in spec else grid.SQUARE
+    cells = [list(c) for c in shape.cells]
     pairs = [(a, b) for a in cells for b in cells if a != b]
     rng.shuffle(pairs)
     walls = walls_from_boxes(spec['geometry']['wall_boxes'])
     for a, b in pairs:
         start, target = np.asarray(a)*grid.PITCH_M, np.asarray(b)*grid.PITCH_M
-        geometry = ReferenceGeometry(walls, grid.WORLD_BOUNDS_XY_M, target, radius_m=rules.inflation_radius_m,
+        geometry = ReferenceGeometry(walls, shape.world_bounds_xy_m, target, radius_m=rules.inflation_radius_m,
                                      clearance_m=rules.additional_clearance_m, resolution_m=rules.grid_resolution_m)
         if float(min(geometry.footprint_clearance(start), geometry.footprint_clearance(target)))+geometry.radius \
                 < rules.min_endpoint_clearance_m:
@@ -154,26 +162,33 @@ def make_episode(spec, episode_index, *, seeds, rules=EpisodeRules()):
     raise ValueError(f'no home/beacon pair satisfies the episode rules in maze {index}')
 
 
+def _episodes(job):
+    spec, indices, seeds = job
+    return [make_episode(spec, e, seeds=seeds) for e in indices]
+
+
 def generate(roles, *, seeds, excluded_graphs, scene_id_prefix, family, qualify=None,
-             maximum_candidates=MAXIMUM_CANDIDATES):
+             maximum_candidates=MAXIMUM_CANDIDATES, shape=grid.SQUARE, workers=None):
     """Generate a set: layouts take roles in index order; each gets its role's episodes.
 
-    Without `qualify`, every accepted layout is used in order. With `qualify(spec, episode) -> bool`, a layout is used
-    only if one of its role's episodes qualifies, and only that first qualifying episode is kept; indices count
-    qualifying layouts only (the stage-2 selection).
+    Without `qualify`, every accepted layout is used in order; the episodes (the slow part: a reference geometry per
+    candidate pair) are built in `workers` processes (default: every core), in layout order, so the result does not
+    depend on the worker count. With `qualify(spec, episode) -> bool`, a layout is used only if one of its role's
+    episodes qualifies, and only that first qualifying episode is kept; indices count qualifying layouts only (the
+    stage-2 selection).
 
     Returns dict(entries=[dict(spec=..., episodes=[...])], candidates_examined, rejection_counts).
     """
     plan = [role for role in roles for _ in range(role.count)]
     entries, rejections = [], []
     for candidate_index, links, identity in accepted_layouts(seeds.construction, excluded_graphs, rejections,
-                                                             maximum_candidates=maximum_candidates):
+                                                             maximum_candidates=maximum_candidates, shape=shape):
         index = len(entries)
         role = plan[index]
         spec = make_spec(index, links, identity, candidate_index, seeds=seeds, scene_id_prefix=scene_id_prefix,
-                         family=family, role=role.name, spec_fields=role.spec_fields)
+                         family=family, role=role.name, spec_fields=role.spec_fields, shape=shape)
         if qualify is None:
-            entries.append(dict(spec=spec, episodes=[make_episode(spec, e, seeds=seeds) for e in role.episodes]))
+            entries.append(dict(spec=spec, episodes=role.episodes))  # episode indices, built below
         else:
             for e in role.episodes:
                 episode = make_episode(spec, e, seeds=seeds)
@@ -184,5 +199,15 @@ def generate(roles, *, seeds, excluded_graphs, scene_id_prefix, family, qualify=
             break
     if len(entries) != len(plan):
         raise ValueError(f'only {len(entries)} of {len(plan)} layouts within {maximum_candidates} candidates')
+    if qualify is None:
+        jobs = [(e['spec'], tuple(e['episodes']), seeds) for e in entries]
+        workers = min(workers or os.cpu_count() or 1, len(jobs))
+        if workers > 1:
+            with ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context('forkserver')) as pool:
+                built = list(pool.map(_episodes, jobs, chunksize=max(1, len(jobs)//(4*workers))))
+        else:
+            built = list(map(_episodes, jobs))
+        for entry, episodes in zip(entries, built):
+            entry['episodes'] = episodes
     return dict(entries=entries, candidates_examined=entries[-1]['spec']['construction_candidate_index']+1,
                 rejection_counts=dict(Counter(r['reason'] for r in rejections)))
