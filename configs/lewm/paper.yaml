@@ -1,0 +1,11 @@
+# The paper-faithful comparison (arXiv 2603.19312, official config): teacher-forced next-embedding loss only and
+# i.i.d. batches of 128 windows. The history stays 4 frames (the paper used 3 on Push-T), so the forecaster interface
+# and the validation are the same as go2.yaml; only the objective and the batching differ.
+name: paper
+seed: 2026101701
+model: {size: tiny, history: 4}
+data: {length: 5, mazes_per_batch: null, windows_per_maze: null, batch_size: 128}
+objective: {rollout_steps: 1, sigreg_weight: 0.09, sigreg_projections: 1024, sigreg_knots: 17, action_blind: false}
+optimiser: {lr: 5.0e-5, weight_decay: 1.0e-3, warmup_steps: 2000, steps: 60000, grad_clip: 1.0}
+runtime: {compile: max-autotune-no-cudagraphs, workers: 10, prefetch: 2, log_every: 100, validate_every: 5000,
+          checkpoint_every: 1000, milestone_every: 10000}
