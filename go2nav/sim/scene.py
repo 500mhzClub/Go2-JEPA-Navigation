@@ -18,7 +18,7 @@ from types import MethodType
 
 import numpy as np
 
-from go2nav.sim import appearance, demo_appearance
+from go2nav.sim import appearance, demo_appearance, random_appearance
 
 PHYSICS_DT_S, POLICY_DT_S, COMMAND_DT_S = .002, .02, .1
 PHYSICS_STEPS_PER_POLICY = 10
@@ -79,17 +79,22 @@ def init_genesis(seed):
     gs.init(backend=gs.cpu, seed=int(seed) & 0x7FFF_FFFF, logging_level='warning')
 
 
-def build(spec, output_dir, dynamics=None, robot_visible=True, demo_textures=False):
+def build(spec, output_dir, dynamics=None, robot_visible=True, demo_textures=False, random_look=None):
     """Build the scene of a maze spec (with the episode's `procedural_seed` and home pose in `geometry.spawn_se2_world`).
     Genesis must already be initialised (`init_genesis`). Visual meshes are written to `output_dir`. `dynamics`
     (`go2nav.sim.dynamics.Dynamics`): marked strips are tinted on the floor, and a uniform friction replaces the
     episode's after the build. `robot_visible=False` builds the robot without visual geometry (the older corridor
     collections rendered only the floor and walls). `demo_textures` draws the demonstration brick and parquet surfaces
-    (`go2nav.sim.demo_appearance`) instead of the maze's appearance arm."""
+    (`go2nav.sim.demo_appearance`) instead of the maze's appearance arm. `random_look` (a `random_appearance.sample`
+    record; the LeWM corpus's free units only) draws its surfaces and lighting instead."""
     import genesis as gs
     from go2nav.sim.dynamics import tint_floor
     boxes = spec['geometry']['wall_boxes']
-    if demo_textures:
+    if random_look is not None:
+        if dynamics is not None and dynamics.marked:
+            raise ValueError('marked strips are drawn on the standard floor only')
+        meshes = random_appearance.surfaces(boxes, random_look)
+    elif demo_textures:
         if dynamics is not None and dynamics.marked:
             raise ValueError('marked strips are drawn on the standard floor only')
         meshes = demo_appearance.surfaces(boxes)
@@ -101,8 +106,9 @@ def build(spec, output_dir, dynamics=None, robot_visible=True, demo_textures=Fal
             raise ValueError('marked strips tint no floor cell')
         meshes[0] = (meshes[0][0], floor_mesh)
     spawn_xyz, spawn_wxyz = spawn_pose(spec['geometry']['spawn_se2_world'])
+    lighting = dict(vis_options=random_appearance.vis_options(random_look['lighting'])) if random_look is not None else {}
     scene = gs.Scene(sim_options=gs.options.SimOptions(dt=PHYSICS_DT_S, gravity=(0., 0., -9.81)), show_viewer=False,
-                     renderer=gs.renderers.Rasterizer())
+                     renderer=gs.renderers.Rasterizer(), **lighting)
     floor_material, wall_material = gs.materials.Rigid(friction=MATERIAL_FRICTION), gs.materials.Rigid(friction=MATERIAL_FRICTION)
     floor = scene.add_entity(gs.morphs.Plane(visualization=False), material=floor_material, name='ground_plane')
     walls = [scene.add_entity(gs.morphs.Box(pos=b['centre_xyz'], size=b['size_xyz'], euler=(0., 0., math.degrees(b['yaw_rad'])),
