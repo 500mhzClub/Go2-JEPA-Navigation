@@ -12,9 +12,8 @@ import json
 from pathlib import Path
 
 from go2nav import artifacts
+from go2nav.controllers.registry import ARMS  # noqa: F401 (the arm names, re-exported)
 from go2nav.models.motion import load_c3_decoder, load_decoder_and_c4, load_motion_readout
-
-ARMS = ('C0', 'C1', 'C1A', 'C1R', 'C2', 'C3', 'C4')
 REPO_STATS = artifacts.REPO/'data/training/control_norm_stats.json'
 
 
