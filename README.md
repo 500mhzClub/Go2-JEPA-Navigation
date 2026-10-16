@@ -8,8 +8,8 @@ When do JEPA world-model representations carry decision-relevant information for
 prediction, reactive control and explicit memory?
 
 This repository is a simulated Unitree Go2 navigation testbed in [Genesis](https://github.com/Genesis-Embodied-AI/Genesis).
-It compares five controller types on procedurally generated mazes: each must find a beacon from a goal image and return
-home, from onboard RGB-D only.
+It compares five controller types (and, in development, two LeWM arms) on procedurally generated mazes: each must reach
+a beacon, given as a position in its starting frame, and return home, from onboard RGB-D only.
 
 | Controller | What forecasts the motion of each candidate action |
 |---|---|
@@ -18,6 +18,8 @@ home, from onboard RGB-D only.
 | **C2** | reactive: no motion forecast |
 | **C3** | **JEPA**: a frozen V-JEPA 2.1 ViT-L encoder and a learned action-conditioned predictor; a decoder reads motion from the predicted future features |
 | **C4** | supervised: the same frozen features, commands and candidate tape, mapped straight to motion |
+| **C5** | **LeWM** (in development, branch `feature/lewm`): a LeWorldModel (arXiv:2603.19312) trained end to end from Go2 pixels with SIGReg; a decoder reads motion from its rolled-out latents |
+| **C6** | supervised on LeWM's own encoder: its features, commands and candidate tape, mapped straight to motion |
 
 All controllers share one harness, the reserve-exit-v2 navigation stack: RGB-D tracking, an occupancy map, route
 planning, safety vetoes, and an optional recovery layer. Only the motion forecast differs.
@@ -36,8 +38,8 @@ planning, safety vetoes, and an optional recovery layer. Only the motion forecas
 | `go2nav/locomotion` | the Go2 PPO locomotion policy: training (rsl-rl) and the command contract |
 | `go2nav/perception` | RGB-D visual tracking, floor registration, occupancy mapping, obstacle evidence |
 | `go2nav/planning` | candidate primitives, route planning, the reserve-exit harness, safety vetoes, recovery |
-| `go2nav/models` | V-JEPA encoder wrapper, the horizon-conditioned predictor, readouts, the C3 decoder, C4, C1 |
-| `go2nav/controllers` | C0–C4 and the development variants C1A (adaptive) and C1R (refit) |
+| `go2nav/models` | V-JEPA encoder wrapper, the horizon-conditioned predictor, readouts, the C3 decoder, C4, C1, the LeWorldModel and its C5/C6 heads |
+| `go2nav/controllers` | C0–C6 and the development variants C1A (adaptive) and C1R (refit); the arm registry |
 | `go2nav/corpus` | the May bulk-rollout corpus behind T1: scene generation, resumable bulk rollouts with the data collectors, render plans, labels, the render |
 | `go2nav/data` | data collection, verified deterministic replay, training samples, feature caches |
 | `go2nav/training` | every learned component, retrainable from scratch with a seed and a lineage manifest |
@@ -153,7 +155,7 @@ other offsets give independent seed chains. Each stage also runs on its own
 
 ### 5. Navigation benchmarks and evaluation
 
-One mission: the robot must find a beacon from a goal image, then return home.
+One mission: the robot must reach a beacon, given as a position in its starting frame, then return home.
 
 ```bash
 python -m go2nav.eval.mission --arm C3 --set prelim_test_v1 --maze 30 --out outputs/runs/C3_30 \
@@ -183,6 +185,7 @@ python -m go2nav.eval.cohort --summarise outputs/cohorts/rexit2_ref    # the tab
 | `r5_dynamics_stage1` | 120 | uniform low floor friction, zero-shot |
 | `r6_dynamics_stage2` | 150 | marked low-friction strips |
 | `retrained_chain`, `retrained_locomotion`, `e2e_chain` | 40-60 | shipped vs retrained models or policy |
+| `lewm_benchmarks` | 310 | C5 and C6 on R4's, R5's and R6's episodes, plus visual transfer (in development; [docs/lewm](docs/lewm/PLAN.md)) |
 
 A cohort runs on retrained models with `models: outputs/chain/models.yaml`. `--resume` continues an interrupted
 experiment, and `--retry ASSIGNMENT` reruns single missions.
@@ -192,6 +195,9 @@ experiment, and `--retry ASSIGNMENT` reruns single missions.
 - C3 and C4 use the GPU for the encoder. A C3 mission takes about 30 minutes, and `--c3-lanes` caps how many run at
   once (keep it at 4 or fewer on one GPU).
 - The full chain takes about a day on one AMD R9700 GPU, and its T7 cache needs about 63 GB of disk.
+- Rendering uses EGL device `EGL_DEVICE_ID` (default 0). On the development machine device 0 is the integrated GPU
+  and device 1 the R9700; frames render bit-identically on both, so `EGL_DEVICE_ID=1` only makes many parallel
+  missions faster.
 
 ## Platform
 
