@@ -81,7 +81,7 @@ def resize_frame(rgb):
     """A primary-camera RGB frame (HxWx3 uint8) to the encoder's 168 x 224 x 3 uint8 (bicubic). Training data and the
     forecaster both use this, so they see identical pixels."""
     image = Image.fromarray(np.asarray(rgb))
-    return np.asarray(image.convert('RGB').resize(FRAME_SIZE, Image.Resampling.BICUBIC), dtype=np.uint8)
+    return np.array(image.convert('RGB').resize(FRAME_SIZE, Image.Resampling.BICUBIC), dtype=np.uint8)
 
 
 def normalise_frames(frames):
@@ -368,3 +368,58 @@ def load_world_model(path, device='cpu'):
     model = LeWorldModel(LeWMConfig(**config))
     model.load_state_dict(state['model_state_dict'])
     return model.to(device).eval().requires_grad_(False)
+
+
+# -- motion heads (C5, C6) --------------------------------------------------------------------------------------------
+
+class LatentMotionDecoder(nn.Module):
+    """C5's decoder: the body-frame motion (x, y, yaw) between the current frame and a predicted future one, read
+    from LeWM latents only (it never sees the commands, as C3's decoder does not): per horizon, an MLP on
+    [z_t, z_hat(t+h) - z_t, z_t - z_(t-1), z_t - z_(t-3)], through a per-channel target normalisation."""
+
+    def __init__(self, latent, mean, scale, hidden=1024):
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(4*latent, hidden), nn.GELU(), nn.Linear(hidden, hidden), nn.GELU(),
+                                 nn.Linear(hidden, 3))
+        self.register_buffer('target_mean', torch.as_tensor(mean, dtype=torch.float32).clone())
+        self.register_buffer('target_scale', torch.as_tensor(scale, dtype=torch.float32).clone())
+
+    def normalized(self, z, future):
+        """z (B, 4, D) of frames t-3..t; future (B, D) the predicted z at t+h."""
+        current = z[:, -1]
+        return self.net(torch.cat((current, future-current, current-z[:, -2], current-z[:, 0]), dim=-1))
+
+    def forward(self, z, future):
+        return self.normalized(z, future)*self.target_scale+self.target_mean
+
+
+class LatentDirectPredictor(nn.Module):
+    """C6, C4's counterpart on LeWM's own encoder: motion at a horizon from the four frames' z, the normalised 1.5-s
+    applied-command history (15 x (forward, yaw)) and the candidate's commands up to the horizon (later ones zeroed),
+    with no predicted future."""
+
+    def __init__(self, latent, mean, scale, hidden=896):
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(4*latent+30+16+1, hidden), nn.GELU(), nn.Linear(hidden, hidden), nn.GELU(),
+                                 nn.Linear(hidden, 3))
+        self.register_buffer('target_mean', torch.as_tensor(mean, dtype=torch.float32).clone())
+        self.register_buffer('target_scale', torch.as_tensor(scale, dtype=torch.float32).clone())
+
+    def normalized(self, z, past, tape, horizon):
+        """z (B, 4, D); past (B, 15, 2) normalised; tape (B, 8, 2) normalised commands; horizon (B,) in 1-8."""
+        steps = torch.arange(8, device=z.device)[None]
+        future = tape*(steps < horizon[:, None])[:, :, None]
+        return self.net(torch.cat((z.flatten(1), past.flatten(1), future.flatten(1), horizon[:, None].float()/8), dim=1))
+
+    def forward(self, z, past, tape, horizon):
+        return self.normalized(z, past, tape, horizon)*self.target_scale+self.target_mean
+
+
+def load_heads(path, device='cpu'):
+    """The C5 decoder and C6 of a fit file ({'c5', 'c6', 'latent', 'target_mean', 'target_scale'})."""
+    state = torch.load(path, map_location='cpu', weights_only=False)
+    c5 = LatentMotionDecoder(state['latent'], state['target_mean'], state['target_scale'])
+    c5.load_state_dict(state['c5'])
+    c6 = LatentDirectPredictor(state['latent'], state['target_mean'], state['target_scale'])
+    c6.load_state_dict(state['c6'])
+    return c5.to(device).eval().requires_grad_(False), c6.to(device).eval().requires_grad_(False)
