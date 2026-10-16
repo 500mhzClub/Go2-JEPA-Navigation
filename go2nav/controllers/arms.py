@@ -6,6 +6,8 @@ motion forecaster.
 - **C2**: model-free reactive control (no forecaster).
 - **C3**: the frozen V-JEPA 2.1 encoder, the T4 predictor and the C3 decoder (T7, or a stage-2 refit).
 - **C4**: the direct readout matched to the C3 decoder (same fit file).
+- **C5**: the LeWorldModel (trained end to end from Go2 pixels) and its decoder (`go2nav.controllers.lewm`).
+- **C6**: the direct head on LeWM's encoder matched to the C5 decoder (same fit file).
 - **C0**: the simulator oracle (`go2nav.controllers.oracle`).
 """
 import json
@@ -51,4 +53,9 @@ def forecaster(arm, *, decoder_fit=None, models=None, device='cuda:0'):
         from go2nav.models.predictor import load_horizon_predictor
         return JepaForecaster(load_horizon_predictor(model('t4_horizon_dense_predictor')), decoder, mean, std,
                               device=device)
+    if arm in ('C5', 'C6'):
+        from go2nav.controllers.lewm import LeWMDirectForecaster, LeWMForecaster
+        from go2nav.models.lewm import load_heads, load_world_model
+        world, (c5, c6) = load_world_model(model('lewm_world_model')), load_heads(model('lewm_c5_decoder_and_c6'))
+        return LeWMForecaster(world, c5, device=device) if arm == 'C5' else LeWMDirectForecaster(world, c6, device=device)
     raise ValueError(f'unknown or unported arm {arm!r}')
