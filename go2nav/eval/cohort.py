@@ -66,6 +66,8 @@ def mission_command(cohort, arm, set_name, maze, episode, destination):
                       ('harness', '--harness'), ('coverage_fix', '--coverage-fix')):
         if cohort.get(key) is not None:
             command += [flag, str(cohort[key])]
+    if cohort.get('demo_textures'):
+        command.append('--demo-textures')
     return command
 
 

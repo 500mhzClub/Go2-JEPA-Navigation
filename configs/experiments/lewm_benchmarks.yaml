@@ -1,0 +1,211 @@
+name: 'LeWM (C5, C6) through the benchmark suite'
+description: 'C5 (the LeWorldModel trained end to end from Go2 pixels, read by its decoder) and C6 (the direct head on its
+  encoder) on the conditions of R4 (prelim mazes 30-49, recovery off, reserve-exit v2), R5 (uniform friction 0.3 and 0.25)
+  and R6 (stage-2 mazes without and with marked strips at 0.3), on exactly their episodes; compare with the recorded
+  cohorts rexit2_ref, c3_shipped_v2, dyn1v2_*, s2ref_* and s2eval_cpu. Added cells the earlier experiments never ran:
+  C3 at friction 0.25 and C3/C4 on marked strips. lewm_visual_transfer: every learned arm on the brick and parquet
+  demonstration surfaces (go2nav.sim.demo_appearance), which no model trained on, mazes 30-39. Models: the LeWM chain
+  (go2nav.training.lewm_chain) at outputs/lewm/chain; paths are relative to the repository root.'
+cohorts:
+- name: lewm_r4
+  arms: [C5, C6]
+  set: prelim_test_v1
+  recovery: 'off'
+  models: outputs/lewm/chain/models.yaml
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
+- name: lewm_r5_mu030
+  arms: [C5, C6]
+  set: prelim_test_v1
+  recovery: 'off'
+  friction: 0.3
+  models: outputs/lewm/chain/models.yaml
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
+- name: lewm_r5_mu025
+  arms: [C5, C6]
+  set: prelim_test_v1
+  recovery: 'off'
+  friction: 0.25
+  models: outputs/lewm/chain/models.yaml
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
+- name: lewm_r5_mu025_c3
+  arms: [C3]
+  set: prelim_test_v1
+  recovery: 'off'
+  friction: 0.25
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
+- name: lewm_r6_ref
+  arms: [C5, C6]
+  set: stage2_sets_v1
+  recovery: 'off'
+  models: outputs/lewm/chain/models.yaml
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 1]
+  - [33, 1]
+  - [34, 1]
+  - [35, 0]
+  - [36, 0]
+  - [37, 1]
+  - [38, 0]
+  - [39, 1]
+  - [40, 0]
+  - [41, 1]
+  - [42, 0]
+  - [43, 1]
+  - [44, 0]
+  - [45, 0]
+  - [46, 1]
+  - [47, 1]
+  - [48, 1]
+  - [49, 0]
+- name: lewm_r6_strips
+  arms: [C5, C6]
+  set: stage2_sets_v1
+  recovery: 'off'
+  strips: 0.3:marked
+  models: outputs/lewm/chain/models.yaml
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 1]
+  - [33, 1]
+  - [34, 1]
+  - [35, 0]
+  - [36, 0]
+  - [37, 1]
+  - [38, 0]
+  - [39, 1]
+  - [40, 0]
+  - [41, 1]
+  - [42, 0]
+  - [43, 1]
+  - [44, 0]
+  - [45, 0]
+  - [46, 1]
+  - [47, 1]
+  - [48, 1]
+  - [49, 0]
+- name: lewm_r6_strips_c3_c4
+  arms: [C3, C4]
+  set: stage2_sets_v1
+  recovery: 'off'
+  strips: 0.3:marked
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 1]
+  - [33, 1]
+  - [34, 1]
+  - [35, 0]
+  - [36, 0]
+  - [37, 1]
+  - [38, 0]
+  - [39, 1]
+  - [40, 0]
+  - [41, 1]
+  - [42, 0]
+  - [43, 1]
+  - [44, 0]
+  - [45, 0]
+  - [46, 1]
+  - [47, 1]
+  - [48, 1]
+  - [49, 0]
+- name: lewm_visual_transfer
+  arms: [C1, C3, C4, C5, C6]
+  set: prelim_test_v1
+  recovery: 'off'
+  demo_textures: true
+  models: outputs/lewm/chain/models.yaml
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
