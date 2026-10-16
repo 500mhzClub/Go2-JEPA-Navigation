@@ -47,3 +47,23 @@ def test_regeneration_reproduces_registered_sets(config, shipped):
         for episode in entry['episodes']:
             produced[f"episode_{index:02d}_{episode['episode_index']}.json"] = sha256(encode(episode))
     assert produced == expected
+
+
+def test_other_grid_shapes_keep_the_family_rules():
+    shape = grid.Shape(5, 4)
+    links = grid.random_spanning_tree(random.Random(3), shape)
+    assert len(links) == len(shape.cells)-1 == 19 and grid.edge(grid.START, (0, 0)) in links
+    assert grid.farthest_route(links, shape)[0] == grid.START
+    # 5 x 4 grid: 18 boundary walls, plus one per missing interior passage (31 interior edges - 19 tree edges).
+    assert len(grid.wall_boxes(links, wall_id_prefix='w', shape=shape)) == 18+(31-19)
+    assert shape.world_bounds_xy_m == ((-2.1, -2.1), (4.7, 3.4))
+    assert grid.SQUARE.world_bounds_xy_m == grid.WORLD_BOUNDS_XY_M and grid.SQUARE.cells == grid.CELLS
+
+
+def test_episode_workers_do_not_change_the_set():
+    from go2nav.mazes.generate import Role, Seeds, generate
+    kwargs = dict(seeds=Seeds(11, 100, 200, 300), excluded_graphs=[], scene_id_prefix='t', family='T', shape=grid.Shape(5, 4))
+    serial = generate([Role('a', 6)], workers=1, **kwargs)
+    parallel = generate([Role('a', 6)], workers=3, **kwargs)
+    assert encode(serial) == encode(parallel)
+    assert serial['entries'][0]['spec']['grid_shape'] == [5, 4]

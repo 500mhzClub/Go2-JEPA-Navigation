@@ -5,7 +5,7 @@
 A config gives the scene-id prefix, family, seeds, the exclusions and the roles (see configs/mazes/). Each `exclude`
 entry is either a graph registry (a JSON list of {'name', 'edges'}) or a set folder, whose mazes are all excluded.
 `qualify: {strip_coverage: F}` keeps only layouts with an episode whose stage-2 strips (`go2nav.sim.dynamics`) cover
-at least F of the route (the stage-2 selection).
+at least F of the route (the stage-2 selection). `grid_shape: [columns, rows]` builds on another grid (default 4 x 4).
 For a new set, exclude data/mazes/registries/built_graphs_2026-10-06.json plus any set built since.
 """
 import argparse
@@ -14,6 +14,7 @@ from pathlib import Path
 
 import yaml
 
+from go2nav.mazes import grid
 from go2nav.mazes.generate import Role, Seeds, generate
 from go2nav.mazes.sets import MazeSet, write_set
 
@@ -51,12 +52,14 @@ def strip_coverage(minimum):
     return qualifies
 
 
-def generate_from_config(path, qualify=None):
+def generate_from_config(path, qualify=None, workers=None):
     config, roles, seeds = load_config(path)
     if qualify is None and config.get('qualify'):
         qualify = strip_coverage(config['qualify']['strip_coverage'])
+    shape = grid.Shape(*config['grid_shape']) if config.get('grid_shape') else grid.SQUARE
     generated = generate(roles, seeds=seeds, excluded_graphs=excluded_graphs(config['exclude']),
-                         scene_id_prefix=config['scene_id_prefix'], family=config['family'], qualify=qualify)
+                         scene_id_prefix=config['scene_id_prefix'], family=config['family'], qualify=qualify, shape=shape,
+                         workers=workers)
     return config, generated
 
 
@@ -65,8 +68,9 @@ def main():
     p.add_argument('config')
     p.add_argument('--out', required=True, help='root folder for the new set')
     p.add_argument('--name', help='set name (default: the config file name)')
+    p.add_argument('--workers', type=int, help='processes building episodes (default: every core)')
     a = p.parse_args()
-    config, generated = generate_from_config(a.config)
+    config, generated = generate_from_config(a.config, workers=a.workers)
     name = a.name or Path(a.config).stem
     write_set(a.out, name, generated, description=config['description'], seeds=config['seeds'],
               family=config['family'], scene_id_prefix=config['scene_id_prefix'], roles=config['roles'],
