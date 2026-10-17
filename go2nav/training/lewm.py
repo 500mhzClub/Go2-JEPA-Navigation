@@ -4,8 +4,9 @@
     python -m go2nav.training.lewm evaluate CHECKPOINT --corpus ROOT [--out FILE]
 
 **Configs** (configs/lewm/): `go2.yaml` (the Go2 configuration: 4-frame history, 8-step rollout loss, 16 mazes x 8
-windows per batch), `paper.yaml` (the paper's objective and i.i.d. batches, for comparison) and `go2_inverse.yaml`
-(the inverse-dynamics variant: `objective.inverse_weight`, `model.inverse_dynamics`). `--set` overrides a
+windows per batch), `paper.yaml` (the paper's objective and i.i.d. batches, for comparison) and the
+inverse-dynamics variants `go2_inverse.yaml` and `go2_idm100.yaml` (`objective.inverse_weight` 0.1 and 100,
+`model.inverse_dynamics`). `--set` overrides a
 value (`--set objective.sigreg_weight=0.03`); the resolved config is saved with the run.
 
 **Training.** AdamW with linear warm-up then cosine decay, gradient clipping, bf16 autocast (SIGReg in float32), the
