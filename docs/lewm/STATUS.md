@@ -71,7 +71,7 @@ with C4 is no evidence for the LeWM encoder.
 | Service | Worktree (commit) | What | Output |
 |---|---|---|---|
 | `lewm-screen` | `../Go2-JEPA-Navigation-lewm-chain` (7c5d055) | the three screening runs, then the probe of each (`outputs/lewm/screen/run.sh`; rerunning resumes) | `outputs/lewm/screen` |
-| `lewm-transfer-bench` | `../Go2-JEPA-Navigation-lewm-bench` (6643da3) | `lewm_visual_transfer` (C1, C3, C4, C6 on the demonstration surfaces, mazes 30-39: 40 missions, 8 workers, `--resume`) | `outputs/cohorts/lewm_visual_transfer` |
+| `lewm-transfer-bench` | `../Go2-JEPA-Navigation-lewm-bench` (6643da3) | `lewm_visual_transfer` (C1, C3, C4, C6 on the demonstration surfaces, mazes 30-39: 40 missions, 8 workers, `--resume`), queued until `lewm-screen` ends: beside a training run every mission ran out of GPU memory (set aside as `lewm_visual_transfer.oom_attempt1`) | `outputs/cohorts/lewm_visual_transfer` |
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
