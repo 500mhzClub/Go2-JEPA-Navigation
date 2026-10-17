@@ -67,6 +67,7 @@ with C4 is no evidence for the LeWM encoder.
 | `inverse` | 14.1 / 19.5 | 21.6 / 34.8 | no gain (L2 passes, rank 26.9; the inverse head's error stays near 0.23) |
 | `batch4` (4 mazes x 32 windows) | 14.1 / 19.9 | 23.2 / 38.3 | no gain (L2 passes, rank 21.7); on the held-out look the `c5` moving median improves, 36.4 against 59.2 mm |
 | `paper` (teacher-forced, i.i.d. batches of 5-frame windows) | 23.0 / 33.2 | 28.9 / 47.4 | worse (L2 passes, rank 53.4; its 8-step rollout drifts, true / shuffled 0.43 at 800 ms) |
+| `idm100` (inverse dynamics 100, SIGReg 0.08) | **8.0** / 15.8 | 12.2 / 30.3 | **passes** (L2 passes: true / persistence 0.23 at 800 ms; rank 8.8, SIGReg 6.6; held-out look `c5` 9.6 mm against 17.9; C6 3.2 mm, below the commands' 3.8) |
 
 The H-JEPA paper (arXiv 2610.06805, LeWM at level 1) reports the same failure on DROID: without inverse-dynamics supervision a purely predictive objective keeps scene identity and drops the agent, and SIGReg, acting only on the marginal distribution, cannot prevent it. Its level-1 weights are IDM 100 with SIGReg 0.08, to be scaled together; `inverse` used 0.1.
 
@@ -74,7 +75,8 @@ Variance shares of z_t (`lewm_corpus_probe --updates 0`, 100 training units; tra
 0.77 / 0.68 / 0.64 for the Go2 chain (inverse 0.72 / 0.62 / 0.67, batch4 0.80 / 0.73 / 0.65, paper 0.74 / 0.64 / 0.61),
 so no DROID-style collapse onto the episode; but the step share (mean squared 100-ms change over twice the variance) is
 0.0077 / 0.0066 / 0.0032 (inverse 0.0091, batch4 0.0104, paper 0.0161 on training units): z moves less than 1% of its
-spread per step, so it varies with place over many steps, not with each step's motion.
+spread per step, so it varies with place over many steps, not with each step's motion. `idm100` raises it to 0.21 / 0.23 / 0.20 (within-unit
+0.82 / 0.85 / 0.85).
 
 Round 2 (Andrew, 17 October: run it before the visual-transfer cohort): `idm100` (`go2_idm100.yaml`) and `idm10` (the
 same at inverse weight 10), 15,000 steps each (`outputs/lewm/screen/run2.sh`). The visual-transfer cohort is cancelled until a LeWM
@@ -86,6 +88,7 @@ and is set aside as `outputs/cohorts/lewm_visual_transfer.oom_attempt1`.
 | Service | Worktree (commit) | What | Output |
 |---|---|---|---|
 | `lewm-screen2` | `../Go2-JEPA-Navigation-lewm-chain` (718ed62) | screening round 2, `idm100` then `idm10`, each then probed (`outputs/lewm/screen/run2.sh`; rerunning resumes) | `outputs/lewm/screen` |
+| `lewm-chain-idm` | `../Go2-JEPA-Navigation-lewm-chain` (718ed62) | after `lewm-screen2`: the full chain (60,000 steps, decoder cache, three fits) for `idm100` or `idm10`, whichever reads lower on `c5` (`outputs/lewm/chain_idm.sh`; rerunning resumes) | `outputs/lewm/chain_idm` |
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
