@@ -42,12 +42,36 @@ rollout 18.5 / 18.1 / 18.7) shows training longer would not either. The latents 
 much more than how the camera moved, in a form that does not carry to new mazes; what C5 reads comes from the actions
 the predictor writes into its rollout. On the held-out look the probe recovers 23% of the displacement.
 
-## Running (17 October, from 13:00)
+## C6 benchmarks (17 October): level with C4 and C1
+
+Round trips on the recorded cohorts' episodes (`outputs/cohorts/lewm_*_c6`, 100 missions, all with exit 0):
+
+| Condition | C6 | C4 | C1 | C3 | Recorded |
+|---|---|---|---|---|---|
+| R4 | 20/20 | 19/20 | 20/20 | 20/20 | `rexit2_ref`, `c3_shipped_v2` |
+| R5, friction 0.3 | 13/20 | 15/20 | 16/20 | 13/20 | `dyn1v2_mu030_cpu`, `dyn1v2_mu030_c3` |
+| R5, friction 0.25 | 0/20 | 1/20 | 1/20 | - | `dyn1v2_mu025_cpu` |
+| R6 reference | 19/20 | 20/20 | 20/20 | 17/20 | `s2ref_cpu`, `s2ref_c3` |
+| R6 marked strips | 15/20 | - | 15/20 | - | `s2eval_cpu` (C1A 16, C1R 14) |
+
+Paired with C4 over the 80 shared missions, the outcomes differ in 5: C6 alone succeeds in 1, C4 alone in 4 (sign test
+p = 0.38). C6 missions take about 5 minutes of wall time. C6 adds nothing over the commands, though: in the corpus
+probe the commands alone read 800-ms motion on validation mazes to 3.8 mm and with the latents 4.5 mm, so its parity
+with C4 is no evidence for the LeWM encoder.
+
+## Screening (17 October)
+
+| Variant (15,000 steps) | `c5` val@800 ms, median XY all / moving (mm) | true-future probe (mm) | Verdict |
+|---|---|---|---|
+| Go2 chain at 10k / 60k (reference) | 14.2 / 18.5, 13.6 / 18.7 | 22.7 / 37.1, 17.8 / 29.7 | - |
+| `inverse` | 14.1 / 19.5 | 21.6 / 34.8 | no gain (L2 passes, rank 26.9; the inverse head's error stays near 0.23) |
+
+## Running (17 October)
 
 | Service | Worktree (commit) | What | Output |
 |---|---|---|---|
 | `lewm-screen` | `../Go2-JEPA-Navigation-lewm-chain` (7c5d055) | the three screening runs, then the probe of each (`outputs/lewm/screen/run.sh`; rerunning resumes) | `outputs/lewm/screen` |
-| `lewm-c6-bench` | `../Go2-JEPA-Navigation-lewm-bench` (6643da3) | C6's cohorts of `lewm_benchmarks.yaml` (R4, R5 at 0.3 and 0.25, R6 reference and strips: 100 missions, 8 workers, `--resume`) | `outputs/cohorts/lewm_*_c6` |
+| `lewm-transfer-bench` | `../Go2-JEPA-Navigation-lewm-bench` (6643da3) | `lewm_visual_transfer` (C1, C3, C4, C6 on the demonstration surfaces, mazes 30-39: 40 missions, 8 workers, `--resume`) | `outputs/cohorts/lewm_visual_transfer` |
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
