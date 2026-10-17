@@ -68,6 +68,7 @@ with C4 is no evidence for the LeWM encoder.
 | `batch4` (4 mazes x 32 windows) | 14.1 / 19.9 | 23.2 / 38.3 | no gain (L2 passes, rank 21.7); on the held-out look the `c5` moving median improves, 36.4 against 59.2 mm |
 | `paper` (teacher-forced, i.i.d. batches of 5-frame windows) | 23.0 / 33.2 | 28.9 / 47.4 | worse (L2 passes, rank 53.4; its 8-step rollout drifts, true / shuffled 0.43 at 800 ms) |
 | `idm100` (inverse dynamics 100, SIGReg 0.08) | **8.0** / 15.8 | 12.2 / 30.3 | **passes** (L2 passes: true / persistence 0.23 at 800 ms; rank 8.8, SIGReg 6.6; held-out look `c5` 9.6 mm against 17.9; C6 3.2 mm, below the commands' 3.8) |
+| `idm10` (inverse dynamics 10, SIGReg 0.08) | 9.1 / 15.5 | 13.1 / 28.6 | passes (L2 passes; rank 16.2, SIGReg 4.3; step share 0.07; held-out look 11.6 mm; yaw 1.51 against 1.82 degrees) |
 
 The H-JEPA paper (arXiv 2610.06805, LeWM at level 1) reports the same failure on DROID: without inverse-dynamics supervision a purely predictive objective keeps scene identity and drops the agent, and SIGReg, acting only on the marginal distribution, cannot prevent it. Its level-1 weights are IDM 100 with SIGReg 0.08, to be scaled together; `inverse` used 0.1.
 
@@ -88,7 +89,7 @@ and is set aside as `outputs/cohorts/lewm_visual_transfer.oom_attempt1`.
 | Service | Worktree (commit) | What | Output |
 |---|---|---|---|
 | `lewm-screen2` | `../Go2-JEPA-Navigation-lewm-chain` (718ed62) | screening round 2, `idm100` then `idm10`, each then probed (`outputs/lewm/screen/run2.sh`; rerunning resumes) | `outputs/lewm/screen` |
-| `lewm-chain-idm` | `../Go2-JEPA-Navigation-lewm-chain` (718ed62) | after `lewm-screen2`: the full chain (60,000 steps, decoder cache, three fits) for `idm100` or `idm10`, whichever reads lower on `c5` (`outputs/lewm/chain_idm.sh`; rerunning resumes) | `outputs/lewm/chain_idm` |
+| `lewm-chain-idm` | `../Go2-JEPA-Navigation-lewm-chain` (718ed62) | from 22:44: the full chain (60,000 steps, decoder cache, three fits) for `idm100` (lower on `c5` than `idm10`) (`outputs/lewm/chain_idm.sh`; rerunning resumes) | `outputs/lewm/chain_idm` |
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
