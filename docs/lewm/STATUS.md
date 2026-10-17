@@ -42,6 +42,15 @@ rollout 18.5 / 18.1 / 18.7) shows training longer would not either. The latents 
 much more than how the camera moved, in a form that does not carry to new mazes; what C5 reads comes from the actions
 the predictor writes into its rollout. On the held-out look the probe recovers 23% of the displacement.
 
+## Running (17 October, from 13:00)
+
+| Service | Worktree (commit) | What | Output |
+|---|---|---|---|
+| `lewm-screen` | `../Go2-JEPA-Navigation-lewm-chain` (7c5d055) | the three screening runs, then the probe of each (`outputs/lewm/screen/run.sh`; rerunning resumes) | `outputs/lewm/screen` |
+| `lewm-c6-bench` | `../Go2-JEPA-Navigation-lewm-bench` (6643da3) | C6's cohorts of `lewm_benchmarks.yaml` (R4, R5 at 0.3 and 0.25, R6 reference and strips: 100 missions, 8 workers, `--resume`) | `outputs/cohorts/lewm_*_c6` |
+
+The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
+
 ## Next
 
 1. **Screening** (Andrew, 17 October: screen variants before any further full chain). Three 15,000-step runs into
