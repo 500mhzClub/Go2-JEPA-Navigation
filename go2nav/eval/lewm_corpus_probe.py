@@ -3,6 +3,8 @@
     python -m go2nav.eval.lewm_corpus_probe WORLD.pt --corpus ROOT --out FILE.json [--train-units 300]
                                             [--val-units 60] [--transfer-units 20] [--updates 20000]
 
+`--updates 0` skips the heads and reports only the variance shares.
+
 T7's fit (`go2nav.training.lewm_decoder`) reads the decoder contexts, 43k decisions; this probe reads the corpus's own
 windows, whose poses are labels: units drawn with a fixed seed from the training mazes (fit) and the validation mazes
 and transfer units (evaluation). Per window, frames t-3..t and the futures t+500 and t+800 ms; targets the body-frame
@@ -12,7 +14,11 @@ motion (x, y, yaw) from the poses. Four heads, each the same MLP (two 1,024 laye
 - `cmds`: the applied-command history and the tape up to h (no vision);
 - `c6`: the four z with the commands.
 Reported per split and horizon: median XY error and RMS yaw, and on windows moving more than 50 mm the median XY error
-and the median projected displacement ratio. On the 17 October Go2 chain (docs/lewm/STATUS.md) `c5` on validation
+and the median projected displacement ratio. Also per split, the within-unit variance share of z_t (the trace of the
+pooled within-unit covariance over the total; H-JEPA's chi, arXiv 2610.06805): latents that hold only scene identity
+barely change within a unit (chi near 0.01 in its collapsed DROID runs, 0.12 in its healthy one). A Go2 unit crosses
+many places of its maze, so chi also counts place changes; the step share, the mean squared 100-ms change of z over
+twice its total variance (1 for independent frames), measures how much z moves per step. On the 17 October Go2 chain (docs/lewm/STATUS.md) `c5` on validation
 mazes at 800 ms read 13.6 mm (T7 score 21.5 mm); the screening bar is 9.5 mm.
 """
 import argparse
@@ -71,7 +77,22 @@ def unit_data(model, root, units, index, u, dev, cmean, cstd):
     rolled = torch.cat(rolled)[:, [h-1 for h in HS]]                         # (w, 2, D)
     tapes = torch.stack([tape[tt+k] for k in range(8)], 1)                    # (w, 8, 2)
     return dict(zh=zh.cpu(), zf=zf.cpu(), zr=rolled.cpu(), past=hist[tt].cpu(), tape=tapes.cpu(),
-                y=torch.from_numpy(np.stack(targets, 1).astype(np.float32)))   # y (w, 2, 3)
+                y=torch.from_numpy(np.stack(targets, 1).astype(np.float32)),   # y (w, 2, 3)
+                unit=torch.full((len(t),), u))
+
+
+def within_share(z, unit):
+    """The within-unit share of the variance of z (n, D): trace of the pooled within-unit covariance over the total."""
+    z = z.double()
+    total = (z-z.mean(0)).pow(2).sum()
+    within = sum((z[unit == u]-z[unit == u].mean(0)).pow(2).sum() for u in unit.unique())
+    return (within/total).item()
+
+
+def step_share(zh):
+    """Mean squared 100-ms change of z over twice its total variance; zh (n, 4, D) holds z_(t-3)..z_t."""
+    z = zh[:, -1].double()
+    return ((zh[:, -1]-zh[:, -2]).double().pow(2).sum(1).mean()/(2*z.var(0).sum())).item()
 
 
 def inputs(d, kind, hi, dev):
@@ -139,14 +160,19 @@ def run(world, corpus, *, train_units=300, val_units=60, transfer_units=20, upda
     cmean, cstd = control_stats()
     started, data = time.time(), {}
     for split, ids in chosen.items():
-        parts = [unit_data(model, root, units, index, u, dev, cmean, cstd) for u in ids]
+        parts = [unit_data(model, root, units, index, u, dev, cmean, cstd) for u in ids if (index['unit'] == u).any()]
         data[split] = {k: torch.cat([p[k] for p in parts]) for k in parts[0]}
         print(split, len(ids), 'units', len(data[split]['y']), 'windows', f'{time.time()-started:.0f} s', flush=True)
+    shares = {split: within_share(d['zh'][:, -1], d['unit']) for split, d in data.items()}
+    steps = {split: step_share(d['zh']) for split, d in data.items()}
+    print('within-unit variance share', json.dumps({k: round(v, 3) for k, v in shares.items()}),
+          'step share', json.dumps({k: round(v, 4) for k, v in steps.items()}), flush=True)
     results = {}
-    for kind in HEADS:
+    for kind in HEADS if updates else ():
         results[kind] = fit_eval(data, kind, dev, updates)
         print(kind, json.dumps({k: round(v['median_xy_mm'], 2) for k, v in results[kind].items()}), flush=True)
-    return dict(world_model=str(world), units={k: len(v) for k, v in chosen.items()}, updates=updates, results=results)
+    return dict(world_model=str(world), units={k: len(v) for k, v in chosen.items()}, updates=updates,
+                within_unit_variance_share=shares, step_share=steps, results=results)
 
 
 def main():
