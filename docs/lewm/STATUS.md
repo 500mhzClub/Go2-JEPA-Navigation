@@ -19,23 +19,32 @@ The 4,000th unit, `lewm_train/0604_mission`, fails at its first frame on every a
 little floor in the start view to fix the plane); the maze's explore and free units are complete. It is left out.
 `LEWM_ROOT` below is the corpus root: on the development machine, `go2nav_lewm` on the workspace NVMe (346 GB).
 
-## Running
+## Go2 chain result (17 October): C5 fails L3 and L4; C6 matches C4
 
-**The Go2 chain**, started 17 October 02:07 as the user service `lewm-chain-go2` from the frozen worktree
-`../Go2-JEPA-Navigation-lewm-chain` (commit 7fd71d1), into `outputs/lewm/chain` (about 8 h: 3,190 images/s):
+`outputs/lewm/chain` (60,000 steps; interrupted at 52,199 by a GPU fault, resumed from the 52,000 checkpoint after a
+power cycle). Gates:
 
-```bash
-systemctl --user status lewm-chain-go2
-tail -f outputs/lewm/chain/logs/world.log    # and outputs/lewm/chain/world/metrics.jsonl
-```
+| Gate | Result |
+|---|---|
+| L1 health | pass: SIGReg 3.0, z std >= 0.81, effective rank 37.8 (validation mazes) |
+| L2 action sensitivity | pass: true / shuffled actions 0.077 at 300 ms, 0.073 at 800 ms; true / persistence 0.091 at 800 ms |
+| L3 probe | **fail**: median XY 24.5 mm, RMS yaw 3.25 degrees (gate 10 mm, 1.5 degrees) |
+| L4 forecast | **fail**: C5's T7 score 21.5 mm (seeds 21.2 / 21.5 / 22.3; gate 15). C6: 5.0 mm (C4: 5.02) |
 
-It restarts itself on failure and resumes from its last checkpoint. The worktree links `data/training/decoder`
-(untracked) from this checkout. The first launch failed at compile: systemd's soft limit of 1,024 open files is below
-the corpus's one descriptor per memory-mapped unit; `Corpus` now raises it.
+At 800 ms on T7's sets (median XY, mm): eval_onpolicy C3 12.1, C5 26.1, C4 6.3, C6 6.6; eval_offline C3 5.7, C5
+14.7, C4 4.4, C6 4.4. C5's decoded displacements are short by about 17% (median ratio 0.83).
+
+**Diagnosis** (a probe fitted on 246k corpus windows from 300 training units, about 70 times T7's data, evaluated on 60
+validation-maze units; 800 ms, median XY on windows moving more than 50 mm): the true future z reads 11.6 mm on
+training mazes but 29.7 on validation mazes; the rolled-out z 7.8 and 18.7; the commands alone 4.2; z with commands
+5.5. More decoder data does not close the gap, and the probe at 10k / 30k / 60k steps (37.1 / 31.0 / 29.7 mm;
+rollout 18.5 / 18.1 / 18.7) shows training longer would not either. The latents hold where a view is in a known maze
+much more than how the camera moved, in a form that does not carry to new mazes; what C5 reads comes from the actions
+the predictor writes into its rollout. On the held-out look the probe recovers 23% of the displacement.
 
 ## Next
 
-1. Gates L1-L4 of the Go2 chain. The chain command, for reruns:
+1. Decide the response to the L3/L4 failure (below the plan's fallbacks; awaiting Andrew). The chain command:
    `python -m go2nav.training.lewm_chain outputs/lewm/chain --corpus $LEWM_ROOT --recordings-root outputs/recordings`.
 2. The paper-faithful comparison: `--config configs/lewm/paper.yaml` into another folder. Gates L1-L4 from
    `world/evaluation.json`, `choice.json` and the fits' `evaluation.json`.
