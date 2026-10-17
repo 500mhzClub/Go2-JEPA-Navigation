@@ -77,14 +77,15 @@ so no DROID-style collapse onto the episode; but the step share (mean squared 10
 spread per step, so it varies with place over many steps, not with each step's motion.
 
 Round 2 (Andrew, 17 October: run it before the visual-transfer cohort): `idm100` (`go2_idm100.yaml`) and `idm10` (the
-same at inverse weight 10), 15,000 steps each (`outputs/lewm/screen/run2.sh`).
+same at inverse weight 10), 15,000 steps each (`outputs/lewm/screen/run2.sh`). The visual-transfer cohort is cancelled until a LeWM
+passes its gates (Andrew, 17 October: the basics first); an earlier attempt ran out of GPU memory beside a training run
+and is set aside as `outputs/cohorts/lewm_visual_transfer.oom_attempt1`.
 
 ## Running (17 October)
 
 | Service | Worktree (commit) | What | Output |
 |---|---|---|---|
 | `lewm-screen2` | `../Go2-JEPA-Navigation-lewm-chain` (718ed62) | screening round 2, `idm100` then `idm10`, each then probed (`outputs/lewm/screen/run2.sh`; rerunning resumes) | `outputs/lewm/screen` |
-| `lewm-transfer-bench` | `../Go2-JEPA-Navigation-lewm-bench` (6643da3) | `lewm_visual_transfer` (C1, C3, C4, C6 on the demonstration surfaces, mazes 30-39: 40 missions, 8 workers, `--resume`), queued until `lewm-screen2` ends: beside a training run every mission ran out of GPU memory (set aside as `lewm_visual_transfer.oom_attempt1`) | `outputs/cohorts/lewm_visual_transfer` |
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
