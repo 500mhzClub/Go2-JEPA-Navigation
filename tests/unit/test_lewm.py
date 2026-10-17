@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from go2nav.models.lewm import (ConditionalBlock, LeWMConfig, LeWorldModel, SIGReg, losses, normalise_frames,
-                                resize_frame)
+                                load_world_model, resize_frame, save_world_model)
 
 
 def small(**overrides):
@@ -89,6 +89,21 @@ def test_losses_are_finite_and_train(rollout_steps):
     terms['loss'].backward()
     assert all(p.grad is None or torch.isfinite(p.grad).all() for p in model.parameters())
     assert model.encoder.patch_embed.weight.grad.abs().sum() > 0  # gradients reach the encoder (no stop-gradient)
+
+
+def test_inverse_dynamics_variant_trains_the_encoder(tmp_path):
+    model = LeWorldModel.seeded(3, small(inverse_dynamics=True)).train()
+    n = model.config.history
+    pixels = normalise_frames(torch.randint(0, 255, (4, n+2, 168, 224, 3), dtype=torch.uint8))
+    actions = torch.randn(4, n+1, 10)
+    terms = losses(model, pixels, actions, rollout_steps=2, sigreg=SIGReg(num_proj=32), lam=.09, inverse_weight=.1,
+                   generator=torch.Generator().manual_seed(0))
+    assert torch.isfinite(terms['inverse'])
+    terms['inverse'].backward()
+    assert model.encoder.patch_embed.weight.grad.abs().sum() > 0  # the inverse term alone reaches the encoder
+    save_world_model(tmp_path/'m.pt', model)
+    assert load_world_model(tmp_path/'m.pt').inverse is not None
+    assert LeWorldModel.seeded(3, small()).inverse is None  # the paper's model has no such head
 
 
 def test_seeded_model_is_reproducible_and_frames_resize():

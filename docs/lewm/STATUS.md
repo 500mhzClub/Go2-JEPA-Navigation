@@ -44,7 +44,10 @@ the predictor writes into its rollout. On the held-out look the probe recovers 2
 
 ## Next
 
-1. Decide the response to the L3/L4 failure (below the plan's fallbacks; awaiting Andrew). The chain command:
+1. **Screening** (Andrew, 17 October: screen variants before any further full chain). Three 15,000-step runs into
+   `outputs/lewm/screen/<name>`, each scored with `go2nav.eval.lewm_corpus_probe` (the `c5` head on validation mazes at
+   800 ms; the Go2 chain reads 13.6 mm, and a variant needs 9.5 mm or less, on track for L4, to earn a full chain):
+   `inverse` (`go2_inverse.yaml`), `batch4` (4 mazes x 32 windows) and `paper` (`paper.yaml`). The chain command:
    `python -m go2nav.training.lewm_chain outputs/lewm/chain --corpus $LEWM_ROOT --recordings-root outputs/recordings`.
 2. The paper-faithful comparison: `--config configs/lewm/paper.yaml` into another folder. Gates L1-L4 from
    `world/evaluation.json`, `choice.json` and the fits' `evaluation.json`.

@@ -62,6 +62,7 @@ class LeWMConfig:
     predictor_dropout: float = .1
     action_smoothed_dim: int = 10
     action_mlp_scale: int = 4
+    inverse_dynamics: bool = False  # the latent-difference action decoder (a Delta-JEPA-style variant, not the paper's)
 
     @property
     def action_dim(self):
@@ -304,6 +305,7 @@ class LeWorldModel(nn.Module):
                                      heads=config.predictor_heads, dim_head=config.predictor_head_dim,
                                      mlp_dim=config.predictor_mlp, dim=config.latent, dropout=config.predictor_dropout)
         self.pred_proj = MLP(config.latent, config.projector_hidden, config.latent)
+        self.inverse = MLP(2*config.latent, config.projector_hidden, config.action_dim) if config.inverse_dynamics else None
 
     @classmethod
     def seeded(cls, seed, config=LeWMConfig()):
@@ -335,15 +337,23 @@ class LeWorldModel(nn.Module):
             sequence = torch.cat((sequence, nxt), dim=1)
         return torch.cat(predicted, dim=1)
 
+    def infer_actions(self, z):
+        """The inverse-dynamics variant: the action block between consecutive frames, from [z_t, z_(t+1) - z_t];
+        z (B, T, D) to (B, T-1, A)."""
+        pairs = torch.cat((z[:, :-1], z[:, 1:]-z[:, :-1]), dim=-1)
+        return self.inverse(pairs.flatten(0, 1)).unflatten(0, (z.size(0), -1))
 
-def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, generator=None):
+
+def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight=0., generator=None):
     """The training objective on windows of `history + rollout_steps` frames (rollout_steps >= 1).
 
     pixels (B, T, 3, H, W) normalised, actions (B, T-1, A). Returns a dict with `loss` and its terms:
     - `pred`: the paper's teacher-forced MSE, positions 0..N-1 of the history predicting frames 1..N;
     - `rollout` (rollout_steps > 1, the Go2 configuration): the MSE of the autoregressive rollout from the N history
       frames to frames N..N+K-1, as the forecaster uses the model. With K = 1 the objective is the paper's;
-    - `sigreg`: SIGReg over every frame's z, per time step (float32).
+    - `sigreg`: SIGReg over every frame's z, per time step (float32);
+    - `inverse` (inverse_weight > 0, the inverse-dynamics variant): the MSE of the action blocks decoded from
+      consecutive z (`LeWorldModel.infer_actions`), which makes latent differences carry the camera's motion.
     """
     n = model.config.history
     z = model.encode(pixels)
@@ -354,6 +364,9 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, generator=None
         terms['rollout'] = (rolled-z[:, n:n+rollout_steps]).pow(2).mean()
     terms['sigreg'] = sigreg(z.float().transpose(0, 1), generator)
     terms['loss'] = terms['pred']+terms.get('rollout', 0.)+lam*terms['sigreg']
+    if inverse_weight:
+        terms['inverse'] = (model.infer_actions(z)-actions).pow(2).mean()
+        terms['loss'] = terms['loss']+inverse_weight*terms['inverse']
     return terms
 
 

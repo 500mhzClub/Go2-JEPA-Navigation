@@ -1,0 +1,12 @@
+# The inverse-dynamics variant (docs/lewm/STATUS.md, screening): go2.yaml plus a latent-difference action decoder
+# trained jointly (`LeWorldModel.infer_actions`, weight 0.1), so that consecutive latents must differ by the camera's
+# motion. Not the paper's objective: reported as a variant.
+name: go2_inverse
+seed: 2026101701
+model: {size: tiny, history: 4, inverse_dynamics: true}
+data: {length: 12, mazes_per_batch: 16, windows_per_maze: 8, batch_size: 128}
+objective: {rollout_steps: 8, sigreg_weight: 0.09, sigreg_projections: 1024, sigreg_knots: 17, action_blind: false,
+            inverse_weight: 0.1}
+optimiser: {lr: 5.0e-5, weight_decay: 1.0e-3, warmup_steps: 2000, steps: 60000, grad_clip: 1.0}
+runtime: {compile: max-autotune-no-cudagraphs, workers: 10, prefetch: 2, log_every: 100, validate_every: 5000,
+          checkpoint_every: 1000, milestone_every: 10000}

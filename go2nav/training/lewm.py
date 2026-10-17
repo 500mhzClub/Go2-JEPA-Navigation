@@ -4,7 +4,8 @@
     python -m go2nav.training.lewm evaluate CHECKPOINT --corpus ROOT [--out FILE]
 
 **Configs** (configs/lewm/): `go2.yaml` (the Go2 configuration: 4-frame history, 8-step rollout loss, 16 mazes x 8
-windows per batch) and `paper.yaml` (the paper's objective and i.i.d. batches, for comparison). `--set` overrides a
+windows per batch), `paper.yaml` (the paper's objective and i.i.d. batches, for comparison) and `go2_inverse.yaml`
+(the inverse-dynamics variant: `objective.inverse_weight`, `model.inverse_dynamics`). `--set` overrides a
 value (`--set objective.sigreg_weight=0.03`); the resolved config is saved with the run.
 
 **Training.** AdamW with linear warm-up then cosine decay, gradient clipping, bf16 autocast (SIGReg in float32), the
@@ -164,6 +165,9 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     transfer = Corpus(corpus_root, length=val_length, roles=('lewm_val',), kinds=('transfer',))
     val_indices, transfer_indices = validation.fixed(VALIDATION_WINDOWS, VALIDATION_SEED), transfer.fixed(TRANSFER_WINDOWS, VALIDATION_SEED)
 
+    inverse_weight = objective.get('inverse_weight', 0.)
+    if bool(inverse_weight) != mconfig.inverse_dynamics:
+        raise ValueError('objective.inverse_weight > 0 and model.inverse_dynamics go together')
     model = LeWorldModel.seeded(seed, mconfig).to(device).train()
     sigreg = SIGReg(knots=objective.get('sigreg_knots', 17), num_proj=objective['sigreg_projections']).to(device)
     optimiser = torch.optim.AdamW(model.parameters(), lr=optim['lr'], weight_decay=optim['weight_decay'], fused=True)
@@ -202,7 +206,7 @@ def train(config, corpus_root, out, *, device='cuda:0'):
         generator.manual_seed(keyed_seed(seed, 'sigreg', step))
         with torch.autocast(device.type, dtype=torch.bfloat16):
             terms = loss_fn(model, normalise_frames(frames), actions, rollout_steps=objective['rollout_steps'],
-                            sigreg=sigreg, lam=objective['sigreg_weight'], generator=generator)
+                            sigreg=sigreg, lam=objective['sigreg_weight'], inverse_weight=inverse_weight, generator=generator)
         optimiser.zero_grad(set_to_none=True)
         if not torch.isfinite(terms['loss']):
             nonfinite += 1
