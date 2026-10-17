@@ -70,12 +70,21 @@ with C4 is no evidence for the LeWM encoder.
 
 The H-JEPA paper (arXiv 2610.06805, LeWM at level 1) reports the same failure on DROID: without inverse-dynamics supervision a purely predictive objective keeps scene identity and drops the agent, and SIGReg, acting only on the marginal distribution, cannot prevent it. Its level-1 weights are IDM 100 with SIGReg 0.08, to be scaled together; `inverse` used 0.1.
 
+Variance shares of z_t (`lewm_corpus_probe --updates 0`, 100 training units; train / validation / transfer): within-unit
+0.77 / 0.68 / 0.64 for the Go2 chain (inverse 0.72 / 0.62 / 0.67, batch4 0.80 / 0.73 / 0.65, paper 0.74 / 0.64 / 0.61),
+so no DROID-style collapse onto the episode; but the step share (mean squared 100-ms change over twice the variance) is
+0.0077 / 0.0066 / 0.0032 (inverse 0.0091, batch4 0.0104, paper 0.0161 on training units): z moves less than 1% of its
+spread per step, so it varies with place over many steps, not with each step's motion.
+
+Round 2 (Andrew, 17 October: run it before the visual-transfer cohort): `idm100` (`go2_idm100.yaml`) and `idm10` (the
+same at inverse weight 10), 15,000 steps each (`outputs/lewm/screen/run2.sh`).
+
 ## Running (17 October)
 
 | Service | Worktree (commit) | What | Output |
 |---|---|---|---|
-| `lewm-screen` | `../Go2-JEPA-Navigation-lewm-chain` (7c5d055) | the three screening runs, then the probe of each (`outputs/lewm/screen/run.sh`; rerunning resumes) | `outputs/lewm/screen` |
-| `lewm-transfer-bench` | `../Go2-JEPA-Navigation-lewm-bench` (6643da3) | `lewm_visual_transfer` (C1, C3, C4, C6 on the demonstration surfaces, mazes 30-39: 40 missions, 8 workers, `--resume`), queued until `lewm-screen` ends: beside a training run every mission ran out of GPU memory (set aside as `lewm_visual_transfer.oom_attempt1`) | `outputs/cohorts/lewm_visual_transfer` |
+| `lewm-screen2` | `../Go2-JEPA-Navigation-lewm-chain` (718ed62) | screening round 2, `idm100` then `idm10`, each then probed (`outputs/lewm/screen/run2.sh`; rerunning resumes) | `outputs/lewm/screen` |
+| `lewm-transfer-bench` | `../Go2-JEPA-Navigation-lewm-bench` (6643da3) | `lewm_visual_transfer` (C1, C3, C4, C6 on the demonstration surfaces, mazes 30-39: 40 missions, 8 workers, `--resume`), queued until `lewm-screen2` ends: beside a training run every mission ran out of GPU memory (set aside as `lewm_visual_transfer.oom_attempt1`) | `outputs/cohorts/lewm_visual_transfer` |
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
