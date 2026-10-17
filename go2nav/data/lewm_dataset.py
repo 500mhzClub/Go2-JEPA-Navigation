@@ -15,6 +15,7 @@ the window keys (unit, start).
 import hashlib
 import json
 from pathlib import Path
+import resource
 
 import numpy as np
 import torch
@@ -24,6 +25,14 @@ from go2nav.models.lewm import control_stats
 
 def keyed_rng(*keys):
     return np.random.default_rng(int.from_bytes(hashlib.sha256('|'.join(map(str, keys)).encode()).digest()[:8], 'big'))
+
+
+def raise_open_file_limit():
+    """Each unit's memory-mapped frames hold a file descriptor, so a full corpus needs thousands. systemd services
+    start with a soft limit of 1,024; past it, every open fails, Triton's kernel loads included (driver error 301)."""
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    if soft != hard:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
 
 
 class Corpus:
@@ -43,6 +52,7 @@ class Corpus:
         if not len(self.unit):
             raise ValueError(f'no windows of length {length} for roles {roles} and kinds {kinds}')
         self._frames, self._actions = {}, {}
+        raise_open_file_limit()
         self.mean, self.std = control_stats()
 
     def __len__(self):
