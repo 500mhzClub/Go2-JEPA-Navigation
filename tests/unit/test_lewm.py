@@ -121,3 +121,17 @@ def test_linear_patch_embedding_equals_the_strided_convolution():
         conv.bias.copy_(model.patch_embed.bias)
     pixels = torch.randn(2, 3, 168, 224)
     assert torch.allclose(model.patch_embed(model.patches(pixels)), conv(pixels).flatten(2).transpose(1, 2), atol=1e-5)
+
+
+def test_longer_inverse_spans_decode_the_mean_action():
+    model = LeWorldModel.seeded(5, small(inverse_dynamics=True, inverse_spans=(1, 4))).train()
+    n = model.config.history
+    pixels = normalise_frames(torch.randint(0, 255, (2, n+4, 168, 224, 3), dtype=torch.uint8))
+    actions = torch.randn(2, n+3, 10)
+    z = model.encode(pixels)
+    assert model.infer_actions(z, 4).shape == (2, n+4-4, 10)
+    terms = losses(model, pixels, actions, rollout_steps=4, sigreg=SIGReg(num_proj=32), lam=.09, inverse_weight=1.,
+                   generator=torch.Generator().manual_seed(0))
+    terms['inverse'].backward()
+    assert model.inverse_long['4'].net[0].weight.grad.abs().sum() > 0 and model.inverse.net[0].weight.grad.abs().sum() > 0
+    assert not hasattr(LeWorldModel.seeded(5, small(inverse_dynamics=True)), 'inverse_long')  # old checkpoints load

@@ -63,6 +63,7 @@ class LeWMConfig:
     action_smoothed_dim: int = 10
     action_mlp_scale: int = 4
     inverse_dynamics: bool = False  # the latent-difference action decoder (a Delta-JEPA-style variant, not the paper's)
+    inverse_spans: tuple = (1,)     # frame spans the inverse dynamics decodes over (1: consecutive frames)
 
     @property
     def action_dim(self):
@@ -306,6 +307,10 @@ class LeWorldModel(nn.Module):
                                      mlp_dim=config.predictor_mlp, dim=config.latent, dropout=config.predictor_dropout)
         self.pred_proj = MLP(config.latent, config.projector_hidden, config.latent)
         self.inverse = MLP(2*config.latent, config.projector_hidden, config.action_dim) if config.inverse_dynamics else None
+        longer = [int(k) for k in config.inverse_spans if int(k) > 1] if config.inverse_dynamics else []
+        if longer:  # one head per longer span (absent from single-span models, so their checkpoints load unchanged)
+            self.inverse_long = nn.ModuleDict({str(k): MLP(2*config.latent, config.projector_hidden, config.action_dim)
+                                               for k in longer})
 
     @classmethod
     def seeded(cls, seed, config=LeWMConfig()):
@@ -337,11 +342,13 @@ class LeWorldModel(nn.Module):
             sequence = torch.cat((sequence, nxt), dim=1)
         return torch.cat(predicted, dim=1)
 
-    def infer_actions(self, z):
+    def infer_actions(self, z, span=1):
         """The inverse-dynamics variant: the action block between consecutive frames, from [z_t, z_(t+1) - z_t];
-        z (B, T, D) to (B, T-1, A)."""
-        pairs = torch.cat((z[:, :-1], z[:, 1:]-z[:, :-1]), dim=-1)
-        return self.inverse(pairs.flatten(0, 1)).unflatten(0, (z.size(0), -1))
+        z (B, T, D) to (B, T-1, A). With `span` k > 1, the mean action block over frames t..t+k, from
+        [z_t, z_(t+k) - z_t] (B, T-k, A)."""
+        head = self.inverse if span == 1 else self.inverse_long[str(span)]
+        pairs = torch.cat((z[:, :-span], z[:, span:]-z[:, :-span]), dim=-1)
+        return head(pairs.flatten(0, 1)).unflatten(0, (z.size(0), -1))
 
 
 def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight=0., generator=None):
@@ -353,7 +360,8 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight
       frames to frames N..N+K-1, as the forecaster uses the model. With K = 1 the objective is the paper's;
     - `sigreg`: SIGReg over every frame's z, per time step (float32);
     - `inverse` (inverse_weight > 0, the inverse-dynamics variant): the MSE of the action blocks decoded from
-      consecutive z (`LeWorldModel.infer_actions`), which makes latent differences carry the camera's motion.
+      consecutive z (`LeWorldModel.infer_actions`), which makes latent differences carry the camera's motion; with
+      `inverse_spans` beyond 1, the mean over the spans of each span's MSE against the mean action block across it.
     """
     n = model.config.history
     z = model.encode(pixels)
@@ -365,7 +373,9 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight
     terms['sigreg'] = sigreg(z.float().transpose(0, 1), generator)
     terms['loss'] = terms['pred']+terms.get('rollout', 0.)+lam*terms['sigreg']
     if inverse_weight:
-        terms['inverse'] = (model.infer_actions(z)-actions).pow(2).mean()
+        sums = torch.cat((torch.zeros_like(actions[:, :1]), actions.cumsum(1)), dim=1)
+        spans = [int(k) for k in model.config.inverse_spans]
+        terms['inverse'] = sum((model.infer_actions(z, k)-(sums[:, k:]-sums[:, :-k])/k).pow(2).mean() for k in spans)/len(spans)
         terms['loss'] = terms['loss']+inverse_weight*terms['inverse']
     return terms
 
