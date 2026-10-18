@@ -104,12 +104,34 @@ true-future probe reads corpus walking at 24 mm but T7 cruising at 59. The laten
 (rank 17.6, z std 0.90, as on the corpus). So the corpus probe is not a reliable screen for T7: forward motion in the
 decoder contexts is read worse than in corpus windows of the same speed.
 
-## Running (17 October)
+## Cross-domain diagnostic (18 October): the T7 fit, not the encoder, is the limit
 
-| Service | Worktree (commit) | What | Output |
-|---|---|---|---|
-| `lewm-screen2` | `../Go2-JEPA-Navigation-lewm-chain` (718ed62) | screening round 2, `idm100` then `idm10`, each then probed (`outputs/lewm/screen/run2.sh`; rerunning resumes) | `outputs/lewm/screen` |
-| `lewm-chain-idm` | `../Go2-JEPA-Navigation-lewm-chain` (718ed62) | paused 18 October 01:30 at the step-20,000 checkpoint, resumed there at 07:56; from 17 October 22:44: the full chain (60,000 steps, decoder cache, three fits) for `idm100` (lower on `c5` than `idm10`) (`outputs/lewm/chain_idm.sh`; rerunning resumes) | `outputs/lewm/chain_idm` |
+The same MLP heads as the corpus probe (`probe`: true future z; `c5`: rollout z; 20,000 batches of 512), fitted on
+corpus windows (300 training-maze units), on T7's training contexts (old/maze/onpolicy, 23k), or on both, and scored
+with T7's rule (eval_onpolicy, 800 ms, mean of the movement types' median XY):
+
+| Head, fitted on | idm100 chain | Go2 chain |
+|---|---|---|
+| T7's own fit (C5, 3,520 batches of 64, from scratch) | 20.8 | 21.5 |
+| `c5`, T7 contexts | 10.7 | 15.8 |
+| `c5`, corpus | **7.3** (cruise 10.7, yaw 1.2 deg) | **8.0** (cruise 8.8) |
+| `c5`, corpus + T7 | 6.8 | 7.7 |
+| `probe`, corpus (the L3 reading) | 12.2 (cruise 26.4, yaw 2.2 deg) | 11.7 (cruise 15.6, yaw 1.6 deg) |
+
+T7's frames are not out of domain: a linear classifier separates their z_t from corpus z_t at 68%, and in each
+translation bin the 100-ms step size and the total variance match the corpus. So the latents carry forward motion
+(the 59 mm cruise reading above was the T7 probe fit's, not the encoder's); T7's fit starves the LeWM decoder. C3's
+decoder is grown from the T5b readout (T5-0 -> T5a -> T5b on true-future recording pairs); C5's starts fresh on the
+same 3,520 x 64 examples.
+
+Fit budget on T7's own data (the `lewm_decoder` fit with more updates, three seeds, C5 median): idm100 20.8 (3,520) ->
+14.0 (14,080) -> 15.0 (35,200); Go2 chain 21.5 -> 15.0 -> 14.0. C6 also improves (4.5 -> 3.4), and the probe stays near
+20 mm (L3 fails). So more updates alone reach the L4 bar only marginally, and also change C4's/C3's footing; a
+pretrained base readout reaches about 7 mm.
+
+## Running (18 October)
+
+Nothing. `lewm-screen2` and `lewm-chain-idm` finished on 18 October (`outputs/lewm/screen`, `outputs/lewm/chain_idm`).
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
