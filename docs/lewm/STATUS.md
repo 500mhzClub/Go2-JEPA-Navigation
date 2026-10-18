@@ -129,9 +129,29 @@ Fit budget on T7's own data (the `lewm_decoder` fit with more updates, three see
 20 mm (L3 fails). So more updates alone reach the L4 bar only marginally, and also change C4's/C3's footing; a
 pretrained base readout reaches about 7 mm.
 
+## Base readout for C5 (18 October): L4 passes, L3 still fails
+
+`go2nav.training.lewm_readout` pretrains C5's decoder (and the L3 probe) before T7's fit, as C3's decoder is grown from
+T5b; `lewm_decoder fit --base-readout` then runs T7's fit unchanged from it (C6 stays fresh, as C4). Two sources: `corpus`
+(600 training-maze units, 490k windows labelled from the simulator poses; more labelled motion than C3's readout had)
+and `contexts` (T7's own 23k training decisions only: like for like with C3). `outputs/lewm/readout/run.sh`
+(`<chain>_<source>/base`, `fit_s<seed>`). T7 score (eval_onpolicy, 800 ms), three seeds, median by T7's rule; the base
+readout alone (no T7 fit) beside it:
+
+| World model, source | T7 fit from base: seeds (median) | L4 | Base alone | Probe from base after fit (L3) | Base probe alone |
+|---|---|---|---|---|---|
+| idm100, corpus | 12.0 / 12.3 / 14.3 (**12.3**) | pass | 7.6 | 18.0-18.8 mm, 2.9 deg | 15.8 mm, 2.3 deg |
+| idm100, contexts | 12.4 / 12.9 / 13.9 (**12.9**) | pass | 10.4 | 19.5-21.3 mm, 3.3 deg | 17.3 mm, 3.3 deg |
+| Go2 chain, corpus | 12.7 / 13.5 / 14.5 (**13.5**) | pass | **6.9** | 17.1-19.7 mm, 2.2 deg | 12.1 mm, 1.3 deg |
+| Go2 chain, contexts | 13.9 / 15.0 / 15.3 (**15.0**) | pass (at the bar) | 11.9 | 18.6-21.1 mm, 2.9 deg | 17.4 mm, 2.5 deg |
+
+(From scratch, T7 read 20.8 and 21.5.) T7's fit (batch 64, lr 3e-4, 3,520 updates) degrades a corpus base readout, from
+about 7 to 12-13.5 mm. L3 fails in every case: the true future frame's z reads translation worse than the rollout (best:
+the Go2 chain's corpus base probe, 12.1 mm, with yaw 1.3 deg inside the bar).
+
 ## Running (18 October)
 
-Nothing. `lewm-screen2` and `lewm-chain-idm` finished on 18 October (`outputs/lewm/screen`, `outputs/lewm/chain_idm`).
+Nothing. `lewm-screen2`, `lewm-chain-idm` and `lewm-readout` finished on 18 October (`outputs/lewm/screen`, `outputs/lewm/chain_idm`, `outputs/lewm/readout`).
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
