@@ -149,6 +149,19 @@ readout alone (no T7 fit) beside it:
 about 7 to 12-13.5 mm. L3 fails in every case: the true future frame's z reads translation worse than the rollout (best:
 the Go2 chain's corpus base probe, 12.1 mm, with yaw 1.3 deg inside the bar).
 
+## Screening round 3 (18 October): span-8 inverse dynamics improves L3 and L4
+
+Scored on T7 itself (base readout from T7's contexts, three fits; L4 = C5's median, L3 = the chosen fit's probe), both
+at 15,000 steps with the same seed:
+
+| Variant | C5, three seeds (median) | L3 probe |
+|---|---|---|
+| idm100 (spans [1]) | 11.9 / 12.7 / 13.6 (**12.7**) | 26.0 mm, 4.0 deg |
+| span8 (spans [1, 8]) | 10.2 / 11.5 / 12.4 (**11.5**) | **16.4 mm, 2.3 deg** |
+
+L3 still fails (bars 10 mm, 1.5 deg), but the long span cuts the probe's error by more than a third. `spans` ([1, 2, 4,
+8]) is training (paused at its step-1,000 checkpoint).
+
 ## C5 benchmarks (18 October): level with C1 and C4, ahead of C3 and C6 (not significant)
 
 The five C5 cohorts on the idm100 chain (decoder grown from the base readout; L4 12.9 mm, L3 failing), round trips on
@@ -182,7 +195,7 @@ Pooled discordant pairs (C5 alone succeeded, the other alone; exact sign test): 
 
 | Service | Checkout | What | Output |
 |---|---|---|---|
-| `lewm-screen3` | this one (a9f5710) | from 21:22 (the C5 cohorts done): scores idm100's screen on T7 and trains and scores `span8` and `spans` (`outputs/lewm/screen/run3.sh`; rerunning resumes) | `outputs/lewm/screen/t7_*` |
+| `lewm-screen3` | this one (a9f5710) | **paused** 18 October 23:50 (stopped; `spans` resumes from its step-1,000 checkpoint: `systemctl --user start lewm-screen3`); from 21:22: scores idm100's screen on T7 and trains and scores `span8` and `spans` (`outputs/lewm/screen/run3.sh`; rerunning resumes) | `outputs/lewm/screen/t7_*` |
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
