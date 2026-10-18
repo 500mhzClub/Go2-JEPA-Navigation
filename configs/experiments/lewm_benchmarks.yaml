@@ -7,7 +7,7 @@ description: 'C5 (the LeWorldModel trained end to end from Go2 pixels, read by i
   demonstration surfaces (go2nav.sim.demo_appearance), which no model trained on, mazes 30-39. Models: the LeWM chain
   (go2nav.training.lewm_chain) at outputs/lewm/chain; paths are relative to the repository root. C5 has cohorts of its
   own (the *_c5 ones, last), on the idm100 chain (outputs/lewm/chain_idm) with its decoder grown from the base readout:
-  L4 passes, L3 does not; run on 18 October with that noted (Andrew's decision; docs/lewm/STATUS.md); C6 runs on the
+  L4 passes, L3 does not; run on 18 October with that noted (decided 18 October, docs/lewm/STATUS.md); C6 runs on the
   Go2 chain. The visual-transfer cohorts are cancelled until a LeWM passes all its gates.'
 cohorts:
 - name: lewm_r4_c6
