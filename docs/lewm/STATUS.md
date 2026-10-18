@@ -149,6 +149,24 @@ readout alone (no T7 fit) beside it:
 about 7 to 12-13.5 mm. L3 fails in every case: the true future frame's z reads translation worse than the rollout (best:
 the Go2 chain's corpus base probe, 12.1 mm, with yaw 1.3 deg inside the bar).
 
+## C5 benchmarks (18 October): level with C1 and C4, ahead of C3 and C6 (not significant)
+
+The five C5 cohorts on the idm100 chain (decoder grown from the base readout; L4 12.9 mm, L3 failing), round trips on
+exactly the recorded cohorts' episodes:
+
+| Condition | C5 | C6 | C4 | C1 | C3 |
+|---|---|---|---|---|---|
+| R4 | 20/20 | 20 | 19 | 20 | 20 |
+| R5 friction 0.30 | 16/20 | 13 | 15 | 16 | 13 |
+| R5 friction 0.25 | 0/20 | 0 | 1 | 1 | - |
+| R6 reference | 19/20 | 19 | 20 | 20 | 17 |
+| R6 marked strips | **17/20** | 15 | - | 15 (C1A 16, C1R 14) | - |
+| Total | 72/100 | 67/100 | 55/80 | 72/100 | 50/60 |
+
+Pooled discordant pairs (C5 alone succeeded, the other alone; exact sign test): C1 5/5 (p 1.0), C4 5/5 (1.0), C3 8/3
+(0.23), C6 9/4 (0.27), C1R 4/1 (0.38). At friction 0.25, C5 makes fewer contacts (12/20) than C1 (19), C4 (18) or C6
+(16) but completes none. `outputs/cohorts/lewm_*_c5`; contacts and clearance as the other arms.
+
 ## Decisions (18 October)
 
 1. C5's official T7 fit is grown from the base readout on T7's own contexts (`lewm_chain --base-readout contexts`, the
@@ -164,8 +182,7 @@ the Go2 chain's corpus base probe, 12.1 mm, with yaw 1.3 deg inside the bar).
 
 | Service | Checkout | What | Output |
 |---|---|---|---|
-| `lewm-c5-bench` | this one (b9ee5a6) | the five C5 cohorts (R4, R5 0.30 and 0.25, R6 ref and strips; 100 missions, 6 LeWM lanes) | `outputs/cohorts/lewm_*_c5` |
-| `lewm-screen3` | this one (a9f5710) | waits for `lewm-c5-bench` (the GPU), then scores idm100's screen on T7 and trains and scores `span8` and `spans` (`outputs/lewm/screen/run3.sh`; rerunning resumes) | `outputs/lewm/screen/t7_*` |
+| `lewm-screen3` | this one (a9f5710) | from 19:45 (the C5 cohorts done): scores idm100's screen on T7 and trains and scores `span8` and `spans` (`outputs/lewm/screen/run3.sh`; rerunning resumes) | `outputs/lewm/screen/t7_*` |
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
