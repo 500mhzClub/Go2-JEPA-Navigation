@@ -6,8 +6,9 @@ description: 'C5 (the LeWorldModel trained end to end from Go2 pixels, read by i
   C3 at friction 0.25 and C3/C4 on marked strips. lewm_visual_transfer: every learned arm on the brick and parquet
   demonstration surfaces (go2nav.sim.demo_appearance), which no model trained on, mazes 30-39. Models: the LeWM chain
   (go2nav.training.lewm_chain) at outputs/lewm/chain; paths are relative to the repository root. C5 has cohorts of its
-  own (the *_c5 ones, last), run only once its gates L3 and L4 pass (docs/lewm/STATUS.md); C6 runs on the chain as it
-  stands.'
+  own (the *_c5 ones, last), on the idm100 chain (outputs/lewm/chain_idm) with its decoder grown from the base readout:
+  L4 passes, L3 does not; run on 18 October with that noted (Andrew's decision; docs/lewm/STATUS.md); C6 runs on the
+  Go2 chain. The visual-transfer cohorts are cancelled until a LeWM passes all its gates.'
 cohorts:
 - name: lewm_r4_c6
   arms: [C6]
@@ -215,7 +216,7 @@ cohorts:
   arms: [C5]
   set: prelim_test_v1
   recovery: 'off'
-  models: outputs/lewm/chain/models.yaml
+  models: outputs/lewm/chain_idm/models.yaml
   episodes:
   - [30, 0]
   - [31, 0]
@@ -242,7 +243,7 @@ cohorts:
   set: prelim_test_v1
   recovery: 'off'
   friction: 0.3
-  models: outputs/lewm/chain/models.yaml
+  models: outputs/lewm/chain_idm/models.yaml
   episodes:
   - [30, 0]
   - [31, 0]
@@ -269,7 +270,7 @@ cohorts:
   set: prelim_test_v1
   recovery: 'off'
   friction: 0.25
-  models: outputs/lewm/chain/models.yaml
+  models: outputs/lewm/chain_idm/models.yaml
   episodes:
   - [30, 0]
   - [31, 0]
@@ -295,7 +296,7 @@ cohorts:
   arms: [C5]
   set: stage2_sets_v1
   recovery: 'off'
-  models: outputs/lewm/chain/models.yaml
+  models: outputs/lewm/chain_idm/models.yaml
   episodes:
   - [30, 0]
   - [31, 0]
@@ -322,7 +323,7 @@ cohorts:
   set: stage2_sets_v1
   recovery: 'off'
   strips: 0.3:marked
-  models: outputs/lewm/chain/models.yaml
+  models: outputs/lewm/chain_idm/models.yaml
   episodes:
   - [30, 0]
   - [31, 0]
