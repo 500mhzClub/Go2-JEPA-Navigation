@@ -195,7 +195,7 @@ Pooled discordant pairs (C5 alone succeeded, the other alone; exact sign test): 
 
 | Service | Checkout | What | Output |
 |---|---|---|---|
-| `lewm-screen3` | this one (a9f5710) | **paused** 18 October 23:50 (stopped; `spans` resumes from its step-1,000 checkpoint: `systemctl --user start lewm-screen3`); from 21:22: scores idm100's screen on T7 and trains and scores `span8` and `spans` (`outputs/lewm/screen/run3.sh`; rerunning resumes) | `outputs/lewm/screen/t7_*` |
+| `lewm-screen3` | this one (a9f5710) | **paused** 18 October 23:50 (stopped; `spans` resumes from its step-1,000 checkpoint when `outputs/lewm/screen/run3.sh` is relaunched as the service); from 21:22: scores idm100's screen on T7 and trains and scores `span8` and `spans` (`outputs/lewm/screen/run3.sh`; rerunning resumes) | `outputs/lewm/screen/t7_*` |
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
