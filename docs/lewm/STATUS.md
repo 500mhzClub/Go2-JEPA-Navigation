@@ -89,7 +89,7 @@ and is set aside as `outputs/cohorts/lewm_visual_transfer.oom_attempt1`.
 | Service | Worktree (commit) | What | Output |
 |---|---|---|---|
 | `lewm-screen2` | `../Go2-JEPA-Navigation-lewm-chain` (718ed62) | screening round 2, `idm100` then `idm10`, each then probed (`outputs/lewm/screen/run2.sh`; rerunning resumes) | `outputs/lewm/screen` |
-| `lewm-chain-idm` | `../Go2-JEPA-Navigation-lewm-chain` (718ed62) | from 22:44: the full chain (60,000 steps, decoder cache, three fits) for `idm100` (lower on `c5` than `idm10`) (`outputs/lewm/chain_idm.sh`; rerunning resumes) | `outputs/lewm/chain_idm` |
+| `lewm-chain-idm` | `../Go2-JEPA-Navigation-lewm-chain` (718ed62) | **paused 18 October 01:30 at the step-20,000 checkpoint** (Andrew: pick it up in the morning; restart the service as before, `outputs/lewm/chain_idm.sh`, and the world stage resumes there); from 17 October 22:44: the full chain (60,000 steps, decoder cache, three fits) for `idm100` (lower on `c5` than `idm10`) (`outputs/lewm/chain_idm.sh`; rerunning resumes) | `outputs/lewm/chain_idm` |
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
