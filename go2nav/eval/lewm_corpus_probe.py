@@ -13,8 +13,9 @@ motion (x, y, yaw) from the poses. Four heads, each the same MLP (two 1,024 laye
 - `c5`: the same with the world model's rollout under the executed actions;
 - `cmds`: the applied-command history and the tape up to h (no vision);
 - `c6`: the four z with the commands.
-Reported per split and horizon: median XY error and RMS yaw, and on windows moving more than 50 mm the median XY error
-and the median projected displacement ratio. Also per split, the within-unit variance share of z_t (the trace of the
+Reported per split and horizon: median XY error and RMS yaw, on windows moving more than 50 mm the median XY error
+and the median projected displacement ratio, and per true-translation bin (`TRANSLATION_BINS`) the median XY error and
+ratio, with the mean over the bins (`bin_mean_xy_mm`, the screening measure since 18 October). Also per split, the within-unit variance share of z_t (the trace of the
 pooled within-unit covariance over the total; H-JEPA's chi, arXiv 2610.06805): latents that hold only scene identity
 barely change within a unit (chi near 0.01 in its collapsed DROID runs, 0.12 in its healthy one). A Go2 unit crosses
 many places of its maze, so chi also counts place changes; the step share, the mean squared 100-ms change of z over
@@ -34,6 +35,10 @@ from go2nav.models.lewm import action_blocks, control_stats, load_world_model, n
 
 HS = (5, 8)
 HEADS = ('probe', 'c5', 'cmds', 'c6')
+# True 800-ms translation bins (mm). The corpus is mostly slow (median 13 mm at 800 ms) while T7's on-policy decisions
+# mostly translate (median 123 mm, cruise 152), and T7's score averages its movement types: the mean of the bins'
+# medians (`bin_mean_xy_mm`) weights fast motion as T7 does, where the median over all windows hides it.
+TRANSLATION_BINS = (('still', 0., 20.), ('slow', 20., 80.), ('walk', 80., 160.), ('fast', 160., 1e9))
 
 
 def yaw_of(q):  # (n, 4) x, y, z, w
@@ -140,6 +145,14 @@ def fit_eval(data, kind, dev, updates, batch=512):
                                                  moving_share=moving.float().mean().item(),
                                                  moving_median_xy_mm=xy[moving].median().item() if moving.any() else float('nan'),
                                                  moving_median_ratio=((p[moving, :2]*y[moving, :2]).sum(1)/y[moving, :2].pow(2).sum(1)).median().item() if moving.any() else float('nan'))
+                bins = {}
+                for name, lo, hi in TRANSLATION_BINS:
+                    m = (true >= lo) & (true < hi)
+                    bins[name] = dict(n=int(m.sum()), median_xy_mm=xy[m].median().item() if m.any() else float('nan'),
+                                      median_ratio=((p[m, :2]*y[m, :2]).sum(1)/y[m, :2].pow(2).sum(1)).median().item()
+                                      if m.any() and lo > 0 else float('nan'))
+                res[f'{split}@{h*100}ms']['bins'] = bins
+                res[f'{split}@{h*100}ms']['bin_mean_xy_mm'] = float(np.nanmean([b['median_xy_mm'] for b in bins.values()]))
     return res
 
 
