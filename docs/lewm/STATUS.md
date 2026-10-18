@@ -84,6 +84,26 @@ same at inverse weight 10), 15,000 steps each (`outputs/lewm/screen/run2.sh`). T
 passes its gates (Andrew, 17 October: the basics first); an earlier attempt ran out of GPU memory beside a training run
 and is set aside as `outputs/cohorts/lewm_visual_transfer.oom_attempt1`.
 
+
+## idm100 chain result (18 October): L3 and L4 still fail; C6 beats C4
+
+`outputs/lewm/chain_idm` (60,000 steps, paused at 20,000 overnight and resumed). L1 passes (SIGReg 4.1, rank 17.3),
+L2 passes. L3 fails: 26.0 mm, 3.52 degrees (Go2 chain 24.5, 3.25). L4 fails: C5's T7 score 20.8 mm (seeds 19.9 / 20.8
+/ 20.9; Go2 chain 21.5). C6: 4.5 mm (C4 5.02, Go2 chain's C6 5.0).
+
+eval_onpolicy at 800 ms, C5 median XY by movement type (Go2 chain -> idm100): turn 17.2 -> 7.9, hold 3.2 -> 4.6,
+cruise 31.9 -> 41.1 (ratio 0.73), arc_steady 34.7 -> 23.0, switch 31.3 -> 45.9 (ratio 0.59); eval_fresh_c3 hold 27.0
+-> 3.7. Inverse dynamics fixed rotation and standing still; forward translation is under-read, by the true-future probe
+too (cruise 58.8 mm), so in the encoder. C6 on cruise: 4.5 mm (Go2 chain 6.8).
+
+The screen misled: the corpus is mostly slow (median 13 mm at 800 ms, 34% of windows over 50 mm) where T7's on-policy
+decisions mostly translate (median 123 mm), so the median over all windows rewarded the rotation and stillness gains.
+The probe now also reports translation bins (still < 20, slow < 80, walk < 160, fast mm) and their mean; but that does
+not reproduce T7 either (`c5` bin mean: Go2 chain 16.4, idm100 chain 13.1, walk bin 18.0 -> 14.7 at ratio 0.92), and the
+true-future probe reads corpus walking at 24 mm but T7 cruising at 59. The latents of T7's frames are not collapsed
+(rank 17.6, z std 0.90, as on the corpus). So the corpus probe is not a reliable screen for T7: forward motion in the
+decoder contexts is read worse than in corpus windows of the same speed.
+
 ## Running (17 October)
 
 | Service | Worktree (commit) | What | Output |
