@@ -15,7 +15,8 @@ repeated for the tick's five policy steps: what the forecaster sees at run time.
 **Cache** (`cache`): z of every frame (PNG decoding in parallel workers, encoding on the GPU), then, per context, the
 world model's 8-step rollout with the executed tape. Stages leave .done markers; a rerun redoes only unfinished ones.
 
-**Fit** (`fit`): T7's recipe: the same 64-example batches drawn by the recipe's (group, movement type) cells at one
+**Fit** (`fit`): T7's recipe (with `--base-readout`, C5's decoder and the probe start from a `lewm_readout` base readout, as
+C3's decoder starts from T5b; C6 stays fresh): the same 64-example batches drawn by the recipe's (group, movement type) cells at one
 of each context's horizons, 3,520 AdamW updates (lr 3e-4, weight decay 1e-4, clip 1), MSE in normalised motion units
 (normalisation fitted on the recipe's training targets). C5 (`models.lewm.LatentMotionDecoder`) reads the rolled-out
 future; C6 (`LatentDirectPredictor`) reads the frames' z, command history and candidate tape. Alongside, the
@@ -160,7 +161,7 @@ def update(model, optimiser, prediction, y):
     return float(loss.detach())
 
 
-def fit(cache, out, *, seed, recipe='decoder_fix', updates=UPDATES, device='cuda:0'):
+def fit(cache, out, *, seed, recipe='decoder_fix', updates=UPDATES, device='cuda:0', base_readout=None):
     out = Path(out)
     checkpoint = out/f'fit_{recipe}_s{seed}.pt'
     if (out/'.done').exists():
@@ -175,6 +176,10 @@ def fit(cache, out, *, seed, recipe='decoder_fix', updates=UPDATES, device='cuda
     c5 = LatentMotionDecoder(cache.latent, mean, scale).to(device).train()
     c6 = LatentDirectPredictor(cache.latent, mean, scale).to(device).train()
     probe = LatentMotionDecoder(cache.latent, mean, scale).to(device).train()
+    if base_readout is not None:  # grown from the base readout (go2nav.training.lewm_readout), as C3's from T5b
+        from go2nav.training.lewm_readout import load_base
+        c5.load_state_dict(load_base(base_readout, 'rollout').state_dict())
+        probe.load_state_dict(load_base(base_readout, 'true').state_dict())
     opt5 = torch.optim.AdamW(c5.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
     opt6 = torch.optim.AdamW(c6.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
     optp = torch.optim.AdamW(probe.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
@@ -189,12 +194,13 @@ def fit(cache, out, *, seed, recipe='decoder_fix', updates=UPDATES, device='cuda
             history.append(dict(step=n+1, c5_loss=loss5, c6_loss=loss6))
     report = evaluate(cache, c5, c6, device, probe=probe)
     torch.save(dict(c5=c5.state_dict(), c6=c6.state_dict(), latent=cache.latent, target_mean=mean, target_scale=scale,
-                    recipe=recipe, mix=RECIPES[recipe], world_model_sha256=json.loads((cache.folder/'meta.json').read_text())['world_model_sha256']),
+                    recipe=recipe, mix=RECIPES[recipe], base_readout=str(base_readout) if base_readout else None, world_model_sha256=json.loads((cache.folder/'meta.json').read_text())['world_model_sha256']),
                partial/checkpoint.name)
     (partial/'evaluation.json').write_text(json.dumps(dict(seed=seed, recipe=recipe, score_mm=score(report, 'C5'),
                                                            score_c6_mm=score(report, 'C6'), probe=probe_gate(report),
                                                            eval=report), indent=1)+'\n')
-    write_lineage(partial, component=f'lewm_c5_decoder_and_c6_{recipe}', seed=seed, parents=[str(cache.folder/'meta.json')],
+    write_lineage(partial, component=f'lewm_c5_decoder_and_c6_{recipe}', seed=seed,
+                  parents=[str(cache.folder/'meta.json')]+([str(base_readout)] if base_readout else []),
                   config=dict(recipe=recipe, mix=RECIPES[recipe], updates=updates, lr=LR, weight_decay=WEIGHT_DECAY),
                   data=dict(contexts='data/training/decoder/contexts.jsonl', cells=cells), checkpoint=partial/checkpoint.name,
                   metrics=dict(score_mm=score(report, 'C5'), score_c6_mm=score(report, 'C6'), history=history,
@@ -267,6 +273,7 @@ def main():
     f.add_argument('--out', required=True)
     f.add_argument('--seed', type=int, required=True)
     f.add_argument('--recipe', choices=sorted(RECIPES), default='decoder_fix')
+    f.add_argument('--base-readout', type=Path, help='grow C5 and the probe from this base readout (lewm_readout)')
     e = sub.add_parser('evaluate')
     e.add_argument('--cache', required=True)
     e.add_argument('--checkpoint', required=True)
@@ -280,7 +287,7 @@ def main():
     else:
         cache = LatentCache(a.cache, load_contexts())
         if a.command == 'fit':
-            print(fit(cache, a.out, seed=a.seed, recipe=a.recipe))
+            print(fit(cache, a.out, seed=a.seed, recipe=a.recipe, base_readout=a.base_readout))
         else:
             from go2nav.models.lewm import load_heads
             c5, c6 = load_heads(a.checkpoint, 'cuda:0')
