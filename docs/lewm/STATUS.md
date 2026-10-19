@@ -165,6 +165,20 @@ intermediate spans add nothing. L2 passes for all three. For reference, idm100's
 15,000-step screen: L4 12.9 against 12.7, L3 probe 21.3 against 26.0 mm. Round 3 finished 19 October 11:08 (paused
 overnight at `spans` step 1,000).
 
+## Screening round 4 (19 October): span8w is best on every measure; L3 still fails
+
+The same protocol as round 3 (15,000 steps, idm100's seed, scored on T7 with the contexts base readout):
+
+| Variant | C5, three seeds (median) | L3 probe | SIGReg, effective rank (validation) |
+|---|---|---|---|
+| span8 (round 3) | 10.2 / 11.5 / 12.4 (**11.5**) | 16.4 mm, 2.3 deg | 5.8, 10.9 |
+| span8w (800-ms span weighted 3x) | 9.0 / 9.5 / 10.2 (**9.5**) | **15.1 mm, 1.9 deg** | **5.2, 13.1** |
+| span8m (plus body-frame motion, weight 100) | 10.7 / 10.9 / 11.4 (**10.9**) | 17.0 mm, 2.2 deg | 6.0, 10.6 |
+
+L2 passes for all three. Motion supervision from the poses did not help and is dropped (it also uses labels H-JEPA's
+recipe does not). L3 (10 mm, 1.5 deg) still fails: span8w is 5 mm and 0.4 deg short. idm100 gained little from 15,000
+to 60,000 steps (L3 probe 26.0 -> 21.3 mm), so the full chain may not close the gap. Round 4 finished 16:19.
+
 ## C5 benchmarks (18 October): level with C1 and C4, ahead of C3 and C6 (not significant)
 
 The five C5 cohorts on the idm100 chain (decoder grown from the base readout; L4 12.9 mm, L3 failing), round trips on
@@ -194,11 +208,11 @@ Pooled discordant pairs (C5 alone succeeded, the other alone; exact sign test): 
    `go2_idm_span8.yaml` [1, 8], `go2_idm_spans.yaml` [1, 2, 4, 8]), screened at 15,000 steps on T7 itself (L4 and L3 via
    `lewm_chain --set optimiser.steps=15000`) against idm100's 15,000-step screen.
 
-## Running (18 October)
+## Running (19 October)
 
 | Service | Checkout | What | Output |
 |---|---|---|---|
-| `lewm-screen4` | this one (bbc5d72) | from 19 October 12:03: screening round 4 (Andrew chose another screen before a full chain): `span8w` (the 800-ms span weighted 3x) and `span8m` (plus body-frame motion from the corpus poses, weight 100), 15,000 steps each with idm100's seed, scored on T7 (`outputs/lewm/screen/run4.sh`; rerunning resumes); the winner then gets a full chain | `outputs/lewm/screen/t7_span8w`, `t7_span8m` |
+| `lewm-chain-span8w` | this one | from 19 October 16:20: the full chain for span8w (60,000 steps, then the cache, contexts base readout, three T7 fits, choice.json), per Andrew's option 2 (`outputs/lewm/chain_span8w.sh`; relaunching it with `systemd-run` resumes) | `outputs/lewm/chain_span8w` |
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
