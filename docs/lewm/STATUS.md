@@ -179,6 +179,23 @@ L2 passes for all three. Motion supervision from the poses did not help and is d
 recipe does not). L3 (10 mm, 1.5 deg) still fails: span8w is 5 mm and 0.4 deg short. idm100 gained little from 15,000
 to 60,000 steps (L3 probe 26.0 -> 21.3 mm), so the full chain may not close the gap. Round 4 finished 16:19.
 
+## span8w chain result (20 October): all gates pass; ahead of V-JEPA on the probe and of C3 on T7
+
+`outputs/lewm/chain_span8w` (go2_idm_span8w.yaml, 60,000 steps, contexts base readout; finished 00:52):
+
+| Gate | Result |
+|---|---|
+| L1 health | validation SIGReg 3.48, effective rank 23.0, smallest z spread 0.69 (held-out look: SIGReg 20.4, rank 20.1) |
+| L2 action sensitivity | pass (validation and held-out look) |
+| L3 probe (10 mm, 1.5 deg) | **9.4 mm, 0.91 deg** (chosen fit); the three fits 9.4 / 9.2 / 9.9 mm, 0.86-1.04 deg: all pass |
+| L4 forecast (15 mm) | **7.3 mm** (fits 7.3 / 8.5 / 7.2); C6 4.5-5.4 mm |
+
+Against the references on the same metric: C3's decoder 8.9 mm (retrained chain; 8.5 shipped), C4 5.0. Probe at 800 ms:
+V-JEPA 14.2 mm, 2.3 deg; span8w 9.4 mm, 0.9 deg (500 ms: 8.6 mm, 1.3 deg against 7.4-7.8 mm, 0.6-0.8 deg). The base
+readout's `true` head alone already reads 8.9 mm, 0.77 deg. Cruise and switch remain the hardest types (probe 18-20 mm,
+C5 9-18 mm); seed 2026093012's probe passes by 0.1 mm. From 15,000 to 60,000 steps span8w gained far more than idm100
+did (L3 15.1 -> 9.4 mm; L4 9.5 -> 7.3).
+
 ## L3 reference: the same probe on V-JEPA (19 October): neither encoder reaches 10 mm at 800 ms
 
 L3's 10 mm / 1.5 deg was not derived from task success (L4's 15 mm was, from R3's forecast-noise cohorts: 10 mm 20/20,
@@ -228,11 +245,9 @@ Pooled discordant pairs (C5 alone succeeded, the other alone; exact sign test): 
    `go2_idm_span8.yaml` [1, 8], `go2_idm_spans.yaml` [1, 2, 4, 8]), screened at 15,000 steps on T7 itself (L4 and L3 via
    `lewm_chain --set optimiser.steps=15000`) against idm100's 15,000-step screen.
 
-## Running (19 October)
+## Running (20 October)
 
-| Service | Checkout | What | Output |
-|---|---|---|---|
-| `lewm-chain-span8w` | this one | from 19 October 16:20 (world model done about 01:00): the full chain for span8w (60,000 steps, then the cache, contexts base readout, three T7 fits, choice.json), per Andrew's option 2 (`outputs/lewm/chain_span8w.sh`; relaunching it with `systemd-run` resumes) | `outputs/lewm/chain_span8w` |
+Nothing. Last finished: `lewm-chain-span8w` (19 October 16:20 to 20 October 00:52).
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
