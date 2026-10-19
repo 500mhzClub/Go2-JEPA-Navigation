@@ -1,4 +1,6 @@
 """The LeWorldModel port: sizes, the official modules' behaviour, causality, rollout alignment and the loss."""
+import math
+
 import numpy as np
 import pytest
 import torch
@@ -135,3 +137,21 @@ def test_longer_inverse_spans_decode_the_mean_action():
     terms['inverse'].backward()
     assert model.inverse_long['4'].net[0].weight.grad.abs().sum() > 0 and model.inverse.net[0].weight.grad.abs().sum() > 0
     assert not hasattr(LeWorldModel.seeded(5, small(inverse_dynamics=True)), 'inverse_long')  # old checkpoints load
+
+
+def test_body_motion_and_the_motion_term():
+    from go2nav.models.lewm import body_motion
+    poses = torch.tensor([[[0., 0., math.pi/2], [0., .1, math.pi/2], [-.1, .1, -math.pi+.05]]])
+    m = body_motion(poses, 1)
+    assert torch.allclose(m[0, 0], torch.tensor([.1, 0., 0.]), atol=1e-6)        # forward along +y when facing +y
+    assert torch.allclose(m[0, 1, :2], torch.tensor([0., .1]), atol=1e-6)         # then a step to the left
+    assert abs(float(m[0, 1, 2])-(math.pi/2+.05)) < 1e-5                           # yaw change wrapped into (-pi, pi]
+    model = LeWorldModel.seeded(6, small(inverse_dynamics=True, inverse_spans=(1, 4), inverse_span_weights=(1, 3),
+                                         motion_dynamics=True)).train()
+    n = model.config.history
+    pixels = normalise_frames(torch.randint(0, 255, (2, n+4, 168, 224, 3), dtype=torch.uint8))
+    terms = losses(model, pixels, torch.randn(2, n+3, 10), rollout_steps=4, sigreg=SIGReg(num_proj=32), lam=.09,
+                   inverse_weight=1., motion_weight=1., poses=torch.randn(2, n+4, 3),
+                   generator=torch.Generator().manual_seed(0))
+    terms['motion'].backward()
+    assert model.motion['4'].net[0].weight.grad.abs().sum() > 0 and model.encoder.patch_embed.weight.grad.abs().sum() > 0

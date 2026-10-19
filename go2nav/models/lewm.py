@@ -27,6 +27,7 @@ configuration) the MSE of a K-step autoregressive rollout, plus lambda x SIGReg 
 """
 from dataclasses import asdict, dataclass
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -64,6 +65,8 @@ class LeWMConfig:
     action_mlp_scale: int = 4
     inverse_dynamics: bool = False  # the latent-difference action decoder (a Delta-JEPA-style variant, not the paper's)
     inverse_spans: tuple = (1,)     # frame spans the inverse dynamics decodes over (1: consecutive frames)
+    inverse_span_weights: tuple = ()  # relative weights of those spans in the inverse term (empty: equal)
+    motion_dynamics: bool = False   # also decode the body-frame motion over each span (privileged poses; a variant)
 
     @property
     def action_dim(self):
@@ -311,6 +314,9 @@ class LeWorldModel(nn.Module):
         if longer:  # one head per longer span (absent from single-span models, so their checkpoints load unchanged)
             self.inverse_long = nn.ModuleDict({str(k): MLP(2*config.latent, config.projector_hidden, config.action_dim)
                                                for k in longer})
+        if config.motion_dynamics:
+            self.motion = nn.ModuleDict({str(int(k)): MLP(2*config.latent, config.projector_hidden, 3)
+                                         for k in config.inverse_spans})
 
     @classmethod
     def seeded(cls, seed, config=LeWMConfig()):
@@ -351,7 +357,19 @@ class LeWorldModel(nn.Module):
         return head(pairs.flatten(0, 1)).unflatten(0, (z.size(0), -1))
 
 
-def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight=0., generator=None):
+MOTION_SCALE_PER_STEP = (.008, .008, .034)  # m, m, rad: the corpus's 100-ms body-frame motion spread (forward, yaw)
+
+
+def body_motion(poses, span):
+    """Planar poses (B, T, 3) (x, y, yaw) to the body-frame motion (dx, dy, dyaw) from frame t to t+span (B, T-span, 3)."""
+    d = poses[:, span:, :2]-poses[:, :-span, :2]
+    c, s = poses[:, :-span, 2].cos(), poses[:, :-span, 2].sin()
+    dyaw = torch.remainder(poses[:, span:, 2]-poses[:, :-span, 2]+math.pi, 2*math.pi)-math.pi
+    return torch.stack((c*d[..., 0]+s*d[..., 1], -s*d[..., 0]+c*d[..., 1], dyaw), -1)
+
+
+def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight=0., generator=None, poses=None,
+           motion_weight=0.):
     """The training objective on windows of `history + rollout_steps` frames (rollout_steps >= 1).
 
     pixels (B, T, 3, H, W) normalised, actions (B, T-1, A). Returns a dict with `loss` and its terms:
@@ -361,7 +379,10 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight
     - `sigreg`: SIGReg over every frame's z, per time step (float32);
     - `inverse` (inverse_weight > 0, the inverse-dynamics variant): the MSE of the action blocks decoded from
       consecutive z (`LeWorldModel.infer_actions`), which makes latent differences carry the camera's motion; with
-      `inverse_spans` beyond 1, the mean over the spans of each span's MSE against the mean action block across it.
+      `inverse_spans` beyond 1, the mean over the spans (weighted by `inverse_span_weights`) of each span's MSE
+      against the mean action block across it;
+    - `motion` (motion_weight > 0, with `poses` (B, T, 3)): the same weighted mean of the MSE of the body-frame motion
+      over each span, decoded from [z_t, z_(t+k) - z_t] and scaled by k x `MOTION_SCALE_PER_STEP`.
     """
     n = model.config.history
     z = model.encode(pixels)
@@ -375,8 +396,20 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight
     if inverse_weight:
         sums = torch.cat((torch.zeros_like(actions[:, :1]), actions.cumsum(1)), dim=1)
         spans = [int(k) for k in model.config.inverse_spans]
-        terms['inverse'] = sum((model.infer_actions(z, k)-(sums[:, k:]-sums[:, :-k])/k).pow(2).mean() for k in spans)/len(spans)
+        weights = [float(w) for w in model.config.inverse_span_weights] or [1.]*len(spans)
+        terms['inverse'] = sum(w*(model.infer_actions(z, k)-(sums[:, k:]-sums[:, :-k])/k).pow(2).mean()
+                               for k, w in zip(spans, weights))/sum(weights)
         terms['loss'] = terms['loss']+inverse_weight*terms['inverse']
+    if motion_weight:
+        spans = [int(k) for k in model.config.inverse_spans]
+        weights = [float(w) for w in model.config.inverse_span_weights] or [1.]*len(spans)
+        scale = torch.tensor(MOTION_SCALE_PER_STEP, device=z.device)
+        def term(k):
+            pairs = torch.cat((z[:, :-k], z[:, k:]-z[:, :-k]), dim=-1)
+            decoded = model.motion[str(k)](pairs.flatten(0, 1)).unflatten(0, (z.size(0), -1))
+            return (decoded-body_motion(poses.float(), k)/(k*scale)).pow(2).mean()
+        terms['motion'] = sum(w*term(k) for k, w in zip(spans, weights))/sum(weights)
+        terms['loss'] = terms['loss']+motion_weight*terms['motion']
     return terms
 
 
