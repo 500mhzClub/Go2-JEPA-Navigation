@@ -197,7 +197,7 @@ At 800 ms span8w is within about 2 mm of V-JEPA on position and ahead on heading
 (its decoder also sees frames 0.5 and 1 s back; LeWM's sees 100-ms history). Both fail on cruise and switch (V-JEPA
 18-27 and 28-34 mm; span8w 27-36 and 28 mm). T5b as is reads 64 mm (it was never trained on these decisions), and the
 LeWM base readout's `true` head before T7's fit already reads 15.3 mm: the fit adds nothing to L3. The 10 mm bar at
-800 ms is stricter than the foundation encoder meets; L3 stays reported, as a comparison with V-JEPA.
+800 ms is stricter than the foundation encoder meets; whether L3 stays a pass/fail gate is open (Andrew).
 
 ## C5 benchmarks (18 October): level with C1 and C4, ahead of C3 and C6 (not significant)
 
