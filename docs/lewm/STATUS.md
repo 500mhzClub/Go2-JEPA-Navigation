@@ -196,7 +196,9 @@ Pooled discordant pairs (C5 alone succeeded, the other alone; exact sign test): 
 
 ## Running (18 October)
 
-Nothing (19 October 11:08).
+| Service | Checkout | What | Output |
+|---|---|---|---|
+| `lewm-screen4` | this one (bbc5d72) | from 19 October 12:03: screening round 4 (Andrew chose another screen before a full chain): `span8w` (the 800-ms span weighted 3x) and `span8m` (plus body-frame motion from the corpus poses, weight 100), 15,000 steps each with idm100's seed, scored on T7 (`outputs/lewm/screen/run4.sh`; rerunning resumes); the winner then gets a full chain | `outputs/lewm/screen/t7_span8w`, `t7_span8m` |
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
