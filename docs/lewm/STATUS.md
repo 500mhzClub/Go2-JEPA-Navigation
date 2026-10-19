@@ -179,6 +179,26 @@ L2 passes for all three. Motion supervision from the poses did not help and is d
 recipe does not). L3 (10 mm, 1.5 deg) still fails: span8w is 5 mm and 0.4 deg short. idm100 gained little from 15,000
 to 60,000 steps (L3 probe 26.0 -> 21.3 mm), so the full chain may not close the gap. Round 4 finished 16:19.
 
+## L3 reference: the same probe on V-JEPA (19 October): neither encoder reaches 10 mm at 800 ms
+
+L3's 10 mm / 1.5 deg was not derived from task success (L4's 15 mm was, from R3's forecast-noise cohorts: 10 mm 20/20,
+20 mm 19/20, 40 mm 7/20). As a reference, `go2nav.eval.vjepa_probe` runs the true-future probe on C3's frozen V-JEPA
+2.1 encoder with C3's side of every choice: C3's decoder grown from T5b, T7's recipe and seeds, fitted on the true
+future frame's pooled features (5,807 future frames encoded; `outputs/lewm/vjepa_probe`). eval_onpolicy, the six
+movement types averaged:
+
+| Encoder | 500 ms | 800 ms (L3) |
+|---|---|---|
+| V-JEPA 2.1 ViT-L (304M), three fits | 8.5 / 8.8 / 8.6 mm, 1.3 deg | 13.0 / 14.2 / 15.7 mm (**14.2**), 2.2-2.5 deg |
+| LeWM span8w screen (15,000 steps), three fits | 11.1 / 12.0 / 12.0 mm, 1.6 deg | 15.9 / 15.1 / 17.4 mm (**15.9**), 1.9 deg |
+| LeWM idm100 full chain, three fits | 11.6-12.5 mm, 2.1-2.2 deg | 19.5-21.3 mm, 3.2-3.4 deg |
+
+At 800 ms span8w is within about 2 mm of V-JEPA on position and ahead on heading; at 500 ms V-JEPA is clearly ahead
+(its decoder also sees frames 0.5 and 1 s back; LeWM's sees 100-ms history). Both fail on cruise and switch (V-JEPA
+18-27 and 28-34 mm; span8w 27-36 and 28 mm). T5b as is reads 64 mm (it was never trained on these decisions), and the
+LeWM base readout's `true` head before T7's fit already reads 15.3 mm: the fit adds nothing to L3. The 10 mm bar at
+800 ms is stricter than the foundation encoder meets; L3 stays reported, as a comparison with V-JEPA.
+
 ## C5 benchmarks (18 October): level with C1 and C4, ahead of C3 and C6 (not significant)
 
 The five C5 cohorts on the idm100 chain (decoder grown from the base readout; L4 12.9 mm, L3 failing), round trips on
@@ -212,7 +232,7 @@ Pooled discordant pairs (C5 alone succeeded, the other alone; exact sign test): 
 
 | Service | Checkout | What | Output |
 |---|---|---|---|
-| `lewm-chain-span8w` | this one | from 19 October 16:20: the full chain for span8w (60,000 steps, then the cache, contexts base readout, three T7 fits, choice.json), per Andrew's option 2 (`outputs/lewm/chain_span8w.sh`; relaunching it with `systemd-run` resumes) | `outputs/lewm/chain_span8w` |
+| `lewm-chain-span8w` | this one | from 19 October 16:20 (world model done about 01:00): the full chain for span8w (60,000 steps, then the cache, contexts base readout, three T7 fits, choice.json), per Andrew's option 2 (`outputs/lewm/chain_span8w.sh`; relaunching it with `systemd-run` resumes) | `outputs/lewm/chain_span8w` |
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
