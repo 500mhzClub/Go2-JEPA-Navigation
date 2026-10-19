@@ -160,7 +160,7 @@ at 15,000 steps with the same seed:
 | span8 (spans [1, 8]) | 10.2 / 11.5 / 12.4 (**11.5**) | **16.4 mm, 2.3 deg** |
 
 L3 still fails (bars 10 mm, 1.5 deg), but the long span cuts the probe's error by more than a third. `spans` ([1, 2, 4,
-8]) is training (paused at its step-1,000 checkpoint).
+8]) is training (paused overnight, resumed at step 1,000).
 
 ## C5 benchmarks (18 October): level with C1 and C4, ahead of C3 and C6 (not significant)
 
@@ -195,7 +195,7 @@ Pooled discordant pairs (C5 alone succeeded, the other alone; exact sign test): 
 
 | Service | Checkout | What | Output |
 |---|---|---|---|
-| `lewm-screen3` | this one (a9f5710) | **paused** 18 October 23:50 (stopped; `spans` resumes from its step-1,000 checkpoint when `outputs/lewm/screen/run3.sh` is relaunched as the service); from 21:22: scores idm100's screen on T7 and trains and scores `span8` and `spans` (`outputs/lewm/screen/run3.sh`; rerunning resumes) | `outputs/lewm/screen/t7_*` |
+| `lewm-screen3` | this one (a9f5710) | paused 18 October 23:50, resumed 19 October 09:09 at `spans` step 1,000; from 18 October 21:22: scores idm100's screen on T7 and trains and scores `span8` and `spans` (`outputs/lewm/screen/run3.sh`; rerunning resumes) | `outputs/lewm/screen/t7_*` |
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
