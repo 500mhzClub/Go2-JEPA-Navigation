@@ -6,7 +6,9 @@
 **Configs** (configs/lewm/): `go2.yaml` (the Go2 configuration: 4-frame history, 8-step rollout loss, 16 mazes x 8
 windows per batch), `paper.yaml` (the paper's objective and i.i.d. batches, for comparison) and the
 inverse-dynamics variants `go2_inverse.yaml` and `go2_idm100.yaml` (`objective.inverse_weight` 0.1 and 100,
-`model.inverse_dynamics`). `--set` overrides a
+`model.inverse_dynamics`), with longer spans `go2_idm_span8.yaml`, `go2_idm_spans.yaml`, `go2_idm_span8w.yaml`
+(`model.inverse_spans`, `inverse_span_weights`), and `go2_idm_span8m.yaml`, which also decodes the body-frame motion
+from the corpus poses (`model.motion_dynamics`, `objective.motion_weight`). `--set` overrides a
 value (`--set objective.sigreg_weight=0.03`); the resolved config is saved with the run.
 
 **Training.** AdamW with linear warm-up then cosine decay, gradient clipping, bf16 autocast (SIGReg in float32), the
@@ -160,7 +162,10 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     length = mconfig.history+objective['rollout_steps']
     if data['length'] != length:
         raise ValueError(f"data.length must be history + rollout_steps = {length}")
-    corpus = Corpus(corpus_root, length=length, roles=tuple(data.get('train_roles', ('lewm_train',))))
+    motion_weight = objective.get('motion_weight', 0.)
+    if bool(motion_weight) != mconfig.motion_dynamics:
+        raise ValueError('objective.motion_weight > 0 and model.motion_dynamics go together')
+    corpus = Corpus(corpus_root, length=length, roles=tuple(data.get('train_roles', ('lewm_train',))), poses=bool(motion_weight))
     val_length = mconfig.history+EVAL_STEPS
     validation = Corpus(corpus_root, length=val_length, roles=('lewm_val',), kinds=('explore', 'mission', 'free'))
     transfer = Corpus(corpus_root, length=val_length, roles=('lewm_val',), kinds=('transfer',))
@@ -200,14 +205,16 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     generator = torch.Generator(device=device)
     log, started, window = open(out/'metrics.jsonl', 'a'), time.time(), defaultdict(float)
     step = first-1
-    for step, (frames, actions, _) in enumerate(loader, start=first):
+    for step, (frames, actions, _, *poses) in enumerate(loader, start=first):
         frames, actions = frames.to(device, non_blocking=True), actions.to(device, non_blocking=True)
+        poses = poses[0].to(device, non_blocking=True) if poses else None
         if action_blind:
             actions = torch.zeros_like(actions)
         generator.manual_seed(keyed_seed(seed, 'sigreg', step))
         with torch.autocast(device.type, dtype=torch.bfloat16):
             terms = loss_fn(model, normalise_frames(frames), actions, rollout_steps=objective['rollout_steps'],
-                            sigreg=sigreg, lam=objective['sigreg_weight'], inverse_weight=inverse_weight, generator=generator)
+                            sigreg=sigreg, lam=objective['sigreg_weight'], inverse_weight=inverse_weight, generator=generator,
+                            poses=poses, motion_weight=motion_weight)
         optimiser.zero_grad(set_to_none=True)
         if not torch.isfinite(terms['loss']):
             nonfinite += 1

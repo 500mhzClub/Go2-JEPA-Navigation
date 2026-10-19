@@ -10,7 +10,8 @@ identity alone: within a batch, the Gaussian spread has to come from views and p
 `WindowBatches` is a map-style dataset over steps for a `torch.utils.data.DataLoader` with `batch_size=None` and
 several workers (frames are memory-mapped .npy, so workers share the page cache). Each item: frames uint8
 (B, length, 168, 224, 3), actions float32 (B, length-1, 10) (normalised blocks of five (forward, yaw) commands), and
-the window keys (unit, start).
+the window keys (unit, start); with `Corpus(poses=True)` also the frames' planar poses float32 (B, length, 3)
+(x, y, yaw in the world frame), for the motion-supervised variant.
 """
 import hashlib
 import json
@@ -38,8 +39,8 @@ def raise_open_file_limit():
 class Corpus:
     """The window index of a corpus root (built by `lewm_corpus index`), filtered by role and unit kind."""
 
-    def __init__(self, root, *, length=12, roles=('lewm_train',), kinds=None):
-        self.root, self.length = Path(root), length
+    def __init__(self, root, *, length=12, roles=('lewm_train',), kinds=None, poses=False):
+        self.root, self.length, self.with_poses = Path(root), length, poses
         meta = json.loads((self.root/f'index_{length}.json').read_text())
         index = np.load(self.root/f'index_{length}.npz')
         self.units = meta['units']
@@ -51,7 +52,7 @@ class Corpus:
         self.by_maze = {int(m): np.flatnonzero(mazes == m) for m in self.mazes}
         if not len(self.unit):
             raise ValueError(f'no windows of length {length} for roles {roles} and kinds {kinds}')
-        self._frames, self._actions = {}, {}
+        self._frames, self._actions, self._poses = {}, {}, {}
         raise_open_file_limit()
         self.mean, self.std = control_stats()
 
@@ -71,6 +72,16 @@ class Corpus:
             self._actions[unit] = ((executed-self.mean)/self.std).reshape(len(executed), -1)
         return self._actions[unit]
 
+    def poses(self, unit):
+        """Planar poses (n, 3) of a unit's frames: x, y and yaw (from the quaternion x, y, z, w)."""
+        if unit not in self._poses:
+            with np.load(self.root/self.units[unit]['path']/'steps.npz') as steps:
+                pose = steps['pose'].astype(np.float64)
+            x, y, z, w = pose[:, 3:7].T
+            yaw = np.arctan2(2*(w*z+x*y), 1-2*(y*y+z*z))
+            self._poses[unit] = np.stack([pose[:, 0], pose[:, 1], yaw], 1).astype(np.float32)
+        return self._poses[unit]
+
     def window(self, i):
         u, s = int(self.unit[i]), int(self.start[i])
         return np.asarray(self.frames(u)[s:s+self.length]), self.actions(u)[s:s+self.length-1]
@@ -78,7 +89,10 @@ class Corpus:
     def batch(self, indices):
         frames, actions = zip(*(self.window(i) for i in indices))
         keys = np.stack([self.unit[indices], self.start[indices]], axis=1)
-        return torch.from_numpy(np.stack(frames)), torch.from_numpy(np.stack(actions)), torch.from_numpy(keys)
+        out = torch.from_numpy(np.stack(frames)), torch.from_numpy(np.stack(actions)), torch.from_numpy(keys)
+        if self.with_poses:
+            out += (torch.from_numpy(np.stack([self.poses(int(u))[s:s+self.length] for u, s in keys])),)
+        return out
 
     def sample(self, seed, step, *, mazes_per_batch, windows_per_maze, batch_size=None):
         """The window indices of batch `step`."""
