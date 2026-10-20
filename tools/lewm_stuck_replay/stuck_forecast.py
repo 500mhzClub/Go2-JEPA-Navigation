@@ -15,7 +15,8 @@ from go2nav.planning import selection as sel
 
 MODELS = dict(span8w=('outputs/lewm/chain_span8w/world/lewm.pt', 'outputs/lewm/chain_span8w/fit_contexts_s2026092205/fit_decoder_fix_s2026092205.pt'),
               idm100=('outputs/lewm/chain_idm/world/lewm.pt', 'outputs/lewm/chain_idm/fit_contexts_s2026093011/fit_decoder_fix_s2026093011.pt'))
-EXTRA = dict(span8w_corpus=('outputs/lewm/chain_span8w/world/lewm.pt', 'outputs/lewm/readout/chain_span8w_corpus/base_only/fit_base_only.pt'))
+EXTRA = dict(span8w_corpus=('outputs/lewm/chain_span8w/world/lewm.pt', 'outputs/lewm/readout/chain_span8w_corpus/base_only/fit_base_only.pt'),
+             span8w_proto=('outputs/lewm/chain_span8w/world/lewm.pt', 'outputs/lewm/protocol/span8w/fit.pt'))
 
 
 def forecasters(device='cuda:0', models=MODELS):
