@@ -234,6 +234,41 @@ Pooled discordant pairs (C5 alone succeeded, the other alone; exact sign test): 
 (0.23), C6 9/4 (0.27), C1R 4/1 (0.38). At friction 0.25, C5 makes fewer contacts (12/20) than C1 (19), C4 (18) or C6
 (16) but completes none. `outputs/cohorts/lewm_*_c5`; contacts and clearance as the other arms.
 
+## span8w benchmarks (20 October): C6 holds; C5 falls behind idm100 despite better gates
+
+The ten span8w cohorts (`configs/experiments/lewm_benchmarks_span8w.yaml`, C5 from the chain's models.yaml fit
+s2026092205, L4 7.3 mm, L3 9.4 mm, 0.91 deg), round trips on the episodes of the cohorts above:
+
+| Condition | C5 span8w | C5 idm100 | C6 span8w | C6 (idm100) | C4 | C1 | C3 |
+|---|---|---|---|---|---|---|---|
+| R4 | 18/20 | 20 | 19 | 20 | 19 | 20 | 20 |
+| R5 friction 0.30 | 11/20 | 16 | 15 | 13 | 15 | 16 | 13 |
+| R5 friction 0.25 | 0/20 | 0 | 0 | 0 | 1 | 1 | - |
+| R6 reference | 17/20 | 19 | 19 | 19 | 20 | 20 | 17 |
+| R6 marked strips | 11/20 | 17 | 14 | 15 | - | 15 (C1A 16, C1R 14) | - |
+| Total | **57/100** | 72/100 | **67/100** | 67/100 | 55/80 | 72/100 | 50/60 |
+
+Pooled discordant pairs (exact sign test): C5 span8w against C5 idm100 1/16 (p 0.0003), C1 2/17 (0.0007), C4 3/12
+(0.035), C6 span8w 4/14 (0.031), C3 4/8 (0.39). C6 span8w against C6 idm100 5/5 (1.0), C1 4/9 (0.27), C4 2/4 (0.69),
+C3 7/4 (0.55). The encoder change leaves the direct head where it was; the drop is in C5's rollout and decoder.
+
+Preliminary diagnosis (R4 and R5; offline only, not yet causal):
+- Most of the new C5 failures are deadlocks, not collisions: hold rates 0.80-0.94, no contact. In R4 maze 44 the robot
+  stands about 0.47 m from a wall facing away from its route; every turn and arc forecast dips below the 0.48 m
+  clearance a moving candidate needs (0.45 m plus the 0.03 m prediction-error reserve), so it holds for 1,100+ decisions.
+- Hold drift is ruled out: after moving, every arm (C1 included) forecasts a few mm of coasting, span8w no more.
+- Forecast clearance lost by in-place turns (R4, mazes 41 and 44 excluded): both C5 models lose more than the other
+  arms (medians about 1.5-3 mm against 0.3-1.4 for C1, C3, C4 and C6); span8w's tail is heavier (p90 about 13 mm
+  against 11), and in its successful missions it held in tight spots about 2.5 times as often as idm100.
+- idm100's decoder under-forecasts motion (eval_onpolicy at 800 ms: cruise -22 mm, switch -24 mm); span8w is close to
+  unbiased (-2.5, -8.4). Under-forecasting is optimistic about clearance, which may have kept idm100 out of these traps.
+- L3 and L4 are medians on C1's and C3's decisions; the planner reacts to the minimum clearance along a forecast, on
+  C5's own near-wall states. The gates did not see this.
+
+Next, offline: replay the deadlocked decisions through idm100's forecaster (does it find a clear turn where span8w does
+not?); a tail measure (p90 turn translation on C5's on-policy states) beside L3 and L4; whether the 0.03 m reserve,
+set for C1, should be calibrated per arm.
+
 ## Decisions (18 October)
 
 1. C5's official T7 fit is grown from the base readout on T7's own contexts (`lewm_chain --base-readout contexts`, the
@@ -247,13 +282,10 @@ Pooled discordant pairs (C5 alone succeeded, the other alone; exact sign test): 
 
 ## Running (20 October)
 
-| Service | Checkout | What | Output |
-|---|---|---|---|
-| `lewm-span8w-bench` | bench worktree (7ef42f0) | from 20 October 07:52: the span8w benchmark cohorts (`configs/experiments/lewm_benchmarks_span8w.yaml`), C5 then C6, one service, 6 LeWM lanes; about 5.5 h. Resume: relaunch with `--resume` | `outputs/cohorts/lewm_*_span8w`, log `outputs/cohorts/lewm_span8w_bench.log` |
-
-A first launch at 01:12 ran C5 and C6 as two services side by side (12 GPU missions): every mission stalled at about
-20 simulated seconds, busy-spinning with the GPU at 100% and no kernel fault, until stopped at 07:51. One cohort
-process at 6 LeWM lanes is the proven setting; the stalled missions are rerun by `--resume` (kept as attempts).
+Nothing. `lewm-span8w-bench` finished at 12:34 (from 07:52, one service, 6 LeWM lanes). A first launch at 01:12 ran C5
+and C6 as two services side by side (12 GPU missions): every mission stalled at about 20 simulated seconds,
+busy-spinning with the GPU at 100% and no kernel fault, until stopped at 07:51. One cohort process at 6 LeWM lanes is
+the proven setting; the stalled missions were rerun by `--resume` (kept as attempts).
 
 Visual transfer stays cancelled until the basics work (Andrew, 20 October).
 
