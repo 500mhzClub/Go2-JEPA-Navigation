@@ -307,6 +307,29 @@ The error is C5's decoder reading in-place turns near walls from latent differen
 Open: a tail gate on C5's own states (p90 turn translation, or the escape rate on replayed near-wall decisions)
 beside L3 and L4; whether the 1-mm escape tolerance and the 0.03 m reserve, set for C1, suit LeWM's forecasts.
 
+## span8w decoder fix (20 October): the corpus readout alone; C5 benchmarks running
+
+The deadlocks are C5's decoder (above), so the world model stays and only the readout changes. New gate,
+`go2nav.eval.lewm_turn_gate`: C5's in-place turn forecasts on the corpus's validation mazes (115,544 windows), largest
+XY error over 100-800 ms, all turns, turns within 0.5 m of a wall, and those from rest (no command for 1 s) within
+0.5 m (2,779). Candidates on the span8w world model (`outputs/lewm/readout/chain_span8w_corpus`, `span8w.sh`):
+
+| C5 decoder | L4 (T7, eval_onpolicy 800 ms) | Turns, all (median / p90) | Near wall | From rest near wall | Deadlock escapes (of 24; truth 20) |
+|---|---|---|---|---|---|
+| deployed (contexts base, T7 fit s2026092205) | 7.3 | 8.2 / 26.2 | 11.5 / 33.1 | 15.0 / 46.1 | 0 |
+| corpus base, T7 fit, 3 seeds | 7.5, 8.0, 7.1 | 7.0-7.8 / 18-21 | 9.2-10.1 / 22-24 | 10.2-11.6 / 26-30 | - |
+| **corpus base alone (no T7 fit)** | **5.0** | **5.3 / 13.2** | **6.5 / 14.4** | **5.9 / 12.6** | **19** |
+| C6 (reference) | 5.4 | 5.3 / 11.3 | 6.6 / 12.4 | 7.0 / 12.6 | 21 |
+| idm100 deployed (its own world model) | 12.9 | - | 13.4 / 41.7 | 14.1 / 42.5 | 8 |
+
+The corpus readout (`lewm_readout corpus`: 600 training-maze units, 486k windows labelled from the simulator poses,
+20,000 updates) read alone is the best decoder on every measure; T7's fit (3,520 updates of 64 on 23k decisions)
+degrades it, as it did on idm100 and the Go2 chain. `base_only/fit_base_only.pt` packages it as C5 (C6 unchanged,
+from fit_contexts_s2026092205). A departure from like-for-like with C3 (whose decoder is T5b plus T7's fit): C5's
+readout skips T7's fit. Whether one frozen readout protocol should serve every latent arm (C3, C5, H-JEPA) is open
+(Andrew). The turn gate does not yet separate the deployed span8w and idm100 decoders as the missions did; it is a
+tail screen, with the deadlock replay as the diagnostic.
+
 ## Decisions (18 October)
 
 1. C5's official T7 fit is grown from the base readout on T7's own contexts (`lewm_chain --base-readout contexts`, the
@@ -320,7 +343,11 @@ beside L3 and L4; whether the 1-mm escape tolerance and the 0.03 m reserve, set 
 
 ## Running (20 October)
 
-Nothing. `lewm-span8w-bench` finished at 12:34 (from 07:52, one service, 6 LeWM lanes). A first launch at 01:12 ran C5
+| Service | Checkout | What | Output |
+|---|---|---|---|
+| `lewm-span8wc-bench` | bench worktree | the five C5 cohorts of `configs/experiments/lewm_benchmarks_span8wc.yaml` (span8w world model, corpus readout), one service, 6 LeWM lanes; about 3 h. Resume: relaunch with `--resume` | `outputs/cohorts/lewm_*_c5_span8wc`, log `outputs/cohorts/lewm_span8wc_bench.log` |
+
+`lewm-span8w-bench` finished at 12:34 (from 07:52). A first launch at 01:12 ran C5
 and C6 as two services side by side (12 GPU missions): every mission stalled at about 20 simulated seconds,
 busy-spinning with the GPU at 100% and no kernel fault, until stopped at 07:51. One cohort process at 6 LeWM lanes is
 the proven setting; the stalled missions were rerun by `--resume` (kept as attempts).

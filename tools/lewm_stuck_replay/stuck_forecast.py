@@ -15,11 +15,12 @@ from go2nav.planning import selection as sel
 
 MODELS = dict(span8w=('outputs/lewm/chain_span8w/world/lewm.pt', 'outputs/lewm/chain_span8w/fit_contexts_s2026092205/fit_decoder_fix_s2026092205.pt'),
               idm100=('outputs/lewm/chain_idm/world/lewm.pt', 'outputs/lewm/chain_idm/fit_contexts_s2026093011/fit_decoder_fix_s2026093011.pt'))
+EXTRA = dict(span8w_corpus=('outputs/lewm/chain_span8w/world/lewm.pt', 'outputs/lewm/readout/chain_span8w_corpus/base_only/fit_base_only.pt'))
 
 
-def forecasters(device='cuda:0'):
+def forecasters(device='cuda:0', models=MODELS):
     out = {}
-    for name, (w, f) in MODELS.items():
+    for name, (w, f) in models.items():
         world, (c5, c6) = load_world_model(w), load_heads(f)
         out[f'C5_{name}'] = LeWMForecaster(world, c5, device=device)
         out[f'C6_{name}'] = LeWMDirectForecaster(world, c6, device=device)
