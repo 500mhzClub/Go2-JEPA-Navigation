@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import torch
 sys.path.insert(0, str(Path(__file__).parent))
-from stuck_forecast import HalfPlane, forecasters, score, wall  # noqa: E402
+from stuck_forecast import EXTRA, MODELS, HalfPlane, forecasters, score, wall  # noqa: E402
 from go2nav.models.lewm import normalise_frames, resize_frame
 from types import SimpleNamespace
 
@@ -36,7 +36,7 @@ def encode(model, frames, device):
 def main():
     runs = {f"{e['cond']}_{Path(e['run']).name.split('_')[-2]}": Path(e['run'])
             for e in json.loads(Path('outputs/lewm/stuck_replay/stuck_list.json').read_text())}
-    fc = forecasters()
+    fc = forecasters(models=MODELS | EXTRA)
     rows = []
     for folder in sorted(p for p in O.iterdir() if p.is_dir()):
         run = runs[folder.name]
@@ -71,7 +71,7 @@ def main():
                                  xy=np.round(p[:, :, :2], 4).tolist())
             rows.append(row)
             print(row['case'], row['decision'], {k: row[k]['escape'] for k in preds}, flush=True)
-    (O/'eval.json').write_text(json.dumps(rows))
+    (O/'eval_with_corpus.json').write_text(json.dumps(rows))
     q = lambda v: f'{statistics.median(v):5.1f} / {statistics.quantiles(v, n=10)[8]:5.1f}'
     print(f'\n{len(rows)} decisions; wall fit residual median {statistics.median(r["resid_mm"] for r in rows):.2f} mm')
     print(f'{"source":18s} escapes  turn error vs truth (med/p90 mm)  turn dip (med/p90)  turn translation (med/p90)')
