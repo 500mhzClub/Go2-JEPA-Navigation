@@ -1,6 +1,6 @@
 """The LeWM base readout: C5's decoder pretrained before T7's fit, as C3's decoder is grown from the T5b readout.
 
-    python -m go2nav.training.lewm_readout corpus --world-model LEWM.pt --corpus ROOT --out DIR [--units 600]
+    python -m go2nav.training.lewm_readout corpus --world-model LEWM.pt --corpus ROOT --out DIR [--units 600] [--stride 1]
     python -m go2nav.training.lewm_readout contexts --world-model LEWM.pt --cache CACHE --out DIR
 
 T7 fits C5's decoder from scratch on 3,520 batches of 64 decisions; C3's decoder starts from T5b, a readout already
@@ -40,7 +40,7 @@ def _yaw(q):  # (n, 4) x, y, z, w
 
 
 @torch.inference_mode()
-def corpus_windows(model, root, units, device):
+def corpus_windows(model, root, units, device, stride=1):
     """Per window: zh (n, 4, D) of frames t-3..t, true (n, 8, D) and rollout (n, 8, D) z at t+1..t+8, y (n, 8, 3)."""
     root = Path(root)
     meta = json.loads((root/'index_12.json').read_text())['units']
@@ -49,6 +49,7 @@ def corpus_windows(model, root, units, device):
     out = {k: [] for k in ('zh', 'true', 'rollout', 'y')}
     for u in units:
         starts = index['start'][index['unit'] == u]
+        starts = starts[starts % stride == 0]
         if not len(starts):
             continue
         folder = root/meta[u]['path']
@@ -121,7 +122,7 @@ def train_head(data, kind, seed, device):
     return head.cpu(), history
 
 
-def build(source, world_model, out, *, corpus=None, units=600, cache=None, device='cuda:0'):
+def build(source, world_model, out, *, corpus=None, units=600, stride=1, cache=None, device='cuda:0'):
     out = Path(out)
     if (out/'.done').exists():
         return out/'readout.pt'
@@ -133,8 +134,8 @@ def build(source, world_model, out, *, corpus=None, units=600, cache=None, devic
         meta = json.loads((Path(corpus)/'index_12.json').read_text())['units']
         pool = [i for i, u in enumerate(meta) if u['role'] == 'lewm_train' and u['kind'] in ('explore', 'mission', 'free')]
         chosen = sorted(rng.choice(pool, min(units, len(pool)), replace=False).tolist())
-        data = corpus_windows(load_world_model(world_model, device), corpus, chosen, device)
-        provenance = dict(corpus=str(corpus), units=len(chosen))
+        data = corpus_windows(load_world_model(world_model, device), corpus, chosen, device, stride)
+        provenance = dict(corpus=str(corpus), units=len(chosen), stride=stride)
     else:
         data = context_windows(cache, device)
         provenance = dict(contexts='data/training/decoder/contexts.jsonl', groups=['old', 'maze', 'onpolicy'])
@@ -173,11 +174,12 @@ def main():
     p.add_argument('--out', required=True, type=Path)
     p.add_argument('--corpus', type=Path)
     p.add_argument('--units', type=int, default=600)
+    p.add_argument('--stride', type=int, default=1, help='keep windows whose start is a multiple of this')
     p.add_argument('--cache', type=Path)
     a = p.parse_args()
     if (a.source == 'corpus') != (a.corpus is not None) or (a.source == 'contexts') != (a.cache is not None):
         p.error('corpus needs --corpus; contexts needs --cache')
-    print(build(a.source, a.world_model, a.out, corpus=a.corpus, units=a.units, cache=a.cache))
+    print(build(a.source, a.world_model, a.out, corpus=a.corpus, units=a.units, stride=a.stride, cache=a.cache))
 
 
 if __name__ == '__main__':
