@@ -284,6 +284,26 @@ more than 1 mm below its start; span8w C5 forecasts in-place turns that translat
 times what span8w's own C6 forecasts from the same encoder. The fault is in span8w's rollout and decoder, not its
 encoder. A counterfactual on single decisions: whether idm100 would also have reached these states is not tested.
 
+Ground truth at the same states (`tools/lewm_stuck_replay/counterfactual*.py`, `outputs/lewm/stuck_counterfactual`):
+the first stuck decision and one about 50 later of each deadlock (24), replayed to the decision and branched with the
+simulator snapshot (as C0), every candidate executed for 800 ms with its frames rendered (the executed branch equals
+the trace). `_truez`: C5's decoder on the true future frames' z instead of the rollout:
+
+| Source | Escapes | Turn error vs truth (median, p90) | Turn translation (median, p90) |
+|---|---|---|---|
+| truth (a perfect forecaster) | 20/24 | - | 7.5, 20.4 mm |
+| C5 span8w | 0/24 | 21.4, 48.5 mm | 21.5, 60.9 mm |
+| C5 span8w, decoder on true z | 0/24 | 30.6, 63.9 mm | 31.7, 77.9 mm |
+| C6 span8w | 21/24 | 8.6, 13.8 mm | 8.4, 12.5 mm |
+| C5 idm100 | 8/24 | 12.2, 45.0 mm | 13.5, 57.1 mm |
+| C5 idm100, decoder on true z | 11/24 | 12.5, 51.1 mm | 12.2, 67.9 mm |
+| C6 idm100 | 20/24 | 6.9, 16.3 mm | 5.4, 11.8 mm |
+
+A perfect forecaster escapes 20 of 24: the planner's rules are not the obstacle, accuracy is. The predictor is not the
+fault either: given what really happened, span8w's decoder is further off (31 mm) than on its own rollout (21 mm).
+The error is C5's decoder reading in-place turns near walls from latent differences; C6 on the same encoder is within
+9 mm. These are test-maze states: a diagnostic, not a selection set.
+
 Open: a tail gate on C5's own states (p90 turn translation, or the escape rate on replayed near-wall decisions)
 beside L3 and L4; whether the 1-mm escape tolerance and the 0.03 m reserve, set for C1, suit LeWM's forecasts.
 
