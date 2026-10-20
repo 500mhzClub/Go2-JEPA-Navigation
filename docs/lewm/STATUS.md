@@ -247,7 +247,11 @@ Pooled discordant pairs (C5 alone succeeded, the other alone; exact sign test): 
 
 ## Running (20 October)
 
-Nothing. Last finished: `lewm-chain-span8w` (19 October 16:20 to 20 October 00:52).
+| Service | Checkout | What | Output |
+|---|---|---|---|
+| `lewm-c5-span8w-bench`, `lewm-c6-span8w-bench` | bench worktree (7ef42f0) | from 20 October about 01:30: the span8w benchmark cohorts (`configs/experiments/lewm_benchmarks_span8w.yaml`), C5 and C6 side by side, 6 LeWM lanes each, 100 missions each; about 3-3.5 h. Resume: relaunch with `--resume` | `outputs/cohorts/lewm_*_span8w`, logs `outputs/cohorts/lewm_c5_span8w_bench.log`, `lewm_c6_span8w_bench.log` |
+
+Visual transfer stays cancelled until the basics work (Andrew, 20 October).
 
 The bench worktree links `data/training/*`, `tools/porting/original_roots.json` and `outputs` from this checkout.
 
