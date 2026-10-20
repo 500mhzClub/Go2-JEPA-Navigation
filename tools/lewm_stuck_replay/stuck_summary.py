@@ -7,7 +7,7 @@ ARMS = ['logged', 'C5_span8w', 'C5_idm100', 'C6_span8w', 'C6_idm100']
 tot = {a: [0, 0, 0] for a in ARMS}
 dips = {a: [] for a in ARMS[1:]}; trans = {a: [] for a in ARMS[1:]}
 resid = []
-for f in sorted(O.glob('*.json')):
+for f in sorted(p for p in O.glob('*.json') if p.name != 'stuck_list.json'):
     rows = json.loads(f.read_text())
     line = f'{f.stem:14s}'
     for a in ARMS:
@@ -25,7 +25,7 @@ for f in sorted(O.glob('*.json')):
     print(line)
 print('\ntotals (first stuck decision escapes / sampled decisions with an escape):')
 for a in ARMS:
-    print(f'  {a:10s} first {tot[a][0]}/{len(list(O.glob("*.json")))}  all {tot[a][1]}/{tot[a][2]}')
+    print(f'  {a:10s} first {tot[a][0]}/{len(list(O.glob("*.json")))-1}  all {tot[a][1]}/{tot[a][2]}')
 q = lambda v: f'median {statistics.median(v):.1f} p90 {statistics.quantiles(v, n=10)[8]:.1f}'
 print('\nturn forecasts: dip below start clearance (mm) | largest translation (mm)')
 for a in ARMS[1:]:
