@@ -307,6 +307,25 @@ The error is C5's decoder reading in-place turns near walls from latent differen
 Open: a tail gate on C5's own states (p90 turn translation, or the escape rate on replayed near-wall decisions)
 beside L3 and L4; whether the 1-mm escape tolerance and the 0.03 m reserve, set for C1, suit LeWM's forecasts.
 
+## Fixed C5 benchmarks (20 October): span8w with the corpus readout matches idm100, C1 and C4
+
+`outputs/cohorts/lewm_*_c5_span8wc` (`lewm_benchmarks_span8wc.yaml`): C5 on the span8w world model with the corpus
+readout alone as decoder, on the episodes of every cohort above. Round trips:
+
+| Condition | C5 fixed | C5 span8w | C5 idm100 | C6 span8w | C6 idm100 | C1 | C4 | C3 |
+|---|---|---|---|---|---|---|---|---|
+| R4 | **20/20** | 18 | 20 | 19 | 20 | 20 | 19 | 20 |
+| R5 friction 0.30 | **17/20** | 11 | 16 | 15 | 13 | 16 | 15 | 13 |
+| R5 friction 0.25 | 0/20 | 0 | 0 | 0 | 0 | 1 | 1 | - |
+| R6 reference | 19/20 | 17 | 19 | 19 | 19 | 20 | 20 | 17 |
+| R6 marked strips | 15/20 | 11 | 17 | 14 | 15 | 15 (C1A 16, C1R 14) | - | - |
+| Total | **71/100** | 57/100 | 72/100 | 67/100 | 67/100 | 72/100 | 55/80 | 50/60 |
+
+Pooled discordant pairs (fixed C5 alone, the other alone; exact sign test): span8w C5 15/1 (p 0.0005), idm100 C5 4/5
+(1.0), C6 span8w 7/3 (0.34), C6 idm100 6/2 (0.29), C1 3/4 (1.0), C4 5/4 (1.0), C3 6/0 (0.03), C2 5/0 (0.06). The
+decoder fix recovers everything span8w C5 lost; the fixed C5 is level with idm100 C5, C1 and C4, ahead of C3, and
+slightly (not significantly) ahead of both C6 heads. Contacts at friction 0.25: 14/20 (idm100 C5 12, C1 19, C4 18).
+
 ## span8w decoder fix (20 October): the corpus readout alone; C5 benchmarks running
 
 The deadlocks are C5's decoder (above), so the world model stays and only the readout changes. New gate,
@@ -345,7 +364,7 @@ tail screen, with the deadlock replay as the diagnostic.
 
 | Service | Checkout | What | Output |
 |---|---|---|---|
-| `lewm-span8wc-bench` | bench worktree | the five C5 cohorts of `configs/experiments/lewm_benchmarks_span8wc.yaml` (span8w world model, corpus readout), one service, 6 LeWM lanes; about 3 h. Resume: relaunch with `--resume` | `outputs/cohorts/lewm_*_c5_span8wc`, log `outputs/cohorts/lewm_span8wc_bench.log` |
+| (finished 16:21) `lewm-span8wc-bench` | bench worktree | the five C5 cohorts of `configs/experiments/lewm_benchmarks_span8wc.yaml` (span8w world model, corpus readout), one service, 6 LeWM lanes; about 3 h. Resume: relaunch with `--resume` | `outputs/cohorts/lewm_*_c5_span8wc`, log `outputs/cohorts/lewm_span8wc_bench.log` |
 
 Relaunched at 14:33 with `EGL_DEVICE_ID=1`: `go2nav.eval.mission` defaults rendering to EGL device 0, the integrated GPU, and every cohort so far rendered there (physics is on the CPU; the R9700 ran only the forecasts, about 20% busy). Device 1, the R9700, renders bit-identically (301 of 301 replayed frames equal) and missions run at 1.47x real time instead of 1.71x; R4 had finished before the switch. Scaling retested with rendering on the R9700: 12 and then 9 concurrent C5 missions livelocked within 3 minutes as on the morning's double launch (stuck at 0-20 simulated s, the R9700 at 100%), so the cause is not the iGPU; stopped cleanly each time and relaunched at 6 (14:58), which runs normally. `lewm-span8w-bench` finished at 12:34 (from 07:52). A first launch at 01:12 ran C5
 and C6 as two services side by side (12 GPU missions): every mission stalled at about 20 simulated seconds,
