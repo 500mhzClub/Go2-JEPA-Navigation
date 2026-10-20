@@ -265,9 +265,27 @@ Preliminary diagnosis (R4 and R5; offline only, not yet causal):
 - L3 and L4 are medians on C1's and C3's decisions; the planner reacts to the minimum clearance along a forecast, on
   C5's own near-wall states. The gates did not see this.
 
-Next, offline: replay the deadlocked decisions through idm100's forecaster (does it find a clear turn where span8w does
-not?); a tail measure (p90 turn translation on C5's on-policy states) beside L3 and L4; whether the 0.03 m reserve,
-set for C1, should be calibrated per arm.
+Replay (20 October; `tools/lewm_stuck_replay`, `outputs/lewm/stuck_replay`): the 12 deadlocked episodes (all but
+R5 maze 36 and R6 strips mazes 38, 39 and 40), 173 stuck decisions (the first 10 of each deadlock and some 25-300
+decisions later), rerendered and forecast again by span8w C5 (equal to the logged forecasts, 0.0 mm), idm100 C5 and
+both C6 heads. Clearance: a half-plane wall fitted per decision to the logged clearances (residual 0.29 mm median),
+then the planner's own clearance check and turn re-check. A decision escapes if a moving candidate is not BLOCKED:
+
+| Forecaster | Escapes at the first stuck decision | Stuck decisions with an escape | Turn dip below start (median, p90) | Turn translation (median, p90) |
+|---|---|---|---|---|
+| C5 span8w | 0/12 | 5/173 | 9.2, 28.8 mm | 23.9, 48.5 mm |
+| C5 idm100 | 5/12 | 91/173 | 3.5, 19.3 mm | 11.4, 31.7 mm |
+| C6 span8w | 10/12 | 152/173 | 1.8, 7.1 mm | 8.0, 12.1 mm |
+| C6 idm100 | 9/12 | 157/173 | 0.6, 5.7 mm | 5.0, 11.5 mm |
+
+The deadlocks are forecast-caused: from the same states, idm100 C5 and either C6 forecast a clear move where span8w C5
+forecasts none. The escape rules inside the reserve (0.45-0.48 m) require a turn's forecast clearance never to fall
+more than 1 mm below its start; span8w C5 forecasts in-place turns that translate 24 mm (median) toward the wall, three
+times what span8w's own C6 forecasts from the same encoder. The fault is in span8w's rollout and decoder, not its
+encoder. A counterfactual on single decisions: whether idm100 would also have reached these states is not tested.
+
+Open: a tail gate on C5's own states (p90 turn translation, or the escape rate on replayed near-wall decisions)
+beside L3 and L4; whether the 1-mm escape tolerance and the 0.03 m reserve, set for C1, suit LeWM's forecasts.
 
 ## Decisions (18 October)
 
