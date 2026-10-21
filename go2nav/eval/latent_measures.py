@@ -26,7 +26,8 @@ import torch
 
 from go2nav.training.decoder import CATEGORIES, load_contexts
 
-RANK_HORIZON = 7
+RANK_HORIZON = 7    # 700 ms, the end of the committed action
+ERROR_HORIZON = 8   # 800 ms
 
 
 def l3_style(pred, true, cats):
@@ -137,9 +138,9 @@ def lewm(world_model, cache_folder, out, device='cuda:0'):
                                                         mean_rank=float(rank[rc == c].mean())) for c in CATEGORIES if (rc == c).any()})
         zero = rollout(zh, past, np.zeros_like(tapes))
         shuffled = rollout(zh, past, tapes[rng.permutation(len(tapes))])
-        h = 7
-        e = lambda f: np.linalg.norm(f-true[:, h], axis=-1)
-        err, pers, zer, shu = e(roll[:, h]), e(zh[:, -1]), e(zero[:, h]), e(shuffled[:, h])
+        target = true[:, ERROR_HORIZON-1]
+        err, pers, zer, shu = (np.linalg.norm(f-target, axis=-1) for f in (roll[:, ERROR_HORIZON-1], zh[:, -1],
+                                                                           zero[:, ERROR_HORIZON-1], shuffled[:, ERROR_HORIZON-1]))
         report['rollout_error'][name] = {c: dict(n=int(m.sum()), vs_persistence=float(np.median(err[m]/pers[m])),
                                                  vs_zero=float(np.median(err[m]/zer[m])), vs_shuffled=float(np.median(err[m]/shu[m])))
                                          for c in ('all',)+CATEGORIES for m in [np.ones(len(cats), bool) if c == 'all' else cats == c] if m.any()}

@@ -3,8 +3,9 @@ an action-conditioned latent predictor trained jointly from pixels, with a next-
 anti-collapse regulariser, and no stop-gradient, EMA or pretrained weights. The C5/C6 world model.
 
 Ported from the official implementation (github.com/lucas-maes/le-wm at 8edfeb3; `module.py`, `jepa.py`; MIT,
-Copyright (c) 2026 Lucas Maes, notice in THIRD_PARTY_NOTICES.md), without its training frameworks: the predictor, AdaLN-zero blocks, action embedder, projectors and SIGReg follow it line for line;
-the encoder is a ViT in the Hugging Face layout that the official code instantiates (`vit_hf`), written out here.
+Copyright (c) 2026 Lucas Maes, notice in THIRD_PARTY_NOTICES.md), without its training frameworks: the predictor,
+AdaLN-zero blocks, action embedder, projectors and SIGReg follow it line for line; the encoder is a ViT in the Hugging
+Face layout that the official code instantiates (`vit_hf`), written out here.
 
 **Go2 configuration** (see docs/lewm/PLAN.md):
 - one model step is 100 ms: one camera frame and the five 50 Hz policy steps after it (the paper's frameskip 5);

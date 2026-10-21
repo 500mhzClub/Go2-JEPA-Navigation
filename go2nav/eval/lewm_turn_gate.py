@@ -25,6 +25,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from go2nav.data.lewm_corpus import body_motion
 from go2nav.data.lewm_dataset import raise_open_file_limit
 from go2nav.models.lewm import action_blocks, control_stats, load_heads, load_world_model, normalise_frames
 
@@ -42,11 +43,6 @@ def wall_distance(boxes, xy):
         local = np.abs((xy-c)@R)
         best = np.minimum(best, np.linalg.norm(np.maximum(local-h, 0.), axis=1))
     return best
-
-
-def yaw_of(q):
-    x, y, z, w = q.T
-    return np.arctan2(2*(w*z+x*y), 1-2*(y*y+z*z))
 
 
 def turn_windows(root, units, index):
@@ -88,13 +84,8 @@ def forecasts(model, heads, root, unit, starts, device):
     acts = torch.stack([blocks[tt-3+k] for k in range(3+HORIZONS)], 1)
     with torch.autocast(torch.device(device).type, dtype=torch.bfloat16):
         rolled = model.rollout(zh, acts, HORIZONS).float()
-    pose, yaw = steps['pose'], yaw_of(steps['pose'][:, 3:7])
-    c, s_ = np.cos(yaw[t]), np.sin(yaw[t])
-    truth = []
-    for h in range(1, HORIZONS+1):
-        d = pose[t+h, :2]-pose[t, :2]
-        truth.append(np.stack([c*d[:, 0]+s_*d[:, 1], -s_*d[:, 0]+c*d[:, 1], np.angle(np.exp(1j*(yaw[t+h]-yaw[t])))], 1))
-    truth = np.stack(truth, 1)
+    pose = steps['pose']
+    truth = body_motion(pose, t[:, None], t[:, None]+np.arange(1, HORIZONS+1))
     mean, std = (torch.as_tensor(v, device=device, dtype=torch.float32) for v in (cmean, cstd))
     past = (torch.as_tensor(steps['applied_history'][t][..., [0, 2]], dtype=torch.float32, device=device)-mean)/std
     tape = (torch.as_tensor(steps['executed'][np.add.outer(t, np.arange(HORIZONS)), -1][..., [0, 2]],
