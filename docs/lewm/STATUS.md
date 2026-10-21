@@ -307,6 +307,56 @@ The error is C5's decoder reading in-place turns near walls from latent differen
 Open: a tail gate on C5's own states (p90 turn translation, or the escape rate on replayed near-wall decisions)
 beside L3 and L4; whether the 1-mm escape tolerance and the 0.03 m reserve, set for C1, suit LeWM's forecasts.
 
+## Shared readout protocol (20-21 October): one recipe for every latent arm
+
+Why: a learned decoder's errors are charged to the world model it reads (span8w's T7 decoder deadlocked C5; the corpus
+readout on the same latents did not), and C3's decoder was fitted by another recipe on other data. `readout_v1`
+(`go2nav.training.readout_protocol`, `outputs/lewm/protocol/readout_v1.json`): 600 `lewm_train` units (explore,
+mission, free), every 5th window from start 7, two random horizons per window (seed 2026102001): 96,026 windows,
+192,052 pairs; labels from the simulator poses. Every head (C3's decoder, C4, C5, C6) trains on these by one recipe
+(AdamW, 20,000 updates x 512, lr 3e-4 cosine, weight decay 1e-4, clip 1), read alone, no T7 fit; each arm keeps its own
+head architecture. The world models stay frozen.
+
+Size study (span8w C5 head, `outputs/lewm/readout_size`): 10k windows L4 9.6-13.0 mm, 30k 6.9-7.7, 97k (the
+protocol's sampling) 5.25, 486k 5.0; spreading windows over more units beats every window from fewer units.
+
+span8w under the protocol (`outputs/lewm/protocol/span8w`): L4 C5 5.82 mm, C6 2.43 mm; turn gate (from rest within
+0.5 m, median/p90) C5 7.4/15.7 mm, C6 4.4/8.8; stuck-state counterfactuals 18/24 escapes each (fixed C5 19, a perfect
+forecaster 20).
+
+Readout-free measures (`go2nav.eval.latent_measures`, `outputs/lewm/latent_measures`), span8w against idm100: a
+linear probe reaches only 35-39 mm at 800 ms for both; candidate ranking is saturated (top-1 0.97-0.99 both); rollout
+error relative to persistence separates them (span8w 0.24, idm100 0.42; turns 0.22 against 0.49), though span8w's
+hold rollouts drift more than persistence (1.41x). C3 still to do.
+
+Benchmarks (`lewm_benchmarks_protocol.yaml`, `outputs/cohorts/lewm_*_{c5,c6}_proto`, finished 21:50): round trips
+
+| Condition | C5 protocol | C6 protocol | C5 fixed | C5 idm100 | C1 | C4 | C3 |
+|---|---|---|---|---|---|---|---|
+| R4 | 20/20 | 20/20 | 20 | 20 | 20 | 19 | 20 |
+| R5 friction 0.30 | 13/20 | 17/20 | 17 | 16 | 16 | 15 | 13 |
+| R5 friction 0.25 | 0/20 | 0/20 | 0 | 0 | 1 | 1 | - |
+| R6 reference | 19/20 | 20/20 | 19 | 19 | 20 | 20 | 17 |
+| R6 marked strips | 15/20 | 14/20 | 15 | 17 | 15 | - | - |
+| Total | 67/100 | 71/100 | 71/100 | 72/100 | 72/100 | 55/80 | 50/60 |
+
+Pooled discordant pairs (exact sign test). Protocol C5 alone against the other alone: C6 protocol 1/5 (p 0.22), fixed
+C5 2/6 (0.29), span8w C5 13/3 (0.02), idm100 C5 3/8 (0.23), C1 4/9 (0.27), C4 2/5 (0.45), C3 5/3 (0.73). Protocol C6:
+span8w C5 15/1 (0.0005), C6 span8w 5/1 (0.22), fixed C5 2/2, idm100 C5 4/5, C1 4/5, C4 4/2, C3 (recorded, not yet
+under the protocol) 8/1 (0.04). The protocol heads are level with the fixed C5, C1 and C4; protocol C5's shortfall
+sits at friction 0.30 (13 against 17), where 4 of its 7 failures are long blocked-recovery holds (more than 100
+blocked decisions, the deadlock signature; fixed C5 none there). Over all conditions, failures with more than 100
+blocked decisions: protocol C5 17, idm100 C5 15, span8w C5 17, fixed C5 9, protocol C6 7. Not significant, but
+consistent with protocol C5's larger turn-gate tail (7.4/15.7 mm against the fixed C5's 6.2/14.2).
+
+C3 and C4 under the protocol need V-JEPA features at full resolution. The corpus stores 224 x 168 frames, so the 600
+units were re-collected (`tools/readout_protocol/fullres_collect.py`; deterministic CPU physics) into a separate root
+with full-resolution PNGs, each checked against the corpus: 597 equal in every frame and pose; 3 (`0053_mission`,
+`0300_explore`, `0778_free`) have exact steps and poses but one resized frame differing by 6-45 of 37,632 pixels
+(largest difference 1-12 of 255), reproduced exactly by a second re-collection; accepted, recorded in their
+`verify.json`. The V-JEPA cache (pooled frame tokens and T4's predictions at each window's horizons, fp32 as deployed,
+about 115 GB) is running (below).
+
 ## Fixed C5 benchmarks (20 October): span8w with the corpus readout matches idm100, C1 and C4
 
 `outputs/cohorts/lewm_*_c5_span8wc` (`lewm_benchmarks_span8wc.yaml`): C5 on the span8w world model with the corpus
@@ -360,10 +410,12 @@ tail screen, with the deadlock replay as the diagnostic.
    `go2_idm_span8.yaml` [1, 8], `go2_idm_spans.yaml` [1, 2, 4, 8]), screened at 15,000 steps on T7 itself (L4 and L3 via
    `lewm_chain --set optimiser.steps=15000`) against idm100's 15,000-step screen.
 
-## Running (20 October)
+## Running (21 October)
 
 | Service | Checkout | What | Output |
 |---|---|---|---|
+| `lewm-vjepa-cache` (from 09:49) | bench worktree | `readout_protocol vjepa-cache` over `readout_v1` (V-JEPA tokens of frames t-10, t-5, t and T4's predictions), about 3.1 windows/s with the R9700 saturated, about 8.5 h. Resume: relaunch (finished units are skipped) | the cache root on the data drive, log `outputs/lewm/protocol/vjepa_cache.log` |
+| (finished 21:50, 20 October) `lewm-proto-bench` | bench worktree | the ten protocol cohorts, 6 LeWM lanes | `outputs/cohorts/lewm_*_proto`, log `outputs/cohorts/lewm_proto_bench.log` |
 | (finished 16:21) `lewm-span8wc-bench` | bench worktree | the five C5 cohorts of `configs/experiments/lewm_benchmarks_span8wc.yaml` (span8w world model, corpus readout), one service, 6 LeWM lanes; about 3 h. Resume: relaunch with `--resume` | `outputs/cohorts/lewm_*_c5_span8wc`, log `outputs/cohorts/lewm_span8wc_bench.log` |
 
 Relaunched at 14:33 with `EGL_DEVICE_ID=1`: `go2nav.eval.mission` defaults rendering to EGL device 0, the integrated GPU, and every cohort so far rendered there (physics is on the CPU; the R9700 ran only the forecasts, about 20% busy). Device 1, the R9700, renders bit-identically (301 of 301 replayed frames equal) and missions run at 1.47x real time instead of 1.71x; R4 had finished before the switch. Scaling retested with rendering on the R9700: 12 and then 9 concurrent C5 missions livelocked within 3 minutes as on the morning's double launch (stuck at 0-20 simulated s, the R9700 at 100%), so the cause is not the iGPU; stopped cleanly each time and relaunched at 6 (14:58), which runs normally. `lewm-span8w-bench` finished at 12:34 (from 07:52). A first launch at 01:12 ran C5
