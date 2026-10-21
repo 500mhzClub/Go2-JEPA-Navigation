@@ -17,8 +17,8 @@ strides 16 and 8 the levels step 100 ms, 1.6 s and 12.8 s. An upper level holds:
 SIGReg, inverse dynamics). Each upper level has a teacher-forced one-step prediction loss over its states, plus
 `sigreg` x SIGReg of its states, `inverse` x the inverse-dynamics MSE and `action_sigreg` x SIGReg of its macro-action
 embeddings. There is no stop-gradient and no EMA target: upper levels' gradients flow through every encoder below,
-level 1's ViT included. Upper-level terms are computed on the samples `upper_mask` selects (mission and explore clips
-in the Go2 configuration).
+level 1's ViT included. Level 1 and the upper levels train on their own samples of one batch (`data.hjepa_dataset`:
+level 1 on short windows of every unit, the upper levels on long clips of mission and explore units).
 """
 from dataclasses import asdict, dataclass
 
@@ -166,22 +166,20 @@ def upper_terms(level, states, macros, sigreg, *, generator=None):
 
 def losses(model, batch, *, level1, upper, sigreg, generator=None):
     """The joint objective on a batch (`data.hjepa_dataset`), all frames normalised:
-    - batch['frames']: list per level of (B, T_l, 3, H, W): level 1's crop (history + rollout frames), then each upper
-      level's crop of states;
-    - batch['actions']: list per level: level 1's action blocks (B, T_1 - 1, A1), then for each upper level the level-1
-      blocks spanning its crop's transitions (B, (crop - 1) x period, A1);
-    - batch['upper_mask']: (B,) bool, the samples the upper levels train on.
+    - batch['frames']: per level, level 1's windows (B1, history + rollout_steps, 3, H, W), then each upper level's
+      crops of states (Bu, crop, 3, H, W);
+    - batch['actions']: per level, level 1's action blocks (B1, T - 1, A1), then for each upper level the level-1 blocks
+      spanning its crops' transitions (Bu, (crop - 1) x period, A1).
     `level1`: keyword arguments of `models.lewm.losses` (rollout_steps, lam, inverse_weight); `upper`: per upper level a
     dict of weights (sigreg, inverse, action_sigreg). Returns the terms per level and `loss`, their weighted sum."""
-    frames, actions, mask = batch['frames'], batch['actions'], batch['upper_mask']
+    frames, actions = batch['frames'], batch['actions']
     if frames[0].size(1) != model.config.level1.history+level1['rollout_steps']:
         raise ValueError('level 1 frames must be history + rollout_steps')
-    selected = [frames[0]]+[f[mask] for f in frames[1:]]
-    # One encoder pass over every level's frames (the upper levels' only for the masked samples).
-    flat = torch.cat([f.flatten(0, 1) for f in selected])
+    # One encoder pass over every level's frames.
+    flat = torch.cat([f.flatten(0, 1) for f in frames])
     z_all = model.level1.projector(model.level1.encoder(flat))
     parts, start = [], 0
-    for f in selected:
+    for f in frames:
         n = f.size(0)*f.size(1)
         parts.append(z_all[start:start+n].unflatten(0, (f.size(0), f.size(1))))
         start += n
@@ -190,10 +188,8 @@ def losses(model, batch, *, level1, upper, sigreg, generator=None):
     total = terms['l1/loss']
     for k, weights in enumerate(upper):
         level = k+2
-        if not mask.any():
-            break
         states = model.states(parts[k+1], level)
-        macros = model.macros(actions[k+1][mask], level)
+        macros = model.macros(actions[k+1], level)
         t = upper_terms(model.upper[k], states, macros, sigreg, generator=generator)
         t['loss'] = t['pred']+weights['sigreg']*t['sigreg']+weights['inverse']*t['inverse'] \
             + weights['action_sigreg']*t['action_sigreg']
