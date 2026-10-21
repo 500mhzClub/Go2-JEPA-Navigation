@@ -127,3 +127,21 @@ def test_batches_keep_level_one_on_the_flat_stream_and_upper_clips_on_its_mazes(
     assert set(first) <= {5, 30, 2}                       # the starts of units 0, 2 and 3: mazes 0 and 2 only
     again = data[2]
     assert all(torch.equal(a, b) for a, b in zip(item['frames'][1:], again['frames'][1:]))  # a pure function of the step
+
+
+def test_upper_rollout_extends_the_context_one_state_per_step():
+    from go2nav.eval.hjepa_levels import upper_rollout
+    model = HJEPA.seeded(0, tiny()).eval()
+    level = model.upper[0]                      # context 3
+    states, macros = torch.randn(2, 3, 16), torch.randn(2, 5, 4)
+    rolled = upper_rollout(level, states, macros, 3)
+    assert rolled.shape == (2, 3, 16)
+    assert torch.allclose(rolled[:, 0], level.predict(states, macros[:, :3])[:, -1])
+
+
+def test_maze_distance_follows_the_passages():
+    from go2nav.eval.hjepa_levels import maze_distance
+    spec = dict(evaluation_layout=dict(cells=[[0, 0], [1, 0], [0, 1], [1, 1]], pitch_m=1.3,
+                                       edges=[[[0, 0], [1, 0]], [[1, 0], [1, 1]], [[1, 1], [0, 1]]]))
+    cells, hops, pitch = maze_distance(spec)
+    assert hops[(0, 0)][(0, 1)] == 3 and hops[(0, 0)][(1, 1)] == 2 and pitch == 1.3  # around the wall, not through it

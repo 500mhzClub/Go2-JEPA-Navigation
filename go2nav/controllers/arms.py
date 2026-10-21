@@ -8,6 +8,8 @@ motion forecaster.
 - **C4**: the direct readout matched to the C3 decoder (same fit file).
 - **C5**: the LeWorldModel (trained end to end from Go2 pixels) and its decoder (`go2nav.controllers.lewm`).
 - **C6**: the direct head on LeWM's encoder matched to the C5 decoder (same fit file).
+- **C7**, **C8**: C5 and C6 on H-JEPA's level 1 (`go2nav.models.hjepa`, exported in the LeWM format), with their own
+  model names so both world models can sit in one models file.
 - **C0**: the simulator oracle (`go2nav.controllers.oracle`).
 """
 import json
@@ -53,9 +55,13 @@ def forecaster(arm, *, decoder_fit=None, models=None, device='cuda:0'):
         from go2nav.models.predictor import load_horizon_predictor
         return JepaForecaster(load_horizon_predictor(model('t4_horizon_dense_predictor')), decoder, mean, std,
                               device=device)
-    if arm in ('C5', 'C6'):
+    if arm in ('C5', 'C6', 'C7', 'C8'):
         from go2nav.controllers.lewm import LeWMDirectForecaster, LeWMForecaster
         from go2nav.models.lewm import load_heads, load_world_model
-        world, (c5, c6) = load_world_model(model('lewm_world_model')), load_heads(model('lewm_c5_decoder_and_c6'))
-        return LeWMForecaster(world, c5, device=device) if arm == 'C5' else LeWMDirectForecaster(world, c6, device=device)
+        world_key, heads_key = (('lewm_world_model', 'lewm_c5_decoder_and_c6') if arm in ('C5', 'C6')
+                                else ('hjepa_world_model', 'hjepa_c7_decoder_and_c8'))
+        world, (decoder, direct) = load_world_model(model(world_key)), load_heads(model(heads_key))
+        if arm in ('C5', 'C7'):
+            return LeWMForecaster(world, decoder, device=device)
+        return LeWMDirectForecaster(world, direct, device=device)
     raise ValueError(f'unknown or unported arm {arm!r}')
