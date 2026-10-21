@@ -33,17 +33,17 @@ initialised from span8w.
 | Setting | Choice |
 |---|---|
 | Steps | L2 1.6 s (stride 16 from L1), L3 12.8 s (stride 8 from L2); window `w` 1 |
-| State encoder | two-layer MLP (hidden 384), applied to each lower-level latent on its own, then a BatchNorm projector, as at level 1; latent 192 |
+| State encoder | two-layer MLP with BatchNorm (hidden 768), applied to each lower-level latent on its own; latent 192 |
 | Macro-action encoder | the paper's pooling of the lower level's action embeddings, in DROID's form: the `s` lower actions concatenated, an MLP (hidden 64) to 8 dimensions, then LayerNorm. At L2 these are the 16 blocks' raw commands (160 values); at L3, the 8 L2 macro-actions |
 | Predictor | causal AdaLN-zero transformer like level 1's, 4 blocks, teacher-forced one-step loss as in the paper (level 1 keeps its rollout loss). Context: 3 states at L2, 2 at L3 (as DROID's level 2) |
-| Anti-collapse | SIGReg 0.16 per upper level (DROID's level 2); inverse dynamics weight 50, regressing the detached macro-action embedding from consecutive states; SIGReg 0.005 on the macro-action embeddings |
+| Anti-collapse | SIGReg 0.16 and inverse dynamics 50 per upper level (regressing the detached macro-action embedding from consecutive states); SIGReg 0.005 on the macro-action embeddings |
 | Data | L2's and L3's losses use mission and explore clips only (the scripted free units are noise at these scales, paper §G); L1's uses every clip |
 
 **Training** (paper §C, Table 5):
 - One objective: `L = sum over levels of (prediction + lambda * SIGReg + gamma * IDM)`, plus the macro-action SIGReg
   terms.
-- AdamW, warm-up then cosine, gradient clipping per level, bf16. Learning rate 5e-5 at level 1, as span8w; upper
-  levels the same (DROID's choice; the simulator runs used a fifth).
+- AdamW, warm-up then cosine, gradient clipping per level, bf16, one learning rate (5e-5, span8w's) for every
+  level. Reasons below.
 
 ## Data
 
@@ -118,8 +118,26 @@ is close.
 1. **Timescales: L1 100 ms, L2 1.6 s, L3 12.8 s**, with the upper levels trained on mission and explore clips; the
    reasoning and the alternatives are in [TIMESCALES.md](TIMESCALES.md). The goal is a functional baseline. The
    hierarchy should show its value as the harness's engineered parts move into the world model.
-2. **Upper-level loss settings from DROID** (SIGReg 0.16, inverse dynamics 50, macro-action SIGReg 0.005, one
-   learning rate): the paper's setting nearest ours, with varied scenes where inverse dynamics was needed. (A default,
-   open to revision.)
-3. **Level 1 from scratch** with span8w's settings, as the paper trains its headline models. (A default.)
-4. **Arms C7 and C8.** (A default.)
+2. **Upper-level settings**, chosen for our data from the paper's findings:
+   - **Inverse dynamics at every upper level (weight 50).** The paper shows (§4.3, §L) that when scenes vary between
+     episodes, a predictive objective can settle on scene identity, which is predictable at any horizon, and drop the
+     agent; no regulariser on the marginal law can prevent it. Our corpus varies the maze per unit, and the free units
+     also vary the look. At 12.8 s "which maze" is the easiest predictable feature, so L3 is the level most at risk.
+     Inverse dynamics forces each level's states to carry the agent's own motion. 50 is DROID's level-2 weight; the
+     paper's level-2 grid was insensitive to it (§K.2).
+   - **Macro-action SIGReg 0.005.** Upper-level inverse dynamics regresses a learned macro-action embedding. If that
+     embedding collapsed to a constant, the target would be trivially met, so the paper regularises it (§C.2).
+   - **SIGReg 0.16 at upper levels** (level 1 keeps 0.08). DROID's level 2 doubled level 1's coefficient, and its
+     level-2 grid found every nearby pair equivalent. The simulator runs' uniform 0.09 came without inverse dynamics,
+     so it doesn't transfer.
+   - **One learning rate.** The simulator runs gave upper levels a fifth of level 1's rate, but there every level saw
+     three targets per clip. Ours see fewer (L1 about 12, L2 3, L3 2, and only on mission and explore clips), as on
+     DROID, where the levels shared one rate. A lower rate would starve them.
+   - **Teacher-forced one-step loss at upper levels**, as the paper trains (level 1 keeps span8w's 8-step rollout
+     loss, which made C5's forecasts usable). Rollout losses at upper levels belong to the planning work, when their
+     multi-step use begins.
+   - **Encoders and predictors:** DROID's wider latent MLP (hidden 768), since the state encoder is the only place an
+     upper level can abstract; predictors of 4 blocks (smaller than level 1's 6: fewer targets, simpler dynamics);
+     no target detachment (§K.1: no effect).
+3. **Level 1 trained from scratch** with span8w's settings, as the paper trains its headline models.
+4. **Arms C7 and C8.**

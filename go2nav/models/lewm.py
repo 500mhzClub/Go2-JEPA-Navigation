@@ -370,10 +370,11 @@ def body_motion(poses, span):
 
 
 def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight=0., generator=None, poses=None,
-           motion_weight=0.):
+           motion_weight=0., z=None):
     """The training objective on windows of `history + rollout_steps` frames (rollout_steps >= 1).
 
-    pixels (B, T, 3, H, W) normalised, actions (B, T-1, A). Returns a dict with `loss` and its terms:
+    pixels (B, T, 3, H, W) normalised, actions (B, T-1, A); or, with `pixels` None, the frames' z (B, T, D) already
+    encoded (H-JEPA encodes every level's frames in one pass). Returns a dict with `loss` and its terms:
     - `pred`: the paper's teacher-forced MSE, positions 0..N-1 of the history predicting frames 1..N;
     - `rollout` (rollout_steps > 1, the Go2 configuration): the MSE of the autoregressive rollout from the N history
       frames to frames N..N+K-1, as the forecaster uses the model. With K = 1 the objective is the paper's;
@@ -386,7 +387,7 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight
       over each span, decoded from [z_t, z_(t+k) - z_t] and scaled by k x `MOTION_SCALE_PER_STEP`.
     """
     n = model.config.history
-    z = model.encode(pixels)
+    z = model.encode(pixels) if z is None else z
     pred = model.predict(z[:, :n], actions[:, :n])
     terms = dict(pred=(pred-z[:, 1:n+1]).pow(2).mean())
     if rollout_steps > 1:
