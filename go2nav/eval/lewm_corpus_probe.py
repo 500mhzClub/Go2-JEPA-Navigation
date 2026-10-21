@@ -31,6 +31,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from go2nav.data.lewm_corpus import body_motion
 from go2nav.models.lewm import action_blocks, control_stats, load_world_model, normalise_frames
 
 HS = (5, 8)
@@ -39,11 +40,6 @@ HEADS = ('probe', 'c5', 'cmds', 'c6')
 # mostly translate (median 123 mm, cruise 152), and T7's score averages its movement types: the mean of the bins'
 # medians (`bin_mean_xy_mm`) weights fast motion as T7 does, where the median over all windows hides it.
 TRANSLATION_BINS = (('still', 0., 20.), ('slow', 20., 80.), ('walk', 80., 160.), ('fast', 160., 1e9))
-
-
-def yaw_of(q):  # (n, 4) x, y, z, w
-    x, y, z, w = q.T
-    return np.arctan2(2*(w*z+x*y), 1-2*(y*y+z*z))
 
 
 @torch.no_grad()
@@ -59,15 +55,7 @@ def unit_data(model, root, units, index, u, dev, cmean, cstd):
     z = torch.cat(zs)
     starts = index['start'][index['unit'] == u]
     t = starts+3
-    pose = steps['pose']
-    yaw = yaw_of(pose[:, 3:7])
-    targets = []
-    for h in HS:
-        d = pose[t+h, :2]-pose[t, :2]
-        c, s_ = np.cos(yaw[t]), np.sin(yaw[t])
-        dx, dy = c*d[:, 0]+s_*d[:, 1], -s_*d[:, 0]+c*d[:, 1]
-        dyaw = np.angle(np.exp(1j*(yaw[t+h]-yaw[t])))
-        targets.append(np.stack([dx, dy, dyaw], 1))
+    targets = body_motion(steps['pose'], t[:, None], t[:, None]+np.asarray(HS))
     blocks = action_blocks(steps['executed'], cmean, cstd).to(dev)          # (n, 10)
     hist = torch.from_numpy(((steps['applied_history'][:, :, [0, 2]]-cmean)/cstd).astype(np.float32)).to(dev)  # (n,15,2)
     tape = torch.from_numpy(((steps['executed'][:, 0, [0, 2]]-cmean)/cstd).astype(np.float32)).to(dev)       # (n,2) first cmd of tick
@@ -82,7 +70,7 @@ def unit_data(model, root, units, index, u, dev, cmean, cstd):
     rolled = torch.cat(rolled)[:, [h-1 for h in HS]]                         # (w, 2, D)
     tapes = torch.stack([tape[tt+k] for k in range(8)], 1)                    # (w, 8, 2)
     return dict(zh=zh.cpu(), zf=zf.cpu(), zr=rolled.cpu(), past=hist[tt].cpu(), tape=tapes.cpu(),
-                y=torch.from_numpy(np.stack(targets, 1).astype(np.float32)),   # y (w, 2, 3)
+                y=torch.from_numpy(targets.astype(np.float32)),                # y (w, 2, 3)
                 unit=torch.full((len(t),), u))
 
 
@@ -112,6 +100,7 @@ def inputs(d, kind, hi, dev):
     cmds = torch.cat((d['past'].to(dev).flatten(1), tape.flatten(1), torch.full((len(zh), 1), h/8, device=dev)), 1)
     return cmds if kind == 'cmds' else torch.cat((zh.flatten(1), cmds), 1)
 
+
 def fit_eval(data, kind, dev, updates, batch=512):
     X = torch.cat([inputs(data['train'], kind, hi, dev) for hi in range(len(HS))])
     Y = torch.cat([data['train']['y'][:, hi] for hi in range(len(HS))]).to(dev)
@@ -121,7 +110,7 @@ def fit_eval(data, kind, dev, updates, batch=512):
     opt = torch.optim.AdamW(net.parameters(), 3e-4, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, updates)
     g = torch.Generator(device=dev).manual_seed(1)
-    for step in range(updates):
+    for _ in range(updates):
         i = torch.randint(len(X), (batch,), device=dev, generator=g)
         loss = (net((X[i]-xm)/xs)-(Y[i]-mu)/sd).pow(2).mean()
         opt.zero_grad()
@@ -146,11 +135,11 @@ def fit_eval(data, kind, dev, updates, batch=512):
                                                  moving_median_xy_mm=xy[moving].median().item() if moving.any() else float('nan'),
                                                  moving_median_ratio=((p[moving, :2]*y[moving, :2]).sum(1)/y[moving, :2].pow(2).sum(1)).median().item() if moving.any() else float('nan'))
                 bins = {}
-                for name, lo, hi in TRANSLATION_BINS:
-                    m = (true >= lo) & (true < hi)
+                for name, low_mm, high_mm in TRANSLATION_BINS:
+                    m = (true >= low_mm) & (true < high_mm)
                     bins[name] = dict(n=int(m.sum()), median_xy_mm=xy[m].median().item() if m.any() else float('nan'),
                                       median_ratio=((p[m, :2]*y[m, :2]).sum(1)/y[m, :2].pow(2).sum(1)).median().item()
-                                      if m.any() and lo > 0 else float('nan'))
+                                      if m.any() and low_mm > 0 else float('nan'))
                 res[f'{split}@{h*100}ms']['bins'] = bins
                 res[f'{split}@{h*100}ms']['bin_mean_xy_mm'] = float(np.nanmean([b['median_xy_mm'] for b in bins.values()]))
     return res

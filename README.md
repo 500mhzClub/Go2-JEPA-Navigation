@@ -8,8 +8,8 @@ When do JEPA world-model representations carry decision-relevant information for
 prediction, reactive control and explicit memory?
 
 This repository is a simulated Unitree Go2 navigation testbed in [Genesis](https://github.com/Genesis-Embodied-AI/Genesis).
-It compares five controller types (and, in development, two LeWM arms) on procedurally generated mazes: each must reach
-a beacon, given as a position in its starting frame, and return home, from onboard RGB-D only.
+It compares seven controller types on procedurally generated mazes: each must reach a beacon, given as a position in
+its starting frame, and return home, from onboard RGB-D only.
 
 | Controller | What forecasts the motion of each candidate action |
 |---|---|
@@ -18,8 +18,8 @@ a beacon, given as a position in its starting frame, and return home, from onboa
 | **C2** | reactive: no motion forecast |
 | **C3** | **JEPA**: a frozen V-JEPA 2.1 ViT-L encoder and a learned action-conditioned predictor; a decoder reads motion from the predicted future features |
 | **C4** | supervised: the same frozen features, commands and candidate tape, mapped straight to motion |
-| **C5** | **LeWM** (in development, branch `feature/lewm`): a LeWorldModel (arXiv:2603.19312) trained end to end from Go2 pixels with SIGReg; a decoder reads motion from its rolled-out latents |
-| **C6** | supervised on LeWM's own encoder: its features, commands and candidate tape, mapped straight to motion |
+| **C5** | **LeWM**: a LeWorldModel (arXiv:2603.19312) trained end to end from Go2 pixels with SIGReg and inverse dynamics; a decoder reads motion from its rolled-out latents |
+| **C6** | supervised on LeWM's own encoder: its latents, commands and candidate tape, mapped straight to motion |
 
 All controllers share one harness, the reserve-exit-v2 navigation stack: RGB-D tracking, an occupancy map, route
 planning, safety vetoes, and an optional recovery layer. Only the motion forecast differs.
@@ -165,7 +165,8 @@ python -m go2nav.eval.video outputs/runs/C3_30 outputs/videos/C3_30
 ```
 
 The episode evaluation gives round-trip, beacon and home success, SPL, contacts, clearance violations, minimum clearance
-and a stall and failure taxonomy. `--arm` takes C0–C4 or the development variants C1A and C1R. Other mission options
+and a stall and failure taxonomy. `--arm` takes C0–C6 or the development variants C1A and C1R (C5 and C6 need
+`--models`, below). Other mission options
 are degraded forecasts (`--degrade`), low friction (`--friction`, `--strips`), clearance margins and the earlier v4
 harness; `--help` lists them all.
 
@@ -185,7 +186,8 @@ python -m go2nav.eval.cohort --summarise outputs/cohorts/rexit2_ref    # the tab
 | `r5_dynamics_stage1` | 120 | uniform low floor friction, zero-shot |
 | `r6_dynamics_stage2` | 150 | marked low-friction strips |
 | `retrained_chain`, `retrained_locomotion`, `e2e_chain` | 40-60 | shipped vs retrained models or policy |
-| `lewm_benchmarks` | 310 | C5 and C6 on R4's, R5's and R6's episodes, plus visual transfer (in development; [docs/lewm](docs/lewm/PLAN.md)) |
+| `lewm_benchmarks` | 310 | C5 and C6 (idm100 world model) on R4's, R5's and R6's episodes, plus a visual-transfer cohort (not run) |
+| `lewm_benchmarks_span8w`, `_span8wc`, `_protocol` | 100-200 | C5 and C6 on the same episodes: the span8w world model with T7's fit, the C5 baseline (corpus readout), and the shared readout protocol's heads |
 
 A cohort runs on retrained models with `models: outputs/chain/models.yaml`. `--resume` continues an interrupted
 experiment, and `--retry ASSIGNMENT` reruns single missions.
@@ -195,9 +197,46 @@ experiment, and `--retry ASSIGNMENT` reruns single missions.
 - C3 and C4 use the GPU for the encoder. A C3 mission takes about 30 minutes, and `--c3-lanes` caps how many run at
   once (keep it at 4 or fewer on one GPU).
 - The full chain takes about a day on one AMD R9700 GPU, and its T7 cache needs about 63 GB of disk.
+- C5 and C6 missions use the GPU for LeWM; `--lewm-lanes` caps them (6 on one R9700: 9 or more concurrent missions
+  livelocked the GPU). Run every GPU arm's cohorts from one cohort process, since lanes are not shared across processes.
 - Rendering uses EGL device `EGL_DEVICE_ID` (default 0). On the development machine device 0 is the integrated GPU
   and device 1 the R9700; frames render bit-identically on both, so `EGL_DEVICE_ID=1` only makes many parallel
   missions faster.
+
+### 6. The LeWM arms (C5, C6)
+
+C5 and C6 read a LeWorldModel trained here from Go2 pixels (design, gates and results:
+[docs/lewm/PLAN.md](docs/lewm/PLAN.md), [docs/lewm/STATUS.md](docs/lewm/STATUS.md)). Each step is resumable.
+
+```bash
+# The corpus: lewm_sets_v1, 1,200 training and 100 validation mazes on a 5 x 4 grid (no evaluation maze is 5 x 4)
+python -m go2nav.data.lewm_corpus collect $LEWM_ROOT [--egl-devices 1]
+python -m go2nav.data.lewm_corpus audit $LEWM_ROOT                     # the data gate (L0)
+
+# The world model, its T7-style decoder fits and their model set (outputs/lewm/chain/models.yaml)
+python -m go2nav.training.lewm_chain outputs/lewm/chain --corpus $LEWM_ROOT --recordings-root outputs/recordings \
+    --config configs/lewm/go2_idm_span8w.yaml
+
+# The C5 baseline: the corpus readout alone as C5's decoder (no T7 fit), C6 from the chain's chosen fit
+python -m go2nav.training.lewm_readout corpus --world-model outputs/lewm/chain/world/lewm.pt --corpus $LEWM_ROOT \
+    --out outputs/lewm/readout
+python -m go2nav.training.lewm_readout package --readout outputs/lewm/readout/readout.pt \
+    --c6-from CHOSEN_FIT.pt --out outputs/lewm/c5_baseline     # CHOSEN_FIT: the fit outputs/lewm/chain/choice.json names
+```
+
+| Step | Module | What |
+|---|---|---|
+| corpus | `data.lewm_corpus` | explore (C1 with random actions), mission (C1) and scripted free-driving units under random looks; frames, executed commands, poses |
+| world model | `training.lewm` | ViT-Tiny encoder and action-conditioned predictor, SIGReg and inverse dynamics over 100- and 800-ms spans (`go2_idm_span8w`); gates L1 (health) and L2 (action sensitivity) |
+| decoders | `training.lewm_decoder` | C5's decoder and C6 fitted like C3's decoder and C4 (T7's contexts and recipe); gate L3 (probe) and L4 (T7 score) |
+| readouts | `training.lewm_readout` | a decoder trained on corpus windows labelled by the simulator; `package` makes it C5's decoder |
+| protocol | `training.readout_protocol` | one fixed readout recipe and data set (`readout_v1`) for every latent arm: C5/C6 and, from full-resolution re-collections (`data.lewm_fullres`), C3/C4 |
+| offline checks | `eval.lewm_turn_gate`, `eval.latent_measures`, `eval.lewm_corpus_probe`, `eval.vjepa_probe` | in-place turn forecasts near walls, readout-free measures (linear probe, candidate ranking, rollout error against baselines), screening probes |
+| deadlocks | `eval.stuck_replay` | a cohort's stuck decisions replayed through other forecasters, and the simulator's ground truth there |
+
+Missions and cohorts take the model set with `--models` (or the cohort option `models`): `lewm_world_model` and
+`lewm_c5_decoder_and_c6`. The benchmarked baseline is the span8w world model with the packaged corpus readout as C5
+(71/100 round trips, level with C1, C4 and C6).
 
 ## Platform
 

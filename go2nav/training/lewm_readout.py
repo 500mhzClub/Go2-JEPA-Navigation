@@ -2,6 +2,7 @@
 
     python -m go2nav.training.lewm_readout corpus --world-model LEWM.pt --corpus ROOT --out DIR [--units 600] [--stride 1]
     python -m go2nav.training.lewm_readout contexts --world-model LEWM.pt --cache CACHE --out DIR
+    python -m go2nav.training.lewm_readout package --readout DIR/readout.pt --c6-from FIT.pt --out DIR
 
 T7 fits C5's decoder from scratch on 3,520 batches of 64 decisions; C3's decoder starts from T5b, a readout already
 trained on true-future recording pairs (T5-0 -> T5a -> T5b). On the idm100 chain that difference, not the latents, was
@@ -16,6 +17,11 @@ under the executed actions (C5's input; grows C5's decoder) and `true` the true 
 Each: 20,000 AdamW updates of batch 512 (lr 3e-4, cosine, weight decay 1e-4, clip 1), each example at a random horizon.
 A head is written as soon as it is trained and a rerun skips it; `readout.pt` and `.done` close the folder.
 `lewm_decoder fit --base-readout DIR/readout.pt` then runs T7's fit unchanged from these heads (C6 stays fresh, as C4).
+
+**Package** (`package`): a fit file whose C5 decoder is a base readout's `rollout` head alone, read without T7's fit,
+and whose C6 is another fit file's. This is the C5 baseline (docs/lewm/STATUS.md, span8w decoder fix): on the span8w
+world model, T7's fit made C5 forecast in-place turns near walls 2-4 times too far and deadlock, and the corpus
+readout alone did not (L4 5.0 mm, 71/100 round trips). Written as DIR/fit_base_only.pt with its lineage.
 """
 import argparse
 import json
@@ -26,17 +32,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from go2nav.data.lewm_corpus import body_motion
 from go2nav.models.lewm import LatentMotionDecoder, action_blocks, control_stats, load_world_model, normalise_frames
 from go2nav.training.common import sha256_file, write_lineage
 
 HORIZONS = 8
 UPDATES, BATCH, LR, WEIGHT_DECAY, GRAD_CLIP = 20000, 512, 3e-4, 1e-4, 1.
 SEED = 2026101801
-
-
-def _yaw(q):  # (n, 4) x, y, z, w
-    x, y, z, w = q.T
-    return np.arctan2(2*(w*z+x*y), 1-2*(y*y+z*z))
 
 
 @torch.inference_mode()
@@ -62,12 +64,7 @@ def corpus_windows(model, root, units, device, stride=1):
                 zs.append(model.encode(normalise_frames(x)[:, None])[:, 0].float())
         z = torch.cat(zs)
         t = starts+3
-        pose, yaw = steps['pose'], _yaw(steps['pose'][:, 3:7])
-        c, s_ = np.cos(yaw[t]), np.sin(yaw[t])
-        y = []
-        for h in range(1, HORIZONS+1):
-            d = pose[t+h, :2]-pose[t, :2]
-            y.append(np.stack([c*d[:, 0]+s_*d[:, 1], -s_*d[:, 0]+c*d[:, 1], np.angle(np.exp(1j*(yaw[t+h]-yaw[t])))], 1))
+        y = body_motion(steps['pose'], t[:, None], t[:, None]+np.arange(1, HORIZONS+1))
         blocks = action_blocks(steps['executed'], cmean, cstd).to(device)
         tt = torch.from_numpy(t).to(device)
         zh = torch.stack([z[tt+k] for k in range(-3, 1)], 1)
@@ -79,7 +76,7 @@ def corpus_windows(model, root, units, device, stride=1):
         out['zh'].append(zh.half().cpu())
         out['true'].append(torch.stack([z[tt+h] for h in range(1, HORIZONS+1)], 1).half().cpu())
         out['rollout'].append(torch.cat(rolled).half().cpu())
-        out['y'].append(torch.from_numpy(np.stack(y, 1).astype(np.float32)))
+        out['y'].append(torch.from_numpy(y.astype(np.float32)))
     return {k: torch.cat(v) for k, v in out.items()}
 
 
@@ -167,19 +164,50 @@ def load_base(path, kind, device='cpu'):
     return head.to(device)
 
 
+def package(readout, c6_fit, out):
+    """OUT/fit_base_only.pt: C5 = the base readout's `rollout` head, C6 (and the fit file's other fields) from
+    `c6_fit` (see the module docstring). Loads with `models.lewm.load_heads`."""
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=True)
+    fit = torch.load(c6_fit, map_location='cpu', weights_only=False)
+    base = torch.load(readout, map_location='cpu', weights_only=False)
+    if base['world_model_sha256'] != fit['world_model_sha256']:
+        raise ValueError('the base readout and the C6 fit read different world models')
+    fit['c5'] = base['rollout']
+    fit['base_readout'] = str(readout)
+    fit['note'] = f'c5: the base readout {readout} rollout head alone (no T7 fit); c6: {c6_fit}'
+    checkpoint = out/'fit_base_only.pt'
+    torch.save(fit, checkpoint)
+    write_lineage(out, component='lewm_c5_decoder_and_c6_base_only', seed=None, parents=[str(readout), str(c6_fit)],
+                  config=dict(c5='base readout rollout head, no T7 fit', c6='from the C6 fit'), data={},
+                  checkpoint=checkpoint)
+    return checkpoint
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('source', choices=('corpus', 'contexts'))
-    p.add_argument('--world-model', required=True, type=Path)
-    p.add_argument('--out', required=True, type=Path)
-    p.add_argument('--corpus', type=Path)
-    p.add_argument('--units', type=int, default=600)
-    p.add_argument('--stride', type=int, default=1, help='keep windows whose start is a multiple of this')
-    p.add_argument('--cache', type=Path)
+    sub = p.add_subparsers(dest='source', required=True)
+    for source in ('corpus', 'contexts'):
+        s = sub.add_parser(source)
+        s.add_argument('--world-model', required=True, type=Path)
+        s.add_argument('--out', required=True, type=Path)
+        if source == 'corpus':
+            s.add_argument('--corpus', required=True, type=Path)
+            s.add_argument('--units', type=int, default=600)
+            s.add_argument('--stride', type=int, default=1, help='keep windows whose start is a multiple of this')
+        else:
+            s.add_argument('--cache', required=True, type=Path)
+    k = sub.add_parser('package')
+    k.add_argument('--readout', required=True, type=Path, help='a base readout (DIR/readout.pt)')
+    k.add_argument('--c6-from', required=True, type=Path, help='the fit file whose C6 to keep')
+    k.add_argument('--out', required=True, type=Path)
     a = p.parse_args()
-    if (a.source == 'corpus') != (a.corpus is not None) or (a.source == 'contexts') != (a.cache is not None):
-        p.error('corpus needs --corpus; contexts needs --cache')
-    print(build(a.source, a.world_model, a.out, corpus=a.corpus, units=a.units, stride=a.stride, cache=a.cache))
+    if a.source == 'package':
+        print(package(a.readout, a.c6_from, a.out))
+    elif a.source == 'corpus':
+        print(build('corpus', a.world_model, a.out, corpus=a.corpus, units=a.units, stride=a.stride))
+    else:
+        print(build('contexts', a.world_model, a.out, cache=a.cache))
 
 
 if __name__ == '__main__':

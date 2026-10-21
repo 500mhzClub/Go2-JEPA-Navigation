@@ -2,7 +2,7 @@
 on the lewm_sets_v1 mazes (5 x 4 grid; configs/mazes/lewm_sets_v1.yaml).
 
     python -m go2nav.data.lewm_corpus collect ROOT [--roles lewm_val lewm_train] [--mazes A-B] [--workers N]
-                                              [--egl-devices 1]
+                                              [--egl-devices D [D ...]]
     python -m go2nav.data.lewm_corpus unit ROOT ROLE MAZE KIND     # one unit (the pool runs each in its own process)
     python -m go2nav.data.lewm_corpus index ROOT                   # the window index that training reads
     python -m go2nav.data.lewm_corpus audit ROOT                   # the data gate (L0)
@@ -37,8 +37,9 @@ RGB), steps.npz and meta.json. Per frame i of steps.npz:
 - `pose` (n, 7: x, y, z, qx, qy, qz, qw) and `twist` (n, 6) at the frame: labels, never model inputs;
 - `plan_action`: the action planned at frame i (-1 if none); `explored`: it was the random substitute.
 
-**Rendering** runs on the EGL devices given (default 1, the R9700 on the development machine; device 0 is the
-integrated GPU, which saturates). The two render a unit bit-identically, so the device changes speed only.
+**Rendering** runs on the EGL devices given, in turn (default: `EGL_DEVICE_ID`, else 0). On a machine with an
+integrated GPU as device 0, give the discrete GPU's device: the integrated one saturates. Devices render a unit
+bit-identically, so the choice changes speed only.
 
 **Resume.** A unit is written to <name>.tmp and renamed when complete, then marked .done; `collect` skips finished
 units and clears partial ones, so a stopped collection resumes where it was. A unit that fails or exceeds its time
@@ -214,6 +215,21 @@ def yaw_of(pose):
     return math.atan2(2*(qw*qz+qx*qy), 1-2*(qy*qy+qz*qz))
 
 
+def planar_yaw(quaternions):
+    """Yaw (rad) of quaternions (..., 4) in the corpus's (x, y, z, w) order."""
+    x, y, z, w = np.moveaxis(np.asarray(quaternions), -1, 0)
+    return np.arctan2(2*(w*z+x*y), 1-2*(y*y+z*z))
+
+
+def body_motion(pose, start, end):
+    """The corpus's motion labels: the body-frame motion (forward, left, yaw change) from frame `start` to frame `end`
+    of a unit's poses (n, 7); `start` and `end` are index arrays of one shape, the result (*shape, 3)."""
+    yaw = planar_yaw(pose[:, 3:7])
+    c, s = np.cos(yaw[start]), np.sin(yaw[start])
+    d = pose[end, :2]-pose[start, :2]
+    return np.stack([c*d[..., 0]+s*d[..., 1], -s*d[..., 0]+c*d[..., 1], np.angle(np.exp(1j*(yaw[end]-yaw[start])))], -1)
+
+
 class FreeDriver:
     """Commands for the free unit, one per 100-ms tick, from the ground-truth pose and the maze's wall boxes (a data
     collector only: privileged state never reaches a model). Segments, drawn at random:
@@ -277,19 +293,19 @@ class FreeDriver:
 
     def _harness(self):
         from go2nav.planning.actions import ACTIONS, TRANSLATIONS, command
-        pose = yield
+        yield
         for _ in range(int(self.rng.integers(30, 61))//4):
             draw = self.rng.random()
             if draw < .2:
                 for _ in range(int(self.rng.integers(12, 21))):
-                    pose = yield (0., 0., 0.)
+                    yield (0., 0., 0.)
                 tape = [command(TRANSLATIONS[int(self.rng.integers(3))])]*4
             elif draw < .32:
                 tape = [command(TRANSLATIONS[int(self.rng.integers(3))])]+[(0., 0., 0.)]*3
             else:
                 tape = [command(ACTIONS[int(self.rng.choice(6, p=[.12, .34, .15, .15, .12, .12]))])]*4
             for c in tape:
-                pose = yield c
+                yield c
 
     def _cruise(self):
         pose = yield
@@ -311,13 +327,13 @@ class FreeDriver:
             pose = yield (0., 0., 0.)
 
     def _ou(self):
-        pose = yield
+        yield
         v, w, dt = self.rng.uniform(0, .2), self.rng.uniform(-.4, .4), .1
         for _ in range(int(self.rng.integers(20, 41))):
             v += 1.5*(.12-v)*dt+.12*math.sqrt(dt)*self.rng.normal()
             w += 1.5*(0.-w)*dt+.5*math.sqrt(dt)*self.rng.normal()
             v, w = float(np.clip(v, 0., .22)), float(np.clip(w, -.5, .5))
-            pose = yield (v, 0., w)
+            yield (v, 0., w)
 
     def _wall(self):
         pose = yield
@@ -456,9 +472,10 @@ def available_memory():
     return int(info['MemAvailable'].split()[0])*1024
 
 
-def collect(root, roles, *, mazes=None, workers=None, egl_devices=('1',)):
+def collect(root, roles, *, mazes=None, workers=None, egl_devices=None):
     """Run every unit not yet done, `workers` at a time (default: cores - 2), as memory allows. Resumable."""
     root = Path(root)
+    egl_devices = tuple(egl_devices or (os.environ.get('EGL_DEVICE_ID', '0'),))
     ensure_mazes(root)
     units = plan_units(root, roles, mazes)
     pending = [u for u in units if not (root/'units'/u[0]/unit_name(*u[1:])/'.done').exists()]
@@ -613,7 +630,7 @@ def main():
     c.add_argument('--roles', nargs='+', default=['lewm_val', 'lewm_train'])
     c.add_argument('--mazes', help='maze range A-B (default: every maze of the roles)')
     c.add_argument('--workers', type=int)
-    c.add_argument('--egl-devices', nargs='+', default=['1'], help='EGL devices for rendering, used in turn (default 1)')
+    c.add_argument('--egl-devices', nargs='+', help='EGL devices for rendering, used in turn (default: EGL_DEVICE_ID, else 0)')
     u = sub.add_parser('unit')
     u.add_argument('root', type=Path)
     u.add_argument('role')
@@ -631,7 +648,7 @@ def main():
         print(json.dumps(collect_unit(args.root, args.role, args.maze, args.kind)))
     elif args.command == 'collect':
         sys.exit(1 if collect(args.root, args.roles, mazes=parse_range(args.mazes), workers=args.workers,
-                              egl_devices=tuple(args.egl_devices)) else 0)
+                              egl_devices=args.egl_devices) else 0)
     elif args.command == 'index':
         print(json.dumps(build_index(args.root, length=args.length), indent=1))
     else:

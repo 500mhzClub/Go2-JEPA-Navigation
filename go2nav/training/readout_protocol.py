@@ -44,6 +44,7 @@ import time
 import numpy as np
 import torch
 
+from go2nav.data.lewm_corpus import body_motion
 from go2nav.data.lewm_dataset import raise_open_file_limit
 from go2nav.training.common import sha256_file, write_lineage
 
@@ -51,11 +52,6 @@ PROTOCOL = dict(name='readout_v1', seed=2026102001, role='lewm_train', kinds=('e
                 units=None, stride=None, horizons_per_window=2, min_start=7)
 RECIPE = dict(updates=20000, batch=512, lr=3e-4, weight_decay=1e-4, clip=1.)
 HORIZONS = 8
-
-
-def _yaw(q):
-    x, y, z, w = np.asarray(q).T
-    return np.arctan2(2*(w*z+x*y), 1-2*(y*y+z*z))
 
 
 # -- protocol windows -------------------------------------------------------------------------------------------------
@@ -84,14 +80,8 @@ def labels(root, path, starts, horizons):
     with np.load(Path(root)/path/'steps.npz') as steps:
         pose, history = steps['pose'], steps['applied_history']
     t = np.asarray(starts)+3
-    yaw = _yaw(pose[:, 3:7])
-    c, s = np.cos(yaw[t]), np.sin(yaw[t])
-    y = []
-    for k in range(horizons.shape[1]):
-        e = t+horizons[:, k]
-        d = pose[e, :2]-pose[t, :2]
-        y.append(np.stack([c*d[:, 0]+s*d[:, 1], -s*d[:, 0]+c*d[:, 1], np.angle(np.exp(1j*(yaw[e]-yaw[t])))], 1))
-    return np.stack(y, 1).astype(np.float32), history[t].astype(np.float32), history[t+8][:, -8:].astype(np.float32)
+    y = body_motion(pose, t[:, None], t[:, None]+horizons)
+    return y.astype(np.float32), history[t].astype(np.float32), history[t+8][:, -8:].astype(np.float32)
 
 
 def by_unit(protocol):
@@ -273,7 +263,7 @@ def run_lewm(protocol_path, corpus, world_model, out, *, device='cuda:0', cache=
 def vjepa_cache(protocol_path, corpus, fullres, out, *, predictor_checkpoint, batch=16, device='cuda:0'):
     """Per unit (resumable): pooled tokens (192 x 1024, layer-normalised) of every frame t-10, t-5, t of its windows,
     and T4's pooled prediction at each window's horizons under the executed tape. Frames from FULL_ROOT's re-collected
-    units (`tools/readout_protocol/fullres_unit.py`, checked equal to the corpus)."""
+    units (`go2nav.data.lewm_fullres`, checked against the corpus)."""
     from PIL import Image
     from go2nav.models.predictor import load_horizon_predictor
     from go2nav.models.vjepa import VJepaEncoder, normalise, pool_tokens, preprocess
@@ -293,7 +283,6 @@ def vjepa_cache(protocol_path, corpus, fullres, out, *, predictor_checkpoint, ba
         y, past, tape = labels(corpus, path, starts, horizons)
         t = starts+3
         need = np.unique(np.concatenate([t-10, t-5, t]))
-        row = {int(f): i for i, f in enumerate(need)}
         shutil.rmtree(folder.with_suffix('.tmp'), ignore_errors=True)
         tmp = folder.with_suffix('.tmp')
         tmp.mkdir()

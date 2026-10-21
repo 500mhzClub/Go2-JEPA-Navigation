@@ -265,7 +265,7 @@ Preliminary diagnosis (R4 and R5; offline only, not yet causal):
 - L3 and L4 are medians on C1's and C3's decisions; the planner reacts to the minimum clearance along a forecast, on
   C5's own near-wall states. The gates did not see this.
 
-Replay (20 October; `tools/lewm_stuck_replay`, `outputs/lewm/stuck_replay`): the 12 deadlocked episodes (all but
+Replay (20 October; `go2nav.eval.stuck_replay` list, forecast, summary; `outputs/lewm/stuck_replay`): the 12 deadlocked episodes (all but
 R5 maze 36 and R6 strips mazes 38, 39 and 40), 173 stuck decisions (the first 10 of each deadlock and some 25-300
 decisions later), rerendered and forecast again by span8w C5 (equal to the logged forecasts, 0.0 mm), idm100 C5 and
 both C6 heads. Clearance: a half-plane wall fitted per decision to the logged clearances (residual 0.29 mm median),
@@ -284,7 +284,7 @@ more than 1 mm below its start; span8w C5 forecasts in-place turns that translat
 times what span8w's own C6 forecasts from the same encoder. The fault is in span8w's rollout and decoder, not its
 encoder. A counterfactual on single decisions: whether idm100 would also have reached these states is not tested.
 
-Ground truth at the same states (`tools/lewm_stuck_replay/counterfactual*.py`, `outputs/lewm/stuck_counterfactual`):
+Ground truth at the same states (`go2nav.eval.stuck_replay` counterfactual, evaluate; `outputs/lewm/stuck_counterfactual`):
 the first stuck decision and one about 50 later of each deadlock (24), replayed to the decision and branched with the
 simulator snapshot (as C0), every candidate executed for 800 ms with its frames rendered (the executed branch equals
 the trace). `_truez`: C5's decoder on the true future frames' z instead of the rollout:
@@ -350,12 +350,33 @@ blocked decisions: protocol C5 17, idm100 C5 15, span8w C5 17, fixed C5 9, proto
 consistent with protocol C5's larger turn-gate tail (7.4/15.7 mm against the fixed C5's 6.2/14.2).
 
 C3 and C4 under the protocol need V-JEPA features at full resolution. The corpus stores 224 x 168 frames, so the 600
-units were re-collected (`tools/readout_protocol/fullres_collect.py`; deterministic CPU physics) into a separate root
+units were re-collected (`go2nav.data.lewm_fullres`; deterministic CPU physics) into a separate root
 with full-resolution PNGs, each checked against the corpus: 597 equal in every frame and pose; 3 (`0053_mission`,
 `0300_explore`, `0778_free`) have exact steps and poses but one resized frame differing by 6-45 of 37,632 pixels
 (largest difference 1-12 of 255), reproduced exactly by a second re-collection; accepted, recorded in their
-`verify.json`. The V-JEPA cache (pooled frame tokens and T4's predictions at each window's horizons, fp32 as deployed,
-about 115 GB) is running (below).
+`verify.json`. The V-JEPA cache (pooled frame tokens and T4's predictions at each window's horizons, fp32 as deployed;
+106 GB, 8.7 h) then fed C3's decoder (grown from T5b, as deployed) and C4 by the same recipe (`outputs/lewm/protocol/
+vjepa_grown`; batches loaded ahead in worker processes, 0.2 s per update). T7 score (eval_onpolicy, 800 ms, median XY
+by movement type, mm):
+
+| Head | hold | rest start | turn | cruise | arc | switch | **L4** |
+|---|---|---|---|---|---|---|---|
+| C3 deployed (T7, retrained chain) | 2.5 | 4.0 | 5.0 | 13.2 | 10.1 | 18.8 | **8.94** |
+| C3 protocol | 2.2 | 4.9 | 2.7 | 8.3 | 6.0 | 9.2 | **5.55** |
+| C4 deployed | 2.4 | 4.7 | 4.0 | 4.5 | 5.9 | 8.6 | **5.02** |
+| C4 protocol | 2.2 | 1.6 | 2.7 | 5.0 | 4.8 | 6.4 | **3.77** |
+| C5 protocol (span8w) | 1.9 | 4.0 | 3.2 | 8.2 | 7.3 | 10.4 | **5.82** |
+| C6 protocol (span8w) | 2.4 | 1.9 | 1.9 | 2.4 | 2.0 | 4.0 | **2.43** |
+| C5 baseline (corpus readout, 486k windows) | | | | | | | **5.0** |
+
+The protocol helps both V-JEPA heads (C3's decoder fell to a training loss of 1e-4 in normalised units against C5's
+0.018, yet reads T7's on-policy decisions better than the deployed fit). Under one recipe, C3 and C5 read about the
+same (5.6 and 5.8 mm), and both direct heads beat both decoders, C6 most. The fresh-initialised C3 variant
+(`--c3-init fresh`), the C3/C4 protocol missions and C3's readout-free measures were not run: the baselines are frozen
+as they stand (Andrew, 21 October: functional baselines, not 1:1 figures, before H-JEPA).
+
+**Frozen baselines** (round trips over R4-R6, 100 episodes unless stated): C1 72, C2 15/20 (R4 only), C3 50/60
+(deployed decoder), C4 55/80, C5 71 (span8w, corpus readout packaged by `lewm_readout package`), C6 71 (protocol head).
 
 ## Fixed C5 benchmarks (20 October): span8w with the corpus readout matches idm100, C1 and C4
 
@@ -410,11 +431,11 @@ tail screen, with the deadlock replay as the diagnostic.
    `go2_idm_span8.yaml` [1, 8], `go2_idm_spans.yaml` [1, 2, 4, 8]), screened at 15,000 steps on T7 itself (L4 and L3 via
    `lewm_chain --set optimiser.steps=15000`) against idm100's 15,000-step screen.
 
-## Running (21 October)
+## Recent runs (21 October; nothing running)
 
 | Service | Checkout | What | Output |
 |---|---|---|---|
-| `lewm-vjepa-cache` (from 09:49) | bench worktree | `readout_protocol vjepa-cache` over `readout_v1` (V-JEPA tokens of frames t-10, t-5, t and T4's predictions), about 3.1 windows/s with the R9700 saturated, about 8.5 h. Resume: relaunch (finished units are skipped) | the cache root on the data drive, log `outputs/lewm/protocol/vjepa_cache.log` |
+| (finished 18:30 and 21:33, 21 October) `lewm-vjepa-cache`, `lewm-vjepa-heads` | bench worktree | the V-JEPA protocol cache (8.7 h), then C3's and C4's protocol heads (stopped before the fresh-initialised C3) | the cache root on the data drive; `outputs/lewm/protocol/vjepa_grown`, logs `outputs/lewm/protocol/vjepa_{cache,heads}.log` |
 | (finished 21:50, 20 October) `lewm-proto-bench` | bench worktree | the ten protocol cohorts, 6 LeWM lanes | `outputs/cohorts/lewm_*_proto`, log `outputs/cohorts/lewm_proto_bench.log` |
 | (finished 16:21) `lewm-span8wc-bench` | bench worktree | the five C5 cohorts of `configs/experiments/lewm_benchmarks_span8wc.yaml` (span8w world model, corpus readout), one service, 6 LeWM lanes; about 3 h. Resume: relaunch with `--resume` | `outputs/cohorts/lewm_*_c5_span8wc`, log `outputs/cohorts/lewm_span8wc_bench.log` |
 
@@ -429,12 +450,7 @@ The bench worktree links `data/training/*`, `tools/porting/original_roots.json` 
 
 ## Next
 
-1. **Screening** (Andrew, 17 October: screen variants before any further full chain). Three 15,000-step runs into
-   `outputs/lewm/screen/<name>`, each scored with `go2nav.eval.lewm_corpus_probe` (the `c5` head on validation mazes at
-   800 ms; the Go2 chain reads 13.6 mm, and a variant needs 9.5 mm or less, on track for L4, to earn a full chain):
-   `inverse` (`go2_inverse.yaml`), `batch4` (4 mazes x 32 windows) and `paper` (`paper.yaml`). The chain command:
-   `python -m go2nav.training.lewm_chain outputs/lewm/chain --corpus $LEWM_ROOT --recordings-root outputs/recordings`.
-2. The paper-faithful comparison: `--config configs/lewm/paper.yaml` into another folder. Gates L1-L4 from
-   `world/evaluation.json`, `choice.json` and the fits' `evaluation.json`.
-3. If the gates pass: `python -m go2nav.eval.cohort configs/experiments/lewm_benchmarks.yaml --workers 8`.
-4. Seed chains (`--seed-offset`), artefact manifest entries, results, README tables.
+The C1-C6 baselines are frozen as they stand (above). Next, on its own branch: H-JEPA (arXiv 2610.06805), every level
+trained jointly end to end with LeWM at level 1, first in the current harness and environment; then moving obstacles,
+failure analysis (`go2nav.eval.stuck_replay` for deadlocks), and handing the harness's failure-causing engineered
+components to the world model.

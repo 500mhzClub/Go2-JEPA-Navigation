@@ -21,6 +21,7 @@ import resource
 import numpy as np
 import torch
 
+from go2nav.data.lewm_corpus import planar_yaw
 from go2nav.models.lewm import control_stats
 
 
@@ -77,8 +78,7 @@ class Corpus:
         if unit not in self._poses:
             with np.load(self.root/self.units[unit]['path']/'steps.npz') as steps:
                 pose = steps['pose'].astype(np.float64)
-            x, y, z, w = pose[:, 3:7].T
-            yaw = np.arctan2(2*(w*z+x*y), 1-2*(y*y+z*z))
+            yaw = planar_yaw(pose[:, 3:7])
             self._poses[unit] = np.stack([pose[:, 0], pose[:, 1], yaw], 1).astype(np.float32)
         return self._poses[unit]
 
