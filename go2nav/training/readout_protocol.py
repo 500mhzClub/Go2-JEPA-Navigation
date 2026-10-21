@@ -4,7 +4,7 @@ arms differ in their representation and predictor only (docs/lewm/STATUS.md, rea
     python -m go2nav.training.readout_protocol windows --corpus ROOT --out PROTOCOL.json
     python -m go2nav.training.readout_protocol lewm --protocol PROTOCOL.json --corpus ROOT --world-model LEWM.pt --out DIR
     python -m go2nav.training.readout_protocol vjepa-cache --protocol PROTOCOL.json --corpus ROOT --fullres FULL_ROOT --out CACHE
-    python -m go2nav.training.readout_protocol vjepa --protocol PROTOCOL.json --cache CACHE --out DIR
+    python -m go2nav.training.readout_protocol vjepa --protocol PROTOCOL.json --cache CACHE --out DIR [--c3-init fresh --c4 C4.pt]
 
 Why: C5's decoder fitted with T7's recipe (3,520 updates of 64 on 23k on-policy decisions) forecast in-place turns near
 walls 2-4 times too far and deadlocked; a readout trained on LeWM's corpus and read alone fixed it (L4 5.0 mm, 71/100
@@ -25,6 +25,9 @@ normalised units) and read alone (no T7 fit):
   labels) on [z_t, rollout(t+h) - z_t, z_t - z_(t-1), z_t - z_(t-3)]; C3 `MotionDecoder` as T7 builds it (grown from
   T5b, past frames, proj 64, hidden 896, depth 1) on the pooled tokens of t, t-0.5 s, t-1 s and T4's prediction;
 - the direct head (no predicted future): C6 `LatentDirectPredictor`, C4 `DirectMotionPredictor` (both fresh, as T7).
+C3's grown decoder starts from T5b's weights (trained on T5b's own recordings) and T5b's normalisation, which the other
+heads do not get; `--c3-init fresh` trains the same architecture from a default initialisation with normalisation
+fitted on the protocol labels, as C5's, for the like-for-like comparison (`--c4` reuses a C4 already trained).
 The world model's own rollout uses the executed action blocks (C5) or the executed tape (C3's T4), as each predictor
 receives them at run time.
 
@@ -331,7 +334,7 @@ class VJepaPairs:
         return f(feats), f(pred), np.stack(past), np.stack(tape), torch.tensor(np.asarray(h), device=device), f(y)
 
 
-def run_vjepa(protocol_path, cache, out, *, base_readout, t7_cache=None, device='cuda:0'):
+def run_vjepa(protocol_path, cache, out, *, base_readout, t7_cache=None, c3_init='grown', c4_from=None, device='cuda:0'):
     from go2nav.training.decoder import build_models, control_stats
     out = Path(out)
     if (out/'.done').exists():
@@ -342,6 +345,16 @@ def run_vjepa(protocol_path, cache, out, *, base_readout, t7_cache=None, device=
     mean, std = control_stats(device)
     started = time.time()
     decoder, c4 = build_models(base_readout, protocol['seed'], device)
+    if c3_init == 'fresh':
+        torch.manual_seed(protocol['seed'])
+        for m in decoder.modules():
+            if isinstance(m, torch.nn.Linear):
+                m.reset_parameters()
+        flat = torch.from_numpy(np.concatenate([u['y'].reshape(-1, 3) for u in pairs.units]))
+        decoder.target_mean.copy_(flat.mean(0).float())
+        decoder.target_scale.copy_(flat.std(0).float())
+    if c4_from is not None:
+        shutil.copyfile(c4_from, out/'c4.pt')
 
     def control(past):
         return (torch.from_numpy(past[..., [0, 2]].reshape(len(past), 3, 5, 2)).to(device)-mean)/std
@@ -367,7 +380,7 @@ def run_vjepa(protocol_path, cache, out, *, base_readout, t7_cache=None, device=
         atomic_save(dict(state=c4.state_dict(), history=histories['c4']), out/'c4.pt')
     from go2nav.training.decoder import DECODER
     fit = dict(readout=decoder.state_dict(), readout_config={k: v for k, v in DECODER.items() if k in ('proj', 'hidden', 'depth')},
-               variant='past_frames', c4=c4.state_dict(), protocol=protocol['name'])
+               variant='past_frames', c4=c4.state_dict(), protocol=protocol['name'], c3_init=c3_init)
     atomic_save(fit, out/'fit.pt')
     if t7_cache is not None:
         from go2nav.training.decoder import DecoderCache, evaluate, load_contexts, score
@@ -375,8 +388,9 @@ def run_vjepa(protocol_path, cache, out, *, base_readout, t7_cache=None, device=
         (out/'evaluation.json').write_text(json.dumps(dict(score_mm=score(report, 'C3'), score_c4_mm=score(report, 'C4'),
                                                            eval=report), indent=1)+'\n')
     write_lineage(out, component=f"readout_protocol_vjepa_{protocol['name']}", seed=protocol['seed'],
-                  parents=[str(cache), str(base_readout), str(protocol_path)],
-                  config=dict(protocol={k: v for k, v in protocol.items() if k not in ('windows', 'corpus_units')}, recipe=RECIPE),
+                  parents=[str(cache), str(base_readout), str(protocol_path)] + ([str(c4_from)] if c4_from else []),
+                  config=dict(protocol={k: v for k, v in protocol.items() if k not in ('windows', 'corpus_units')}, recipe=RECIPE,
+                              c3_init=c3_init),
                   data=dict(pairs=len(pairs)), checkpoint=out/'fit.pt',
                   metrics=dict(history=histories, wall_s=round(time.time()-started, 1)))
     (out/'.done').touch()
@@ -403,6 +417,8 @@ def main():
     for a in ('--protocol', '--cache', '--out', '--base-readout'):
         vj.add_argument(a, required=True)
     vj.add_argument('--t7-cache', help='the T7 decoder cache, for T7\'s evaluation')
+    vj.add_argument('--c3-init', choices=('grown', 'fresh'), default='grown')
+    vj.add_argument('--c4', help='a trained c4.pt to reuse instead of training C4')
     a = p.parse_args()
     if a.command == 'windows':
         protocol = make_windows(a.corpus, a.units, a.stride)
@@ -414,7 +430,8 @@ def main():
     elif a.command == 'vjepa-cache':
         vjepa_cache(a.protocol, a.corpus, a.fullres, a.out, predictor_checkpoint=a.predictor, batch=a.batch)
     else:
-        print(run_vjepa(a.protocol, a.cache, a.out, base_readout=a.base_readout, t7_cache=a.t7_cache))
+        print(run_vjepa(a.protocol, a.cache, a.out, base_readout=a.base_readout, t7_cache=a.t7_cache, c3_init=a.c3_init,
+                        c4_from=a.c4))
 
 
 if __name__ == '__main__':
