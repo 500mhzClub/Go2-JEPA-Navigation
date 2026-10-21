@@ -26,6 +26,8 @@ atomically (DIR/checkpoint.pt), and rerunning the same command resumes from it w
 
 `runtime.memory_fraction` (default 0.85) caps this process's share of GPU memory: on the development machine the
 training GPU also drives the display, and running it out of memory crashed the desktop session.
+`runtime.checkpoint_blocks`: the first n of level 1's ViT blocks recompute their activations in the backward pass
+(`models.lewm.ViTEncoder`), which is what fits the joint batch (128 windows of 12 frames and 128 clips of 7) in it.
 
 Outputs: DIR/hjepa.pt (`models.hjepa.save_hjepa`), DIR/lewm.pt (level 1 alone, `models.hjepa.export_level1`: what
 C7/C8 and the LeWM readout tools load), config.yaml, metrics.jsonl, evaluation.json, lineage.json.
@@ -173,6 +175,7 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     sets = validation_sets(corpus_root, mconfig, data['upper_kinds'])
 
     model = HJEPA.seeded(seed, mconfig).to(device).train()
+    model.level1.encoder.checkpoint_blocks = runtime.get('checkpoint_blocks', 0)
     sigreg = SIGReg(knots=config['sigreg'].get('knots', 17), num_proj=config['sigreg']['projections']).to(device)
     optimiser = torch.optim.AdamW(model.parameters(), lr=optim['lr'], weight_decay=optim['weight_decay'], fused=True)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(optim['warmup_steps'], optim['steps']))

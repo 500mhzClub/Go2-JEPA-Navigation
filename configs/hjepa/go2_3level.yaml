@@ -13,5 +13,7 @@ upper:
 sigreg: {projections: 1024, knots: 17}
 data: {mazes_per_batch: 16, windows_per_maze: 8, clips_per_maze: 8, upper_kinds: [mission, explore]}
 optimiser: {lr: 5.0e-5, weight_decay: 1.0e-3, warmup_steps: 2000, steps: 60000, grad_clip: 1.0}
-runtime: {compile: null, memory_fraction: 0.85, workers: 10, prefetch: 2, log_every: 100, validate_every: 5000,
-          checkpoint_every: 1000, milestone_every: 10000}
+# Runtime (21 October, R9700, batch 128 windows + 128 clips): checkpointing every ViT block fits in 9.9 GB at 0.83 s/step,
+# 6 blocks in 24.0 GB at 0.77; 8 blocks, about 19 GB at about 0.78 s/step, keeps the desktop's headroom (the GPU drives it).
+runtime: {compile: max-autotune-no-cudagraphs, checkpoint_blocks: 8, memory_fraction: 0.85, workers: 10, prefetch: 2,
+          log_every: 100, validate_every: 5000, checkpoint_every: 1000, milestone_every: 10000}

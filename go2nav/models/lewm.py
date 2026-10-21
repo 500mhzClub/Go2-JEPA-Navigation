@@ -139,10 +139,11 @@ class ViTEncoder(nn.Module):
     The patch embedding is the usual stride-p convolution computed as a reshape and a linear layer (weights in the
     convolution's (channel, row, column) order), which avoids the im2col copy that dominated it on ROCm.
 
-    `checkpoint_blocks` (a runtime switch, not part of the model): in training, recompute each block's activations in
-    the backward pass instead of storing them (H-JEPA encodes about 19 frames per sample, LeWM 12)."""
+    `checkpoint_blocks` (a runtime setting, not part of the model): in training, the first `checkpoint_blocks` blocks
+    recompute their activations in the backward pass instead of storing them, trading compute for memory (H-JEPA
+    encodes about 19 frames per sample, LeWM 12). 0, the default, stores everything."""
 
-    checkpoint_blocks = False
+    checkpoint_blocks = 0
 
     def __init__(self, config):
         super().__init__()
@@ -178,8 +179,9 @@ class ViTEncoder(nn.Module):
     def forward(self, pixels):
         x = self.patch_embed(self.patches(pixels))
         x = torch.cat((self.cls_token.expand(len(x), -1, -1), x), dim=1)+self.position
-        for block in self.blocks:
-            if self.checkpoint_blocks and self.training and torch.is_grad_enabled():
+        recompute = self.training and torch.is_grad_enabled()
+        for i, block in enumerate(self.blocks):
+            if recompute and i < self.checkpoint_blocks:
                 x = torch.utils.checkpoint.checkpoint(block, x, use_reentrant=False)
             else:
                 x = block(x)
