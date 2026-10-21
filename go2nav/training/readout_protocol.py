@@ -104,16 +104,48 @@ def by_unit(protocol):
 
 # -- training ---------------------------------------------------------------------------------------------------------
 
-def train(model, batch_fn, n, seed, device, recipe=RECIPE):
-    """Train `model` (normalised output) on pairs 0..n-1: batch_fn(indices) -> (prediction inputs..., y)."""
+CHECKPOINT_EVERY = 1000
+
+
+class _Batches(torch.utils.data.Dataset):
+    """The k-th training batch, loaded by `load` (in DataLoader worker processes)."""
+
+    def __init__(self, load, indices):
+        self.load, self.indices = load, indices
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, k):
+        return self.load(self.indices[k])
+
+
+def _identity(x):
+    return x
+
+
+def train(model, batch_fn, n, seed, device, recipe=RECIPE, *, load=None, checkpoint=None, workers=4):
+    """Train `model` (normalised output) on pairs 0..n-1: batch_fn(model, indices) -> (prediction, y), or, with `load`
+    (indices -> CPU batch, run ahead in `workers` processes, for data on disk), batch_fn(model, load(indices)).
+    With `checkpoint`, the state is saved every CHECKPOINT_EVERY updates and a rerun resumes from it."""
     g = torch.Generator(device='cpu').manual_seed(seed)
+    indices = [torch.randint(n, (recipe['batch'],), generator=g).numpy() for _ in range(recipe['updates'])]
     opt = torch.optim.AdamW(model.parameters(), lr=recipe['lr'], weight_decay=recipe['weight_decay'])
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, recipe['updates'])
     model.train()
-    history = []
-    for step in range(recipe['updates']):
-        idx = torch.randint(n, (recipe['batch'],), generator=g).numpy()
-        prediction, y = batch_fn(model, idx)
+    history, start = [], 0
+    if checkpoint is not None and Path(checkpoint).exists():
+        state = torch.load(checkpoint, weights_only=False)
+        model.load_state_dict(state['model'])
+        opt.load_state_dict(state['opt'])
+        sched.load_state_dict(state['sched'])
+        history, start = state['history'], state['step']
+    todo = indices[start:]
+    if load is not None:
+        todo = torch.utils.data.DataLoader(_Batches(load, todo), batch_size=None, shuffle=False, num_workers=workers,
+                                           prefetch_factor=2, collate_fn=_identity)
+    for step, data in enumerate(todo, start):
+        prediction, y = batch_fn(model, data)
         loss = ((prediction-(y-model.target_mean)/model.target_scale)**2).mean()
         opt.zero_grad(set_to_none=True)
         loss.backward()
@@ -122,6 +154,12 @@ def train(model, batch_fn, n, seed, device, recipe=RECIPE):
         sched.step()
         if (step+1) % 1000 == 0:
             history.append(dict(step=step+1, loss=float(loss.detach())))
+        if checkpoint is not None and (step+1) % CHECKPOINT_EVERY == 0 and step+1 < recipe['updates']:
+            atomic_save(dict(model=model.state_dict(), opt=opt.state_dict(), sched=sched.state_dict(), history=history,
+                             step=step+1), checkpoint)
+            print(json.dumps(dict(checkpoint=str(checkpoint), step=step+1, loss=float(loss.detach()))), flush=True)
+    if checkpoint is not None:
+        Path(checkpoint).unlink(missing_ok=True)
     return model.eval(), history
 
 
@@ -196,7 +234,7 @@ def run_lewm(protocol_path, corpus, world_model, out, *, device='cuda:0', cache=
         def c5_batch(m, idx):
             w, j = pick(idx)
             return m.normalized(zh[w].float(), fut[w, j].float()), y[w, j]
-        c5, histories['c5'] = train(c5, c5_batch, n*k, protocol['seed'], device)
+        c5, histories['c5'] = train(c5, c5_batch, n*k, protocol['seed'], device, checkpoint=out/'c5.ckpt')
         heads['c5'] = dict(state=c5.cpu().state_dict(), history=histories['c5'])
         atomic_save(heads['c5'], out/'c5.pt')
     if (out/'c6.pt').exists():
@@ -207,7 +245,7 @@ def run_lewm(protocol_path, corpus, world_model, out, *, device='cuda:0', cache=
         def c6_batch(m, idx):
             w, j = pick(idx)
             return m.normalized(zh[w].float(), past[w], tape[w], hz[w, j]), y[w, j]
-        c6, histories['c6'] = train(c6, c6_batch, n*k, protocol['seed']+1, device)
+        c6, histories['c6'] = train(c6, c6_batch, n*k, protocol['seed']+1, device, checkpoint=out/'c6.ckpt')
         heads['c6'] = dict(state=c6.cpu().state_dict(), history=histories['c6'])
         atomic_save(heads['c6'], out/'c6.pt')
     fit = dict(c5=heads['c5']['state'], c6=heads['c6']['state'], latent=D, target_mean=mean, target_scale=scale,
@@ -319,7 +357,8 @@ class VJepaPairs:
     def __len__(self):
         return len(self.index)
 
-    def batch(self, idx, device):
+    def load(self, idx):
+        """CPU batch: features and predictions fp16 as cached."""
         rows = self.index[np.sort(idx)]
         feats, pred, past, tape, h, y = [], [], [], [], [], []
         for u, w, j in rows:
@@ -330,8 +369,17 @@ class VJepaPairs:
             tape.append(unit['tape'][w])
             h.append(unit['h'][w, j])
             y.append(unit['y'][w, j])
-        f = lambda v, dt=torch.float32: torch.from_numpy(np.stack(v)).to(device, non_blocking=True).to(dt)
-        return f(feats), f(pred), np.stack(past), np.stack(tape), torch.tensor(np.asarray(h), device=device), f(y)
+        f = lambda v: torch.from_numpy(np.stack(v))
+        return f(feats), f(pred), np.stack(past), np.stack(tape), torch.tensor(np.asarray(h)), f(y)
+
+    @staticmethod
+    def to(data, device):
+        feats, pred, past, tape, h, y = data
+        f = lambda v: v.to(device, non_blocking=True).to(torch.float32)
+        return f(feats), f(pred), past, tape, h.to(device), f(y)
+
+    def batch(self, idx, device):
+        return self.to(self.load(idx), device)
 
 
 def run_vjepa(protocol_path, cache, out, *, base_readout, t7_cache=None, c3_init='grown', c4_from=None, device='cuda:0'):
@@ -365,18 +413,20 @@ def run_vjepa(protocol_path, cache, out, *, base_readout, t7_cache=None, c3_init
     if (out/'c3.pt').exists():
         decoder.load_state_dict(torch.load(out/'c3.pt', weights_only=False)['state'])
     else:
-        def c3_batch(m, idx):
-            feats, pred, past, tape, h, y = pairs.batch(idx, device)
+        def c3_batch(m, data):
+            feats, pred, past, tape, h, y = pairs.to(data, device)
             return m.normalized(feats[:, 2], pred, feats[:, 1], feats[:, 0], control(past)), y
-        decoder, histories['c3'] = train(decoder, c3_batch, len(pairs), protocol['seed'], device)
+        decoder, histories['c3'] = train(decoder, c3_batch, len(pairs), protocol['seed'], device, load=pairs.load,
+                                         checkpoint=out/'c3.ckpt')
         atomic_save(dict(state=decoder.state_dict(), history=histories['c3']), out/'c3.pt')
     if (out/'c4.pt').exists():
         c4.load_state_dict(torch.load(out/'c4.pt', weights_only=False)['state'])
     else:
-        def c4_batch(m, idx):
-            feats, pred, past, tape, h, y = pairs.batch(idx, device)
+        def c4_batch(m, data):
+            feats, pred, past, tape, h, y = pairs.to(data, device)
             return m.normalized(feats, control(past), tape_n(tape), h), y
-        c4, histories['c4'] = train(c4, c4_batch, len(pairs), protocol['seed']+1, device)
+        c4, histories['c4'] = train(c4, c4_batch, len(pairs), protocol['seed']+1, device, load=pairs.load,
+                                    checkpoint=out/'c4.ckpt')
         atomic_save(dict(state=c4.state_dict(), history=histories['c4']), out/'c4.pt')
     from go2nav.training.decoder import DECODER
     fit = dict(readout=decoder.state_dict(), readout_config={k: v for k, v in DECODER.items() if k in ('proj', 'hidden', 'depth')},
