@@ -1,0 +1,12 @@
+# The inverse-dynamics variant at H-JEPA's level-1 weights (arXiv 2610.06805, DROID: inverse dynamics 100, SIGReg
+# 0.08, the two scaled together; without it their LeWM kept scene identity and dropped the robot). go2_inverse.yaml
+# used 0.1, which barely reached the encoder. A variant, not the paper's objective (docs/lewm/STATUS.md, screening).
+name: go2_idm100
+seed: 2026101701
+model: {size: tiny, history: 4, inverse_dynamics: true}
+data: {length: 12, mazes_per_batch: 16, windows_per_maze: 8, batch_size: 128}
+objective: {rollout_steps: 8, sigreg_weight: 0.08, sigreg_projections: 1024, sigreg_knots: 17, action_blind: false,
+            inverse_weight: 100.}
+optimiser: {lr: 5.0e-5, weight_decay: 1.0e-3, warmup_steps: 2000, steps: 60000, grad_clip: 1.0}
+runtime: {compile: max-autotune-no-cudagraphs, workers: 10, prefetch: 2, log_every: 100, validate_every: 5000,
+          checkpoint_every: 1000, milestone_every: 10000}

@@ -39,9 +39,10 @@ class MissionSession:
     physics step); `contact_packets` and `contact_events` are the evaluator's contact records."""
 
     def __init__(self, spec, output_dir, *, policy_checkpoint, noise_sigma_m=NOISE_SIGMA_M, dynamics=None, noise_layout=None,
-                 robot_visible=True, demo_textures=False):
+                 robot_visible=True, demo_textures=False, random_look=None):
         self.spec, self.output_dir, self.dynamics = spec, output_dir, dynamics
-        self.world = maze_scene.build(spec, output_dir, dynamics, robot_visible=robot_visible, demo_textures=demo_textures)
+        self.world = maze_scene.build(spec, output_dir, dynamics, robot_visible=robot_visible, demo_textures=demo_textures,
+                                      random_look=random_look)
         strips = dynamics is not None and dynamics.strips is not None
         self.friction_field = (perturbations.FrictionField(self.world.robot, self.world.floor, dynamics.strips, dynamics.strip_mu)
                                if strips else None)

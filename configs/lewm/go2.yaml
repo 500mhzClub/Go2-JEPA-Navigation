@@ -1,0 +1,11 @@
+# The Go2 LeWM configuration (docs/lewm/PLAN.md): the paper's model and losses, plus an 8-step rollout loss (the
+# forecaster rolls out 8 steps of 100 ms) and maze-stratified batches (16 mazes x 8 windows, so SIGReg cannot be met
+# by maze identity alone). 60,000 steps of 128 windows x 12 frames: about 7.6 h on the R9700.
+name: go2
+seed: 2026101701
+model: {size: tiny, history: 4}
+data: {length: 12, mazes_per_batch: 16, windows_per_maze: 8, batch_size: 128}
+objective: {rollout_steps: 8, sigreg_weight: 0.09, sigreg_projections: 1024, sigreg_knots: 17, action_blind: false}
+optimiser: {lr: 5.0e-5, weight_decay: 1.0e-3, warmup_steps: 2000, steps: 60000, grad_clip: 1.0}
+runtime: {compile: max-autotune-no-cudagraphs, workers: 10, prefetch: 2, log_every: 100, validate_every: 5000,
+          checkpoint_every: 1000, milestone_every: 10000}

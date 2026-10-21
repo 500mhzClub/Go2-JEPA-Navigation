@@ -9,7 +9,8 @@
 An experiment config lists cohorts; each cohort is a set of arms on registered maze episodes with shared options
 (recovery, dynamics, decoder fit). Every mission runs in its own process (`go2nav.eval.mission`), then the episode
 reader (`go2nav.eval.episode`). Missions start only while the disk keeps the 12-GiB reserve (plus 2 GiB) and memory
-allows; C3 missions are limited to `--c3-lanes` at a time (GPU memory). Each row reports the outcome, contacts, wall
+allows; C3 missions are limited to `--c3-lanes` at a time and C5/C6 missions to `--lewm-lanes` (GPU memory; the
+lanes are `go2nav.controllers.registry.GPU_LANES`). Each row reports the outcome, contacts, wall
 clearance, hold rates and failure taxonomy, plus how often each recovery mechanism intervened and how often the
 registered pose jumped beyond the robot's physical limits, so recovery cannot hide weak prediction.
 
@@ -35,9 +36,10 @@ import time
 
 import yaml
 
+from go2nav.controllers.registry import GPU_LANES, MEMORY_GIB
+
 GIB = 1024**3
 RESERVE_GIB, RESERVE_MARGIN_GIB = 12, 2
-MEMORY_GIB = dict(C0=5, C1=4, C1A=4, C1R=4, C2=4, C3=7, C4=6)
 MEMORY_MARGIN_GIB = 8
 POSE_JUMP_M, POSE_JUMP_RAD = .05, .15   # the Go2 moves at most 3 cm and 0.05 rad in 100 ms
 
@@ -64,6 +66,8 @@ def mission_command(cohort, arm, set_name, maze, episode, destination):
                       ('harness', '--harness'), ('coverage_fix', '--coverage-fix')):
         if cohort.get(key) is not None:
             command += [flag, str(cohort[key])]
+    if cohort.get('demo_textures'):
+        command.append('--demo-textures')
     return command
 
 
@@ -138,7 +142,7 @@ def set_aside(root, assignment):
             path.rename(path.with_name(f'{assignment}.attempt{n}{path.suffix}'))
 
 
-def run_cohort(cohort, out, *, workers=4, c3_lanes=2, retry=None, resume=False):
+def run_cohort(cohort, out, *, workers=4, c3_lanes=2, lewm_lanes=6, retry=None, resume=False):
     root = Path(out)/cohort['name']
     plan = jobs(cohort)
     if resume and root.exists():
@@ -165,6 +169,11 @@ def run_cohort(cohort, out, *, workers=4, c3_lanes=2, retry=None, resume=False):
         for assignment in (j[4] for j in pending):
             set_aside(root, assignment)
     running, lock = {}, threading.Lock()
+    caps = dict(c3=c3_lanes, lewm=lewm_lanes)
+
+    def lane_free(arm):
+        lane = GPU_LANES.get(arm)
+        return lane is None or sum(1 for a in running.values() if GPU_LANES.get(a) == lane) < caps[lane]
 
     def attempt(arm, set_name, maze, episode, assignment):
         try:
@@ -187,8 +196,7 @@ def run_cohort(cohort, out, *, workers=4, c3_lanes=2, retry=None, resume=False):
         with lock:
             if not pending and not running:
                 break
-            lanes = sum(1 for a in running.values() if a == 'C3')
-            candidate = next((j for j in pending if j[0] != 'C3' or lanes < c3_lanes), None)
+            candidate = next((j for j in pending if lane_free(j[0])), None)
             disk_ok = shutil.disk_usage(root).free > (RESERVE_GIB+RESERVE_MARGIN_GIB)*GIB
             memory_ok = candidate is not None and available_memory() >= (MEMORY_GIB[candidate[0]]+MEMORY_MARGIN_GIB)*GIB
             if candidate and len(running) < workers and disk_ok and memory_ok:
@@ -259,6 +267,7 @@ def main():
     p.add_argument('--out', type=Path, default=Path('outputs/cohorts'))
     p.add_argument('--workers', type=int, default=4)
     p.add_argument('--c3-lanes', type=int, default=2)
+    p.add_argument('--lewm-lanes', type=int, default=6)
     p.add_argument('--retry', nargs='+', metavar='ASSIGNMENT', help='rerun these missions of finished cohorts')
     p.add_argument('--resume', action='store_true', help='continue an interrupted experiment')
     p.add_argument('--summarise', nargs='+', type=Path, help='print the tables of finished cohort folders')
@@ -280,7 +289,8 @@ def main():
         if a.resume and (a.out/cohort['name']/'result.json').exists():
             print(f"{cohort['name']}: finished", flush=True)
             continue
-        run_cohort(cohort, a.out, workers=a.workers, c3_lanes=a.c3_lanes, retry=a.retry, resume=a.resume)
+        run_cohort(cohort, a.out, workers=a.workers, c3_lanes=a.c3_lanes, lewm_lanes=a.lewm_lanes, retry=a.retry,
+                   resume=a.resume)
 
 
 if __name__ == '__main__':

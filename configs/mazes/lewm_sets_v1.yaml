@@ -1,0 +1,13 @@
+# The LeWM corpus mazes (16 October 2026): layouts for the C5/C6 world model's training data, on a 5 x 4 grid (20 cells).
+# Every evaluation set, registered or sealed, is 4 x 4, so no layout here can share an evaluation maze's topology or
+# embedding, and no exclusion list is needed. The 4 x 4 family is also nearly exhausted: about 945 topologies remain
+# unused. lewm_train and lewm_val share one set, so they are topology-disjoint (unique topologies within a set).
+description: 'LeWM corpus layouts on a 5 x 4 grid: lewm_train 0-1199, lewm_val 1200-1299'
+scene_id_prefix: navigation-lewm-corpus-v1
+family: NAVIGATION_LEWM_CORPUS_5X4
+grid_shape: [5, 4]
+seeds: {construction: 2026101601, physics_base: 2026116000, appearance_base: 2026117000, episode_base: 2026118000}
+exclude: []
+roles:
+  - {name: lewm_train, count: 1200, episodes: [0, 1]}
+  - {name: lewm_val, count: 100, episodes: [0, 1]}

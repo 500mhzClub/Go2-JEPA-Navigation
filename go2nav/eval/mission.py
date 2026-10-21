@@ -31,6 +31,7 @@ import numpy as np
 import yaml
 
 from go2nav import artifacts
+from go2nav.controllers.registry import ARMS
 from go2nav.mazes.sets import MazeSet
 
 STEP_BUDGET = 24_000
@@ -60,9 +61,10 @@ def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def episode_spec(set_name, maze, episode_index):
-    """The maze spec for one registered episode (its simulation seed and home pose) and the episode record."""
-    maze_set = MazeSet(set_name)
+def episode_spec(set_name, maze, episode_index, root=None):
+    """The maze spec for one registered episode (its simulation seed and home pose) and the episode record. `root`:
+    the folder holding the set (default: the shipped sets, data/mazes)."""
+    maze_set = MazeSet(set_name) if root is None else MazeSet(set_name, root=root)
     spec, episode = maze_set.maze(maze), maze_set.episode(maze, episode_index)
     spec = spec | dict(procedural_seed=episode['simulation_seed'],
                        geometry=spec['geometry'] | dict(spawn_se2_world=episode['home_se2_world']))
@@ -237,7 +239,7 @@ def main():
     os.environ.setdefault('PYOPENGL_PLATFORM', 'egl')  # headless rendering (read when Genesis is first imported)
     os.environ.setdefault('EGL_DEVICE_ID', '0')
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--arm', required=True, choices=('C0', 'C1', 'C1A', 'C1R', 'C2', 'C3', 'C4'))
+    p.add_argument('--arm', required=True, choices=ARMS)
     p.add_argument('--set', required=True, help='registered maze set (data/mazes), e.g. prelim_test_v1')
     p.add_argument('--maze', type=int, required=True)
     p.add_argument('--episode', type=int, default=0)
