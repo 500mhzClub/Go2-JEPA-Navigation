@@ -145,3 +145,15 @@ def test_maze_distance_follows_the_passages():
                                        edges=[[[0, 0], [1, 0]], [[1, 0], [1, 1]], [[1, 1], [0, 1]]]))
     cells, hops, pitch = maze_distance(spec)
     assert hops[(0, 0)][(0, 1)] == 3 and hops[(0, 0)][(1, 1)] == 2 and pitch == 1.3  # around the wall, not through it
+
+
+def test_relative_motions_compose_to_the_whole_displacement():
+    from go2nav.eval.hjepa_levels import compose, relative
+    rng = np.random.default_rng(0)
+    yaw = rng.uniform(-np.pi, np.pi, (5, 4))
+    y = np.zeros((5, 4, 10), np.float32)
+    y[..., :2], y[..., 2], y[..., 3] = rng.normal(size=(5, 4, 2)), np.cos(yaw), np.sin(yaw)
+    whole = relative(y[:, 0], y[:, 3])
+    chained = compose([relative(y[:, m], y[:, m+1]) for m in range(3)])
+    assert np.allclose(chained[:, :2], whole[:, :2], atol=1e-5)
+    assert np.allclose(np.exp(1j*chained[:, 2]), whole[:, 2]+1j*whole[:, 3], atol=1e-5)

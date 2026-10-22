@@ -21,6 +21,13 @@ are compared with where the robot really was. References: persistence (the last 
 true future (the probe's own ceiling), and a shuffled final macro-action. L2 is also rolled out for three steps
 (1.6, 3.2 and 4.8 s); L3 predicts one step (12.8 s).
 
+Absolute maze position is not visible in an egocentric frame of an unseen maze, so the predictions are also judged
+by **displacement**: per upper level, a probe on a pair of consecutive states [S_t, S_(t+1) - S_t] reads the motion
+between them (forward, left, turn) in the frame of S_t, fitted on true pairs of the fit mazes. It decodes each
+predicted transition, composed over the rollout, against the true motion. References: no motion, the encoded true
+transitions (the probe's ceiling), a shuffled final macro-action, and dead reckoning: the same probe fitted on the
+transition's raw command blocks alone. A prediction that does not beat dead reckoning adds nothing to the commands.
+
 **Cost geometry** (paper Fig. 7, Table 1): per evaluation unit, anchors every 100 frames; for every other frame, the
 latent distance to the anchor at each level against the distance through the maze (breadth-first over the layout's
 passages between the frames' cells, times the 1.3-m pitch) and the straight-line distance. Reported as Spearman
@@ -151,6 +158,50 @@ def probes(data, fit, score, device):
     return report, fitted
 
 
+def relative(a, b):
+    """Motion from labels a to labels b (..., 10) in a's frame: (..., 4) forward, left, cos and sin of the turn."""
+    yaw_a, yaw_b = np.arctan2(a[..., 3], a[..., 2]), np.arctan2(b[..., 3], b[..., 2])
+    dx, dy = b[..., 0]-a[..., 0], b[..., 1]-a[..., 1]
+    c, s = np.cos(yaw_a), np.sin(yaw_a)
+    return np.stack([c*dx+s*dy, -s*dx+c*dy, np.cos(yaw_b-yaw_a), np.sin(yaw_b-yaw_a)], -1).astype(np.float32)
+
+
+def compose(motions):
+    """Chain per-transition motions [(B, 4), ...] (each in the frame it starts from): (B, 3) x, y, yaw in the first."""
+    x = np.zeros((len(motions[0]), 3))
+    for m in motions:
+        c, s = np.cos(x[:, 2]), np.sin(x[:, 2])
+        x = x+np.stack([c*m[:, 0]-s*m[:, 1], s*m[:, 0]+c*m[:, 1], np.arctan2(m[:, 3], m[:, 2])], 1)
+    return x
+
+
+def pair_features(a, b):
+    return np.concatenate([a, b-a], -1)
+
+
+def motion_probes(model, data, fit, device, rng, most=200000):
+    """Per upper level, displacement probes fitted on the fit mazes' true transitions one period apart: from the
+    pair of states, and (dead reckoning) from the transition's raw command blocks."""
+    out = {}
+    for k in range(len(model.upper)):
+        n_level, period = k+2, model.config.periods[k+1]
+        rows = [(i, s) for i in fit for s in windows(data, i, period+1, max(period//4, 4))]
+        rows = [rows[j] for j in rng.permutation(len(rows))[:most]]
+        pairs = np.stack([pair_features(data[i]['z'][n_level-1][s].astype(np.float32),
+                                        data[i]['z'][n_level-1][s+period].astype(np.float32)) for i, s in rows])
+        blocks = np.stack([data[i]['blocks'][s:s+period].reshape(-1) for i, s in rows])
+        target = np.stack([relative(data[i]['y'][s], data[i]['y'][s+period]) for i, s in rows])
+        out[n_level] = dict(latent=fit_probe(pairs, target, device), commands=fit_probe(blocks, target, device))
+    return out
+
+
+def motion_errors(estimate, truth):
+    """Median position (m) and heading (deg) error of composed motions (B, 3) against the true ones."""
+    turn = np.degrees(np.abs(np.angle(np.exp(1j*(estimate[:, 2]-truth[:, 2])))))
+    return dict(position_m=float(np.median(np.linalg.norm(estimate[:, :2]-truth[:, :2], axis=1))),
+                heading_deg=float(np.median(turn)))
+
+
 def windows(data, i, span, step):
     """Starts of windows of `span` frames whose action blocks are all valid, every `step` frames."""
     valid = data[i]['valid']
@@ -169,7 +220,7 @@ def upper_rollout(level, states, macros, steps):
 
 
 @torch.no_grad()
-def predictions(model, data, units, fitted, device, rng):
+def predictions(model, data, units, fitted, motion, device, rng):
     """Decoded upper-level predictions against where the robot was (see the module docstring)."""
     report = {}
     periods = model.config.periods
@@ -203,6 +254,11 @@ def predictions(model, data, units, fitted, device, rng):
             yaw_err = np.degrees(np.abs(np.angle(np.exp(1j*(np.arctan2(h[:, 1], h[:, 0])-np.arctan2(target[:, 3], target[:, 2]))))))
             return dict(position_m=float(np.median(np.linalg.norm(p-target[:, :2], axis=1))),
                         heading_deg=float(np.median(yaw_err)))
+        probe, reckon = motion[n_level]['latent'], motion[n_level]['commands']
+        z_np, pred_np, shuffled_np = z.cpu().numpy(), predicted.cpu().numpy(), shuffled.cpu().numpy()
+        chain = np.concatenate([z_np[:, c-1:c], pred_np], 1)
+        moved = dict(predicted=[], encoded_truth=[], dead_reckoning=[])
+        blocks_np = blocks.cpu().numpy()
         out = {}
         for j in range(steps):
             target = truth[:, c+j]
@@ -210,8 +266,17 @@ def predictions(model, data, units, fitted, device, rng):
             out[f'{seconds}s'] = dict(predicted=errors(predicted[:, j], target), persistence=errors(context[:, -1], target),
                                       encoded_truth=errors(z[:, c+j], target),
                                       true_motion_m=float(np.median(np.linalg.norm(target[:, :2]-truth[:, c-1, :2], axis=1))))
+            moved['predicted'].append(probe(pair_features(chain[:, j], chain[:, j+1])))
+            moved['encoded_truth'].append(probe(pair_features(z_np[:, c-1+j], z_np[:, c+j])))
+            moved['dead_reckoning'].append(reckon(blocks_np[:, (c-1+j)*period:(c+j)*period].reshape(len(idx), -1)))
+            true = compose([relative(truth[:, c-1+m], truth[:, c+m]) for m in range(j+1)])
+            row = {key: motion_errors(compose(v), true) for key, v in moved.items()}
+            row['no_motion'] = motion_errors(np.zeros_like(true), true)
             if j == 0:
                 out[f'{seconds}s']['shuffled_macro'] = errors(shuffled[:, 0], target)
+                row['shuffled_macro'] = motion_errors(compose([probe(pair_features(z_np[:, c-1], shuffled_np[:, 0]))]), true)
+            row['true_turn_deg'] = float(np.median(np.degrees(np.abs(true[:, 2]))))
+            out[f'{seconds}s']['displacement'] = row
         report[f'l{n_level}'] = dict(windows=len(idx), **out)
     return report
 
@@ -290,10 +355,11 @@ def run(checkpoint, corpus, *, fit_share=.6, mazes=None, device='cuda:0'):
     fit = [i for i, d in enumerate(data) if d['unit']['maze'] in fit_set]
     score = [i for i, d in enumerate(data) if d['unit']['maze'] not in fit_set]
     probe_report, fitted = probes(data, fit, score, device)
+    motion = motion_probes(model, data, fit, device, np.random.default_rng(1))
     coherent = [i for i in score if data[i]['unit']['kind'] in ('explore', 'mission')]
     return dict(checkpoint=str(checkpoint), units=dict(fit=len(fit), score=len(score)),
                 frames=int(sum(len(d['y']) for d in data)), probes=probe_report,
-                predictions=predictions(model, data, coherent, fitted, device, np.random.default_rng(0)),
+                predictions=predictions(model, data, coherent, fitted, motion, device, np.random.default_rng(0)),
                 geometry=geometry(data, coherent, root))
 
 

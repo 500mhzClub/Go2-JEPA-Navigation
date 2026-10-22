@@ -34,7 +34,7 @@ does no better than the mean.
   - This is expected from the design: each upper state is an MLP of one level-1 z (window 1). An upper state can
     only lose information, and the objective does not push it to lose fast state.
 - No level encodes absolute maze position (NMSE about 1.0). Frames are egocentric and mazes differ, so absolute position
-  is the wrong target. The next version of the analysis should probe displacement in the start frame instead.
+  is the wrong target. The displacement test below replaces it.
 
 The upper levels' rollouts were decoded with the heading probe. The table gives the median heading error.
 
@@ -48,6 +48,26 @@ The upper levels' rollouts were decoded with the heading probe. The table gives 
 The upper levels predict where the robot will face seconds ahead, to within a few degrees of what the probe can read
 from the true future frame. They do this from the macro-actions: with shuffled macro-actions the predictions are worse
 than persistence. Position predictions sit at chance for every source (1.7-1.9 m), because the position probe fails.
+
+**Displacement** (`levels_displacement.json`). A probe reads, from a pair of consecutive states [S_t, S_(t+1) - S_t],
+the motion between them in the frame of S_t. It is fitted on true pairs from the fit mazes and decodes each predicted
+transition, composed over the L2 rollout. Dead reckoning is the same probe fitted on the transition's raw command
+blocks alone. The table gives median position error in mm and median heading error in degrees.
+
+| Horizon | Predicted | Encoded truth (ceiling) | Dead reckoning | No motion | Shuffled macro-actions |
+|---|---|---|---|---|---|
+| L2, 1.6 s | 26 mm, 2.1 deg | 27, 2.1 | **7, 0.3** | 57, 21.9 | 74, 26.8 |
+| L2, 3.2 s | 42, 3.6 | 46, 3.1 | **10, 0.4** | 119, 40.8 | - |
+| L2, 4.8 s | 58, 5.1 | 64, 3.8 | **13, 0.6** | 199, 52.1 | - |
+| L3, 12.8 s | 639, 23.1 | 654, 27.4 | **262, 12.8** | 969, 73.4 | 810, 82.0 |
+
+- The predicted transitions are as good as encoding the true future frames. The predictors are not the limit; the
+  states are, because they carry metric motion only to a few centimetres.
+- Dead reckoning from the commands is 2-4 times better than either. On these units the Go2's controller tracks its
+  commands closely, so the commands nearly determine the motion. The upper levels' predictions add nothing over
+  integrating them.
+- The world model can only beat dead reckoning where the commands stop determining the motion: walls, slip and
+  friction, and (next on the roadmap) moving obstacles. The validation units seldom contain these.
 
 Cost geometry: the Spearman correlation of latent distance with distance between the two places is weak at every
 level.
@@ -108,8 +128,9 @@ joint training left level 1 intact.
 
 ## Next
 
-- The full run (60,000 steps, about 14 h) is not yet decided.
-- Fix the position analysis: probe start-frame displacement rather than absolute maze position, so the upper levels'
-  position predictions can be judged.
+- The full run (`hjepa-full`, 60,000 steps, `outputs/hjepa/full_3level`, log `outputs/hjepa/full_3level.log`)
+  started at 08:05 on 22 October. Rerun the evaluation queue and the displacement test on it.
+- Split the displacement test by condition (contact, low friction, near walls). There dead reckoning fails, and a
+  world model has room to beat it.
 - The upper levels show value online only once a controller consumes them, for example as a subgoal or cost for the
   planner. That belongs to the roadmap step that hands harness components to the world model.
