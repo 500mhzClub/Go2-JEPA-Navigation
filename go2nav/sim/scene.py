@@ -9,6 +9,9 @@ seeded with the episode's simulation seed):
    render (`go2nav.sim.session`).
 After the build: a fixed raster order (floor, walls, then the robot's visual geometry), the episode's friction on the
 robot and the ground, and the policy's joint gains (kp 20, kv 0.5).
+
+With moving obstacles (`dynamics.obstacles`, `go2nav.sim.obstacles`), one fixed, visible and colliding cylinder per
+obstacle is added after the robot, and drawn after the walls; without them the scene is exactly as before.
 """
 from dataclasses import dataclass
 import importlib.util
@@ -18,6 +21,7 @@ from types import MethodType
 
 import numpy as np
 
+from go2nav.mazes import grid
 from go2nav.sim import appearance, demo_appearance, random_appearance
 
 PHYSICS_DT_S, POLICY_DT_S, COMMAND_DT_S = .002, .02, .1
@@ -72,6 +76,7 @@ class MazeScene:
     leg_dofs: list                # robot DOF indices in rollout joint order
     links: dict                   # contact topology: robot, support (calves and feet) and ground link indices
     guard_geoms: dict             # robot, foot (the calf spheres) and ground geom indices
+    obstacles: list = None        # the moving obstacles' cylinders (`go2nav.sim.obstacles`), if any
 
 
 def init_genesis(seed):
@@ -116,6 +121,13 @@ def build(spec, output_dir, dynamics=None, robot_visible=True, demo_textures=Fal
              for b in boxes]
     robot = scene.add_entity(gs.morphs.URDF(file=str(go2_urdf()), pos=spawn_xyz, quat=spawn_wxyz, fixed=False,
                                             visualization=robot_visible, collision=True), name='go2')
+    placement = dynamics.obstacles if dynamics is not None and dynamics.obstacles else []
+    obstacles = [scene.add_entity(gs.morphs.Cylinder(pos=(*(np.asarray(o['start_cell'], float)*grid.PITCH_M), o['height_m']/2),
+                                                     radius=o['radius_m'], height=o['height_m'], fixed=True,
+                                                     visualization=True, collision=True),
+                                  material=gs.materials.Rigid(friction=MATERIAL_FRICTION),
+                                  surface=gs.surfaces.Default(color=tuple(o['colour'])), name=f'obstacle_{k}')
+                 for k, o in enumerate(placement)]
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     surfaces = []
@@ -128,7 +140,7 @@ def build(spec, output_dir, dynamics=None, robot_visible=True, demo_textures=Fal
     camera = scene.add_camera(res=RESOLUTION, pos=position, lookat=lookat, fov=vertical_fov_deg(), near=NEAR_M, far=FAR_M,
                               GUI=False)
     scene.build(n_envs=1)
-    fix_raster_order(camera, surfaces, robot)
+    fix_raster_order(camera, surfaces, robot, obstacles)
     set_friction(robot, floor, spec['friction_mu'])
     if dynamics is not None and dynamics.friction_mu is not None:
         set_friction(robot, floor, dynamics.friction_mu)
@@ -143,17 +155,19 @@ def build(spec, output_dir, dynamics=None, robot_visible=True, demo_textures=Fal
     if len(feet) != 4:
         raise ValueError('four calf foot spheres expected')
     guard_geoms = dict(robot=[int(g.idx) for g in robot.geoms], foot=sorted(feet), ground=[int(g.idx) for g in floor.geoms])
-    return MazeScene(scene, robot, camera, floor, walls, surfaces, leg_dofs, links, guard_geoms)
+    return MazeScene(scene, robot, camera, floor, walls, surfaces, leg_dofs, links, guard_geoms, obstacles)
 
 
-def fix_raster_order(camera, surfaces, robot):
-    """Draw the floor, then the walls, then the robot, in every render (the rasterizer's own order is not fixed)."""
+def fix_raster_order(camera, surfaces, robot, obstacles=()):
+    """Draw the floor, then the walls, then any obstacles, then the robot, in every render (the rasterizer's own
+    order is not fixed)."""
     context = camera._rasterizer._context
     raster = context._scene
     ordered = [context.rigid_nodes[g.uid] for entity in surfaces for g in entity.vgeoms]+\
+              [context.rigid_nodes[g.uid] for entity in obstacles for g in entity.vgeoms]+\
               [context.rigid_nodes[g.uid] for g in robot.vgeoms]
     if len(ordered) != len(set(ordered)) or set(ordered) != set(raster.mesh_nodes):
-        raise ValueError('the visible population is not floor, walls and robot')
+        raise ValueError('the visible population is not floor, walls, obstacles and robot')
 
     def fixed_order(this):
         if set(this.mesh_nodes) != set(ordered):

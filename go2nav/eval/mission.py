@@ -71,11 +71,14 @@ def episode_spec(set_name, maze, episode_index, root=None):
     return spec, episode
 
 
-def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=None, strips=None, stall_stop_s=None):
+def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=None, strips=None, stall_stop_s=None,
+                     obstacles=None):
     """The `Dynamics` of a mission and its record. `strips` is (mu, marked); strip placement is seeded by the set's
-    original name (the role, or `prelim_test`), the maze and the episode."""
+    original name (the role, or `prelim_test`), the maze and the episode. `obstacles`: how many moving obstacles
+    (`go2nav.sim.obstacles`), placed with a seed of the set, maze, episode and count."""
     from go2nav.sim.dynamics import Dynamics, place_strips, placement_seed
-    if friction is None and strips is None and not stall_stop_s:
+    from go2nav.sim import obstacles as moving
+    if friction is None and strips is None and not stall_stop_s and not obstacles:
         return None, None
     dynamics, record = Dynamics(friction_mu=friction, stall_stop_s=stall_stop_s), {}
     if friction is not None:
@@ -88,14 +91,19 @@ def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=N
         record.update(perturbation='low_friction_strips', mu=mu, marked=marked, placement=placement)
     if stall_stop_s:
         record.update(recording_stall_stop_s=stall_stop_s)
+    if obstacles:
+        dynamics.obstacles = moving.place_obstacles(spec, episode, obstacles,
+                                                    moving.placement_seed(set_name, maze, episode_index, obstacles))
+        record.update(moving_obstacles=dict(count=obstacles, placement=dynamics.obstacles))
     return dynamics, record
 
 
 def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fit=None, friction=None, strips=None,
-        stall_stop_s=None, degrade=None, margin=None, pessimistic=None, unknown_level=None, demo_textures=False,
+        stall_stop_s=None, obstacles=None, degrade=None, margin=None, pessimistic=None, unknown_level=None, demo_textures=False,
         models=None, harness='reserve_exit_v2', coverage_fix=True):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
-    perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions). Experiment
+    perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
+    (how many moving obstacles). Experiment
     hooks: `degrade` (a forecast degradation, `controllers.degraded`), `margin` (p95/p99 calibrated clearance margin),
     `pessimistic` (never-observed cells block: revised, seeded or lookaround; bound at `unknown_level`, else the
     margin level, else p99; `planning.caution`). `demo_textures`: demonstration surfaces (`go2nav.sim.demo_appearance`;
@@ -113,7 +121,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     out.mkdir(parents=True)
     spec, episode = episode_spec(set_name, maze, episode_index)
     dynamics, dynamics_record = mission_dynamics(set_name, maze, episode_index, spec, episode, friction=friction,
-                                                 strips=strips, stall_stop_s=stall_stop_s)
+                                                 strips=strips, stall_stop_s=stall_stop_s, obstacles=obstacles)
     from go2nav.planning import caution
     margin_m = caution.calibrated_bound(arm, margin) if margin else 0.
     unknown_bound = caution.calibrated_bound(arm, unknown_level or margin or 'p99') if pessimistic else None
@@ -229,6 +237,8 @@ def persist(session, folder):
     if session.packet_rows:
         np.savez_compressed(folder/'policy_histories.npz', **{key: np.stack([row[key] for row in session.packet_rows])
                                                               for key in session.packet_rows[0]})
+    if getattr(session, 'obstacles', None) is not None:
+        np.savez_compressed(folder/'obstacle_trace.npz', **session.obstacles.arrays())
     save(folder/'contact_topology.json', dict(link_names=session.link_names, environment_object_ids=session.object_ids,
                                               robot_link_ids=sorted(session.world.links['robot']),
                                               support_link_ids=sorted(session.world.links['support']),
@@ -248,6 +258,7 @@ def main():
     p.add_argument('--friction', type=float, help='uniform floor and robot friction (stage 1)')
     p.add_argument('--strips', help='low-friction strips MU:marked or MU:unmarked (stage 2)')
     p.add_argument('--stall-stop-s', type=float, help='stop a recording mission stalled this long (60)')
+    p.add_argument('--obstacles', type=int, help='moving obstacles (go2nav.sim.obstacles)')
     p.add_argument('--degrade', help='forecast degradation: scale:S, fwdscale:S, turnscale:S or noise:E_mm')
     p.add_argument('--margin', choices=('p95', 'p99'), help='calibrated clearance margin')
     p.add_argument('--pessimistic', choices=('revised', 'seeded', 'lookaround'), help='never-observed cells block')
@@ -265,7 +276,7 @@ def main():
             p.error('--strips needs MU:marked or MU:unmarked')
         strips = (float(mu), mark == 'marked')
     result = run(a.arm, a.set, a.maze, a.out, episode_index=a.episode, recovery=a.recovery == 'on', decoder_fit=a.decoder_fit,
-                 friction=a.friction, strips=strips, stall_stop_s=a.stall_stop_s, degrade=a.degrade, margin=a.margin,
+                 friction=a.friction, strips=strips, stall_stop_s=a.stall_stop_s, obstacles=a.obstacles, degrade=a.degrade, margin=a.margin,
                  pessimistic=a.pessimistic, unknown_level=a.unknown_level, demo_textures=a.demo_textures,
                  models=yaml.safe_load(a.models.read_text()) if a.models else None, harness=a.harness,
                  coverage_fix=a.coverage_fix == 'on')

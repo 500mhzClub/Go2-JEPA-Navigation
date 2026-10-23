@@ -1,0 +1,106 @@
+name: 'R7: moving obstacles, the harness as it stands'
+description: R4's episodes (preliminary-test mazes 30-49, recovery off, shipped locomotion policy, six primitives) with one
+  and with two polite moving obstacles (go2nav.sim.obstacles), for the failure analysis of the static harness before any change
+  (docs/dynamic/PLAN.md, P2). C0 is the forecast-perfect reference; C1, C5 (span8w, corpus readout) and C7 (H-JEPA level 1)
+  pair with their R4 records.
+cohorts:
+- name: r7_obst1_c0
+  arms:
+  - C0
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 1
+  episodes: &id001
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 0
+  - - 33
+    - 0
+  - - 34
+    - 0
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 0
+  - - 38
+    - 0
+  - - 39
+    - 0
+  - - 40
+    - 0
+  - - 41
+    - 0
+  - - 42
+    - 0
+  - - 43
+    - 0
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 0
+  - - 47
+    - 0
+  - - 48
+    - 0
+  - - 49
+    - 0
+- name: r7_obst1_c1
+  arms:
+  - C1
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 1
+  episodes: *id001
+- name: r7_obst1_c5
+  arms:
+  - C5
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 1
+  models: outputs/lewm/readout/chain_span8w_corpus/models.yaml
+  episodes: *id001
+- name: r7_obst1_c7
+  arms:
+  - C7
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 1
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes: *id001
+- name: r7_obst2_c0
+  arms:
+  - C0
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 2
+  episodes: *id001
+- name: r7_obst2_c1
+  arms:
+  - C1
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 2
+  episodes: *id001
+- name: r7_obst2_c5
+  arms:
+  - C5
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 2
+  models: outputs/lewm/readout/chain_span8w_corpus/models.yaml
+  episodes: *id001
+- name: r7_obst2_c7
+  arms:
+  - C7
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 2
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes: *id001

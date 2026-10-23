@@ -10,7 +10,9 @@ speed guard on strip missions, or stop a recording mission that has stalled.
 current 100-ms window (so requests inside a window do not each get a fresh rate budget), then runs the policy and
 10 physics steps. After every physics step the session records the robot state, the contacts and the sensors
 (`go2nav.sim.sensors`), and stops the mission (`PhysicalStop`) on a disallowed contact, a body below 0.15 m or tilted
-past 0.7 rad, or (after settling) the contact, speed and domain guard (`go2nav.sim.contacts`).
+past 0.7 rad, or (after settling) the contact, speed and domain guard (`go2nav.sim.contacts`). With moving obstacles
+(`go2nav.sim.obstacles`), every obstacle moves before each physics step after settling; they stand still while the
+robot settles.
 """
 
 import numpy as np
@@ -19,6 +21,7 @@ from go2nav.locomotion.policy import LocomotionPolicy
 from go2nav.locomotion.safety import apply_limits
 from go2nav.perception.cameras import AUXILIARY, PRIMARY
 from go2nav.sim import contacts, dynamics as perturbations, scene as maze_scene, sensors
+from go2nav.sim.obstacles import ObstacleField
 
 SETTLE_TICKS = 15
 FRAME_PERIOD_NS, FIRST_FRAME_NS = 100_000_000, 1_500_000_000
@@ -58,6 +61,11 @@ class MissionSession:
         self.object_ids = {int(l.idx): 'ground_plane' for l in self.world.floor.links}
         for entity in self.world.walls:
             self.object_ids.update({int(l.idx): str(entity.name) for l in entity.links})
+        self.obstacles = None
+        if self.world.obstacles:
+            self.obstacles = ObstacleField(spec, dynamics.obstacles, self.world.obstacles)
+            for entity in self.world.obstacles:
+                self.object_ids.update({int(l.idx): str(entity.name) for l in entity.links})
         self.sim_ns, self.frames, self.phase = 0, 0, 0
         self.last_executed = np.zeros((1, 3), dtype=np.float32)
         self.window, self.window_start_command = None, None
@@ -136,6 +144,9 @@ class MissionSession:
         self._act(command)
         base_time, base_ns = float(self.sim_ns)/1e9, self.sim_ns
         for k in range(maze_scene.PHYSICS_STEPS_PER_POLICY):
+            if self.obstacles is not None:
+                self.obstacles.update(maze_scene.PHYSICS_DT_S, self.samples[-1]['base_pose_world'][:2],
+                                      base_time+(k+1)*maze_scene.PHYSICS_DT_S)
             self.world.scene.step()
             self.sim_ns = base_ns+(k+1)*2_000_000
             self.last_executed = command[None, :].copy()

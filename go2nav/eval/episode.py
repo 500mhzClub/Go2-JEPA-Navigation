@@ -10,6 +10,9 @@ Everything here uses the simulator's ground truth, which the controllers never s
   the true walls at every physics step (`geometry.WallClearance`): a confirmed violation is an achieved distance
   below the threshold (hard 5 mm, operating 20 mm) or a contact; a sample is unresolved when only its lower bound is.
 - **Efficiency**: per leg, the travelled path and SPL (shortest path / max(travelled, shortest) when successful).
+- **Moving obstacles** (when the run has them, `go2nav.sim.obstacles`): the smallest distance from the base to an
+  obstacle's surface, and each obstacle contact attributed to whichever body was closing on the other faster at the
+  contact (the robot's base velocity or the obstacle's, along the line between them).
 - **Holds and failures**: each plan that chose to hold is classified (an explicit rule, no eligible movement, movement
   out-scored, or not explained), and the episode's failures and stalls are tallied into a taxonomy.
 
@@ -188,6 +191,44 @@ def safety(low, high, robust, contacts):
     return out
 
 
+# -- moving obstacles -------------------------------------------------------------------------------------------------
+
+def obstacle_record(run, trace):
+    """Closest approach and contact attribution for a run with moving obstacles (None without them)."""
+    path = Path(run)/'native/obstacle_trace.npz'
+    if not path.exists():
+        return None
+    with np.load(path) as archive:
+        stamps, xy = archive['timestamp_s'], archive['xy']
+    placement = load(run, 'config.json')['dynamics']['moving_obstacles']['placement']
+    radius = np.array([o['radius_m'] for o in placement])
+    if not len(stamps):
+        return dict(count=len(placement), min_base_to_surface_m=None, contacts=[])
+    index = np.clip(np.searchsorted(np.rint(trace['timestamp_s']*1e9), np.rint(stamps*1e9)), 0, len(trace['timestamp_s'])-1)
+    base = trace['base_pose_world'][index, :2]
+    gap = np.linalg.norm(xy-base[:, None], axis=2)-radius
+    velocity = np.gradient(xy, stamps, axis=0) if len(stamps) > 1 else np.zeros_like(xy)
+    contacts = []
+    for event in load(run, 'native/contact_events.json'):
+        hits = sorted({c['environment_object_id'] for c in event['disallowed_contacts']
+                       if str(c['environment_object_id']).startswith('obstacle_')})
+        for name in hits:
+            k, t = int(name.split('_')[1]), event['timestamp_s']
+            i = min(int(np.searchsorted(stamps, t)), len(stamps)-1)
+            j = int(index[i])
+            towards = xy[i, k]-trace['base_pose_world'][j, :2]
+            towards = towards/max(np.linalg.norm(towards), 1e-9)
+            robot_closing = float(trace['base_twist_world'][j, :2]@towards)
+            obstacle_closing = float(-velocity[i, k]@towards)
+            contacts.append(dict(obstacle=name, timestamp_s=t, robot_closing_m_s=robot_closing,
+                                 obstacle_closing_m_s=obstacle_closing,
+                                 mover='robot' if robot_closing >= obstacle_closing else 'obstacle'))
+        if contacts:
+            break   # the first contact stops the mission
+    return dict(count=len(placement), min_base_to_surface_m=float(gap.min()),
+                closest_obstacle=int(np.unravel_index(gap.argmin(), gap.shape)[1]), contacts=contacts)
+
+
 # -- the record -------------------------------------------------------------------------------------------------------
 
 def evaluate(run, *, write=True):
@@ -207,7 +248,8 @@ def full_evaluation(run, result, config):
     spec, episode = load(run, 'specification.json'), load(run, 'episode.json')
     planning, mission, requests = load(run, 'planning.json'), load(run, 'mission.json'), load(run, 'requests.json')
     with np.load(run/'native/physics_trace.npz', allow_pickle=False) as archive:
-        trace = {key: archive[key].copy() for key in ('base_pose_world', 'joint_position', 'physics_contact', 'timestamp_s')}
+        trace = {key: archive[key].copy() for key in ('base_pose_world', 'base_twist_world', 'joint_position',
+                                                      'physics_contact', 'timestamp_s')}
     frames = frames_with_samples(load(run, 'acquisitions.json'), trace['timestamp_s'])
     lookup = {r['frame']: r for r in frames}
     first = frames[0]['physical_sample_index']
@@ -246,6 +288,9 @@ def full_evaluation(run, result, config):
         taxonomy['observed arrival rejected by physical verification'] = rejected
     if disallowed:
         taxonomy['contact'] += 1
+    obstacles = obstacle_record(run, trace)
+    for contact in (obstacles or {}).get('contacts', []):
+        taxonomy[f"obstacle contact ({contact['mover']} moving into the other)"] += 1
     if checks['hard']['confirmed_violation_samples']:
         taxonomy['hard-clearance violation'] += 1
     if (run/'failure.json').exists():
@@ -272,7 +317,8 @@ def full_evaluation(run, result, config):
                 source_error=result['error'], arrivals=checked, outbound=outbound, return_leg=home,
                 disallowed_contact_samples=disallowed, safety=checks, stall_by_phase=stall,
                 hold_categories=dict(Counter(r['category'] for r in holds)), failure_and_stall_taxonomy=dict(taxonomy),
-                hold_details=holds, wall_s=result['wall_s'], reader_wall_s=time.monotonic()-started)
+                hold_details=holds, wall_s=result['wall_s'], reader_wall_s=time.monotonic()-started,
+                **(dict(moving_obstacles=obstacles) if obstacles is not None else {}))
 
 
 def early_failure(run, result, config):

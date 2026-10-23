@@ -39,6 +39,7 @@ class Dynamics:
     strip_mu: float = None
     marked: bool = False
     stall_stop_s: float = None    # recording missions
+    obstacles: list = None        # moving obstacles (`go2nav.sim.obstacles.place_obstacles`)
 
 
 # -- strip placement --------------------------------------------------------------------------------------------------
