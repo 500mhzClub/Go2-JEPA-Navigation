@@ -80,10 +80,10 @@ class NavigationController:
     """See the module docstring."""
 
     def __init__(self, forecaster, *, goal_xy, home_xy, arrival_radius_m=.02, navigation_frames=4800, recovery=False,
-                 margin_m=0., unknown=None, harness='reserve_exit_v2', coverage_fix=True):
+                 margin_m=0., unknown=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False):
         self.forecaster = forecaster
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
-        self.routing_map, self.obstacles = RoutingMap(), DepthObstacleObserver()
+        self.routing_map, self.obstacles = RoutingMap(clear_seen_free=map_decay), DepthObstacleObserver()
         self.planner = Planner(arrival_radius_m=arrival_radius_m, recovery=recovery, margin_m=margin_m, unknown=unknown,
                                harness=harness, coverage_fix=coverage_fix)
         self.mission = RoundTripMission(goal_xy, home_xy, arrival_radius_m=arrival_radius_m, navigation_frames=navigation_frames)
@@ -134,6 +134,8 @@ class NavigationController:
         if registered is not None and frame.frame%MAP_PERIOD_FRAMES == 0:
             self.latest_map = self.routing_map.update(frame.frame, frame.measured_ns, registered.position, registered.rotation,
                                                       frame.depth, frame.auxiliary_depth, frame.specific_force)
+            if self.latest_map.cleared and self.planning and self.planning[-1].get('reason') == 'VIEW_BUDGET_EXHAUSTED':
+                self.planner.scan_target, self.planner.scan_index = None, 0  # freed cells: look around again
             if frame.frame >= MAP_PERIOD_FRAMES:
                 self._plan(frame, registered)
         self.latest_obstacles = self.obstacles.observe(frame.depth, frame.auxiliary_depth, frame.gyro_rates,

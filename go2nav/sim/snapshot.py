@@ -13,7 +13,7 @@ import numpy as np
 
 STATIC_FIELDS = ('._sdf_info.geoms_sdf_', '._support_field_info.support_')
 SESSION_FIELDS = ('sim_ns', 'last_executed', 'window', 'window_start_command', 'body_sensor', 'history', 'fast_history',
-                  'phase', 'guard')
+                  'phase', 'guard', 'base_xy')
 RECORD_LISTS = ('samples', 'contact_packets', 'contact_times', 'contact_events')
 
 

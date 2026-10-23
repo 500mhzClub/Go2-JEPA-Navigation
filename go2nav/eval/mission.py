@@ -100,7 +100,7 @@ def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=N
 
 def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fit=None, friction=None, strips=None,
         stall_stop_s=None, obstacles=None, degrade=None, margin=None, pessimistic=None, unknown_level=None, demo_textures=False,
-        models=None, harness='reserve_exit_v2', coverage_fix=True):
+        models=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
     (how many moving obstacles). Experiment
@@ -110,7 +110,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     presentation only, never seen in training). `models`: artefact name -> checkpoint, replacing shipped models (a
     retrained chain, or the locomotion policy `go2_locomotion_policy`); recorded with each file's SHA-256. `harness`: 'reserve_exit_v2' (the final harness) or 'v4' (the
     earlier one, for the experiments recorded under it; `go2nav.planning.planner`); `coverage_fix=False`: the
-    translation coverage rule as before 2 October."""
+    translation coverage rule as before 2 October; `map_decay`: occupied cells seen free again are cleared
+    (`go2nav.perception.mapping`, for moving obstacles)."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -134,7 +135,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  **(dict(models={name: dict(path=str(path), sha256=sha256(path)) for name, path in models.items()})
                                     if models else {}),
                                  **(dict(harness=harness) if harness != 'reserve_exit_v2' else {}),
-                                 **(dict(coverage_fix=False) if not coverage_fix else {})))
+                                 **(dict(coverage_fix=False) if not coverage_fix else {}),
+                                 **(dict(map_decay=True) if map_decay else {})))
     save(out/'specification.json', spec)
     save(out/'episode.json', episode)
     cv2.setNumThreads(1)
@@ -162,7 +164,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                           home_xy=cues['return_initial_body_xy_m'], arrival_radius_m=.02,
                                           navigation_frames=4800, recovery=recovery, margin_m=margin_m,
                                           unknown=caution.UnknownCells(unknown_bound, pessimistic) if pessimistic else None,
-                                          harness=harness, coverage_fix=coverage_fix)
+                                          harness=harness, coverage_fix=coverage_fix, map_decay=map_decay)
         history = deque(maxlen=4)
         for tick in range(STEP_BUDGET):
             now = session.sim_ns
@@ -267,6 +269,7 @@ def main():
     p.add_argument('--models', type=Path, help='YAML mapping artefact names to checkpoints that replace the shipped ones')
     p.add_argument('--harness', choices=('reserve_exit_v2', 'v4'), default='reserve_exit_v2')
     p.add_argument('--coverage-fix', choices=('on', 'off'), default='on')
+    p.add_argument('--map-decay', choices=('on', 'off'), default='off', help='clear occupied cells seen free again')
     p.add_argument('--out', type=Path, required=True)
     a = p.parse_args()
     strips = None
@@ -279,7 +282,7 @@ def main():
                  friction=a.friction, strips=strips, stall_stop_s=a.stall_stop_s, obstacles=a.obstacles, degrade=a.degrade, margin=a.margin,
                  pessimistic=a.pessimistic, unknown_level=a.unknown_level, demo_textures=a.demo_textures,
                  models=yaml.safe_load(a.models.read_text()) if a.models else None, harness=a.harness,
-                 coverage_fix=a.coverage_fix == 'on')
+                 coverage_fix=a.coverage_fix == 'on', map_decay=a.map_decay == 'on')
     print(json.dumps(result))
 
 

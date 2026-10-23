@@ -1,0 +1,307 @@
+name: 'R7b: moving obstacles with seen-free cells cleared from the map'
+description: 'R7 rerun with the routing map''s seen-free clearing on (--map-decay on, go2nav.perception.mapping), the minimal
+  ghost-trail fix: R4''s episodes (preliminary-test mazes 30-49, recovery off, shipped locomotion policy, six primitives)
+  with one and two polite moving obstacles, for C0 (forecast-perfect reference), C1, C5 (span8w, corpus readout) and C7 (H-JEPA
+  level 1); plus the static R4 episodes with clearing on for C1, C5 and C7, paired with their R4 records, to check the fix
+  costs nothing when nothing moves. Pairs with R7 (r7_moving_obstacles).'
+cohorts:
+- name: r7b_static_c1
+  arms: [C1]
+  set: prelim_test_v1
+  recovery: 'off'
+  map_decay: 'on'
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
+- name: r7b_static_c5
+  arms: [C5]
+  set: prelim_test_v1
+  recovery: 'off'
+  map_decay: 'on'
+  models: outputs/lewm/readout/chain_span8w_corpus/models.yaml
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
+- name: r7b_static_c7
+  arms: [C7]
+  set: prelim_test_v1
+  recovery: 'off'
+  map_decay: 'on'
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
+- name: r7b_obst1_c0
+  arms: [C0]
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 1
+  map_decay: 'on'
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
+- name: r7b_obst1_c1
+  arms: [C1]
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 1
+  map_decay: 'on'
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
+- name: r7b_obst1_c5
+  arms: [C5]
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 1
+  map_decay: 'on'
+  models: outputs/lewm/readout/chain_span8w_corpus/models.yaml
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
+- name: r7b_obst1_c7
+  arms: [C7]
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 1
+  map_decay: 'on'
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
+- name: r7b_obst2_c0
+  arms: [C0]
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 2
+  map_decay: 'on'
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
+- name: r7b_obst2_c1
+  arms: [C1]
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 2
+  map_decay: 'on'
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
+- name: r7b_obst2_c5
+  arms: [C5]
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 2
+  map_decay: 'on'
+  models: outputs/lewm/readout/chain_span8w_corpus/models.yaml
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]
+- name: r7b_obst2_c7
+  arms: [C7]
+  set: prelim_test_v1
+  recovery: 'off'
+  obstacles: 2
+  map_decay: 'on'
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - [30, 0]
+  - [31, 0]
+  - [32, 0]
+  - [33, 0]
+  - [34, 0]
+  - [35, 0]
+  - [36, 0]
+  - [37, 0]
+  - [38, 0]
+  - [39, 0]
+  - [40, 0]
+  - [41, 0]
+  - [42, 0]
+  - [43, 0]
+  - [44, 0]
+  - [45, 0]
+  - [46, 0]
+  - [47, 0]
+  - [48, 0]
+  - [49, 0]

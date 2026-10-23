@@ -309,8 +309,14 @@ def full_evaluation(run, result, config):
             taxonomy['movement outscored'] += 1
         else:
             taxonomy['insufficient retained evidence'] += 1
+    no_route = [r for r in planning if r.get('reason') == 'VIEW_BUDGET_EXHAUSTED']
+    if no_route:
+        taxonomy['no route on the map (scans exhausted)'] += 1
     if result['policy_steps'] >= STEP_BUDGET and 'RETURN' not in passed:
-        taxonomy['budget exhaustion despite progress' if outbound['actual_path_m'] > .02 else 'budget exhaustion without movement'] += 1
+        if planning and planning[-1].get('reason') == 'VIEW_BUDGET_EXHAUSTED':
+            taxonomy['budget exhaustion with no route on the map'] += 1
+        else:
+            taxonomy['budget exhaustion despite progress' if outbound['actual_path_m'] > .02 else 'budget exhaustion without movement'] += 1
     return dict(schema='go2nav_episode_evaluation.v1', controller=config.get('arm', config.get('controller')),
                 episode_id=episode['episode_id'], role=episode['role'], beacon_success='OUTBOUND' in passed,
                 home_success='RETURN' in passed, round_trip_success=all(k in passed for k in ('OUTBOUND', 'RETURN')),

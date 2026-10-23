@@ -12,6 +12,12 @@ coordinates into it. The floor height is measured once, from the first frame's j
 - `fine_occupied`: the same samples at 1 cm.
 Cells accumulate over the mission; the snapshot also gives this observation's own cells. The map is updated every
 fourth frame (2.5 Hz).
+
+**Clearing seen-free cells** (`clear_seen_free`, for moving obstacles; off for the static experiments): an occupied cell
+that this update sees as floor and holds no sample above the floor in either image becomes free again, with its fine
+cells that hold no sample now. A cell counts as floor only when its whole square is visible floor, so a cell an
+obstacle stands in, or a wall in view, is never cleared. Without it a moving obstacle leaves a permanent trail of
+occupied cells (docs/dynamic/STATUS.md, R7). The snapshot's `cleared` gives the cells this update freed.
 """
 from dataclasses import dataclass
 
@@ -46,6 +52,7 @@ class MapSnapshot:
     current_floor: frozenset
     current_occupied: frozenset
     current_fine_occupied: frozenset
+    cleared: frozenset = frozenset()
 
 
 def body_projection(depth_m):
@@ -225,7 +232,8 @@ def measured_floor_height(plane, map_from_body, position_map):
 class RoutingMap:
     """See the module docstring. `update` takes the registered pose and both depth images of one frame."""
 
-    def __init__(self):
+    def __init__(self, clear_seen_free=False):
+        self.clear_seen_free = clear_seen_free
         self.B = None
         self.floor_height = None
         self.floor, self.occupied, self.fine_occupied = set(), set(), set()
@@ -276,8 +284,16 @@ class RoutingMap:
         self.floor.update(new_floor)
         self.occupied.update(new_occupied)
         self.fine_occupied.update(new_fine)
+        cleared = set()
+        if self.clear_seen_free:
+            cleared = (new_floor-new_occupied)&self.occupied
+            if cleared:
+                ratio = round(CELL_M/FINE_CELL_M)
+                self.occupied -= cleared
+                self.fine_occupied -= {c for c in self.fine_occupied
+                                       if (c[0]//ratio, c[1]//ratio) in cleared and c not in new_fine}
         self.latest = MapSnapshot(frame, measured_ns, frozenset(self.floor), frozenset(self.occupied),
                                   tuple(map(float, q)), tuple(tuple(map(float, row)) for row in self.B), self.floor_height,
                                   *counts, frozenset(self.fine_occupied), frozenset(new_floor), frozenset(new_occupied),
-                                  frozenset(new_fine))
+                                  frozenset(new_fine), frozenset(cleared))
         return self.latest

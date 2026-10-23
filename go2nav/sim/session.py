@@ -70,6 +70,7 @@ class MissionSession:
         self.last_executed = np.zeros((1, 3), dtype=np.float32)
         self.window, self.window_start_command = None, None
         self.samples, self.contact_packets, self.contact_times, self.contact_events = [], [], [], []
+        self.base_xy = None  # the latest sampled base position (the obstacles yield to it; kept apart from `samples`)
         self.body_sensor = sensors.BodySensor()
         self.history = sensors.History(sensors.BODY_CHANNELS)
         self.fast_history = sensors.History((sensors.FAST_GYRO,))
@@ -145,7 +146,7 @@ class MissionSession:
         base_time, base_ns = float(self.sim_ns)/1e9, self.sim_ns
         for k in range(maze_scene.PHYSICS_STEPS_PER_POLICY):
             if self.obstacles is not None:
-                self.obstacles.update(maze_scene.PHYSICS_DT_S, self.samples[-1]['base_pose_world'][:2],
+                self.obstacles.update(maze_scene.PHYSICS_DT_S, self.base_xy,
                                       base_time+(k+1)*maze_scene.PHYSICS_DT_S)
             self.world.scene.step()
             self.sim_ns = base_ns+(k+1)*2_000_000
@@ -177,6 +178,7 @@ class MissionSession:
                    applied_command=np.asarray(applied, np.float64), physics_contact=np.uint8(bool(disallowed)),
                    phase=np.uint8(self.phase), edge_index=np.uint8(0))
         self.samples.append(row)
+        self.base_xy = pos[:2].copy()
         try:
             if not all(np.isfinite(np.asarray(v)).all() for v in row.values()):
                 raise ValueError('nonfinite physical sample')
