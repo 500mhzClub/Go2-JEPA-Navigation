@@ -3,6 +3,134 @@
 The place to resume from. Design: [PLAN.md](PLAN.md); timescales: [TIMESCALES.md](TIMESCALES.md). Branch
 `feature/hjepa`.
 
+## The H-JEPA baseline: full run (22-23 October)
+
+C7 and C8 are level with C5 and C6 at 70/100 each. Level 1's decoders read best of all LeWM models. The upper levels
+predict heading to the probe's limit at 12.8 s, but show no abstraction and give no planning cost yet.
+
+`outputs/hjepa/full_3level` (`configs/hjepa/go2_3level.yaml`, 60,000 steps; 08:07 to 22:29 on 22 October, 0.83
+s/step). Level 1 trains on exactly span8w's batches and learning-rate schedule, so the two compare step for step. The
+evaluation queue (`outputs/hjepa/eval_queue_full.sh`, log `outputs/hjepa/eval_queue_full.log`) ran the screen's
+measures plus the displacement test. Results are in `outputs/hjepa/full_3level/eval`; missions in
+`outputs/cohorts/lewm_*_{c7,c8}_hjepa_full` (`lewm_benchmarks_hjepa_full.yaml`, finished 02:45 on 23 October). This
+is the frozen H-JEPA baseline.
+
+### Training (validation mazes)
+
+Every gate passes at every level and every validation. The level-1 rollout ratio is the 8-step rollout error divided
+by the error of persistence.
+
+| | Full, step 60,000 | Screen, step 15,000 | span8w, step 60,000 |
+|---|---|---|---|
+| L2 / L3 prediction error | **0.091 / 0.292** | 0.136 / 0.408 | - |
+| Effective rank, levels 1 / 2 / 3 | 28.0 / 34.5 / 38.0 | 16.7 / 21.8 / 21.9 | 23.0 |
+| Level-1 8-step rollout / persistence | 0.110 | 0.176 | **0.084** |
+| Level-1 8-step rollout, held-out look | 0.092 | - | 0.090 |
+
+- Against span8w on the same batches, level 1 led at 15,000 steps (0.173 against 0.198).
+- span8w then improved faster and finished about 30% ahead in distribution. On the held-out look they are level.
+- The likely cost of the joint objective: level 1's gradient is about 3x span8w's before clipping, and its latent
+  spreads over more dimensions (rank 28 against 23).
+
+### Level 1 against span8w and the screen
+
+| Measure | Full | Screen | span8w |
+|---|---|---|---|
+| L4 (T7 score), C5-style corpus readout | **3.84 mm** | 5.74 | 5.0 (corpus), 5.82 (protocol) |
+| L4, C6 protocol head | **2.40 mm** | 2.48 | 2.43 |
+| Turn gate from rest within 0.5 m, C5 head (median / p90) | **5.5 / 12.5 mm** | 6.6 / 15.7 | 6.2 / 14.2 (fixed C5) |
+| Turn gate from rest within 0.5 m, C6 head (median / p90) | **4.2 / 8.6 mm** | 4.5 / 9.0 | 4.4 / 8.8 |
+| Deadlock states escaped, C5 / C6 (truth 20 of 24) | 17 / 20 | 20 / 20 | 19 / 21 |
+| Rollout error / persistence, readout-free (on-policy) | 0.29 | 0.39 | 0.24 |
+| Linear probe at 800 ms | 36.9 mm | 39.7 | 35-39 |
+| Candidate ranking, top-1 | 0.99 | 0.95 | 0.97-0.99 |
+
+- The readouts more than recover the rollout gap: both heads score their best L4 and turn gate so far.
+- The exception is the C5 head on the deadlock states (17 against 19). It finds no escape at maze 44's state 153 in
+  either R6 condition (truth: either turn; span8w: left). The missions failed at exactly that place (below).
+
+### What each level captured (`levels.json`)
+
+Probe NMSE on the 40 scoring mazes (1 = the mean):
+
+| Level | Maze position | Heading | Body | Motion | chi |
+|---|---|---|---|---|---|
+| 1 | 0.99 | 0.42 | 0.42 | 0.22 | 0.87 |
+| 2 | 0.98 | 0.43 | 0.43 | 0.22 | 0.87 |
+| 3 | 0.99 | 0.43 | 0.47 | 0.23 | 0.86 |
+
+Every probe improved on the screen. Level 3 sheds a little body state (0.47 against 0.42), but there is still no real
+slow/fast separation. This is the design limit noted for the screen.
+
+Upper-level predictions, decoded (median heading error in degrees; displacement as position mm, heading deg):
+
+| Horizon | Heading: predicted | Heading: encoded truth | Heading: persistence | Displacement: predicted | Displacement: encoded truth | Displacement: dead reckoning | Displacement: no motion |
+|---|---|---|---|---|---|---|---|
+| L2, 1.6 s | **5.6** | 6.6 | 25.8 | 19, 1.3 | 20, 1.2 | **7, 0.3** | 57, 21.9 |
+| L2, 3.2 s | **5.6** | 6.6 | 41.6 | 28, 2.2 | 31, 1.8 | **10, 0.4** | 119, 40.8 |
+| L2, 4.8 s | **5.5** | 6.7 | 53.6 | 38, 3.1 | 41, 2.2 | **13, 0.6** | 199, 52.1 |
+| L3, 12.8 s | **7.0** | 5.9 | 74.6 | 474, 18.0 | 510, 18.8 | **224, 12.1** | 969, 73.4 |
+
+- Heading errors halved against the screen (12.0 to 5.6 degrees at 1.6 s; 18.6 to 7.0 at 12.8 s). Predictions sit at
+  the probe's ceiling.
+- Shuffled macro-actions are worse than persistence (29.4 and 85.7 degrees).
+- Displacement improved by about a quarter, but dead reckoning from the commands still wins by 2-3x. As at the screen,
+  the predictors are not the limit; the states are, and the commands nearly determine the motion on these units.
+
+Cost geometry (Spearman correlation of latent distance with maze-path / straight-line distance):
+
+| Level | All pairs | Detour pairs |
+|---|---|---|
+| 1 | 0.17 / 0.21 | -0.04 / -0.03 |
+| 2 | 0.23 / 0.26 | -0.06 / -0.05 |
+| 3 | 0.30 / 0.34 | -0.02 / -0.05 |
+
+Latent distance tracks distance more at each level up, but along the line of sight, not around walls. Planning with
+the upper levels needs goal-aware training first.
+
+### Missions
+
+On the same 100 episodes as C5 and C6, with 6 LeWM lanes, rendering on the R9700. Round trips:
+
+| Condition | C7 | C8 | C5 (fixed) | C6 (protocol) | C7 screen | C8 screen |
+|---|---|---|---|---|---|---|
+| R4 | 20 | 20 | 20 | 20 | 20 | 19 |
+| R5 friction 0.30 | 16 | 15 | 17 | 17 | 14 | 14 |
+| R5 friction 0.25 | 0 | 0 | 0 | 0 | 0 | 1 |
+| R6 reference | 19 | 20 | 19 | 20 | 20 | 20 |
+| R6 marked strips | 15 | 15 | 15 | 14 | 14 | 16 |
+| Total | **70/100** | **70/100** | 71 | 71 | 68 | 70 |
+
+Pooled discordant pairs (exact sign test):
+
+| Pair | This arm alone / the other alone | p |
+|---|---|---|
+| C7 vs fixed C5 | 3/4 | 1.0 |
+| C7 vs protocol C5 | 6/3 | 0.51 |
+| C7 vs C7 screen | 7/5 | 0.77 |
+| C8 vs protocol C6 | 2/3 | 1.0 |
+| C8 vs C8 screen | 5/5 | 1.0 |
+
+Failures:
+
+| Arm | Missions with contact | Long deadlocks (more than 100 blocked decisions) |
+|---|---|---|
+| C7 | 22 | 9 |
+| C8 | 24 | 4 |
+| Fixed C5 | 20 | 9 |
+| Protocol C6 | 17 | 7 |
+
+- Most contacts are at friction 0.25, which every arm fails.
+- Two of C7's failures are one episode, R6 maze 44 episode 0, in both looks. C7 deadlocked for 115 decisions at the
+  state the deadlock replay flags. Floor registration then raised `UnportedBranch('partial floor height correction
+  out of bounds')`: a branch of the original harness that was never ported, where the original re-acquires the floor.
+  Every other arm completes that episode.
+- So the offline deadlock test predicted a mission failure. The unported branch is a harness gap for the failure
+  analysis.
+
+The harness reads only level 1, so the missions show that joint training keeps level 1 at least as useful as
+span8w's. They cannot show the upper levels' value.
+
 ## Screen run (21-22 October): every gate passes; level 1 is level with span8w; online C7/C8 are level with C5/C6
 
 `outputs/hjepa/screen_3level` (`configs/hjepa/go2_3level.yaml` with `--steps 15000`, cosine to zero at 15,000; 0.83
@@ -126,11 +254,15 @@ Failures with more than 100 blocked decisions: C7 12, C8 6, fixed C5 9, protocol
 their baselines. The harness reads only level 1, so the upper levels cannot change these numbers. They show only that
 joint training left level 1 intact.
 
-## Next
+## Next (the dynamic-environments branch)
 
-- The full run (`hjepa-full`, 60,000 steps, `outputs/hjepa/full_3level`, log `outputs/hjepa/full_3level.log`)
-  started at 08:05 on 22 October. Rerun the evaluation queue and the displacement test on it.
-- Split the displacement test by condition (contact, low friction, near walls). There dead reckoning fails, and a
-  world model has room to beat it.
-- The upper levels show value online only once a controller consumes them, for example as a subgoal or cost for the
-  planner. That belongs to the roadmap step that hands harness components to the world model.
+- Dynamic environments and the continuous action contract together (`docs/ACTION_CONTRACT.md`). Explore CEM and other
+  planners for the JEPA arms, and a continuous-command solution for the other controllers.
+- First H-JEPA experiment there: offline hierarchical planning. CEM over L3/L2 macro-actions from a start frame to a
+  goal frame 12.8-25 s later, checked against the macro-actions taken. If static-maze goals are out of reach, the upper
+  levels need goal-aware training (the cost geometry above) before they enter the harness.
+- Split the displacement test by condition (contact, low friction, near walls, moving obstacles). Dead reckoning fails
+  there, and a world model has room to beat it.
+- Optional ablation: a separate learning rate or loss weight for level 1, if the rollout gap to span8w starts to
+  matter.
+- Failure analysis: the unported floor-registration branch (C7, R6 maze 44) joins the harness gaps.

@@ -8,7 +8,7 @@ When do JEPA world-model representations carry decision-relevant information for
 prediction, reactive control and explicit memory?
 
 This repository is a simulated Unitree Go2 navigation testbed in [Genesis](https://github.com/Genesis-Embodied-AI/Genesis).
-It compares seven controller types on procedurally generated mazes: each must reach a beacon, given as a position in
+It compares nine controller types on procedurally generated mazes: each must reach a beacon, given as a position in
 its starting frame, and return home, from onboard RGB-D only.
 
 | Controller | What forecasts the motion of each candidate action |
@@ -20,6 +20,8 @@ its starting frame, and return home, from onboard RGB-D only.
 | **C4** | supervised: the same frozen features, commands and candidate tape, mapped straight to motion |
 | **C5** | **LeWM**: a LeWorldModel (arXiv:2603.19312) trained end to end from Go2 pixels with SIGReg and inverse dynamics; a decoder reads motion from its rolled-out latents |
 | **C6** | supervised on LeWM's own encoder: its latents, commands and candidate tape, mapped straight to motion |
+| **C7** | **H-JEPA**: level 1 of a three-level hierarchical JEPA (arXiv:2610.06805; 100 ms, 1.6 s, 12.8 s) trained jointly end to end; read as C5 |
+| **C8** | supervised on H-JEPA level 1's encoder, as C6 |
 
 All controllers share one harness, the reserve-exit-v2 navigation stack: RGB-D tracking, an occupancy map, route
 planning, safety vetoes, and an optional recovery layer. Only the motion forecast differs.
@@ -38,8 +40,8 @@ planning, safety vetoes, and an optional recovery layer. Only the motion forecas
 | `go2nav/locomotion` | the Go2 PPO locomotion policy: training (rsl-rl) and the command contract |
 | `go2nav/perception` | RGB-D visual tracking, floor registration, occupancy mapping, obstacle evidence |
 | `go2nav/planning` | candidate primitives, route planning, the reserve-exit harness, safety vetoes, recovery |
-| `go2nav/models` | V-JEPA encoder wrapper, the horizon-conditioned predictor, readouts, the C3 decoder, C4, C1, the LeWorldModel and its C5/C6 heads |
-| `go2nav/controllers` | C0–C6 and the development variants C1A (adaptive) and C1R (refit); the arm registry |
+| `go2nav/models` | V-JEPA encoder wrapper, the horizon-conditioned predictor, readouts, the C3 decoder, C4, C1, the LeWorldModel and its C5/C6 heads, H-JEPA |
+| `go2nav/controllers` | C0–C8 and the development variants C1A (adaptive) and C1R (refit); the arm registry |
 | `go2nav/corpus` | the May bulk-rollout corpus behind T1: scene generation, resumable bulk rollouts with the data collectors, render plans, labels, the render |
 | `go2nav/data` | data collection, verified deterministic replay, training samples, feature caches |
 | `go2nav/training` | every learned component, retrainable from scratch with a seed and a lineage manifest |
@@ -165,7 +167,7 @@ python -m go2nav.eval.video outputs/runs/C3_30 outputs/videos/C3_30
 ```
 
 The episode evaluation gives round-trip, beacon and home success, SPL, contacts, clearance violations, minimum clearance
-and a stall and failure taxonomy. `--arm` takes C0–C6 or the development variants C1A and C1R (C5 and C6 need
+and a stall and failure taxonomy. `--arm` takes C0–C8 or the development variants C1A and C1R (C5–C8 need
 `--models`, below). Other mission options
 are degraded forecasts (`--degrade`), low friction (`--friction`, `--strips`), clearance margins and the earlier v4
 harness; `--help` lists them all.
@@ -188,6 +190,7 @@ python -m go2nav.eval.cohort --summarise outputs/cohorts/rexit2_ref    # the tab
 | `retrained_chain`, `retrained_locomotion`, `e2e_chain` | 40-60 | shipped vs retrained models or policy |
 | `lewm_benchmarks` | 310 | C5 and C6 (idm100 world model) on R4's, R5's and R6's episodes, plus a visual-transfer cohort (not run) |
 | `lewm_benchmarks_span8w`, `_span8wc`, `_protocol` | 100-200 | C5 and C6 on the same episodes: the span8w world model with T7's fit, the C5 baseline (corpus readout), and the shared readout protocol's heads |
+| `lewm_benchmarks_hjepa`, `_hjepa_full` | 200 | C7 and C8 on the C5/C6 episodes: the H-JEPA screen (15,000 steps) and the baseline (60,000) |
 
 A cohort runs on retrained models with `models: outputs/chain/models.yaml`. `--resume` continues an interrupted
 experiment, and `--retry ASSIGNMENT` reruns single missions.
@@ -197,7 +200,7 @@ experiment, and `--retry ASSIGNMENT` reruns single missions.
 - C3 and C4 use the GPU for the encoder. A C3 mission takes about 30 minutes, and `--c3-lanes` caps how many run at
   once (keep it at 4 or fewer on one GPU).
 - The full chain takes about a day on one AMD R9700 GPU, and its T7 cache needs about 63 GB of disk.
-- C5 and C6 missions use the GPU for LeWM; `--lewm-lanes` caps them (6 on one R9700: 9 or more concurrent missions
+- C5–C8 missions use the GPU for LeWM; `--lewm-lanes` caps them (6 on one R9700: 9 or more concurrent missions
   livelocked the GPU). Run every GPU arm's cohorts from one cohort process, since lanes are not shared across processes.
 - Rendering uses EGL device `EGL_DEVICE_ID` (default 0). On the development machine device 0 is the integrated GPU
   and device 1 the R9700; frames render bit-identically on both, so `EGL_DEVICE_ID=1` only makes many parallel
@@ -237,6 +240,31 @@ python -m go2nav.training.lewm_readout package --readout outputs/lewm/readout/re
 Missions and cohorts take the model set with `--models` (or the cohort option `models`): `lewm_world_model` and
 `lewm_c5_decoder_and_c6`. The benchmarked baseline is the span8w world model with the packaged corpus readout as C5
 (71/100 round trips, level with C1, C4 and C6).
+
+### 7. The H-JEPA arms (C7, C8)
+
+C7 and C8 read level 1 of a three-level H-JEPA. Level 1 is LeWM (span8w's settings, trained from scratch). Above it,
+levels at 1.6 s and 12.8 s each add a state encoder, a macro-action encoder, a predictor and inverse dynamics. Every
+level trains jointly, with no stop-gradient, so the upper levels' gradients reach level 1's encoder. Design, timescales
+and results: [docs/hjepa/PLAN.md](docs/hjepa/PLAN.md), [docs/hjepa/TIMESCALES.md](docs/hjepa/TIMESCALES.md),
+[docs/hjepa/STATUS.md](docs/hjepa/STATUS.md).
+
+```bash
+# All levels, jointly, on the LeWM corpus (resumable). Writes hjepa.pt and level 1 alone as lewm.pt
+python -m go2nav.training.hjepa train --corpus $LEWM_ROOT --out outputs/hjepa/full_3level
+
+# C7's and C8's heads: the LeWM tools (section 6) on the exported lewm.pt, giving the model set
+# (hjepa_world_model, hjepa_c7_decoder_and_c8)
+
+# What each level captured: probes, decoded upper-level predictions against dead reckoning, cost geometry
+python -m go2nav.eval.hjepa_levels outputs/hjepa/full_3level/hjepa.pt --corpus $LEWM_ROOT --out levels.json
+```
+
+The baseline: C7 and C8 each 70/100 round trips, level with C5 and C6 (71). Its level-1 decoders read best of all LeWM
+models (L4 3.84 mm and 2.40 mm). The harness reads only level 1.
+
+The upper levels predict heading to within 6-7 degrees 1.6-12.8 s ahead. Dead reckoning from the commands still beats
+their displacement predictions on static mazes, and their latent distances do not yet follow the maze.
 
 ## Platform
 
