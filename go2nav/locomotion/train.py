@@ -61,11 +61,13 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--out', required=True)
     p.add_argument('--config', default=str(DEFAULT_CONFIG))
-    defaults = yaml.safe_load(DEFAULT_CONFIG.read_text())['run']
-    p.add_argument('--seed', type=int, default=defaults['seed'])
-    p.add_argument('--num-envs', type=int, default=defaults['num_envs'])
-    p.add_argument('--max-iterations', type=int, default=defaults['max_iterations'])
+    p.add_argument('--seed', type=int, help="default: the config's run.seed")
+    p.add_argument('--num-envs', type=int, help="default: the config's run.num_envs")
+    p.add_argument('--max-iterations', type=int, help="default: the config's run.max_iterations")
     a = p.parse_args()
+    defaults = yaml.safe_load(Path(a.config).read_text())['run']
+    a.seed, a.num_envs, a.max_iterations = (defaults[k] if v is None else v for k, v in
+                                            (('seed', a.seed), ('num_envs', a.num_envs), ('max_iterations', a.max_iterations)))
     lineage = train(a.config, a.out, seed=a.seed, num_envs=a.num_envs, max_iterations=a.max_iterations)
     print(json.dumps(dict(out=a.out, checkpoints=list(lineage['checkpoints'])), indent=1))
 

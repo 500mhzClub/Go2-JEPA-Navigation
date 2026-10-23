@@ -3,7 +3,9 @@
 Ported from the Genesis Go2 locomotion example (examples/locomotion/go2_env.py, Genesis-Embodied-AI/Genesis, Apache
 License 2.0), the environment the shipped policy was trained in. One change: commands are drawn from a fixed bank of
 velocity primitives (configs/locomotion/contract_ppo.yaml) rather than uniformly from ranges, so the policy learns exactly
-the commands the navigation stack issues.
+the commands the navigation stack issues. A config with `command_ranges` (configs/locomotion/continuous_ppo.yaml, the
+continuous contract of docs/dynamic/PLAN.md) instead draws each command from a mixture: uniform over the ranges, the
+primitive bank, or hold, with the weights of `command_mixture`.
 
 Each step: the policy's 12 joint-position offsets (applied one control step late, as on the real robot) are scaled and
 added to the default stance, tracked by joint PD control at 50 Hz with two physics substeps.
@@ -44,6 +46,15 @@ class Go2LocomotionEnv:
 
         bank = torch.tensor(list(cfg['primitives'].values()), dtype=gs.tc_float, device=gs.device)
         self.command_bank, self.command_low, self.command_high = bank, bank.min(dim=0).values, bank.max(dim=0).values
+        ranges = cfg.get('command_ranges')
+        if ranges is not None:
+            self.command_low = torch.tensor(ranges['low'], dtype=gs.tc_float, device=gs.device)
+            self.command_high = torch.tensor(ranges['high'], dtype=gs.tc_float, device=gs.device)
+            mixture = cfg['command_mixture']
+            self.command_mixture = torch.tensor([mixture['uniform'], mixture['primitives'], mixture['hold']],
+                                                dtype=gs.tc_float, device=gs.device).cumsum(0)
+        else:
+            self.command_mixture = None
         self.command_jitter_std = float(cfg.get('command_jitter_std', 0.0))
 
         self.scene = gs.Scene(
@@ -101,8 +112,14 @@ class Go2LocomotionEnv:
 
     # ---- commands -------------------------------------------------------------------------------------------------
     def _resample_commands(self, envs_idx):
-        """Draw a primitive per environment (where `envs_idx` is True, or for all when None)."""
+        """Draw a command per environment (where `envs_idx` is True, or for all when None): a primitive, or with
+        `command_ranges` a draw from the mixture."""
         commands = self.command_bank[torch.randint(0, self.command_bank.shape[0], (self.num_envs,), device=gs.device)].clone()
+        if self.command_mixture is not None:
+            uniform = self.command_low+torch.rand_like(commands)*(self.command_high-self.command_low)
+            draw = torch.rand((self.num_envs, 1), device=gs.device)*self.command_mixture[-1]
+            commands = torch.where(draw < self.command_mixture[0], uniform,
+                                   torch.where(draw < self.command_mixture[1], commands, torch.zeros_like(commands)))
         if self.command_jitter_std > 0.0:
             commands += torch.randn_like(commands)*self.command_jitter_std
             commands = torch.max(torch.min(commands, self.command_high), self.command_low)
