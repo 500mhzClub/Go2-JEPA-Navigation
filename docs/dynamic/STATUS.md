@@ -49,3 +49,35 @@ every physics step, on the CPU backend. It walks at 0.3 m/s into a Go2 holding p
 - A free (non-fixed) body moved the same way also works, but with larger contact forces (47 N). Fixed is the choice.
 - **Needed in `sim/scene.py`:** `fix_raster_order` checks that the visible population is exactly floor, walls and
   robot, so it must admit the obstacles. The contact topology must name obstacle links for attribution.
+
+## P2: moving obstacles in missions (23 October)
+
+`go2nav/sim/obstacles.py`:
+- **Placement:** seeded by set, maze, episode and count. Each obstacle starts at least three passages from home, never
+  in the beacon cell.
+- **Walk:** cell centre to cell centre along passages at 0.15-0.35 m/s, with random pauses.
+- **Polite:** an obstacle stops while the robot is within 0.8 m ahead of it, and turns back after 3 s blocked.
+- **Simulation:**
+  - The cylinders are fixed entities, moved before each physics step after settling, and drawn after the walls.
+  - Their walk state is part of the C0 oracle's snapshots, so its what-if branches see the true future.
+  - Missions and cohorts take `--obstacles N` / `obstacles: N`.
+- **Evaluation:** the run's `native/obstacle_trace.npz` gives the closest approach from the base to an obstacle
+  surface. Each obstacle contact is attributed to whichever body was closing faster.
+
+Checks:
+- **Static scenes are untouched:** C1 on R4 maze 30 rerun with this code matches its `rexit2_ref` record for all
+  51,010 physics steps.
+- **Unit tests** (`tests/unit/test_obstacles.py`): seeded placement, passage-following walks, yield and turn-back.
+- **Smoke mission:** C1 on R4 maze 30 with two obstacles.
+  - No contact; the closest approach was 0.47 m.
+  - The robot never reached the beacon. 83% of its plans were holds, 988 of them `LATCHED_RECOVERY_TURN_BLOCKED`: a
+    latched turn that the clearance check keeps refusing.
+  - This fits the predicted ghost-trail failure (the map remembers every cell an obstacle once occupied). R7 measures
+    how common it is.
+
+R7 (`configs/experiments/r7_moving_obstacles.yaml`, cohorts `r7_obst{1,2}_{c0,c1,c5,c7}`):
+- R4's 20 episodes, run as-is on the shipped policy with the six primitives.
+- One and two obstacles; C0 as the forecast-perfect reference; C1, C5 and C7 paired with their R4 records.
+- Queued behind M3 (`outputs/dynamic_r7_queue.sh`, log `outputs/dynamic/r7.log`).
+- D2 needs rewording. C0 shares the harness, so it measures the harness with perfect forecasts, not whether an
+  episode can be solved. Ghost-trail deadlocks will fail C0 too.
