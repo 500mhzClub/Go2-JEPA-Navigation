@@ -47,6 +47,7 @@ POSE_WINDOW_FRAMES = 256
 FLOOR_HOLD = 'FLOOR_REACQUISITION_HOLD'
 VIEW_RECOVERY_HOLD = 'WAITING_FOR_POST_VISUAL_RECOVERY_PLAN'
 FLOOR_STREAK_FRAMES, FLOOR_PLAN_DELAY_NS = 4, 400_000_000
+FORGET_UNSEEN_NS = 30_000_000_000  # map clearing on: walls kept when no route is left (a full scan takes about 20 s)
 
 
 @dataclass
@@ -170,7 +171,12 @@ class NavigationController:
                                    phase=phase, generation=generation, view=self.view)
         objective = self.planner.objective(route, snapshot, registered.position, registered.rotation, prefix)
         if objective is None:
-            self.planning.append(dict(frame=frame.frame, reason='VIEW_BUDGET_EXHAUSTED'))
+            forgotten = 0
+            if self.routing_map.clear_seen_free:  # no route after a full look around: forget walls not seen lately
+                forgotten = len(self.routing_map.forget(now-FORGET_UNSEEN_NS))
+                if forgotten:
+                    self.planner.scan_target, self.planner.scan_index = None, 0
+            self.planning.append(dict(frame=frame.frame, reason='VIEW_BUDGET_EXHAUSTED', forgotten_cells=forgotten))
             return
         goal_body, scan_error = objective
         forecast_xy = None

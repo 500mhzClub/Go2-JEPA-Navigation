@@ -18,6 +18,8 @@ that this update sees as floor and holds no sample above the floor in either ima
 cells that hold no sample now. A cell counts as floor only when its whole square is visible floor, so a cell an
 obstacle stands in, or a wall in view, is never cleared. Without it a moving obstacle leaves a permanent trail of
 occupied cells (docs/dynamic/STATUS.md, R7). The snapshot's `cleared` gives the cells this update freed.
+A trail the cameras cannot see again (round a corner) stays, so `forget` drops occupied cells last seen occupied
+before a given time; the controller calls it when no route is left (`FORGET_UNSEEN_NS`).
 """
 from dataclasses import dataclass
 
@@ -237,7 +239,15 @@ class RoutingMap:
         self.B = None
         self.floor_height = None
         self.floor, self.occupied, self.fine_occupied = set(), set(), set()
+        self.seen_ns, self.fine_seen_ns = {}, {}  # when each occupied cell was last seen occupied
         self.latest = None
+
+    def forget(self, before_ns):
+        """Drop the occupied cells (and fine cells) last seen occupied before `before_ns`; returns the cells dropped."""
+        stale = {c for c in self.occupied if self.seen_ns[c] < before_ns}
+        self.occupied -= stale
+        self.fine_occupied -= {c for c in self.fine_occupied if self.fine_seen_ns[c] < before_ns}
+        return stale
 
     def update(self, frame, measured_ns, position, rotation, depth, auxiliary_depth, specific_force):
         """`position`/`rotation`: the registered pose (initial-body frame); `depth`/`auxiliary_depth`: (depth_m, valid)
@@ -284,6 +294,8 @@ class RoutingMap:
         self.floor.update(new_floor)
         self.occupied.update(new_occupied)
         self.fine_occupied.update(new_fine)
+        self.seen_ns.update(dict.fromkeys(new_occupied, measured_ns))
+        self.fine_seen_ns.update(dict.fromkeys(new_fine, measured_ns))
         cleared = set()
         if self.clear_seen_free:
             cleared = (new_floor-new_occupied)&self.occupied

@@ -51,3 +51,13 @@ def test_a_cell_still_holding_samples_is_kept(monkeypatch):
     snapshot = update(routing_map, monkeypatch, [(20, 0), (30, 10)], [(1.025, .025, .3)])
     assert (20, 0) in snapshot.occupied and (30, 10) not in snapshot.occupied
     assert snapshot.cleared == frozenset({(30, 10)})
+
+
+def test_forget_drops_only_cells_not_seen_lately(monkeypatch):
+    routing_map = started(True)
+    update(routing_map, monkeypatch, [], [(1.025, .025, .3)])                           # at 0 ns
+    routing_map.seen_ns[(20, 0)] = routing_map.fine_seen_ns[(102, 2)] = -10            # seen earlier
+    update(routing_map, monkeypatch, [], [(1.5, .5, .3)])
+    assert routing_map.forget(0) == {(20, 0)}
+    assert (20, 0) not in routing_map.occupied and (102, 2) not in routing_map.fine_occupied
+    assert (30, 10) in routing_map.occupied
