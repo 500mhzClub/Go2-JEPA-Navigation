@@ -137,6 +137,27 @@ Test missions (C1, clearing on), each a failure in R7:
 
 "Observed": the mission ended on the robot's own confirmed arrival home; the evaluator's physical check is pending.
 
-**R7b** (`configs/experiments/r7b_map_decay.yaml`, cohorts `r7b_*`, log `outputs/dynamic/r7b.log`), running:
-- R7 with clearing on, for C0, C1, C5 and C7 (160 missions);
-- static R4 with clearing on, for C1, C5 and C7 (60), paired with R4, to check clearing costs nothing in static scenes.
+**R7b** (`configs/experiments/r7b_map_decay.yaml`, cohorts `r7b_*`): R7 and static R4 with clearing on. Stopped after
+the static part, because clearing alone leaves a deadlock:
+- **Static R4 with clearing: 60/60** (C1 20, C5 20, C7 20; R4 records 20, 18, 17).
+- **C0, maze 30, one obstacle, with clearing:** stuck from 40 s, turning in place 3.7 m from the beacon while the
+  obstacle walked elsewhere. The trail cells round the corner were never in view, so never seen free; the scan
+  restart kept it turning.
+
+**Second rule (80ba129):** when no route is left after a full look around, the map forgets occupied cells not seen
+occupied in the last 30 s (`FORGET_UNSEEN_NS`) and the scan restarts. Walls come back as soon as they are seen; the
+dispatch check on fresh depth still guards contact.
+
+| Test mission (both rules) | Result |
+|---|---|
+| C0, maze 30, 1 obstacle | Round trip in 251 s (observed); was stuck with clearing alone |
+| C1, maze 30, 1 obstacle | Round trip in 204 s (observed) |
+| C1, maze 35, 2 obstacles | No beacon in 480 s, 3.1 m short; nine no-route events, 1,790 cells forgotten |
+| C1, maze 40, 2 obstacles | Pose lost at 159 s (visual odometry), obstacles 2.9 m and more behind it |
+
+- **Pose loss is a second failure type.** It also ended the one C0 R7b mission with an obstacle (maze 36), with the
+  obstacle 0.8 m away and possibly in view. Visual odometry assumes a static scene. To be measured in R7c.
+
+**R7c** (`configs/experiments/r7c_map_decay_forget.yaml`, cohorts `r7c_*`, log `outputs/dynamic/r7c.log`), running
+since 19:47: R7 with both rules for C0, C1, C5 and C7 (160 missions), and static R4 with both rules for C1, C5 and C7
+(60).
