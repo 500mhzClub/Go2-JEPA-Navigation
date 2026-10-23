@@ -34,7 +34,24 @@ m/s, yaw rad/s). The shipped policy is measured on the same grid.
   at 0.095 m/s; the new policy reaches 0.322 with no drift. R5 at friction 0.30 may improve for every arm, so the
   static baselines may not be "level" on the new policy. M3 measures this.
 - **M3:** C1 on the continuous policy, on the 100 benchmark episodes (`loco_continuous_c1.yaml`, cohorts
-  `loco_cont_*_c1`). Paired with C1 on the shipped policy, 72/100. Running.
+  `loco_cont_*_c1`), paired with C1 on the shipped policy.
+
+| Condition | Shipped policy | Continuous policy | Wins / losses |
+|---|---|---|---|
+| R4 | 20 | 18 | 0 / 2 |
+| R5, friction 0.30 | 16 | 18 | 2 / 0 |
+| R5, friction 0.25 | 1 | **16** | 15 / 0 |
+| R6 reference | 20 | 18 | 0 / 2 |
+| R6, low-friction strips | 15 | 19 | 5 / 1 |
+| Total | 72 | **89** | 22 / 5, sign test p = 0.0015 |
+
+- Low friction gains a great deal, as the benchmark predicted.
+- **M3 is not passed yet.** The static gate (R4 and R6 reference) is 36/40 against 40/40: four losses, no wins
+  (p = 0.125).
+  - Two reached the beacon, then took about twice the shortest path home and ran out of time (R4 37, R6 31 ep0).
+  - Two never reached the beacon (R4 49, R6 41 ep1).
+  - To diagnose: C1's command model was fitted on the shipped policy's pulse response; the new policy drifts slightly
+    in yaw while holding.
 
 ## P2 spike: kinematic obstacles in Genesis (23 October)
 
@@ -78,6 +95,48 @@ Checks:
 R7 (`configs/experiments/r7_moving_obstacles.yaml`, cohorts `r7_obst{1,2}_{c0,c1,c5,c7}`):
 - R4's 20 episodes, run as-is on the shipped policy with the six primitives.
 - One and two obstacles; C0 as the forecast-perfect reference; C1, C5 and C7 paired with their R4 records.
-- Queued behind M3 (`outputs/dynamic_r7_queue.sh`, log `outputs/dynamic/r7.log`).
 - D2 needs rewording. C0 shares the harness, so it measures the harness with perfect forecasts, not whether an
-  episode can be solved. Ghost-trail deadlocks will fail C0 too.
+  episode can be solved.
+
+## R7 results (23 October)
+
+| Arm | 1 obstacle: round trips (beacon) | 2 obstacles: round trips (beacon) | Failures ending with no route on the map |
+|---|---|---|---|
+| C1 | 2 (4) | 0 (0) | 35 of 38 |
+| C5 | 2 (3) | 0 (0) | 36 of 38 |
+| C7 | 3 (4) | 0 (0) | 36 of 37 |
+
+- **No contacts.** The closest approach to an obstacle was 0.43 m: the polite obstacles and the dispatch check work.
+- **Ghost trails dominate.**
+  - Almost every failure ends in `VIEW_BUDGET_EXHAUSTED`, first reached after a median 60-90 s.
+  - The map shows no route and no frontier, the robot scans every heading, then holds until the budget runs out.
+  - The evaluator called this "budget exhaustion despite progress". It now has its own rows: "no route on the map
+    (scans exhausted)" and "budget exhaustion with no route on the map".
+- **C0 crashed in all 40 of its missions** (`IndexError`).
+  - The oracle empties the session's sample trace before each what-if branch, and the obstacle update read the robot
+    position from it.
+  - Fixed in 4d6ee96: the session keeps the base position as its own state, captured in snapshots.
+  - A C0 mission with the fix (maze 30, one obstacle) ran the full 480 s and failed like the others: 1,041 of 1,199
+    plan frames had no route. With perfect forecasts the harness still deadlocks on ghost trails.
+
+## Ghost-trail fix: clearing seen-free cells (4d6ee96)
+
+`go2nav/perception/mapping.py`, `--map-decay on` / `map_decay: 'on'` (off by default, so static records reproduce):
+- An occupied cell that a map update sees as floor (its whole square visible floor) and that holds no sample above the
+  floor in either image becomes free again, with its fine cells that hold no sample.
+  - A cell an obstacle stands in, or a wall in view, is never seen as floor, so it is never cleared.
+- When cells clear after the robot ran out of scan headings, its scan restarts.
+
+Test missions (C1, clearing on), each a failure in R7:
+
+| Mission | R7 | With clearing |
+|---|---|---|
+| Maze 31, 1 obstacle | No beacon | Round trip in 254 s (observed) |
+| Maze 30, 2 obstacles | No beacon | Round trip in 115 s (observed) |
+| Maze 34, 2 obstacles | No beacon | Round trip in 237 s (observed) |
+
+"Observed": the mission ended on the robot's own confirmed arrival home; the evaluator's physical check is pending.
+
+**R7b** (`configs/experiments/r7b_map_decay.yaml`, cohorts `r7b_*`, log `outputs/dynamic/r7b.log`), running:
+- R7 with clearing on, for C0, C1, C5 and C7 (160 missions);
+- static R4 with clearing on, for C1, C5 and C7 (60), paired with R4, to check clearing costs nothing in static scenes.
