@@ -137,7 +137,13 @@ class ViTEncoder(nn.Module):
     """Images (B, 3, H, W) to the final-layer [CLS] token (B, width).
 
     The patch embedding is the usual stride-p convolution computed as a reshape and a linear layer (weights in the
-    convolution's (channel, row, column) order), which avoids the im2col copy that dominated it on ROCm."""
+    convolution's (channel, row, column) order), which avoids the im2col copy that dominated it on ROCm.
+
+    `checkpoint_blocks` (a runtime setting, not part of the model): in training, the first `checkpoint_blocks` blocks
+    recompute their activations in the backward pass instead of storing them, trading compute for memory (H-JEPA
+    encodes about 19 frames per sample, LeWM 12). 0, the default, stores everything."""
+
+    checkpoint_blocks = 0
 
     def __init__(self, config):
         super().__init__()
@@ -173,8 +179,12 @@ class ViTEncoder(nn.Module):
     def forward(self, pixels):
         x = self.patch_embed(self.patches(pixels))
         x = torch.cat((self.cls_token.expand(len(x), -1, -1), x), dim=1)+self.position
-        for block in self.blocks:
-            x = block(x)
+        recompute = self.training and torch.is_grad_enabled()
+        for i, block in enumerate(self.blocks):
+            if recompute and i < self.checkpoint_blocks:
+                x = torch.utils.checkpoint.checkpoint(block, x, use_reentrant=False)
+            else:
+                x = block(x)
         return self.norm(x)[:, 0]
 
 
@@ -370,10 +380,11 @@ def body_motion(poses, span):
 
 
 def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight=0., generator=None, poses=None,
-           motion_weight=0.):
+           motion_weight=0., z=None):
     """The training objective on windows of `history + rollout_steps` frames (rollout_steps >= 1).
 
-    pixels (B, T, 3, H, W) normalised, actions (B, T-1, A). Returns a dict with `loss` and its terms:
+    pixels (B, T, 3, H, W) normalised, actions (B, T-1, A); or, with `pixels` None, the frames' z (B, T, D) already
+    encoded (H-JEPA encodes every level's frames in one pass). Returns a dict with `loss` and its terms:
     - `pred`: the paper's teacher-forced MSE, positions 0..N-1 of the history predicting frames 1..N;
     - `rollout` (rollout_steps > 1, the Go2 configuration): the MSE of the autoregressive rollout from the N history
       frames to frames N..N+K-1, as the forecaster uses the model. With K = 1 the objective is the paper's;
@@ -386,7 +397,7 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight
       over each span, decoded from [z_t, z_(t+k) - z_t] and scaled by k x `MOTION_SCALE_PER_STEP`.
     """
     n = model.config.history
-    z = model.encode(pixels)
+    z = model.encode(pixels) if z is None else z
     pred = model.predict(z[:, :n], actions[:, :n])
     terms = dict(pred=(pred-z[:, 1:n+1]).pow(2).mean())
     if rollout_steps > 1:

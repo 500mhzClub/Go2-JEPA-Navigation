@@ -1,0 +1,491 @@
+name: H-JEPA level 1 (C7, C8) through the benchmark suite, full run (60,000 steps)
+description: C7 (H-JEPA level 1 rolled out and read by the corpus readout, as the C5 baseline) and C8 (the shared readout
+  protocol's direct head on its encoder, as the C6 baseline) on exactly the episodes of the C5/C6 cohorts, for paired comparison
+  with them (docs/hjepa/PLAN.md). The models file is written by the H-JEPA evaluation (hjepa_world_model, hjepa_c7_decoder_and_c8).
+cohorts:
+- name: lewm_r4_c7_hjepa_full
+  arms:
+  - C7
+  set: prelim_test_v1
+  recovery: 'off'
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 0
+  - - 33
+    - 0
+  - - 34
+    - 0
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 0
+  - - 38
+    - 0
+  - - 39
+    - 0
+  - - 40
+    - 0
+  - - 41
+    - 0
+  - - 42
+    - 0
+  - - 43
+    - 0
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 0
+  - - 47
+    - 0
+  - - 48
+    - 0
+  - - 49
+    - 0
+  original_cohort: lewm_r4_c5
+- name: lewm_r5_mu030_c7_hjepa_full
+  arms:
+  - C7
+  set: prelim_test_v1
+  recovery: 'off'
+  friction: 0.3
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 0
+  - - 33
+    - 0
+  - - 34
+    - 0
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 0
+  - - 38
+    - 0
+  - - 39
+    - 0
+  - - 40
+    - 0
+  - - 41
+    - 0
+  - - 42
+    - 0
+  - - 43
+    - 0
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 0
+  - - 47
+    - 0
+  - - 48
+    - 0
+  - - 49
+    - 0
+  original_cohort: lewm_r5_mu030_c5
+- name: lewm_r5_mu025_c7_hjepa_full
+  arms:
+  - C7
+  set: prelim_test_v1
+  recovery: 'off'
+  friction: 0.25
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 0
+  - - 33
+    - 0
+  - - 34
+    - 0
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 0
+  - - 38
+    - 0
+  - - 39
+    - 0
+  - - 40
+    - 0
+  - - 41
+    - 0
+  - - 42
+    - 0
+  - - 43
+    - 0
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 0
+  - - 47
+    - 0
+  - - 48
+    - 0
+  - - 49
+    - 0
+  original_cohort: lewm_r5_mu025_c5
+- name: lewm_r6_ref_c7_hjepa_full
+  arms:
+  - C7
+  set: stage2_sets_v1
+  recovery: 'off'
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 1
+  - - 33
+    - 1
+  - - 34
+    - 1
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 1
+  - - 38
+    - 0
+  - - 39
+    - 1
+  - - 40
+    - 0
+  - - 41
+    - 1
+  - - 42
+    - 0
+  - - 43
+    - 1
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 1
+  - - 47
+    - 1
+  - - 48
+    - 1
+  - - 49
+    - 0
+  original_cohort: lewm_r6_ref_c5
+- name: lewm_r6_strips_c7_hjepa_full
+  arms:
+  - C7
+  set: stage2_sets_v1
+  recovery: 'off'
+  strips: 0.3:marked
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 1
+  - - 33
+    - 1
+  - - 34
+    - 1
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 1
+  - - 38
+    - 0
+  - - 39
+    - 1
+  - - 40
+    - 0
+  - - 41
+    - 1
+  - - 42
+    - 0
+  - - 43
+    - 1
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 1
+  - - 47
+    - 1
+  - - 48
+    - 1
+  - - 49
+    - 0
+  original_cohort: lewm_r6_strips_c5
+- name: lewm_r4_c8_hjepa_full
+  arms:
+  - C8
+  set: prelim_test_v1
+  recovery: 'off'
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 0
+  - - 33
+    - 0
+  - - 34
+    - 0
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 0
+  - - 38
+    - 0
+  - - 39
+    - 0
+  - - 40
+    - 0
+  - - 41
+    - 0
+  - - 42
+    - 0
+  - - 43
+    - 0
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 0
+  - - 47
+    - 0
+  - - 48
+    - 0
+  - - 49
+    - 0
+  original_cohort: lewm_r4_c6
+- name: lewm_r5_mu030_c8_hjepa_full
+  arms:
+  - C8
+  set: prelim_test_v1
+  recovery: 'off'
+  friction: 0.3
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 0
+  - - 33
+    - 0
+  - - 34
+    - 0
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 0
+  - - 38
+    - 0
+  - - 39
+    - 0
+  - - 40
+    - 0
+  - - 41
+    - 0
+  - - 42
+    - 0
+  - - 43
+    - 0
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 0
+  - - 47
+    - 0
+  - - 48
+    - 0
+  - - 49
+    - 0
+  original_cohort: lewm_r5_mu030_c6
+- name: lewm_r5_mu025_c8_hjepa_full
+  arms:
+  - C8
+  set: prelim_test_v1
+  recovery: 'off'
+  friction: 0.25
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 0
+  - - 33
+    - 0
+  - - 34
+    - 0
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 0
+  - - 38
+    - 0
+  - - 39
+    - 0
+  - - 40
+    - 0
+  - - 41
+    - 0
+  - - 42
+    - 0
+  - - 43
+    - 0
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 0
+  - - 47
+    - 0
+  - - 48
+    - 0
+  - - 49
+    - 0
+  original_cohort: lewm_r5_mu025_c6
+- name: lewm_r6_ref_c8_hjepa_full
+  arms:
+  - C8
+  set: stage2_sets_v1
+  recovery: 'off'
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 1
+  - - 33
+    - 1
+  - - 34
+    - 1
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 1
+  - - 38
+    - 0
+  - - 39
+    - 1
+  - - 40
+    - 0
+  - - 41
+    - 1
+  - - 42
+    - 0
+  - - 43
+    - 1
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 1
+  - - 47
+    - 1
+  - - 48
+    - 1
+  - - 49
+    - 0
+  original_cohort: lewm_r6_ref_c6
+- name: lewm_r6_strips_c8_hjepa_full
+  arms:
+  - C8
+  set: stage2_sets_v1
+  recovery: 'off'
+  strips: 0.3:marked
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 1
+  - - 33
+    - 1
+  - - 34
+    - 1
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 1
+  - - 38
+    - 0
+  - - 39
+    - 1
+  - - 40
+    - 0
+  - - 41
+    - 1
+  - - 42
+    - 0
+  - - 43
+    - 1
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 1
+  - - 47
+    - 1
+  - - 48
+    - 1
+  - - 49
+    - 0
+  original_cohort: lewm_r6_strips_c6

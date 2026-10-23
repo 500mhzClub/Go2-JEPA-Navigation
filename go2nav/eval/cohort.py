@@ -9,7 +9,7 @@
 An experiment config lists cohorts; each cohort is a set of arms on registered maze episodes with shared options
 (recovery, dynamics, decoder fit). Every mission runs in its own process (`go2nav.eval.mission`), then the episode
 reader (`go2nav.eval.episode`). Missions start only while the disk keeps the 12-GiB reserve (plus 2 GiB) and memory
-allows; C3 missions are limited to `--c3-lanes` at a time and C5/C6 missions to `--lewm-lanes` (GPU memory; the
+allows; C3 missions are limited to `--c3-lanes` at a time and C5-C8 missions to `--lewm-lanes` (GPU memory; the
 lanes are `go2nav.controllers.registry.GPU_LANES`). Each row reports the outcome, contacts, wall
 clearance, hold rates and failure taxonomy, plus how often each recovery mechanism intervened and how often the
 registered pose jumped beyond the robot's physical limits, so recovery cannot hide weak prediction.
