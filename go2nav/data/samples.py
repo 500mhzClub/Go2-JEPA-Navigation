@@ -56,7 +56,8 @@ FOLDERS = dict(family='go2_geometry_progress_family_v1_attempt_001',
                balanced_start='go2_balanced_start_actions_v1_attempt_001',
                balanced_start_horizon='go2_balanced_start_horizon_actions_v1_attempt_001',
                full_heading='go2_full_heading_training_v1_attempt_001',
-               maze_view='go2_maze_view_training_v1_attempt_001')
+               maze_view='go2_maze_view_training_v1_attempt_001',
+               command_range='go2_command_range_v1')
 PLANS = dict(family='geometry_progress_family', switch='switch_family', short_pulse='short_pulse',
              balanced_start='balanced_start', balanced_start_horizon='balanced_start_horizon')
 FIRST_FRAME_SAMPLE, SAMPLES_PER_FRAME, HORIZON = 749, 50, 8
