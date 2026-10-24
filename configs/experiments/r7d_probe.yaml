@@ -1,0 +1,159 @@
+name: 'R7d probe: precise forgetting and deadlock escape on a sample of R7c missions'
+description: 'A sample of R7c missions before the full R7d: 17 failures (forgetting churn, latched turns blocked by a wall,
+  a C0 audit false failure), 5 round trips and 3 static missions, with --map-decay floor (no route left: forget stale cells
+  once seen as floor first) and --deadlock-escape on (latch timeout and deadlock escape alone). Pairs with R7c (r7c_map_decay_forget).'
+cohorts:
+- name: r7dp_obst1_c0
+  arms:
+  - C0
+  set: prelim_test_v1
+  recovery: 'off'
+  map_decay: floor
+  deadlock_escape: 'on'
+  obstacles: 1
+  episodes:
+  - - 41
+    - 0
+  - - 34
+    - 0
+  - - 30
+    - 0
+- name: r7dp_obst2_c0
+  arms:
+  - C0
+  set: prelim_test_v1
+  recovery: 'off'
+  map_decay: floor
+  deadlock_escape: 'on'
+  obstacles: 2
+  episodes:
+  - - 30
+    - 0
+  - - 41
+    - 0
+  - - 32
+    - 0
+- name: r7dp_obst1_c1
+  arms:
+  - C1
+  set: prelim_test_v1
+  recovery: 'off'
+  map_decay: floor
+  deadlock_escape: 'on'
+  obstacles: 1
+  episodes:
+  - - 33
+    - 0
+  - - 37
+    - 0
+  - - 35
+    - 0
+  - - 48
+    - 0
+  - - 30
+    - 0
+- name: r7dp_obst2_c1
+  arms:
+  - C1
+  set: prelim_test_v1
+  recovery: 'off'
+  map_decay: floor
+  deadlock_escape: 'on'
+  obstacles: 2
+  episodes:
+  - - 39
+    - 0
+  - - 35
+    - 0
+  - - 45
+    - 0
+  - - 36
+    - 0
+  - - 41
+    - 0
+- name: r7dp_obst1_c5
+  arms:
+  - C5
+  set: prelim_test_v1
+  recovery: 'off'
+  map_decay: floor
+  deadlock_escape: 'on'
+  obstacles: 1
+  models: outputs/lewm/readout/chain_span8w_corpus/models.yaml
+  episodes:
+  - - 31
+    - 0
+- name: r7dp_obst2_c5
+  arms:
+  - C5
+  set: prelim_test_v1
+  recovery: 'off'
+  map_decay: floor
+  deadlock_escape: 'on'
+  obstacles: 2
+  models: outputs/lewm/readout/chain_span8w_corpus/models.yaml
+  episodes:
+  - - 44
+    - 0
+  - - 42
+    - 0
+  - - 38
+    - 0
+- name: r7dp_obst1_c7
+  arms:
+  - C7
+  set: prelim_test_v1
+  recovery: 'off'
+  map_decay: floor
+  deadlock_escape: 'on'
+  obstacles: 1
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - - 34
+    - 0
+  - - 44
+    - 0
+- name: r7dp_obst2_c7
+  arms:
+  - C7
+  set: prelim_test_v1
+  recovery: 'off'
+  map_decay: floor
+  deadlock_escape: 'on'
+  obstacles: 2
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - - 37
+    - 0
+- name: r7dp_static_c1
+  arms:
+  - C1
+  set: prelim_test_v1
+  recovery: 'off'
+  map_decay: floor
+  deadlock_escape: 'on'
+  episodes:
+  - - 33
+    - 0
+- name: r7dp_static_c5
+  arms:
+  - C5
+  set: prelim_test_v1
+  recovery: 'off'
+  map_decay: floor
+  deadlock_escape: 'on'
+  models: outputs/lewm/readout/chain_span8w_corpus/models.yaml
+  episodes:
+  - - 35
+    - 0
+- name: r7dp_static_c7
+  arms:
+  - C7
+  set: prelim_test_v1
+  recovery: 'off'
+  map_decay: floor
+  deadlock_escape: 'on'
+  models: outputs/hjepa/full_3level/eval/models.yaml
+  episodes:
+  - - 47
+    - 0
