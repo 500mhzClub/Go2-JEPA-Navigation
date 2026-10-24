@@ -501,9 +501,11 @@ def recover_heading_against_hold(selection):
 
 # -- dispatch-time stopping and floor coverage -----------------------------------------------------------------------
 
-def stopping_projection(selection, prediction, clearance, position, rotation, *, pulse=False):
+def stopping_projection(selection, prediction, clearance, position, rotation, *, pulse=False, admissible=False):
     """A translation must also stop clear if dispatched from any forecast pose with obstacles seen then: from each
-    pose up to expiry, the requested-speed distance to expiry plus 0.5 s must keep the footprint. Otherwise align or hold."""
+    pose up to expiry, the requested-speed distance to expiry plus 0.5 s must keep the footprint. Otherwise align or hold
+    (`admissible`, for a lattice: the best clear candidate whose projection is clear, translations included, as the
+    dynamic window approach takes the best admissible velocity)."""
     position, rotation = np.asarray(position, float), np.asarray(rotation, float)
     checks = []
     for i, action in enumerate(names(selection)):
@@ -529,7 +531,8 @@ def stopping_projection(selection, prediction, clearance, position, rotation, *,
     selected = next(row for row in checks if row['action'] == selection['action'])
     if not selected['translating'] or selected['projection_clear']:
         return result
-    index, _ = best_clear(selection, allowed=in_place(selection))
+    allowed = tuple(r['action'] for r in checks if r['projection_clear']) if admissible else in_place(selection)
+    index, _ = best_clear(selection, allowed=allowed)
     choose(result, index)
     result['planned_stopping_projection'].update(changed=True, after_action=result['action'])
     return result
@@ -555,11 +558,12 @@ def footprint_extension(prediction, position, rotation, floor, candidates=ACTION
             for action, path, mask in zip(candidates, paths, masks)]
 
 
-def require_floor_coverage(selection, prediction, snapshot, position, rotation, occupied_observed=True):
+def require_floor_coverage(selection, prediction, snapshot, position, rotation, occupied_observed=True, admissible=False):
     """A translation must not sweep unobserved floor: otherwise align or hold, and return the nearest unobserved cell
     it would have swept (to be viewed). Returns (selection, cell or None). Observed occupied cells count as observed
     (the coverage fix of 2 October); with `occupied_observed=False`, the earlier rule, only observed floor does (the
-    view target is still an unobserved cell)."""
+    view target is still an unobserved cell). With `admissible` (a lattice), the best clear, stopping-clear candidate
+    that sweeps no unobserved floor is taken instead, translations included (no view target then)."""
     if not translating(selection['action']):
         return selection, None
     observed = snapshot.floor|snapshot.occupied
@@ -572,6 +576,14 @@ def require_floor_coverage(selection, prediction, snapshot, position, rotation, 
         return selection | dict(translation_footprint_coverage=dict(rejected=False)), None
     values = utilities(selection)
     stopping = {r['action']: r['projection_clear'] for r in selection['planned_stopping_projection']['candidates']}
+    if admissible:
+        action = _covered_alternative(selection, prediction, position, rotation,
+                                      observed if occupied_observed else snapshot.floor, stopping, values)
+        if action is not None:
+            result = choose(deepcopy(selection), order.index(action))
+            result['translation_footprint_coverage'] = dict(rejected=True, previous_action=selection['action'],
+                                                            selected_action=action)
+            return result, None
     eligible = [r['action'] for r in selection['memory_forecast_candidates']
                 if r['action'] in in_place(selection) and r['nominal_predicted_path_clear']
                 and stopping[r['action']] and r['action'] in values]
@@ -582,6 +594,27 @@ def require_floor_coverage(selection, prediction, snapshot, position, rotation, 
     targets = [tuple(c) for c in selected['added_cells'] if tuple(c) not in observed]
     target = min(targets, key=lambda c: (float(np.linalg.norm(grid.centre(c)-np.asarray(position)[:2])), c)) if targets else None
     return result, target
+
+
+def _covered_alternative(selection, prediction, position, rotation, observed, stopping, values):
+    """The best-scoring clear, stopping-clear translation (other than the choice) sweeping no unobserved floor, if it
+    scores above every clear in-place candidate; else None."""
+    order = names(selection)
+    rows = [r for r in selection['memory_forecast_candidates']
+            if r['nominal_predicted_path_clear'] and stopping[r['action']] and r['action'] in values]
+    best_still = max((values[r['action']] for r in rows if r['action'] in in_place(selection)), default=-math.inf)
+    hold = order.index('hold')
+    for r in sorted(rows, key=lambda r: -values[r['action']]):
+        action = r['action']
+        if values[action] <= best_still:
+            return None
+        if not translating(action) or action == selection['action']:
+            continue
+        i = order.index(action)
+        row = footprint_extension(np.asarray(prediction)[[hold, i]], position, rotation, observed, ['hold', action])[1]
+        if row['new_unknown_cells'] == 0 and not row['leaves_map_bounds']:
+            return action
+    return None
 
 
 # -- memory of turns tried at this place -----------------------------------------------------------------------------

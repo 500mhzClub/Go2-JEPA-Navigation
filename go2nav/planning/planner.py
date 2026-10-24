@@ -386,7 +386,8 @@ class Planner:
             result = sel.recover_heading_against_hold(repositioned)
             if result is not repositioned:
                 self.clearance_turn = None
-        result = sel.stopping_projection(result, prediction, clearance, q, Q, pulse=self.pulse)
+        lattice = self.candidates != ACTIONS
+        result = sel.stopping_projection(result, prediction, clearance, q, Q, pulse=self.pulse, admissible=lattice)
         if result['planned_stopping_projection']['changed']:
             self.clearance_turn = None
         if self.view_body is not None:
@@ -394,7 +395,8 @@ class Planner:
             if arc is not result:
                 self.clearance_turn = None
             result = arc
-        result, target = sel.require_floor_coverage(result, prediction, snapshot, q, Q, occupied_observed=self.coverage_fix)
+        result, target = sel.require_floor_coverage(result, prediction, snapshot, q, Q, occupied_observed=self.coverage_fix,
+                                                    admissible=lattice)
         if result.get('translation_footprint_coverage', {}).get('rejected'):
             self.clearance_turn = None
             if self.coverage_target is None and target is not None:
