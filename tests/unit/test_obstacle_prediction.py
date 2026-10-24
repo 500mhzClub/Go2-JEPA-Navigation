@@ -17,19 +17,36 @@ def coarse(cells):
     return frozenset((i//5, j//5) for i, j in cells)
 
 
-def snapshot(t_s, cells, floor):
-    return SimpleNamespace(measured_ns=int(t_s*1e9), current_fine_occupied=frozenset(cells), floor=frozenset(floor))
+def snapshot(t_s, cells, floor, centre=None):
+    """A map update seeing `cells` occupied and, as free floor now, `floor` beyond 0.25 m of the obstacle's `centre`."""
+    free = {c for c in floor if centre is None or np.hypot(*((np.asarray(c)+.5)*.05-centre)) > .25}
+    return SimpleNamespace(measured_ns=int(t_s*1e9), current_fine_occupied=frozenset(cells), floor=frozenset(floor),
+                           current_floor=frozenset(free), current_occupied=coarse(cells))
+
+
+PASSAGE = {(i, j) for i in range(0, 80) for j in range(-10, 10)}     # a 4 m x 1 m passage seen as floor
 
 
 def test_tracks_an_obstacle_walking_over_seen_floor_at_its_speed():
-    floor = {(i, j) for i in range(0, 80) for j in range(-10, 10)}   # a 4 m x 1 m passage seen as floor
     tracker = tracks.ObstacleTracker()
     for k in range(6):
         t = .4*k
-        live = tracker.update(snapshot(t, arc((3.-.3*t, 0.)), floor))
+        centre = np.array((3.-.3*t, 0.))
+        live = tracker.update(snapshot(t, arc(centre), PASSAGE, centre))
     assert len(live) == 1
     assert np.allclose(live[0].velocity, (-.3, 0.), atol=.02)
-    assert tracks.moving(live) == live
+    assert live[0].confirmed and tracks.moving(live) == live
+
+
+def test_a_static_fragment_whose_shape_shifts_with_the_view_is_not_predicted():
+    """A wall end on floor cells (misregistered): its visible part, and so its centroid, drifts, but it never enters
+    floor seen free or leaves its cells free."""
+    tracker = tracks.ObstacleTracker()
+    for k in range(5):
+        cells = frozenset((i, j) for i, j in arc((2., 0.)) if j < -10+6*k)  # more of it in view each update
+        live = tracker.update(snapshot(.4*k, cells, PASSAGE, np.array((2., 0.))))
+    assert live and live[0].speed > tracks.MIN_SPEED_M_S
+    assert not live[0].confirmed and tracks.moving(live) == []
 
 
 def test_wall_cells_never_seen_as_floor_are_not_tracked():

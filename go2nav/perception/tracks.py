@@ -9,6 +9,12 @@ most `MAX_EXTENT_M`, at least `MIN_CELLS` cells) and at least `MIN_FLOOR_SHARE` 
 floor: something now stands where the floor was seen free. A wall's cell is never seen as floor, so walls, and a wall
 end seen through a gap, never become candidates.
 
+**Evidence of motion.** A static fragment's centroid also drifts as its visible part changes with the view, so a
+track is predicted only once it has shown motion in `CONFIRM_UPDATES` updates, each with at least `MOTION_CELLS` 5-cm
+cells that it either *entered* (now occupied, seen as free floor in an earlier update within `RECENT_FREE_S`) or
+*vacated* (occupied by the track before, seen as free floor now). A wall neither enters floor seen free nor leaves its
+cells free behind it.
+
 **Tracking.** Each candidate joins the nearest track whose last centroid lies within `GATE_M` plus `MAX_SPEED_M_S`
 times the time since, else starts a track. The velocity is the least-squares slope of the centroid over the last
 `WINDOW_S`, from at least three observations spanning `MIN_SPAN_S`, capped at `MAX_SPEED_M_S`. Only the visible face
@@ -16,7 +22,7 @@ is measured, so the centroid sits nearer the robot than the true centre; the off
 the slope is still the obstacle's motion. A track not seen for `KEEP_UNSEEN_S` is dropped (its cells stay in the map
 as stored cells).
 
-**Moving tracks** (`moving`): speed at least `MIN_SPEED_M_S`. The planner takes their cells out of the stored cells
+**Moving tracks** (`moving`): confirmed, with speed at least `MIN_SPEED_M_S`. The planner takes their cells out of the stored cells
 and checks each forecast segment against them shifted by the velocity times the segment's time
 (`planning.prediction`).
 """
@@ -30,6 +36,7 @@ from go2nav.perception.mapping import CELL_M, FINE_CELL_M
 JOIN_M, MIN_CELLS, MAX_EXTENT_M, MIN_FLOOR_SHARE = .03, 20, .60, .5
 GATE_M, MAX_SPEED_M_S, MIN_SPEED_M_S = .15, .60, .05
 WINDOW_S, MIN_SPAN_S, KEEP_UNSEEN_S = 1.2, .7, 1.2
+RECENT_FREE_S, MOTION_CELLS, CONFIRM_UPDATES = 3., 2, 2
 RATIO = int(round(CELL_M/FINE_CELL_M))
 
 
@@ -41,6 +48,12 @@ class Track:
     seen_ns: int
     history: list = field(default_factory=list)   # [(t_ns, centroid xy)]
     velocity: np.ndarray = field(default_factory=lambda: np.zeros(2))
+    footprint: frozenset = frozenset()             # its 5-cm cells at the previous observation
+    motion_updates: int = 0                        # updates that showed motion (see the module docstring)
+
+    @property
+    def confirmed(self):
+        return self.motion_updates >= CONFIRM_UPDATES
 
     @property
     def speed(self):
@@ -49,7 +62,8 @@ class Track:
     def summary(self, now_ns):
         return dict(id=self.id, centroid_m=[round(float(v), 3) for v in self.history[-1][1]],
                     velocity_m_s=[round(float(v), 3) for v in self.velocity], cells=len(self.cells),
-                    observations=len(self.history), age_s=round((now_ns-self.seen_ns)/1e9, 2))
+                    observations=len(self.history), age_s=round((now_ns-self.seen_ns)/1e9, 2),
+                    motion_updates=self.motion_updates)
 
 
 def clusters(cells):
@@ -91,11 +105,13 @@ class ObstacleTracker:
 
     def __init__(self):
         self.tracks, self.next_id = [], 0
+        self.free_ns = {}   # 5-cm cell -> when last seen as free floor (floor, nothing above it)
 
     def update(self, snapshot):
         """Advance the tracks with one map snapshot; returns the live tracks."""
         now = int(snapshot.measured_ns)
         found = [p for p in clusters(snapshot.current_fine_occupied) if candidate(p, snapshot.floor)]
+        free = snapshot.current_floor-snapshot.current_occupied
         self.tracks = [t for t in self.tracks if now-t.seen_ns <= KEEP_UNSEEN_S*1e9]
         pairs = []
         for k, points in enumerate(found):
@@ -111,17 +127,22 @@ class ObstacleTracker:
                 continue
             used.add(k)
             taken.add(tid)
-            self._observe(by_id[tid], found[k], now)
+            self._observe(by_id[tid], found[k], now, free)
         for k, points in enumerate(found):
             if k not in used:
                 track = Track(self.next_id, frozenset(), now)
                 self.next_id += 1
-                self._observe(track, points, now)
+                self._observe(track, points, now, free)
                 self.tracks.append(track)
+        self.free_ns.update(dict.fromkeys(free, now))
         return list(self.tracks)
 
-    @staticmethod
-    def _observe(track, points, now):
+    def _observe(self, track, points, now, free):
+        coarse = frozenset((int(i)//RATIO, int(j)//RATIO) for i, j in points)
+        entered = sum(0 < now-self.free_ns.get(c, -10**19) <= RECENT_FREE_S*1e9 for c in coarse)
+        vacated = len((track.footprint-coarse)&free)
+        track.motion_updates += entered+vacated >= MOTION_CELLS
+        track.footprint = coarse
         track.cells = frozenset(map(tuple, points.tolist()))
         track.seen_ns = now
         track.history = [h for h in track.history if now-h[0] <= WINDOW_S*1e9]+[(now, centroid(points))]
@@ -137,5 +158,5 @@ class ObstacleTracker:
 
 
 def moving(tracks):
-    """The tracks fast enough to predict."""
-    return [t for t in tracks if t.speed >= MIN_SPEED_M_S]
+    """The confirmed tracks fast enough to predict."""
+    return [t for t in tracks if t.confirmed and t.speed >= MIN_SPEED_M_S]
