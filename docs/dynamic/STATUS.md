@@ -158,6 +158,25 @@ dispatch check on fresh depth still guards contact.
 - **Pose loss is a second failure type.** It also ended the one C0 R7b mission with an obstacle (maze 36), with the
   obstacle 0.8 m away and possibly in view. Visual odometry assumes a static scene. To be measured in R7c.
 
-**R7c** (`configs/experiments/r7c_map_decay_forget.yaml`, cohorts `r7c_*`, log `outputs/dynamic/r7c.log`), running
-since 19:47: R7 with both rules for C0, C1, C5 and C7 (160 missions), and static R4 with both rules for C1, C5 and C7
-(60).
+**R7c** (`configs/experiments/r7c_map_decay_forget.yaml`, cohorts `r7c_*`): R7 and static R4 with both rules, all
+220 missions (finished 24 October, 05:18).
+
+| Arm | Static R4 | 1 obstacle | 2 obstacles | vs R7 (wins / losses) | vs R4, 1 + 2 obstacles (wins / losses) |
+|---|---|---|---|---|---|
+| C0 | not run | 14 | 8 | 22 / 0 | no R4 record |
+| C1 | 20 | 13 | 11 | 22 / 0 | 0 / 16 |
+| C5 | 20 | 10 | 8 | 16 / 0 | 0 / 22 |
+| C7 | 20 | 11 | 9 | 17 / 0 | 0 / 20 |
+
+- **Static: 60/60**, the same as the R4 records (all 20/20).
+- **No contacts** in any mission.
+- Round trips take a median 1.5-2.2 times their R4 time.
+- C0 counts five missions that came home but failed the oracle's executed-prefix check (an override hold at tick 0
+  matches no branch); four more C0 missions failed that check without a round trip.
+- **Failures:**
+  - Most end with no route after repeated forgetting: failed missions see 6-14 no-route events and forget
+    1,400-3,000 cells, against 1-5 and 400-800 in round trips. Forgetting drops real walls, so the robot replans
+    through them and finds them again. Obstacle proximity is the same in failures and round trips.
+  - With one obstacle, eight no-beacon failures hold on `LATCHED_RECOVERY_TURN_BLOCKED` for most of the mission.
+  - **Pose loss** in 8 missions. Maze 36 with one obstacle fails the same way in every arm (26.6 s, opening scan,
+    obstacle 0.75 m to the side, in view). The others have the obstacles 2-4 m away, mostly out of view.
