@@ -180,3 +180,43 @@ dispatch check on fresh depth still guards contact.
   - With one obstacle, eight no-beacon failures hold on `LATCHED_RECOVERY_TURN_BLOCKED` for most of the mission.
   - **Pose loss** in 8 missions. Maze 36 with one obstacle fails the same way in every arm (26.6 s, opening scan,
     obstacle 0.75 m to the side, in view). The others have the obstacles 2-4 m away, mostly out of view.
+
+## Round 1 rules and the R7d probe (24 October)
+
+Three changes (77096bd):
+- **`--map-decay floor`:** with no route left, forget only stale cells once seen as floor (a passage an obstacle
+  walked through; a wall's cell is never seen as floor). Forget every stale cell only when none of those is left.
+- **`--deadlock-escape on`:** the latch timeout and the deadlock escape, without the other recovery fixes.
+  - R7c's latched-turn holds are real walls, not trails. The robot sits 0.49-0.59 m from a true wall (map clearance
+    0.44-0.48 m), just inside the 0.48 m a turn needs, so both turns are refused for the rest of the mission.
+  - The existing escape never fired, because an active latch disables it.
+- **C0 audit:** the executed-prefix check skips plans whose first command was overridden at dispatch. All nine of
+  R7c's check failures were this.
+
+**Probe** (`configs/experiments/r7d_probe.yaml`, cohorts `r7dp_*`): 26 R7c missions on the shipped policy (17
+failures of every type, 6 round trips, 3 static). Paired with R7c:
+- **4 wins, 1 loss** (C0, two obstacles, maze 32: beacon, not home). No contacts; static missions identical.
+- Forgetting falls from 1,100-3,200 cells to 0-260 in the one-obstacle missions. With two obstacles the precise rule
+  often finds nothing and falls back to forgetting every stale cell (C0: 11-16 no-route events, 1,000-1,600 cells).
+- **Four failures changed type, from time-out to pose loss** (C1 one obstacle 37; C1 two obstacles 36 and 39; C5 two
+  obstacles 42). Robots that the escape gets moving again now lose visual odometry instead of holding.
+- These missions were diagnosed on the test mazes, so the probe checks the changes; it is not a tuning round under
+  P2b.
+
+## C1 refit on the continuous policy (24 October): rejected
+
+M3's four static losses all end the same way: the robot about 4 cm from a waypoint (arrival radius 2 cm), choosing
+700-900 left turns while the waypoint stays about 48° to the left. On the continuous policy a turn in place moves the
+base about 8 mm per 800 ms, so the base circles the waypoint.
+
+The C1 command model was refitted on that policy:
+- Corridor recordings (geometry family, switch family, short pulse; 276 trials) re-recorded with `--policy`
+  (4f36ff7), giving 4,660 contexts. The refit lowers the 800-ms error on turns in place from 9.3 to 1.6 mm forward
+  (in-sample).
+- **M3 with the refit** (`loco_continuous_c1_refit.yaml`, cohorts `loco_refit_*`): **71/100**, against 89 for M3
+  (6 wins, 24 losses). R4 16, R5 at friction 0.30 14, R5 at 0.25 8, R6 reference 16, R6 strips 17.
+- Its failures spend about 1,000 of 1,200 plans within 10 cm of a waypoint. The better model sees the few millimetres
+  a turn moves the base as position progress and keeps turning.
+
+The limit is the terminal approach, not C1's forecast: a 2 cm arrival with six primitives on a policy that does not
+turn on the spot. M3 keeps the shipped C1 fit. The terminal approach is round 2, developed on mazes 00-29.
