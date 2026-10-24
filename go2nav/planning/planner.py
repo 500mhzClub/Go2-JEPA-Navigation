@@ -362,7 +362,10 @@ class Planner:
         if moving:
             stored = grid.FineClearance(predicted.without(snapshot.fine_occupied, moving))
             checked = predicted.PredictedClearance(self._cautious(stored, snapshot, q), moving, snapshot.measured_ns)
+            plain = sel.clearance_check(result, prediction, self._cautious(clearance, snapshot, q), q, Q, exits=self.exits)
         result = sel.clearance_check(result, prediction, checked, q, Q, exits=self.exits)
+        if moving:  # what the check would have chosen without the prediction (a diagnostic only)
+            result['unpredicted_check_action'] = plain['action']
         result, self.clearance_turn = sel.recover_turn(result, heading, generation, self.clearance_turn, exits=self.exits)
         if terminal:
             result = sel.terminal_progress(result)
