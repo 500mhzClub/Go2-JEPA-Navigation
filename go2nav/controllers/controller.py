@@ -33,7 +33,7 @@ from go2nav.perception.tracks import ObstacleTracker
 from go2nav.perception.visual_odometry import VisualOdometry
 from go2nav.perception.visual_support import SupportedView
 from go2nav.planning import grid
-from go2nav.planning.actions import COMMIT_TICKS, PERIOD_NS
+from go2nav.planning.actions import ACTIONS, COMMIT_TICKS, PERIOD_NS, translating
 from go2nav.planning.dispatch import PASSED, CommitmentLedger, ScheduledCommand, dispatch_check
 from go2nav.planning.mission import RoundTripMission
 from go2nav.planning.planner import Planner
@@ -83,7 +83,8 @@ class NavigationController:
 
     def __init__(self, forecaster, *, goal_xy, home_xy, arrival_radius_m=.02, navigation_frames=4800, recovery=False,
                  margin_m=0., unknown=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False,
-                 deadlock_escape=False, terminal_burst=False, obstacle_prediction=False, footprint_clearing=False):
+                 deadlock_escape=False, terminal_burst=False, obstacle_prediction=False, footprint_clearing=False,
+                 candidates=ACTIONS):
         self.forecaster = forecaster
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
         self.routing_map = RoutingMap(clear_seen_free=bool(map_decay), clear_footprint=footprint_clearing)
@@ -91,7 +92,8 @@ class NavigationController:
         self.forget_floor_first = map_decay == 'floor'
         self.planner = Planner(arrival_radius_m=arrival_radius_m, recovery=recovery, margin_m=margin_m, unknown=unknown,
                                harness=harness, coverage_fix=coverage_fix, deadlock_escape=deadlock_escape,
-                               terminal_burst=terminal_burst, obstacle_prediction=obstacle_prediction)
+                               terminal_burst=terminal_burst, obstacle_prediction=obstacle_prediction,
+                               candidates=candidates)
         self.tracker = ObstacleTracker() if obstacle_prediction else None
         self.mission = RoundTripMission(goal_xy, home_xy, arrival_radius_m=arrival_radius_m, navigation_frames=navigation_frames)
         self.ledger = CommitmentLedger()
@@ -199,12 +201,13 @@ class NavigationController:
             context = PlanContext(frame.frame, now, frame.history,
                                   tuple(self.policy_packets[now-d] for d in (1_000_000_000, 500_000_000, 0)),
                                   dict(self.registered_poses), tuple(self.ledger.commitments))
-            prediction = self.forecaster.forecast(context, prefix, pulse=self.planner.pulse)
+            lattice = {} if self.planner.candidates == ACTIONS else dict(candidates=self.planner.candidates)
+            prediction = self.forecaster.forecast(context, prefix, pulse=self.planner.pulse, **lattice)
             selected = self.planner.select(prediction, goal_body, scan_error, snapshot, registered.position,
                                            registered.rotation, generation=generation)
             forecast_xy = np.asarray(prediction)[:, :, :2].tolist()
         plan = ScheduledCommand.prepare(selected['action'], observed_ns=now,
-                                        pulse=self.planner.pulse and selected['action'] in ('forward', 'left_arc', 'right_arc'))
+                                        pulse=self.planner.pulse and translating(selected['action']))
         if self.planner.backup_plan:  # recorded as a hold; a translation, so a pulse in the terminal approach
             plan = replace(plan, command=tuple(selected['requested_command']),
                            expires_ns=plan.dispatch_ns+(1 if self.planner.pulse else COMMIT_TICKS)*PERIOD_NS)

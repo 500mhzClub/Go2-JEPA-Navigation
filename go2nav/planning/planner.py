@@ -52,7 +52,7 @@ import math
 import numpy as np
 
 from go2nav.planning import caution, grid, prediction as predicted, reactive, routing, selection as sel
-from go2nav.planning.actions import ACTIONS, TRANSLATIONS, TURNS, command
+from go2nav.planning.actions import ACTIONS, TRANSLATIONS, TURNS, command, turn_direction
 from go2nav.planning.grid import centre
 from go2nav.perception import tracks
 from go2nav.perception.rigid import UnportedBranch
@@ -82,12 +82,14 @@ class Planner:
     """Planning state and the route, objective and selection steps (see the module docstring)."""
 
     def __init__(self, *, arrival_radius_m, recovery=False, margin_m=0., unknown=None, harness='reserve_exit_v2',
-                 coverage_fix=True, deadlock_escape=False, terminal_burst=False, obstacle_prediction=False):
+                 coverage_fix=True, deadlock_escape=False, terminal_burst=False, obstacle_prediction=False,
+                 candidates=ACTIONS):
         if harness not in HARNESSES:
             raise ValueError(f'unknown harness {harness!r}')
         self.arrival_radius_m, self.recovery, self.harness = arrival_radius_m, recovery, harness
         self.deadlock_escape, self.terminal_burst_on = deadlock_escape, terminal_burst
         self.obstacle_prediction, self.tracks = obstacle_prediction, []  # set by the controller each map update
+        self.candidates = tuple(candidates)  # the forecast candidates (`planning.actions`)
         self.exits, self.coverage_fix = harness == 'reserve_exit_v2', coverage_fix
         self.margin_m, self.unknown = margin_m, unknown  # cautious clearance (planning.caution)
         self.route_status = None
@@ -352,7 +354,7 @@ class Planner:
         heading = math.atan2(Q[1, 0], Q[0, 0])
         clearance = grid.fine_clearance(snapshot.fine_occupied)
         terminal = self.terminal_approach
-        result = sel.score(prediction, goal_body)
+        result = sel.score(prediction, goal_body, self.candidates)
         if self.recovery or self.terminal_burst_on:
             result = self._terminal_position_burst(result, goal_body)
         if scan_error is not None:
@@ -443,16 +445,16 @@ class Planner:
             self.terminal_turns, self.terminal_burst = 0, 0
             return result
         if self.terminal_burst == 0:
-            self.terminal_turns = self.terminal_turns+1 if result['action'] in TURNS else 0
+            self.terminal_turns = self.terminal_turns+1 if turn_direction(result['action']) else 0
             if self.terminal_turns < TERMINAL_SPIN_TURNS:
                 return result
             self.terminal_burst, self.terminal_turns = TERMINAL_BURST_PLANS, 0
         self.terminal_burst -= 1
         for row in result['candidates']:
             row['utility_m'] = row['position_contact_utility_m']
-        index = max(range(len(ACTIONS)), key=lambda i: result['candidates'][i]['utility_m'])
-        result.update(action=ACTIONS[index], action_index=index, requested_command=command(ACTIONS[index]),
-                      terminal_position_burst=True)
+        index = max(range(len(result['candidates'])), key=lambda i: result['candidates'][i]['utility_m'])
+        action = result['candidates'][index]['action']
+        result.update(action=action, action_index=index, requested_command=command(action), terminal_position_burst=True)
         return result
 
     def _terminal_spin_guard(self, result):
@@ -556,14 +558,15 @@ class Planner:
             return result
         current = next(r['minimum_predicted_path_clearance_m'] for r in rows if r['action'] == 'hold')
         floor = max(ESCAPE_FLOOR_M, (current or ESCAPE_FLOOR_M)-ESCAPE_SLACK_M)
-        options = [i for i, r in enumerate(rows) if r['action'] in TURNS and r['action'] in values
+        options = [i for i, r in enumerate(rows) if turn_direction(r['action']) and r['action'] in values
                    and r['minimum_predicted_path_clearance_m'] is not None and r['minimum_predicted_path_clearance_m'] >= floor]
         if not options:
             self._request_backup('deadlock_no_clear_turn')
             return result
         goal = result.get('waypoint_body_xy_m')
-        side = 'left_turn' if goal is None or math.atan2(goal[1], goal[0]) > 0 else 'right_turn'
-        index = max(options, key=lambda i: (rows[i]['action'] == side, rows[i]['minimum_predicted_path_clearance_m']))
+        side = 1 if goal is None or math.atan2(goal[1], goal[0]) > 0 else -1
+        index = max(options, key=lambda i: (turn_direction(rows[i]['action']) == side,
+                                            rows[i]['minimum_predicted_path_clearance_m']))
         sel.choose(result, index)
         self.escape_armed = 'turn'
         result['deadlock_escape'] = dict(consecutive_holds=self.deadlock_holds, current_clearance_m=current,
@@ -594,7 +597,9 @@ class Planner:
             result['backup_aborted'] = detail
             self.backup = None
             return result
-        result.update(action='hold', action_index=ACTIONS.index('hold'), requested_command=[-BACKUP_SPEED_M_S, 0., 0.],
+        order = [r['action'] for r in result['candidates']] if 'candidates' in result else ACTIONS  # C2: no candidates
+        result.update(action='hold', action_index=order.index('hold'),
+                      requested_command=[-BACKUP_SPEED_M_S, 0., 0.],
                       backup=detail)
         self.backup_plan = True
         self.backup['step'] += 1

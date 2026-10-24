@@ -1,6 +1,7 @@
 """Motion forecasters: what each controller predicts each candidate action will do.
 
-A forecaster returns, for the six actions (`go2nav.planning.actions`) and eight 100-ms horizons, the body-frame motion
+A forecaster returns, for the six actions (`go2nav.planning.actions`; C1 also for any candidate set) and eight 100-ms
+horizons, the body-frame motion
 (x, y, sin yaw, cos yaw, contact logit) from the plan's frame, as float32 (as the original models produced it). Contact
 is not predicted (the logit is -1000). The controllers differ only here:
 
@@ -11,12 +12,12 @@ is not predicted (the logit is -1000). The controllers differ only here:
 import numpy as np
 
 from go2nav.models.command import CommandHistoryModel, history_features
-from go2nav.planning.actions import command_sequences
+from go2nav.planning.actions import ACTIONS, command_sequences
 
 
 def output(xy_yaw):
-    """(6, 8, 5) float32 forecast from (6, 8, 3) [x, y, yaw]."""
-    result = np.zeros((6, 8, 5), np.float32)
+    """(N, 8, 5) float32 forecast from (N, 8, 3) [x, y, yaw]."""
+    result = np.zeros((len(xy_yaw), 8, 5), np.float32)
     result[:, :, 3] = 1.
     result[:, :, :2] = xy_yaw[:, :, :2]
     result[:, :, 2], result[:, :, 3] = np.sin(xy_yaw[:, :, 2]), np.cos(xy_yaw[:, :, 2])
@@ -37,6 +38,6 @@ class CommandHistoryForecaster:
     def __init__(self, model_path):
         self.model = CommandHistoryModel.load(model_path)
 
-    def forecast(self, context, prefix, *, pulse):
-        commands = command_sequences(prefix, pulse=pulse)
+    def forecast(self, context, prefix, *, pulse, candidates=ACTIONS):
+        commands = command_sequences(prefix, pulse=pulse, candidates=candidates)
         return output(self.model.predict(commands, command_history(context.history)))
