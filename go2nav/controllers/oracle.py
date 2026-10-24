@@ -8,7 +8,8 @@ simulator is then restored, so the mission continues exactly as if nothing had b
 After the mission, `verify_executed` checks the oracle against what happened: wherever the executed commands matched
 a branch's commands from its start, the executed poses must match that branch's poses within 1 mm and 0.1° (the
 restore is not bit-perfect in Genesis, so this can occasionally fail; a failure is recorded as the run's error, as in
-the original).
+the original). A plan whose command at its own start was overridden at dispatch (zero sent: a stale observation or a
+veto) matches no branch; it is recorded as skipped, not failed.
 """
 import math
 
@@ -16,6 +17,7 @@ import numpy as np
 import torch
 
 from go2nav.planning.actions import command_sequences
+from go2nav.planning.dispatch import PASSED
 from go2nav.sim import snapshot as snapshots
 from go2nav.sim.sensors import rotation_xyzw
 
@@ -83,6 +85,12 @@ class OracleForecaster:
         rows = []
         for plan in self.branches:
             origin = plan['observed_ns']
+            start = by_time.get(origin)
+            if start is not None and start.get('reason') != PASSED and not any(
+                    np.allclose(start['applied_command'], branch['applied'][0], rtol=0, atol=1e-7) for branch in plan['branches']):
+                rows.append(dict(observed_ns=origin, candidate=None, matched_prefix_ms=0, passed=True, skipped=True,
+                                 reason='OVERRIDDEN_AT_PLAN_START', dispatch_reason=start.get('reason')))
+                continue
             for index, branch in enumerate(plan['branches']):
                 length = 0
                 for tick in range(TICKS*STEPS_PER_TICK):

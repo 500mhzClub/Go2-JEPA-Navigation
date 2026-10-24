@@ -81,12 +81,14 @@ class NavigationController:
     """See the module docstring."""
 
     def __init__(self, forecaster, *, goal_xy, home_xy, arrival_radius_m=.02, navigation_frames=4800, recovery=False,
-                 margin_m=0., unknown=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False):
+                 margin_m=0., unknown=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False,
+                 deadlock_escape=False):
         self.forecaster = forecaster
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
-        self.routing_map, self.obstacles = RoutingMap(clear_seen_free=map_decay), DepthObstacleObserver()
+        self.routing_map, self.obstacles = RoutingMap(clear_seen_free=bool(map_decay)), DepthObstacleObserver()
+        self.forget_floor_first = map_decay == 'floor'
         self.planner = Planner(arrival_radius_m=arrival_radius_m, recovery=recovery, margin_m=margin_m, unknown=unknown,
-                               harness=harness, coverage_fix=coverage_fix)
+                               harness=harness, coverage_fix=coverage_fix, deadlock_escape=deadlock_escape)
         self.mission = RoundTripMission(goal_xy, home_xy, arrival_radius_m=arrival_radius_m, navigation_frames=navigation_frames)
         self.ledger = CommitmentLedger()
         self.plans, self.rejected, self.served = [], {}, set()
@@ -173,7 +175,11 @@ class NavigationController:
         if objective is None:
             forgotten = 0
             if self.routing_map.clear_seen_free:  # no route after a full look around: forget walls not seen lately
-                forgotten = len(self.routing_map.forget(now-FORGET_UNSEEN_NS))
+                # ('floor': first only cells once seen as floor; every stale cell only when none of those is left)
+                if self.forget_floor_first:
+                    forgotten = len(self.routing_map.forget(now-FORGET_UNSEEN_NS, floor_only=True))
+                if not forgotten:
+                    forgotten = len(self.routing_map.forget(now-FORGET_UNSEEN_NS))
                 if forgotten:
                     self.planner.scan_target, self.planner.scan_index = None, 0
             self.planning.append(dict(frame=frame.frame, reason='VIEW_BUDGET_EXHAUSTED', forgotten_cells=forgotten))

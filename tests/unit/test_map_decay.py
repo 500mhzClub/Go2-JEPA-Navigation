@@ -61,3 +61,15 @@ def test_forget_drops_only_cells_not_seen_lately(monkeypatch):
     assert routing_map.forget(0) == {(20, 0)}
     assert (20, 0) not in routing_map.occupied and (102, 2) not in routing_map.fine_occupied
     assert (30, 10) in routing_map.occupied
+
+
+def test_forget_floor_only_keeps_cells_never_seen_as_floor(monkeypatch):
+    routing_map = started(True)
+    update(routing_map, monkeypatch, [(20, 0)], [])                                     # (20, 0) seen as floor
+    update(routing_map, monkeypatch, [], [(1.025, .025, .3), (1.5, .5, .3)])            # then both occupied
+    for cell in ((20, 0), (30, 10)):
+        routing_map.seen_ns[cell] = -10
+    routing_map.fine_seen_ns.update(dict.fromkeys(routing_map.fine_seen_ns, -10))
+    assert routing_map.forget(0, floor_only=True) == {(20, 0)}
+    assert (30, 10) in routing_map.occupied and (150, 50) in routing_map.fine_occupied
+    assert (102, 2) not in routing_map.fine_occupied

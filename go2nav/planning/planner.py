@@ -38,6 +38,10 @@ dispatched-path check) or 'v4' (the earlier one, without them; `selection.cleara
 - *scripted backup*: five 400-ms reverse steps at 0.10 m/s, on observed floor with 0.40 m of stored clearance. It
   is requested when a deadlock has no clear turn or move, and by the first stall at a place before any exclusion.
   The plan is recorded as a hold carrying the reverse command.
+
+`deadlock_escape=True` (for moving obstacles) adds only the latch timeout and the deadlock escape, without the other
+recovery fixes: a robot left just inside the turn clearance of a wall (both turns blocked, a latched turn waiting)
+otherwise holds for the rest of the mission (docs/dynamic/STATUS.md, R7c).
 """
 import math
 
@@ -73,10 +77,11 @@ class Planner:
     """Planning state and the route, objective and selection steps (see the module docstring)."""
 
     def __init__(self, *, arrival_radius_m, recovery=False, margin_m=0., unknown=None, harness='reserve_exit_v2',
-                 coverage_fix=True):
+                 coverage_fix=True, deadlock_escape=False):
         if harness not in HARNESSES:
             raise ValueError(f'unknown harness {harness!r}')
         self.arrival_radius_m, self.recovery, self.harness = arrival_radius_m, recovery, harness
+        self.deadlock_escape = deadlock_escape
         self.exits, self.coverage_fix = harness == 'reserve_exit_v2', coverage_fix
         self.margin_m, self.unknown = margin_m, unknown  # cautious clearance (planning.caution)
         self.route_status = None
@@ -385,6 +390,9 @@ class Planner:
             result = self._latch_timeout(result, heading)
             result = self._deadlock_escape(result)
             result = self._scripted_backup(result, snapshot, q, Q)
+        elif self.deadlock_escape:
+            result = self._latch_timeout(result, heading)
+            result = self._deadlock_escape(result)
         return result
 
     def select_reactive(self, goal_body, scan_error, snapshot, position, rotation, prefix):
