@@ -41,7 +41,9 @@ dispatched-path check) or 'v4' (the earlier one, without them; `selection.cleara
 
 `deadlock_escape=True` (for moving obstacles) adds only the latch timeout and the deadlock escape, without the other
 recovery fixes: a robot left just inside the turn clearance of a wall (both turns blocked, a latched turn waiting)
-otherwise holds for the rest of the mission (docs/dynamic/STATUS.md, R7c).
+otherwise holds for the rest of the mission (docs/dynamic/STATUS.md, R7c). `terminal_burst=True` adds only the terminal
+burst: on the continuous-command policy a turn in place moves the base, so near a waypoint the robot can circle it,
+turning for the rest of the mission (docs/dynamic/STATUS.md, C1 refit).
 """
 import math
 
@@ -77,11 +79,11 @@ class Planner:
     """Planning state and the route, objective and selection steps (see the module docstring)."""
 
     def __init__(self, *, arrival_radius_m, recovery=False, margin_m=0., unknown=None, harness='reserve_exit_v2',
-                 coverage_fix=True, deadlock_escape=False):
+                 coverage_fix=True, deadlock_escape=False, terminal_burst=False):
         if harness not in HARNESSES:
             raise ValueError(f'unknown harness {harness!r}')
         self.arrival_radius_m, self.recovery, self.harness = arrival_radius_m, recovery, harness
-        self.deadlock_escape = deadlock_escape
+        self.deadlock_escape, self.terminal_burst_on = deadlock_escape, terminal_burst
         self.exits, self.coverage_fix = harness == 'reserve_exit_v2', coverage_fix
         self.margin_m, self.unknown = margin_m, unknown  # cautious clearance (planning.caution)
         self.route_status = None
@@ -347,7 +349,7 @@ class Planner:
         clearance = grid.fine_clearance(snapshot.fine_occupied)
         terminal = self.terminal_approach
         result = sel.score(prediction, goal_body)
-        if self.recovery:
+        if self.recovery or self.terminal_burst_on:
             result = self._terminal_position_burst(result, goal_body)
         if scan_error is not None:
             result = sel.scan_override(result, prediction, scan_error)

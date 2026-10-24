@@ -100,7 +100,8 @@ def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=N
 
 def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fit=None, friction=None, strips=None,
         stall_stop_s=None, obstacles=None, degrade=None, margin=None, pessimistic=None, unknown_level=None, demo_textures=False,
-        models=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False, deadlock_escape=False):
+        models=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False, deadlock_escape=False,
+        terminal_burst=False):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
     (how many moving obstacles). Experiment
@@ -112,8 +113,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     earlier one, for the experiments recorded under it; `go2nav.planning.planner`); `coverage_fix=False`: the
     translation coverage rule as before 2 October; `map_decay`: occupied cells seen free again are cleared
     (`go2nav.perception.mapping`, for moving obstacles), and with no route left stale cells are forgotten ('floor':
-    cells once seen as floor first); `deadlock_escape`: the latch timeout and deadlock escape alone
-    (`go2nav.planning.planner`)."""
+    cells once seen as floor first); `deadlock_escape`: the latch timeout and deadlock escape alone; `terminal_burst`:
+    the terminal burst alone (`go2nav.planning.planner`)."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -139,7 +140,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  **(dict(harness=harness) if harness != 'reserve_exit_v2' else {}),
                                  **(dict(coverage_fix=False) if not coverage_fix else {}),
                                  **(dict(map_decay=True if map_decay is True else map_decay) if map_decay else {}),
-                                 **(dict(deadlock_escape=True) if deadlock_escape else {})))
+                                 **(dict(deadlock_escape=True) if deadlock_escape else {}),
+                                 **(dict(terminal_burst=True) if terminal_burst else {})))
     save(out/'specification.json', spec)
     save(out/'episode.json', episode)
     cv2.setNumThreads(1)
@@ -168,7 +170,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                           navigation_frames=4800, recovery=recovery, margin_m=margin_m,
                                           unknown=caution.UnknownCells(unknown_bound, pessimistic) if pessimistic else None,
                                           harness=harness, coverage_fix=coverage_fix, map_decay=map_decay,
-                                          deadlock_escape=deadlock_escape)
+                                          deadlock_escape=deadlock_escape, terminal_burst=terminal_burst)
         history = deque(maxlen=4)
         for tick in range(STEP_BUDGET):
             now = session.sim_ns
@@ -276,6 +278,7 @@ def main():
     p.add_argument('--map-decay', choices=('on', 'floor', 'off'), default='off',
                    help='clear occupied cells seen free again; forget stale cells with no route (floor: seen-floor cells first)')
     p.add_argument('--deadlock-escape', choices=('on', 'off'), default='off', help='latch timeout and deadlock escape only')
+    p.add_argument('--terminal-burst', choices=('on', 'off'), default='off', help='terminal burst only')
     p.add_argument('--out', type=Path, required=True)
     a = p.parse_args()
     strips = None
@@ -289,7 +292,7 @@ def main():
                  pessimistic=a.pessimistic, unknown_level=a.unknown_level, demo_textures=a.demo_textures,
                  models=yaml.safe_load(a.models.read_text()) if a.models else None, harness=a.harness,
                  coverage_fix=a.coverage_fix == 'on', map_decay=dict(on=True, floor='floor', off=False)[a.map_decay],
-                 deadlock_escape=a.deadlock_escape == 'on')
+                 deadlock_escape=a.deadlock_escape == 'on', terminal_burst=a.terminal_burst == 'on')
     print(json.dumps(result))
 
 

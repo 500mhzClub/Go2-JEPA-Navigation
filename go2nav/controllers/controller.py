@@ -82,13 +82,14 @@ class NavigationController:
 
     def __init__(self, forecaster, *, goal_xy, home_xy, arrival_radius_m=.02, navigation_frames=4800, recovery=False,
                  margin_m=0., unknown=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False,
-                 deadlock_escape=False):
+                 deadlock_escape=False, terminal_burst=False):
         self.forecaster = forecaster
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
         self.routing_map, self.obstacles = RoutingMap(clear_seen_free=bool(map_decay)), DepthObstacleObserver()
         self.forget_floor_first = map_decay == 'floor'
         self.planner = Planner(arrival_radius_m=arrival_radius_m, recovery=recovery, margin_m=margin_m, unknown=unknown,
-                               harness=harness, coverage_fix=coverage_fix, deadlock_escape=deadlock_escape)
+                               harness=harness, coverage_fix=coverage_fix, deadlock_escape=deadlock_escape,
+                               terminal_burst=terminal_burst)
         self.mission = RoundTripMission(goal_xy, home_xy, arrival_radius_m=arrival_radius_m, navigation_frames=navigation_frames)
         self.ledger = CommitmentLedger()
         self.plans, self.rejected, self.served = [], {}, set()
