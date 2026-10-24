@@ -88,6 +88,50 @@ M3 keeps the static baselines meaningful on the new policy.
 | D2 | Solvability: the oracle C0 completes at least 95% of R7 |
 | D3 | The taxonomy covers every R7 failure: no "unclassified" |
 
+### P2b. Freezing the non-learned baseline (proposed 24 October, for approval)
+
+**Why a rule.** Hand-built planners that treat moving agents as obstacles, or predict them independently, hesitate
+and freeze as density rises: the "freezing robot problem" (Trautman and Krause, 2010). Learned crowd-navigation
+policies beat classical baselines such as ORCA mainly in dense scenes (Chen et al., 2019). In static scenes,
+classical stacks stay competitive with learned ones (Mishkin et al., 2019), which matches the static 60/60.
+
+So harness rules will reach diminishing returns as the scene gets busier. The comparison needs the baseline frozen at
+a point set in advance, not whenever ideas run out. (References from memory; check them before any write-up.)
+
+**A defensible baseline has:**
+1. The standard non-learned parts for moving obstacles, and no more:
+   - an occupancy map that clears and forgets transient cells (R7c);
+   - a deadlock escape (R7d probe);
+   - a constant-velocity track of observed obstacles in the clearance check.
+     - This is the usual non-learned motion-prediction baseline (Schöller et al., 2020).
+     - No arm predicts obstacle motion now. Without it, the comparison with a world model trained on moving
+       obstacles could be dismissed as "the baseline ignores motion".
+2. **Static parity:** R4 and R6 reference level with their records (paired, no losses).
+3. **Tuned on development mazes, evaluated on held-out ones.**
+   - Rules are tuned only on dev_tune and validation (mazes 00-29) with obstacles.
+   - The frozen baseline is then run once on prelim_test 30-49, episodes 0 and 1, with obstacle seeds not used before.
+   - The rules so far (clearing, forgetting, the escape) were diagnosed on 30-49 episode 0. The held-out run is what
+     makes the final numbers defensible.
+4. **No defect-class failures left.** Every remaining failure is classified, and none is a crash, an audit artefact
+   or an implementation bug.
+
+**Stop iterating on rules at the first of these** (paired on the development mazes against the previous round):
+- **Diminishing returns:** two rounds in a row each gain fewer than 3 net missions of 40, or have sign-test p > 0.1.
+- **Trading failures:** a change's losses reach half its wins.
+- **Budget:** three rounds after R7c (round 1 is the R7d probe's rules; constant-velocity tracking is round 2).
+
+**Then hand parts over by evidence, not by intuition:**
+- **Density curve:** the frozen baseline at 0, 1, 2 and 4 obstacles, at two speeds. The slope is the harness's
+  structural limit, and the point where it freezes.
+- **Oracle substitution, one module at a time:**
+  - the map: true walls and obstacle positions;
+  - the pose: the true pose instead of visual odometry;
+  - obstacle prediction: true future obstacle positions in the clearance check;
+  - the robot's own motion forecast: C0, already.
+  - Each oracle's gain bounds what learning that module can give. The largest gain is the first part to hand to the
+    world model.
+- **The C0-C1 gap** is the share of failures that better motion forecasting alone can fix.
+
 ### P3. Corpus v2 (about 10 h of collection)
 
 - Recorded on the new policy, with obstacles.
