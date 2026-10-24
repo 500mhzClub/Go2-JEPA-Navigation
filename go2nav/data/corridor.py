@@ -83,7 +83,7 @@ TAPES = dict(geometry_progress_family=family_tape, switch_family=switch_tape, sh
 CAPTURE_AT_STOP = ('balanced_start', 'balanced_start_horizon')
 
 
-def collect(name, trial_name, out):
+def collect(name, trial_name, out, policy=None):
     import cv2
     import torch
     from go2nav.eval.mission import persist, save
@@ -100,7 +100,7 @@ def collect(name, trial_name, out):
     save(out/'specification.json', spec)
     started, stop, frames, executed = time.monotonic(), None, [], []
     scene.init_genesis(spec['procedural_seed'])
-    session = MissionSession(spec, out/'visual_meshes', policy_checkpoint=artifacts.path('go2_locomotion_policy'),
+    session = MissionSession(spec, out/'visual_meshes', policy_checkpoint=Path(policy) if policy else artifacts.path('go2_locomotion_policy'),
                              noise_sigma_m=0., noise_layout=0, robot_visible=False)
 
     def capture(aligned=True):
@@ -137,11 +137,12 @@ def main():
     p.add_argument('collection', choices=sorted(TAPES))
     p.add_argument('trial')
     p.add_argument('out', type=Path)
+    p.add_argument('--policy', type=Path, help='locomotion policy checkpoint (default: the shipped one)')
     a = p.parse_args()
     import os
     os.environ.setdefault('PYOPENGL_PLATFORM', 'egl')
     os.environ.setdefault('EGL_DEVICE_ID', '0')
-    print(json.dumps(collect(a.collection, a.trial, a.out)))
+    print(json.dumps(collect(a.collection, a.trial, a.out, a.policy)))
 
 
 if __name__ == '__main__':

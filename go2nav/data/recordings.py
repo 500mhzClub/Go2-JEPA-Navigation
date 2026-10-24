@@ -44,7 +44,7 @@ def trials(collection):
     return [(f'case_{i:02d}', str(i)) for i in range(len(plan['specifications']))]
 
 
-def regenerate(collection, trial, argument, root):
+def regenerate(collection, trial, argument, root, policy=None):
     folder, module = FOLDERS[collection]
     out = Path(root)/folder/trial
     if (out/'result.json').exists():
@@ -52,19 +52,20 @@ def regenerate(collection, trial, argument, root):
     shutil.rmtree(out, ignore_errors=True)
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out.parent/f'{trial}.log', 'w') as log:
-        code = subprocess.run([sys.executable, '-m', f'go2nav.data.{module}', collection, argument, str(out)], cwd=REPO,
+        extra = ['--policy', str(policy)] if policy else []
+        code = subprocess.run([sys.executable, '-m', f'go2nav.data.{module}', collection, argument, str(out), *extra], cwd=REPO,
                               stdout=log, stderr=subprocess.STDOUT).returncode
     if code or not (out/'result.json').exists():
         raise RuntimeError(f'exit {code}; see {out.parent/f"{trial}.log"}')
     return 'done'
 
 
-def run(root, collections=None, workers=8):
+def run(root, collections=None, workers=8, policy=None):
     jobs = [(c, t, a) for c in (collections or FOLDERS) for t, a in trials(c)]
     print(f'{len(jobs)} trials', flush=True)
     failures = []
     with ThreadPoolExecutor(workers) as pool:
-        futures = {pool.submit(regenerate, c, t, a, root): (c, t) for c, t, a in jobs}
+        futures = {pool.submit(regenerate, c, t, a, root, policy): (c, t) for c, t, a in jobs}
         while futures:
             finished, _ = wait(futures, return_when=FIRST_COMPLETED)
             for future in finished:
@@ -83,8 +84,9 @@ def main():
     p.add_argument('root', type=Path)
     p.add_argument('--collection', action='append', choices=sorted(FOLDERS), dest='collections')
     p.add_argument('--workers', type=int, default=8)
+    p.add_argument('--policy', type=Path, help='locomotion policy checkpoint (corridor collections; default: the shipped one)')
     a = p.parse_args()
-    sys.exit(1 if run(a.root.resolve(), a.collections, a.workers) else 0)
+    sys.exit(1 if run(a.root.resolve(), a.collections, a.workers, a.policy and a.policy.resolve()) else 0)
 
 
 if __name__ == '__main__':
