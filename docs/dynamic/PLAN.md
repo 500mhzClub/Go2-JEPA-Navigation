@@ -88,7 +88,7 @@ M3 keeps the static baselines meaningful on the new policy.
 | D2 | Solvability: the oracle C0 completes at least 95% of R7 |
 | D3 | The taxonomy covers every R7 failure: no "unclassified" |
 
-### P2b. Freezing the non-learned baseline (proposed 24 October, for approval)
+### P2b. Freezing the non-learned baseline (approved 24 October)
 
 **Why a rule.** Hand-built planners that treat moving agents as obstacles, or predict them independently, hesitate
 and freeze as density rises: the "freezing robot problem" (Trautman and Krause, 2010). Learned crowd-navigation
