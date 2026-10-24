@@ -5,7 +5,8 @@ progress toward the waypoint, plus a heading term: the reduction of the heading 
 min(0.35 m, waypoint distance). Contact is not predicted (its score is disabled).
 
 **Clearance** (`clearance_check`). Each action's forecast path (eight 100-ms segments from the current pose) is
-measured against the stored 1-cm obstacle cells. A path is clear if it keeps the 0.45-m footprint plus a 3-cm
+measured against the stored 1-cm obstacle cells (with obstacle prediction, moving tracks where they will be at each
+segment's time: `planning.prediction`). A path is clear if it keeps the 0.45-m footprint plus a 3-cm
 reserve for translations; one that starts inside the reserve may still pass if it leaves it (reserve recovery), and
 a blocked translation passes if its clearance never decreases and ends higher (reserve exit). The best-scoring clear
 action wins, else hold. In-place turns are re-checked with their own reserve (`reserve_turns`), and a blocked turn
@@ -28,7 +29,7 @@ import math
 import numpy as np
 
 from go2nav.planning import grid
-from go2nav.planning.actions import ACTIONS, COMMIT_TICKS, PREFIX_TICKS, TRANSLATIONS, TURNS, command
+from go2nav.planning.actions import ACTIONS, COMMIT_TICKS, PERIOD_NS, PREFIX_TICKS, TRANSLATIONS, TURNS, command
 
 CONTACT_PENALTY_M = 1.2
 SCAN_ANGULAR_SCALE_M = .35
@@ -159,11 +160,13 @@ def clearance_check(selection, prediction, clearance, position, rotation, exits=
     """Keep the choice clear of stored obstacles (see the module docstring), with reserve recovery and (`exits`) the
     reserve exit."""
     rows = []
+    during = getattr(clearance, 'minimum_during', None)  # moving obstacles predicted (planning.prediction)
+    step = PERIOD_NS/1e9
     for i, action in enumerate(ACTIONS):
         points = forecast_path(prediction, i, position, rotation)
         minimum, distances = None, []
-        for begin, end in zip(points[:-1], points[1:]):
-            value = clearance.minimum(begin, end)
+        for k, (begin, end) in enumerate(zip(points[:-1], points[1:])):
+            value = during(begin, end, k*step, (k+1)*step) if during is not None else clearance.minimum(begin, end)
             distances.append(value)
             if value is not None:
                 minimum = value if minimum is None else min(minimum, value)

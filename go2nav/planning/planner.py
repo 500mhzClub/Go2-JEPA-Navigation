@@ -43,15 +43,18 @@ dispatched-path check) or 'v4' (the earlier one, without them; `selection.cleara
 recovery fixes: a robot left just inside the turn clearance of a wall (both turns blocked, a latched turn waiting)
 otherwise holds for the rest of the mission (docs/dynamic/STATUS.md, R7c). `terminal_burst=True` adds only the terminal
 burst: on the continuous-command policy a turn in place moves the base, so near a waypoint the robot can circle it,
-turning for the rest of the mission (docs/dynamic/STATUS.md, C1 refit).
+turning for the rest of the mission (docs/dynamic/STATUS.md, C1 refit). `obstacle_prediction=True` checks the
+forecast paths against moving tracks (`tracks`, set by the controller each map update) where constant velocity puts
+them (`planning.prediction`).
 """
 import math
 
 import numpy as np
 
-from go2nav.planning import caution, grid, reactive, routing, selection as sel
+from go2nav.planning import caution, grid, prediction as predicted, reactive, routing, selection as sel
 from go2nav.planning.actions import ACTIONS, TRANSLATIONS, TURNS, command
 from go2nav.planning.grid import centre
+from go2nav.perception import tracks
 from go2nav.perception.rigid import UnportedBranch
 from go2nav.perception.visual_support import MAX_VIEW_DISTANCE_M
 
@@ -79,11 +82,12 @@ class Planner:
     """Planning state and the route, objective and selection steps (see the module docstring)."""
 
     def __init__(self, *, arrival_radius_m, recovery=False, margin_m=0., unknown=None, harness='reserve_exit_v2',
-                 coverage_fix=True, deadlock_escape=False, terminal_burst=False):
+                 coverage_fix=True, deadlock_escape=False, terminal_burst=False, obstacle_prediction=False):
         if harness not in HARNESSES:
             raise ValueError(f'unknown harness {harness!r}')
         self.arrival_radius_m, self.recovery, self.harness = arrival_radius_m, recovery, harness
         self.deadlock_escape, self.terminal_burst_on = deadlock_escape, terminal_burst
+        self.obstacle_prediction, self.tracks = obstacle_prediction, []  # set by the controller each map update
         self.exits, self.coverage_fix = harness == 'reserve_exit_v2', coverage_fix
         self.margin_m, self.unknown = margin_m, unknown  # cautious clearance (planning.caution)
         self.route_status = None
@@ -353,7 +357,12 @@ class Planner:
             result = self._terminal_position_burst(result, goal_body)
         if scan_error is not None:
             result = sel.scan_override(result, prediction, scan_error)
-        result = sel.clearance_check(result, prediction, self._cautious(clearance, snapshot, q), q, Q, exits=self.exits)
+        checked = self._cautious(clearance, snapshot, q)
+        moving = tracks.moving(self.tracks) if self.obstacle_prediction else []
+        if moving:
+            stored = grid.FineClearance(predicted.without(snapshot.fine_occupied, moving))
+            checked = predicted.PredictedClearance(self._cautious(stored, snapshot, q), moving, snapshot.measured_ns)
+        result = sel.clearance_check(result, prediction, checked, q, Q, exits=self.exits)
         result, self.clearance_turn = sel.recover_turn(result, heading, generation, self.clearance_turn, exits=self.exits)
         if terminal:
             result = sel.terminal_progress(result)
@@ -395,6 +404,9 @@ class Planner:
         elif self.deadlock_escape:
             result = self._latch_timeout(result, heading)
             result = self._deadlock_escape(result)
+        if self.obstacle_prediction:
+            result = result | dict(obstacle_tracks=[t.summary(snapshot.measured_ns) for t in self.tracks],
+                                   predicted_tracks=[t.id for t in moving])
         return result
 
     def select_reactive(self, goal_body, scan_error, snapshot, position, rotation, prefix):

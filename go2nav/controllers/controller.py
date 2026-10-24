@@ -29,6 +29,7 @@ import numpy as np
 from go2nav.perception.mapping import RoutingMap
 from go2nav.perception.obstacles import DepthObstacleObserver
 from go2nav.perception.registration import FloorRegistration
+from go2nav.perception.tracks import ObstacleTracker
 from go2nav.perception.visual_odometry import VisualOdometry
 from go2nav.perception.visual_support import SupportedView
 from go2nav.planning import grid
@@ -82,14 +83,15 @@ class NavigationController:
 
     def __init__(self, forecaster, *, goal_xy, home_xy, arrival_radius_m=.02, navigation_frames=4800, recovery=False,
                  margin_m=0., unknown=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False,
-                 deadlock_escape=False, terminal_burst=False):
+                 deadlock_escape=False, terminal_burst=False, obstacle_prediction=False):
         self.forecaster = forecaster
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
         self.routing_map, self.obstacles = RoutingMap(clear_seen_free=bool(map_decay)), DepthObstacleObserver()
         self.forget_floor_first = map_decay == 'floor'
         self.planner = Planner(arrival_radius_m=arrival_radius_m, recovery=recovery, margin_m=margin_m, unknown=unknown,
                                harness=harness, coverage_fix=coverage_fix, deadlock_escape=deadlock_escape,
-                               terminal_burst=terminal_burst)
+                               terminal_burst=terminal_burst, obstacle_prediction=obstacle_prediction)
+        self.tracker = ObstacleTracker() if obstacle_prediction else None
         self.mission = RoundTripMission(goal_xy, home_xy, arrival_radius_m=arrival_radius_m, navigation_frames=navigation_frames)
         self.ledger = CommitmentLedger()
         self.plans, self.rejected, self.served = [], {}, set()
@@ -138,6 +140,8 @@ class NavigationController:
         if registered is not None and frame.frame%MAP_PERIOD_FRAMES == 0:
             self.latest_map = self.routing_map.update(frame.frame, frame.measured_ns, registered.position, registered.rotation,
                                                       frame.depth, frame.auxiliary_depth, frame.specific_force)
+            if self.tracker is not None:
+                self.planner.tracks = self.tracker.update(self.latest_map)
             if self.latest_map.cleared and self.planning and self.planning[-1].get('reason') == 'VIEW_BUDGET_EXHAUSTED':
                 self.planner.scan_target, self.planner.scan_index = None, 0  # freed cells: look around again
             if frame.frame >= MAP_PERIOD_FRAMES:
