@@ -220,3 +220,31 @@ The C1 command model was refitted on that policy:
 
 The limit is the terminal approach, not C1's forecast: a 2 cm arrival with six primitives on a policy that does not
 turn on the spot. M3 keeps the shipped C1 fit. The terminal approach is round 2, developed on mazes 00-29.
+
+## Development rounds dv0-dv2 (24 October): the stopping rule fires
+
+C1 on the continuous policy, recovery off, validation mazes 10-29 episodes 0 and 1, static and with one and two
+obstacles (120 missions a round; `configs/experiments/dv{0,1,2}_development.yaml`, cohorts `dv*_c1`).
+- **dv0:** the R7c rules (clearing, forgetting every stale cell).
+- **dv1 (round 1):** dv0 plus floor-first forgetting, the latch timeout and the deadlock escape.
+- **dv2 (round 2):** dv1 plus the terminal burst (`--terminal-burst`) for the waypoint orbit found in M3.
+
+| Round | Static | One obstacle | Two obstacles | Total | Against the previous round | p |
+|---|---|---|---|---|---|---|
+| dv0 | 29 | 13 | 4 | 46 | | |
+| dv1 | 30 | 14 | 7 | 51 | 9 wins, 4 losses (+5) | 0.27 |
+| dv2 | 32 | 16 | 7 | 55 | 5 wins, 1 loss (+4) | 0.22 |
+
+dv2 against dv0: 14 wins, 5 losses (+9), p = 0.064. No contacts in any round.
+
+- **Stopping rule:** two rounds in a row with p > 0.1 and under 3 net missions per 40. Rule tuning stops at dv2.
+  Constant-velocity obstacle prediction is still added (a required part of the baseline, P2b point 1) as the last
+  round; the baseline freezes after it whatever its result.
+- **Density:** 80% static, 40% with one obstacle, 18% with two. Most obstacle failures are time-outs without
+  reaching the beacon and without contact: the robot waits and replans.
+- **Pose loss** (one/two obstacles): dv0 3/1, dv1 4/9, dv2 4/8; none static. As in the R7d probe, the escape turns
+  time-outs into visual-odometry losses. To be explained before the freeze (P2b point 4).
+- **dv2's 8 static failures are all time-outs.** Three are dominated by motion-dependent footprint rejections (14 ep1,
+  15 ep0, 26 ep1); four show little blocking and run out of time (20, 23, 24, 28 ep0).
+- **Defect:** maze 26 episode 0 with one obstacle fails at frame 0 in every round (floor plane unavailable): the
+  obstacle spawns in front of the start camera. Placement needs a keep-out around the start pose.
