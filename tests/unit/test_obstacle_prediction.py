@@ -89,3 +89,11 @@ def test_the_track_age_shifts_the_prediction():
     old = prediction.PredictedClearance(grid.FineClearance(frozenset()), [track], now_ns=int(1e9))
     a, b = np.array([0., 0.]), np.array([.05, 0.])
     assert old.minimum_during(a, b, 0., .1) < young.minimum_during(a, b, 0., .1)-.9
+
+
+def test_placement_series_v1_is_the_development_key_and_others_differ():
+    from go2nav.sim import obstacles
+    import hashlib
+    key = b'obstacles-v1:validation:26:0:2'
+    assert obstacles.placement_seed('validation', 26, 0, 2) == int.from_bytes(hashlib.sha256(key).digest()[:8], 'big')
+    assert obstacles.placement_seed('validation', 26, 0, 2, 'heldout-v1') != obstacles.placement_seed('validation', 26, 0, 2)

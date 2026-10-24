@@ -72,10 +72,11 @@ def episode_spec(set_name, maze, episode_index, root=None):
 
 
 def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=None, strips=None, stall_stop_s=None,
-                     obstacles=None):
+                     obstacles=None, obstacle_series='v1', obstacle_speed=None):
     """The `Dynamics` of a mission and its record. `strips` is (mu, marked); strip placement is seeded by the set's
     original name (the role, or `prelim_test`), the maze and the episode. `obstacles`: how many moving obstacles
-    (`go2nav.sim.obstacles`), placed with a seed of the set, maze, episode and count."""
+    (`go2nav.sim.obstacles`), placed with a seed of the set, maze, episode and count in `obstacle_series` (v1: the
+    development series), at speeds drawn from `obstacle_speed` (low, high; default `SPEED_M_S`)."""
     from go2nav.sim.dynamics import Dynamics, place_strips, placement_seed
     from go2nav.sim import obstacles as moving
     if friction is None and strips is None and not stall_stop_s and not obstacles:
@@ -92,19 +93,21 @@ def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=N
     if stall_stop_s:
         record.update(recording_stall_stop_s=stall_stop_s)
     if obstacles:
-        dynamics.obstacles = moving.place_obstacles(spec, episode, obstacles,
-                                                    moving.placement_seed(set_name, maze, episode_index, obstacles))
-        record.update(moving_obstacles=dict(count=obstacles, placement=dynamics.obstacles))
+        seed = moving.placement_seed(set_name, maze, episode_index, obstacles, obstacle_series)
+        dynamics.obstacles = moving.place_obstacles(spec, episode, obstacles, seed, obstacle_speed or moving.SPEED_M_S)
+        record.update(moving_obstacles=dict(count=obstacles, placement=dynamics.obstacles,
+                                            **(dict(series=obstacle_series) if obstacle_series != 'v1' else {}),
+                                            **(dict(speed_m_s=list(obstacle_speed)) if obstacle_speed else {})))
     return dynamics, record
 
 
 def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fit=None, friction=None, strips=None,
         stall_stop_s=None, obstacles=None, degrade=None, margin=None, pessimistic=None, unknown_level=None, demo_textures=False,
         models=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False, deadlock_escape=False,
-        terminal_burst=False, obstacle_prediction=False, footprint_clearing=False):
+        terminal_burst=False, obstacle_prediction=False, footprint_clearing=False, obstacle_series='v1', obstacle_speed=None):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
-    (how many moving obstacles). Experiment
+    (how many moving obstacles; `obstacle_series` their placement series, `obstacle_speed` their speed range). Experiment
     hooks: `degrade` (a forecast degradation, `controllers.degraded`), `margin` (p95/p99 calibrated clearance margin),
     `pessimistic` (never-observed cells block: revised, seeded or lookaround; bound at `unknown_level`, else the
     margin level, else p99; `planning.caution`). `demo_textures`: demonstration surfaces (`go2nav.sim.demo_appearance`;
@@ -127,7 +130,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     out.mkdir(parents=True)
     spec, episode = episode_spec(set_name, maze, episode_index)
     dynamics, dynamics_record = mission_dynamics(set_name, maze, episode_index, spec, episode, friction=friction,
-                                                 strips=strips, stall_stop_s=stall_stop_s, obstacles=obstacles)
+                                                 strips=strips, stall_stop_s=stall_stop_s, obstacles=obstacles,
+                                                 obstacle_series=obstacle_series, obstacle_speed=obstacle_speed)
     from go2nav.planning import caution
     margin_m = caution.calibrated_bound(arm, margin) if margin else 0.
     unknown_bound = caution.calibrated_bound(arm, unknown_level or margin or 'p99') if pessimistic else None
@@ -272,6 +276,8 @@ def main():
     p.add_argument('--strips', help='low-friction strips MU:marked or MU:unmarked (stage 2)')
     p.add_argument('--stall-stop-s', type=float, help='stop a recording mission stalled this long (60)')
     p.add_argument('--obstacles', type=int, help='moving obstacles (go2nav.sim.obstacles)')
+    p.add_argument('--obstacle-series', default='v1', help='obstacle placement series (v1: development)')
+    p.add_argument('--obstacle-speed', help='obstacle speed range LOW:HIGH in m/s (default 0.15:0.35)')
     p.add_argument('--degrade', help='forecast degradation: scale:S, fwdscale:S, turnscale:S or noise:E_mm')
     p.add_argument('--margin', choices=('p95', 'p99'), help='calibrated clearance margin')
     p.add_argument('--pessimistic', choices=('revised', 'seeded', 'lookaround'), help='never-observed cells block')
@@ -302,7 +308,9 @@ def main():
                  models=yaml.safe_load(a.models.read_text()) if a.models else None, harness=a.harness,
                  coverage_fix=a.coverage_fix == 'on', map_decay=dict(on=True, floor='floor', off=False)[a.map_decay],
                  deadlock_escape=a.deadlock_escape == 'on', terminal_burst=a.terminal_burst == 'on',
-                 obstacle_prediction=a.obstacle_prediction == 'on', footprint_clearing=a.footprint_clearing == 'on')
+                 obstacle_prediction=a.obstacle_prediction == 'on', footprint_clearing=a.footprint_clearing == 'on',
+                 obstacle_series=a.obstacle_series,
+                 obstacle_speed=tuple(map(float, a.obstacle_speed.split(':'))) if a.obstacle_speed else None)
     print(json.dumps(result))
 
 

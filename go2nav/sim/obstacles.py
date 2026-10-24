@@ -32,9 +32,10 @@ YIELD_M, YIELD_HALF_WIDTH_M, GIVE_UP_S = .8, .6, 3.
 COLOURS = ((.80, .35, .25), (.25, .45, .80), (.85, .70, .20), (.35, .65, .35))
 
 
-def placement_seed(set_name, maze, episode, count):
-    """sha256 of "obstacles-v1:<set>:<maze>:<episode>:<count>", first 8 bytes (big-endian)."""
-    key = f'obstacles-v1:{set_name}:{int(maze)}:{int(episode)}:{int(count)}'
+def placement_seed(set_name, maze, episode, count, series='v1'):
+    """sha256 of "obstacles-<series>:<set>:<maze>:<episode>:<count>", first 8 bytes (big-endian). Series v1 is the
+    development series; a held-out evaluation uses a series not used before."""
+    key = f'obstacles-{series}:{set_name}:{int(maze)}:{int(episode)}:{int(count)}'
     return int.from_bytes(hashlib.sha256(key.encode()).digest()[:8], 'big')
 
 
@@ -63,8 +64,9 @@ def cell_of(xy):
     return tuple(int(round(v/PITCH_M)) for v in xy[:2])
 
 
-def place_obstacles(spec, episode, count, seed):
-    """The obstacles of an episode: [dict(start_cell, speed_m_s, walk_seed, radius_m, height_m, colour)]."""
+def place_obstacles(spec, episode, count, seed, speed=SPEED_M_S):
+    """The obstacles of an episode: [dict(start_cell, speed_m_s, walk_seed, radius_m, height_m, colour)], speeds drawn
+    from `speed` (the same draws for any range, so a range changes only the speeds)."""
     rng = np.random.default_rng(seed)
     neighbours = passages(spec)
     hops = hops_from(neighbours, cell_of(episode['home_se2_world']))
@@ -73,7 +75,7 @@ def place_obstacles(spec, episode, count, seed):
     if len(candidates) < count:
         raise ValueError(f'{len(candidates)} cells can hold an obstacle, {count} asked')
     starts = [candidates[i] for i in rng.choice(len(candidates), size=count, replace=False)]
-    return [dict(start_cell=list(c), speed_m_s=float(rng.uniform(*SPEED_M_S)), walk_seed=int(rng.integers(2**62)),
+    return [dict(start_cell=list(c), speed_m_s=float(rng.uniform(*speed)), walk_seed=int(rng.integers(2**62)),
                  radius_m=RADIUS_M, height_m=HEIGHT_M, colour=list(COLOURS[k % len(COLOURS)]))
             for k, c in enumerate(starts)]
 
