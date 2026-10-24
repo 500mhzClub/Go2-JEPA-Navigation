@@ -18,7 +18,7 @@ robot settles.
 import numpy as np
 
 from go2nav.locomotion.policy import LocomotionPolicy
-from go2nav.locomotion.safety import apply_limits
+from go2nav.locomotion.safety import GUARD_SPEED_M_S, apply_limits
 from go2nav.perception.cameras import AUXILIARY, PRIMARY
 from go2nav.sim import contacts, dynamics as perturbations, scene as maze_scene, sensors
 from go2nav.sim.obstacles import ObstacleField
@@ -42,14 +42,14 @@ class MissionSession:
     physics step); `contact_packets` and `contact_events` are the evaluator's contact records."""
 
     def __init__(self, spec, output_dir, *, policy_checkpoint, noise_sigma_m=NOISE_SIGMA_M, dynamics=None, noise_layout=None,
-                 robot_visible=True, demo_textures=False, random_look=None):
-        self.spec, self.output_dir, self.dynamics = spec, output_dir, dynamics
+                 robot_visible=True, demo_textures=False, random_look=None, safety='primitive'):
+        self.spec, self.output_dir, self.dynamics, self.safety = spec, output_dir, dynamics, safety
         self.world = maze_scene.build(spec, output_dir, dynamics, robot_visible=robot_visible, demo_textures=demo_textures,
                                       random_look=random_look)
         strips = dynamics is not None and dynamics.strips is not None
         self.friction_field = (perturbations.FrictionField(self.world.robot, self.world.floor, dynamics.strips, dynamics.strip_mu)
                                if strips else None)
-        self.guard_speed_m_s = perturbations.STRIP_SPEED_LIMIT_M_S if strips else contacts.GUARD_SPEED_M_S
+        self.guard_speed_m_s = perturbations.STRIP_SPEED_LIMIT_M_S if strips else GUARD_SPEED_M_S[safety]
         self.stall = (perturbations.StallMonitor(dynamics.stall_stop_s)
                       if dynamics is not None and dynamics.stall_stop_s else None)
         self.policy = LocomotionPolicy(policy_checkpoint, device='cpu')
@@ -141,7 +141,7 @@ class MissionSession:
         window = self.sim_ns//FRAME_PERIOD_NS
         if self.window != window:
             self.window, self.window_start_command = window, self.last_executed.copy()
-        command = apply_limits(requested[None, None, :], self.window_start_command)[0, 0]
+        command = apply_limits(requested[None, None, :], self.window_start_command, self.safety)[0, 0]
         self._act(command)
         base_time, base_ns = float(self.sim_ns)/1e9, self.sim_ns
         for k in range(maze_scene.PHYSICS_STEPS_PER_POLICY):
