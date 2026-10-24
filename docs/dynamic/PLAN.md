@@ -120,6 +120,20 @@ a point set in advance, not whenever ideas run out. (References from memory; che
 - **Trading failures:** a change's losses reach half its wins.
 - **Budget:** three rounds after R7c (round 1 is the R7d probe's rules; constant-velocity tracking is round 2).
 
+**Before handing anything over: a continuous-command baseline (agreed 24 October).** The frozen baseline chooses
+among six primitives, so part of its freezing may be the action set (no slowing, side-stepping or backing away), not
+perception or prediction. Analysing its failures as they stand could hand a module to the world model when the limit
+was the action set. So, before the failure analysis:
+1. P5 step 1 (command representation; no behaviour change).
+2. A continuous baseline: C1 scoring a command lattice, as the dynamic window approach does (Fox, Burgard and Thrun,
+   1997), with C1's command model refitted on recordings across the whole range. Tuned and frozen under the same rule,
+   then the same held-out evaluation. The gap between the two baselines is what the action set alone is worth.
+3. The density curve and oracle substitution below run on the continuous baseline (the stronger one, which the
+   world model must beat); the six-primitive baseline stays as the reference.
+
+C0 stays on six primitives (or a coarse lattice as a bound): its what-if branches cost about 12 times more per plan
+with a 75-command lattice.
+
 **Then hand parts over by evidence, not by intuition:**
 - **Density curve:** the frozen baseline at 0, 1, 2 and 4 obstacles, at two speeds. The slope is the harness's
   structural limit, and the point where it freezes.
@@ -152,6 +166,9 @@ a point set in advance, not whenever ideas run out. (References from memory; che
   **H-JEPA** with the merged configuration. Same gates as before (L1-L4, H1-H4).
 - **The displacement test split by condition:** contact, low friction, near walls, obstacle in view. Here a world
   model can beat dead reckoning.
+- **New: forecasts of switching command tapes.** The planners in P5 search tapes whose command changes every 100 ms,
+  while the static corpus held mostly one primitive per tape. Gate: the displacement test on tapes with several
+  switches (forward, then an arc, then the other arc), not only constant commands, and with lateral commands.
 - **New: obstacle forecasting.**
   - Probe obstacle position relative to the robot from level-1 rollouts and from upper-level predictions, against
     obstacle persistence.
@@ -170,7 +187,8 @@ a point set in advance, not whenever ideas run out. (References from memory; che
 3. **CEM and MPPI** for the JEPA arms: optimise the command tape through the world model, rolled out and decoded,
    against the same objective (waypoint progress plus clearance).
    - This includes timing: an 800-ms tape replanned every 400 ms, and shorter commits once dispatch allows it.
-   - Compare against the lattice at equal compute.
+   - Compare against the lattice at equal compute, and against **C1 with the same tape search** (CEM through C1's
+     command model, which also forecasts any tape). Otherwise a win measures the search, not the world model.
 4. **Hierarchical planning with H-JEPA.**
    - Offline first: CEM over L3/L2 macro-actions from a start frame to a goal frame 12.8-25 s later, checked against
      the macro-actions taken.
