@@ -131,8 +131,11 @@ was the action set. So, before the failure analysis:
 3. The density curve and oracle substitution below run on the continuous baseline (the stronger one, which the
    world model must beat); the six-primitive baseline stays as the reference.
 
-C0 stays on six primitives (or a coarse lattice as a bound): its what-if branches cost about 12 times more per plan
-with a 75-command lattice.
+**C0 is dropped from the continuous work (agreed 24 October).** Its what-if branches cost about 12 times more per plan
+with a 75-command lattice, and far more under tape search. It runs once more on six primitives in the frozen
+baseline's held-out evaluation, then not in the continuous baseline's rounds, the density curve or P5. The oracle
+substitution's "own motion forecast" row uses the six-primitive C0-C1 gap. C0 comes back for one final evaluation before
+a paper draft, as an upper bound.
 
 **Then hand parts over by evidence, not by intuition:**
 - **Density curve:** the frozen baseline at 0, 1, 2 and 4 obstacles, at two speeds. The slope is the harness's
