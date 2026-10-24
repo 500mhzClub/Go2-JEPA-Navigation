@@ -248,3 +248,39 @@ dv2 against dv0: 14 wins, 5 losses (+9), p = 0.064. No contacts in any round.
   15 ep0, 26 ep1); four show little blocking and run out of time (20, 23, 24, 28 ep0).
 - **Defect:** maze 26 episode 0 with one obstacle fails at frame 0 in every round (floor plane unavailable): the
   obstacle spawns in front of the start camera. Placement needs a keep-out around the start pose.
+
+## Round 3, dv3, and the freeze (24 October)
+
+dv3: dv2 plus constant-velocity obstacle prediction (`--obstacle-prediction`: tracks of compact clusters standing on
+once-seen floor, predicted only once confirmed moving) and footprint clearing (`--footprint-clearing`: map cells
+inside the body's outline dropped). Same 120 missions (`configs/experiments/dv3_development.yaml`, cohorts `dv3_*_c1`).
+
+| | Static | One obstacle | Two obstacles | Total |
+|---|---|---|---|---|
+| dv2 | 32 | 16 | 7 | 55 |
+| dv3 | 32 | 13 | 9 | 54 |
+| Wins / losses | 0 / 0 | 0 / 3 | 4 / 2 | 4 / 5 (net -1, p = 1) |
+
+No contacts; pose losses 11 (dv2 12).
+- **Tracking works:** on the probe, 75-100% of predicted tracks lie on a true obstacle, with a median velocity error
+  of 0.02-0.09 m/s. The first detector also tracked static wall fragments, whose centroid drifts with the view; tracks
+  are now predicted only after two updates in which they entered floor seen free or left their cells free.
+- **Footprint clearing removed the probe's only contact.** Phantom cells inside the body outline (an obstacle that
+  passed close, or pose error) blocked every translation. The turn exit watched the nearest (phantom) cell while turns
+  in place on the continuous policy crept the base 0.35 m into a real wall.
+- **Prediction does not unfreeze the robot.** Knowing where an obstacle will be does not tell the six-primitive
+  harness what to do about it.
+
+**The six-primitive baseline is frozen at dv3** (P2b): rounds 1 and 2 each gained under 3 net per 40 with p > 0.1,
+round 3 trades failures, and the budget of three rounds is spent. Development record of the frozen harness on
+validation 10-29: static 32/40, one obstacle 13/40, two obstacles 9/40.
+
+Other findings of the round:
+- **Maze 26 episode 0** fails at frame 0 with obstacles in every round: the start faces a wall 25 cm away, the
+  frame-0 floor plane is marginal, and an extra entity shifts the settled pose enough to tip it. A start-pose
+  perception edge case, not an obstacle placement fault (the obstacle is 3.9 m away, behind).
+- **Pose loss with obstacles** ends long stretches of turning in place or holding while stuck (the obstacle is
+  usually out of view): a symptom of the freeze, classified as such.
+
+Next: the frozen baseline's evaluation (`configs/experiments/frozen_baseline_eval.yaml`): static parity on R4 and the
+R6 reference, held-out static episode 1, and held-out obstacles (placement series heldout-v1) for C1 and C0.
