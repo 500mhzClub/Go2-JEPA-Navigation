@@ -101,7 +101,7 @@ def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=N
 def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fit=None, friction=None, strips=None,
         stall_stop_s=None, obstacles=None, degrade=None, margin=None, pessimistic=None, unknown_level=None, demo_textures=False,
         models=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False, deadlock_escape=False,
-        terminal_burst=False, obstacle_prediction=False):
+        terminal_burst=False, obstacle_prediction=False, footprint_clearing=False):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
     (how many moving obstacles). Experiment
@@ -115,7 +115,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     (`go2nav.perception.mapping`, for moving obstacles), and with no route left stale cells are forgotten ('floor':
     cells once seen as floor first); `deadlock_escape`: the latch timeout and deadlock escape alone; `terminal_burst`:
     the terminal burst alone (`go2nav.planning.planner`); `obstacle_prediction`: constant-velocity tracks of moving
-    obstacles in the forecast clearance check (`go2nav.perception.tracks`, `go2nav.planning.prediction`)."""
+    obstacles in the forecast clearance check (`go2nav.perception.tracks`, `go2nav.planning.prediction`);
+    `footprint_clearing`: map cells inside the body's outline are dropped (`go2nav.perception.mapping`)."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -143,7 +144,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  **(dict(map_decay=True if map_decay is True else map_decay) if map_decay else {}),
                                  **(dict(deadlock_escape=True) if deadlock_escape else {}),
                                  **(dict(terminal_burst=True) if terminal_burst else {}),
-                                 **(dict(obstacle_prediction=True) if obstacle_prediction else {})))
+                                 **(dict(obstacle_prediction=True) if obstacle_prediction else {}),
+                                 **(dict(footprint_clearing=True) if footprint_clearing else {})))
     save(out/'specification.json', spec)
     save(out/'episode.json', episode)
     cv2.setNumThreads(1)
@@ -173,7 +175,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                           unknown=caution.UnknownCells(unknown_bound, pessimistic) if pessimistic else None,
                                           harness=harness, coverage_fix=coverage_fix, map_decay=map_decay,
                                           deadlock_escape=deadlock_escape, terminal_burst=terminal_burst,
-                                          obstacle_prediction=obstacle_prediction)
+                                          obstacle_prediction=obstacle_prediction, footprint_clearing=footprint_clearing)
         history = deque(maxlen=4)
         for tick in range(STEP_BUDGET):
             now = session.sim_ns
@@ -284,6 +286,8 @@ def main():
     p.add_argument('--terminal-burst', choices=('on', 'off'), default='off', help='terminal burst only')
     p.add_argument('--obstacle-prediction', choices=('on', 'off'), default='off',
                    help='constant-velocity obstacle tracks in the clearance check')
+    p.add_argument('--footprint-clearing', choices=('on', 'off'), default='off',
+                   help="drop map cells inside the body's outline")
     p.add_argument('--out', type=Path, required=True)
     a = p.parse_args()
     strips = None
@@ -298,7 +302,7 @@ def main():
                  models=yaml.safe_load(a.models.read_text()) if a.models else None, harness=a.harness,
                  coverage_fix=a.coverage_fix == 'on', map_decay=dict(on=True, floor='floor', off=False)[a.map_decay],
                  deadlock_escape=a.deadlock_escape == 'on', terminal_burst=a.terminal_burst == 'on',
-                 obstacle_prediction=a.obstacle_prediction == 'on')
+                 obstacle_prediction=a.obstacle_prediction == 'on', footprint_clearing=a.footprint_clearing == 'on')
     print(json.dumps(result))
 
 

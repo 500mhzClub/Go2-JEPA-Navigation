@@ -73,3 +73,13 @@ def test_forget_floor_only_keeps_cells_never_seen_as_floor(monkeypatch):
     assert routing_map.forget(0, floor_only=True) == {(20, 0)}
     assert (30, 10) in routing_map.occupied and (150, 50) in routing_map.fine_occupied
     assert (102, 2) not in routing_map.fine_occupied
+
+
+def test_footprint_clearing_drops_cells_under_the_body(monkeypatch):
+    for clear in (False, True):
+        routing_map = mapping.RoutingMap(clear_seen_free=True, clear_footprint=clear)
+        routing_map.B, routing_map.floor_height = np.eye(3), FLOOR
+        # a stale cell under the body (0.1 m ahead), one beside it (0.2 m left) and one ahead (1 m)
+        snapshot = update(routing_map, monkeypatch, [], [(.1, 0., .3), (0., .2, .3), (1.025, .025, .3)])
+        assert ((2, 0) in snapshot.occupied) is not clear and ((10, 0) in snapshot.fine_occupied) is not clear
+        assert (0, 4) in snapshot.occupied and (20, 0) in snapshot.occupied

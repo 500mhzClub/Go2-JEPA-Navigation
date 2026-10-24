@@ -22,6 +22,11 @@ A trail the cameras cannot see again (round a corner) stays, so `forget` drops o
 before a given time; the controller calls it when no route is left (`FORGET_UNSEEN_NS`). With `floor_only` it drops
 only cells once seen as floor (a passage an obstacle walked through; a wall's cell is never seen as floor), with their
 fine cells.
+
+**Footprint clearing** (`clear_footprint`, for moving obstacles): every update drops the occupied cells (5 cm, by their
+centre) and fine cells inside the body's outline at the current pose (`FOOTPRINT_HALF_M` along and across the body).
+Nothing but the robot can be there; such cells come from an obstacle that passed close or from pose error, and they
+block every translation (as costmaps clear the robot's footprint).
 """
 from dataclasses import dataclass
 
@@ -36,6 +41,7 @@ CELL_M, HALF_CELLS = .05, 160
 FINE_CELL_M, FINE_HALF_CELLS = .01, 800
 MIN_HEIGHT_M, MAX_HEIGHT_M = .03, .65
 FLOOR_BAND_M = .01
+FOOTPRINT_HALF_M = (.25, .12)
 GRID = np.array([(i, j) for i in range(-HALF_CELLS, HALF_CELLS) for j in range(-HALF_CELLS, HALF_CELLS)], np.int64)
 SQUARE = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])
 
@@ -233,11 +239,25 @@ def measured_floor_height(plane, map_from_body, position_map):
     return -offset/float(normal[2])
 
 
+def footprint_cells(Q, q, size):
+    """The cells (by their centre, at a cell size) inside the body's outline at the map-frame pose (Q, q)."""
+    forward = np.asarray(Q, float)[:2, 0]
+    forward = forward/np.linalg.norm(forward)
+    left = np.array((-forward[1], forward[0]))
+    centre = np.asarray(q, float)[:2]
+    reach = float(np.hypot(*FOOTPRINT_HALF_M))
+    low, high = np.floor((centre-reach)/size).astype(int), np.ceil((centre+reach)/size).astype(int)
+    cells = np.stack(np.meshgrid(np.arange(low[0], high[0]+1), np.arange(low[1], high[1]+1), indexing='ij'), -1).reshape(-1, 2)
+    d = (cells+.5)*size-centre
+    keep = (np.abs(d@forward) <= FOOTPRINT_HALF_M[0])&(np.abs(d@left) <= FOOTPRINT_HALF_M[1])
+    return {tuple(map(int, c)) for c in cells[keep]}
+
+
 class RoutingMap:
     """See the module docstring. `update` takes the registered pose and both depth images of one frame."""
 
-    def __init__(self, clear_seen_free=False):
-        self.clear_seen_free = clear_seen_free
+    def __init__(self, clear_seen_free=False, clear_footprint=False):
+        self.clear_seen_free, self.clear_footprint = clear_seen_free, clear_footprint
         self.B = None
         self.floor_height = None
         self.floor, self.occupied, self.fine_occupied = set(), set(), set()
@@ -312,6 +332,12 @@ class RoutingMap:
                 self.occupied -= cleared
                 self.fine_occupied -= {c for c in self.fine_occupied
                                        if (c[0]//ratio, c[1]//ratio) in cleared and c not in new_fine}
+        if self.clear_footprint:
+            body, fine_body = footprint_cells(Q, q, CELL_M), footprint_cells(Q, q, FINE_CELL_M)
+            new_occupied -= body
+            new_fine -= fine_body
+            self.occupied -= body
+            self.fine_occupied -= fine_body
         self.latest = MapSnapshot(frame, measured_ns, frozenset(self.floor), frozenset(self.occupied),
                                   tuple(map(float, q)), tuple(tuple(map(float, row)) for row in self.B), self.floor_height,
                                   *counts, frozenset(self.fine_occupied), frozenset(new_floor), frozenset(new_occupied),

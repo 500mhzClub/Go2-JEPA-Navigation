@@ -66,7 +66,8 @@ def mission_command(cohort, arm, set_name, maze, episode, destination):
                       ('pessimistic', '--pessimistic'), ('unknown_level', '--unknown-level'), ('models', '--models'),
                       ('harness', '--harness'), ('coverage_fix', '--coverage-fix'),
                       ('map_decay', '--map-decay'), ('deadlock_escape', '--deadlock-escape'),
-                      ('terminal_burst', '--terminal-burst'), ('obstacle_prediction', '--obstacle-prediction')):
+                      ('terminal_burst', '--terminal-burst'), ('obstacle_prediction', '--obstacle-prediction'),
+                      ('footprint_clearing', '--footprint-clearing')):
         if cohort.get(key) is not None:
             command += [flag, str(cohort[key])]
     if cohort.get('demo_textures'):

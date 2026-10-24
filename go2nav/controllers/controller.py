@@ -83,10 +83,11 @@ class NavigationController:
 
     def __init__(self, forecaster, *, goal_xy, home_xy, arrival_radius_m=.02, navigation_frames=4800, recovery=False,
                  margin_m=0., unknown=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False,
-                 deadlock_escape=False, terminal_burst=False, obstacle_prediction=False):
+                 deadlock_escape=False, terminal_burst=False, obstacle_prediction=False, footprint_clearing=False):
         self.forecaster = forecaster
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
-        self.routing_map, self.obstacles = RoutingMap(clear_seen_free=bool(map_decay)), DepthObstacleObserver()
+        self.routing_map = RoutingMap(clear_seen_free=bool(map_decay), clear_footprint=footprint_clearing)
+        self.obstacles = DepthObstacleObserver()
         self.forget_floor_first = map_decay == 'floor'
         self.planner = Planner(arrival_radius_m=arrival_radius_m, recovery=recovery, margin_m=margin_m, unknown=unknown,
                                harness=harness, coverage_fix=coverage_fix, deadlock_escape=deadlock_escape,
