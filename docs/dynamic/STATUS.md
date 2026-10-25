@@ -366,3 +366,35 @@ lv0 and lv1:
   has just left is less risk than creeping on. Smoke: maze 10 ep0 (one obstacle), a wall contact at 417 s in both
   stopped launches, completes its round trip in 302 s after three back-offs; maze 13 ep0 (two obstacles), lv1's creep
   contact, stays at 0.40 m or more and times out without contact.
+
+**lv2** (no lateral, back-off; commit d5099d0):
+
+| | Static | One obstacle | Two obstacles | Total | Contacts |
+|---|---|---|---|---|---|
+| dv3 (six primitives) | 32 | 13 | 9 | 54 | 0 |
+| lv0 | 38 | 25 | 13 | 76 | 7 |
+| lv1 | 38 | 24 | 13 | 75 | 12 |
+| lv2 | 38 | 31 | 18 | 87 | 0 |
+| lv2 against lv1 | 0 / 0 | 10 / 3 (p 0.09) | 8 / 3 (p 0.23) | 18 / 6 (p 0.02) | |
+| lv2 against dv3 | 7 / 1 (p 0.07) | 18 / 0 (p < 0.001) | 11 / 2 (p 0.02) | 36 / 3 | |
+
+- **No contacts** (lv1: 12). 491 back-off plans in 47 missions, every one executed (none overridden).
+- **The remaining failures are one mechanism, shared with dv3.** In 27 of lv2's 33 failures, all with obstacles, over
+  40% of plans find `OBSERVED_COMPONENT_HAS_NO_FRONTIER`: the floor reachable on the map has no route to the goal and
+  no frontier. The robot then turns in place through its five scan headings every ~19 s and
+  forgets the few cells not seen for a while (1-14 each time), while the movers walk past. In maze 22 episode 1 with two
+  obstacles it stays within 0.1 m of one spot for 120 s, the obstacles passing 0.8-2.6 m away. Cells a mover left
+  where no camera sees them as whole floor seal a passage: neither clearing (whole square seen as floor) nor
+  forgetting (not seen lately) reaches them. dv3 has the same failure (17 of its 58 obstacle failures, and 13 of 30 in
+  the held-out run with two obstacles); its other failures (holds, latched turns) are what the lattice removed.
+  Static missions never show it.
+- The other six: static 14 ep1 (time-out) and 17 ep0 (pose loss after long holds); with one obstacle 17 ep0 (beacon
+  only) and 26 ep0 (the frame-0 floor plane, as in every round); with two, 18 ep1 (pose loss at 85 s) and 29 ep0
+  (time-out under repeated translation vetoes).
+
+**The lattice baseline is frozen at lv2.** The rule had not fired: lv2 gained 4 net per 40 (p 0.02), and one round of
+the budget was left. It is frozen anyway, a deviation from P2b recorded here: the only change the failures point to
+is a map rule (how a mover's trail is cleared), which belongs to both baselines. Adding it to the lattice alone
+would change what the gap between the two baselines measures, the action set alone. It goes to the failure analysis,
+for both arms. Held-out evaluation: `configs/experiments/lattice_baseline_eval.yaml` (cohorts `lb_*`), the frozen
+six-primitive evaluation's C1 missions with the lattice flags, paired with them.
