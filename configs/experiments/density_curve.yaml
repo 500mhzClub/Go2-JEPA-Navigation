@@ -1,0 +1,146 @@
+name: 'Failure analysis: the density curve of the frozen lattice baseline (validation mazes 10-29)'
+description: 'The lattice baseline frozen at lv2 at 0, 1, 2 and 4 obstacles and two speeds (development series v1). Speed
+  0.15-0.35 m/s at 0, 1 and 2 obstacles is round lv2 itself (cohorts lv2_*); this adds 4 obstacles at that speed and 1, 2
+  and 4 at 0.35-0.55 m/s (the same placements, faster: as fast as the robot). The slope is the harness''s structural limit
+  (docs/dynamic/PLAN.md, failure analysis).'
+cohorts:
+- name: dn_obst4_c1
+  arms: &id001
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  episodes: &id002
+  - - 10
+    - 0
+  - - 10
+    - 1
+  - - 11
+    - 0
+  - - 11
+    - 1
+  - - 12
+    - 0
+  - - 12
+    - 1
+  - - 13
+    - 0
+  - - 13
+    - 1
+  - - 14
+    - 0
+  - - 14
+    - 1
+  - - 15
+    - 0
+  - - 15
+    - 1
+  - - 16
+    - 0
+  - - 16
+    - 1
+  - - 17
+    - 0
+  - - 17
+    - 1
+  - - 18
+    - 0
+  - - 18
+    - 1
+  - - 19
+    - 0
+  - - 19
+    - 1
+  - - 20
+    - 0
+  - - 20
+    - 1
+  - - 21
+    - 0
+  - - 21
+    - 1
+  - - 22
+    - 0
+  - - 22
+    - 1
+  - - 23
+    - 0
+  - - 23
+    - 1
+  - - 24
+    - 0
+  - - 24
+    - 1
+  - - 25
+    - 0
+  - - 25
+    - 1
+  - - 26
+    - 0
+  - - 26
+    - 1
+  - - 27
+    - 0
+  - - 27
+    - 1
+  - - 28
+    - 0
+  - - 28
+    - 1
+  - - 29
+    - 0
+  - - 29
+    - 1
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+  obstacles: 4
+- name: dn_fast_obst1_c1
+  arms: *id001
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  episodes: *id002
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+  obstacles: 1
+  obstacle_speed: 0.35:0.55
+- name: dn_fast_obst2_c1
+  arms: *id001
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  episodes: *id002
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+  obstacles: 2
+  obstacle_speed: 0.35:0.55
+- name: dn_fast_obst4_c1
+  arms: *id001
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  episodes: *id002
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+  obstacles: 4
+  obstacle_speed: 0.35:0.55
