@@ -1,0 +1,129 @@
+name: 'Lattice development round lv1: lattice yaw capped at 0.45 rad/s, validation mazes 10-29'
+description: 'lv0 with one change: the lattice''s yaw axis capped at the primitives'' 0.45 rad/s (-0.45, -0.3, 0, 0.3,
+  0.45; was to ±0.6). Seven of lv0''s 120 missions ended in contact, six of them turning at 0.6 rad/s (in place, or with
+  lateral 0.15 m/s), where a calf swept past the 0.45-m footprint. Paired with lv0 (and dv3).'
+cohorts:
+- name: lv1_static_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  episodes: &id001
+  - - 10
+    - 0
+  - - 10
+    - 1
+  - - 11
+    - 0
+  - - 11
+    - 1
+  - - 12
+    - 0
+  - - 12
+    - 1
+  - - 13
+    - 0
+  - - 13
+    - 1
+  - - 14
+    - 0
+  - - 14
+    - 1
+  - - 15
+    - 0
+  - - 15
+    - 1
+  - - 16
+    - 0
+  - - 16
+    - 1
+  - - 17
+    - 0
+  - - 17
+    - 1
+  - - 18
+    - 0
+  - - 18
+    - 1
+  - - 19
+    - 0
+  - - 19
+    - 1
+  - - 20
+    - 0
+  - - 20
+    - 1
+  - - 21
+    - 0
+  - - 21
+    - 1
+  - - 22
+    - 0
+  - - 22
+    - 1
+  - - 23
+    - 0
+  - - 23
+    - 1
+  - - 24
+    - 0
+  - - 24
+    - 1
+  - - 25
+    - 0
+  - - 25
+    - 1
+  - - 26
+    - 0
+  - - 26
+    - 1
+  - - 27
+    - 0
+  - - 27
+    - 1
+  - - 28
+    - 0
+  - - 28
+    - 1
+  - - 29
+    - 0
+  - - 29
+    - 1
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+- name: lv1_obst1_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacles: 1
+  episodes: *id001
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+- name: lv1_obst2_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacles: 2
+  episodes: *id001
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous

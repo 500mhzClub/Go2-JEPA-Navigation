@@ -21,7 +21,8 @@ TURNS = {'left_turn': 1, 'right_turn': -1}
 PERIOD_NS = 100_000_000
 PREFIX_TICKS, COMMIT_TICKS, HORIZONS = 3, 4, 8
 COMMAND_SCALE = np.array([.3, 1., .5])  # command normalisation of the learned models
-LATTICE_AXES = dict(forward=(-.10, 0., .15, .30, .45), lateral=(-.15, 0., .15), yaw=(-.6, -.3, 0., .3, .6))
+# yaw to the primitives' 0.45 rad/s, the rate the 0.45-m footprint was validated at (lv0's ±0.6 clipped walls and obstacles)
+LATTICE_AXES = dict(forward=(-.10, 0., .15, .30, .45), lateral=(-.15, 0., .15), yaw=(-.45, -.3, 0., .3, .45))
 
 
 def command(action):

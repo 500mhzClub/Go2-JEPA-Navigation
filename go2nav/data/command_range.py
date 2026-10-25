@@ -7,8 +7,8 @@ the whole command range (docs/dynamic/PLAN.md, the continuous baseline).
 
 **Plan.** Each trial is a corridor scene (the geometry family's first specification) with its walls replaced by a
 12-m square enclosure (`HALF_SIDE_M`), so the robot can move any way for the whole tape (at most 3.6 m in 12 s). The tape: 3 quiet ticks, then `SEGMENTS` segments of `SEGMENT_TICKS`
-100-ms ticks (a plan's commitment), each one lattice command (`go2nav.planning.actions.LATTICE`; hold with probability
-`HOLD_SHARE`, else uniform over the others), then 10 zero ticks. A fifth of the trials are held out (`data_role` eval).
+100-ms ticks (a plan's commitment), each one command of the collection's lattice (`AXES`, the planner's first lattice:
+yaw to ±0.6 rad/s; hold with probability `HOLD_SHARE`, else uniform over the others), then 10 zero ticks. A fifth of the trials are held out (`data_role` eval).
 
 **Contexts** (C1's format, `go2nav.training.command_model`): a window at every frame from 15 (1.5 s of history) to the
 end of the tape, with the tape's next eight commands, the 420-value applied-command history and the true motions
@@ -20,13 +20,14 @@ from pathlib import Path
 
 import numpy as np
 
-from go2nav.planning.actions import LATTICE, command
+from go2nav.planning.actions import command, lattice
 
 REPO = Path(__file__).resolve().parents[2]
 PLAN = REPO/'data/collections/command_range/plan.json'
 SEGMENTS, SEGMENT_TICKS, HOLD_SHARE, QUIET_TICKS, DRAIN_TICKS = 30, 4, .15, 3, 10
 EVAL_SHARE, SEED, FIRST_FRAME = .2, 2026102401, 15
 HALF_SIDE_M = 6.
+AXES = dict(forward=(-.10, 0., .15, .30, .45), lateral=(-.15, 0., .15), yaw=(-.6, -.3, 0., .3, .6))
 
 
 def enclosure():
@@ -42,7 +43,7 @@ def make_plan(trials):
     source = json.loads((REPO/'data/collections/geometry_progress_family/plan.json').read_text())
     base = next(iter(source['trials'].values()))['specification']
     rng = np.random.default_rng(SEED)
-    moving = [a for a in LATTICE if a != 'hold']
+    moving = [a for a in lattice(**AXES) if a != 'hold']
     plan = dict(name='command_range', description=__doc__.split('\n\n')[0], trials={})
     for k in range(trials):
         name = f'range_episode_{k:03d}'
