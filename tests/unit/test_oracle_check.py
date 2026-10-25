@@ -28,3 +28,13 @@ def test_a_plan_starting_after_an_escape_dispatch_is_skipped():
     assert check['passed'] and check['comparisons'][0]['after_escape']
     long_ago = [dict(escaped[0], simulator_ns=100_000_000), escaped[1]]
     assert not oracle.verify_executed(long_ago, samples)['passed']
+
+
+def test_a_step_interrupted_by_a_stop_is_not_compared():
+    oracle = OracleForecaster(None)
+    branch = dict(applied=np.zeros((40, 3)), poses=np.zeros((400, 7)))
+    oracle.branches = [dict(observed_ns=0, branches=[branch])]
+    samples = [dict(timestamp_s=t*.002, base_pose_world=np.zeros(7)) for t in range(401)]
+    interrupted = [dict(simulator_ns=0, requested_command=[0., 0., 0.], reason=PASSED)]
+    check = oracle.verify_executed(interrupted, samples)
+    assert check['passed'] and check['comparisons'][0]['reason'] == 'NOT_EXECUTED'

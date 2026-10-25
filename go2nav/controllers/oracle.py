@@ -96,14 +96,18 @@ class OracleForecaster:
         """The executed-prefix check (see the module docstring)."""
         stamps = np.rint(np.array([s['timestamp_s'] for s in samples])*1e9).astype(np.int64)
         poses = np.stack([s['base_pose_world'] for s in samples])
-        by_time = {r['simulator_ns']: r for r in requests}
+        by_time = {r['simulator_ns']: r for r in requests if 'applied_command' in r}  # not the step a stop interrupted
         escapes = np.array(sorted(r['simulator_ns'] for r in requests if r.get('escape_dispatch')), np.int64)
         rows = []
         for plan in self.branches:
             origin = plan['observed_ns']
             start = by_time.get(origin)
             escaped = np.searchsorted(escapes, origin, 'right') > np.searchsorted(escapes, origin-ESCAPE_WINDOW_NS)
-            if start is not None and (start.get('reason') != PASSED or escaped) and not any(
+            if start is None:  # the mission ended before this plan's start was executed
+                rows.append(dict(observed_ns=origin, candidate=None, matched_prefix_ms=0, passed=True, skipped=True,
+                                 reason='NOT_EXECUTED'))
+                continue
+            if (start.get('reason') != PASSED or escaped) and not any(
                     np.allclose(start['applied_command'], branch['applied'][0], rtol=0, atol=1e-7) for branch in plan['branches']):
                 rows.append(dict(observed_ns=origin, candidate=None, matched_prefix_ms=0, passed=True, skipped=True,
                                  reason='OVERRIDDEN_AT_PLAN_START', dispatch_reason=start.get('reason'), after_escape=bool(escaped)))
