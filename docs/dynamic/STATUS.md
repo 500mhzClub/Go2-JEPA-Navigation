@@ -321,6 +321,10 @@ first ran ten missions with an episode the set lacks; they were rerun with the r
   escape dispatch (the escape sends a vetoed turn while the ledger keeps the zero request, so the next plan's
   committed prefix is zero while the robot still turns). Wherever commands matched, branch and execution agreed to
   0 mm. The check now skips those plans; outcomes come from the arrivals and stand.
+- **Result, C0 against C1 on held-out obstacles:** one obstacle 18 against 20 (C1 10 wins, 8 losses, p 0.82), two
+  obstacles 8 against 10 (7 wins, 5 losses, p 0.77). One real contact for C0 (two obstacles, maze 47 ep0; its rerun
+  also exposed a check crash on a stop-interrupted step, fixed in 8ef7a87). **Perfect forecasts buy the six-primitive
+  harness nothing with moving obstacles:** its rules, not C1's forecasts, limit it.
 
 ## The continuous-command baseline: lattice rounds (25 October)
 
@@ -356,4 +360,9 @@ lv0 and lv1:
   stopping projection, which a pose inside the footprint always fails, does not veto it). A first lv2 launch was
   stopped a third of the way in: the back-off never ran while the planner scanned for a view (scan utilities leave out
   every translation, and the reserve exit had already marked the reversals clear), so a robot crept into a wall as in
-  lv1. The back-off now comes first when inside the footprint (its partial cohorts are kept as `lv2pre_*`).
+  lv1. The back-off now comes first when inside the footprint (its partial cohorts are kept as `lv2pre_*`). A second
+  launch was stopped too (`lv2pre2_*`): the floor-coverage rule then vetoed every back-off (reversing sweeps floor the
+  forward cameras never saw). A back-off reaching at most 0.10 m is now exempt: a few centimetres into space the body
+  has just left is less risk than creeping on. Smoke: maze 10 ep0 (one obstacle), a wall contact at 417 s in both
+  stopped launches, completes its round trip in 302 s after three back-offs; maze 13 ep0 (two obstacles), lv1's creep
+  contact, stays at 0.40 m or more and times out without contact.

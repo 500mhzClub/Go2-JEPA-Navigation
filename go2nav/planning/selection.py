@@ -38,7 +38,7 @@ TRANSLATION_RESERVE_M = TURN_RESERVE_M = .03
 EXIT_TOLERANCE_M = .001
 STOPPING_ALLOWANCE_S = .5
 COVERAGE_RADIUS_M = .48
-BACK_OFF_GAIN_M, BACK_OFF = .005, 'BACKS_OFF_INSIDE_FOOTPRINT'
+BACK_OFF_GAIN_M, BACK_OFF_REACH_M, BACK_OFF = .005, .10, 'BACKS_OFF_INSIDE_FOOTPRINT'
 
 
 def wrap(value):
@@ -586,7 +586,8 @@ def require_floor_coverage(selection, prediction, snapshot, position, rotation, 
     it would have swept (to be viewed). Returns (selection, cell or None). Observed occupied cells count as observed
     (the coverage fix of 2 October); with `occupied_observed=False`, the earlier rule, only observed floor does (the
     view target is still an unobserved cell). With `admissible` (a lattice), the best clear, stopping-clear candidate
-    that sweeps no unobserved floor is taken instead, translations included (no view target then)."""
+    that sweeps no unobserved floor is taken instead, translations included (no view target then). A back-off from inside
+    the footprint (`recover_against_hold`) reaching at most `BACK_OFF_REACH_M` is exempt."""
     if not translating(selection['action']):
         return selection, None
     observed = snapshot.floor|snapshot.occupied
@@ -597,6 +598,11 @@ def require_floor_coverage(selection, prediction, snapshot, position, rotation, 
     selected = next(r for r in rows if r['action'] == selection['action'])
     if selected['new_unknown_cells'] == 0 and not selected['leaves_map_bounds']:
         return selection | dict(translation_footprint_coverage=dict(rejected=False)), None
+    reach = float(np.linalg.norm(np.asarray(prediction)[order.index(selection['action']), -1, :2]))
+    if selection.get('memory_forecast_status') == 'INSIDE_FOOTPRINT_BACK_OFF' and reach <= BACK_OFF_REACH_M:
+        # a few centimetres into space the body has just left (the cameras never see behind): less risk than creeping on
+        return selection | dict(translation_footprint_coverage=dict(rejected=False, back_off_exempt=True,
+                                                                     new_unknown_cells=selected['new_unknown_cells'])), None
     values = utilities(selection)
     stopping = {r['action']: r['projection_clear'] for r in selection['planned_stopping_projection']['candidates']}
     if admissible:
