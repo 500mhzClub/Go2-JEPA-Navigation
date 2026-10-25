@@ -45,7 +45,8 @@ otherwise holds for the rest of the mission (docs/dynamic/STATUS.md, R7c). `term
 burst: on the continuous-command policy a turn in place moves the base, so near a waypoint the robot can circle it,
 turning for the rest of the mission (docs/dynamic/STATUS.md, C1 refit). `obstacle_prediction=True` checks the
 forecast paths against moving tracks (`tracks`, set by the controller each map update) where constant velocity puts
-them (`planning.prediction`).
+them (`planning.prediction`); with `'oracle'`, `tracks` are every obstacle at its true future positions
+(`controllers.truth`), all of them checked.
 """
 import math
 
@@ -360,7 +361,8 @@ class Planner:
         if scan_error is not None:
             result = sel.scan_override(result, prediction, scan_error)
         checked = self._cautious(clearance, snapshot, q)
-        moving = tracks.moving(self.tracks) if self.obstacle_prediction else []
+        moving = (self.tracks if self.obstacle_prediction == 'oracle' else tracks.moving(self.tracks)) \
+            if self.obstacle_prediction else []
         if moving:
             stored = grid.FineClearance(predicted.without(snapshot.fine_occupied, moving))
             checked = predicted.PredictedClearance(self._cautious(stored, snapshot, q), moving, snapshot.measured_ns)
