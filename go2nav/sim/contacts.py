@@ -4,13 +4,14 @@ Every physics step the simulator's contact list (`robot.get_contacts(exclude_sel
 - A contact is **disallowed** if the robot touches anything with a force above 1 mN, except a support link (a calf or
   foot) touching the ground. A disallowed contact stops the mission (`DISALLOWED_CONTACT`).
 - The **guard** (armed after settling) also stops the mission on any loaded ground contact of a robot geometry other
-  than the four foot spheres, a base speed above 0.3 m/s, or leaving the 16 x 16 m domain.
+  than the four foot spheres, a base speed above the safety block's guard speed (0.3 m/s; 0.6 m/s for the continuous
+  block, `go2nav.locomotion.safety`), or leaving the 16 x 16 m domain.
 """
 import numpy as np
 
 FIELDS = ('geom_a', 'geom_b', 'link_a', 'link_b', 'force_a', 'force_b', 'position', 'valid_mask')
 FORCE_FLOOR_N = 1e-3
-GUARD_SPEED_M_S, GUARD_HALF_EXTENT_M = .3, 8.
+GUARD_HALF_EXTENT_M = 8.
 
 
 def native_contacts(robot):

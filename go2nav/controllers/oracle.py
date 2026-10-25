@@ -3,12 +3,17 @@
 At each plan the simulator is snapshotted (`go2nav.sim.snapshot`) and each of the six candidate command tapes (the
 committed prefix, the action, then zero; the same float32 command encoding the learned models receive) is executed
 for 800 ms from the snapshot; the forecast is the true body pose at 100-800 ms, relative to the pose at the plan. The
-simulator is then restored, so the mission continues exactly as if nothing had been tried.
+simulator is then restored, so the mission continues exactly as if nothing had been tried. A branch that ends
+physically (`PhysicalStop`: a contact with a moving obstacle or a wall, a fall) is not the mission's stop: the branch
+holds its last pose for the rest of the horizon, as the stopped robot would, and its receipt names the reason.
 
 After the mission, `verify_executed` checks the oracle against what happened: wherever the executed commands matched
 a branch's commands from its start, the executed poses must match that branch's poses within 1 mm and 0.1° (the
 restore is not bit-perfect in Genesis, so this can occasionally fail; a failure is recorded as the run's error, as in
-the original).
+the original). A plan whose command at its own start was overridden at dispatch (zero sent: a stale observation or a
+veto) matches no branch; it is recorded as skipped, not failed. So is a plan whose start matches no branch within
+400 ms of an escape dispatch (`Controller._escape_dispatch` sends a vetoed turn but the ledger keeps the zero request,
+so the plan's committed prefix is zero while the robot still turns). Any other start matching no branch fails.
 """
 import math
 
@@ -16,11 +21,14 @@ import numpy as np
 import torch
 
 from go2nav.planning.actions import command_sequences
+from go2nav.planning.dispatch import PASSED
 from go2nav.sim import snapshot as snapshots
+from go2nav.sim.session import PhysicalStop
 from go2nav.sim.sensors import rotation_xyzw
 
 SCALE = (.3, 1., .5)
 STEPS_PER_TICK, TICKS = 5, 8
+ESCAPE_WINDOW_NS = 400_000_000
 
 
 def encoded_tapes(prefix, pulse):
@@ -50,14 +58,23 @@ class OracleForecaster:
         records = {name: getattr(session, name) for name in snapshots.RECORD_LISTS}
         initial = session.samples[-1]['base_pose_world'].copy()
         Q = rotation_xyzw(initial[3:])
-        motions, branches, applied = [], [], []
+        motions, branches, applied, stops = [], [], [], []
+        steps = TICKS*STEPS_PER_TICK
         try:
             for tape in requested:
                 snapshots.restore(session, snapshot)
                 for name in records:
                     setattr(session, name, [])
-                commands = [session.step(command) for command in np.repeat(tape, STEPS_PER_TICK, axis=0)]
+                commands, stop = [], None
+                try:
+                    for command in np.repeat(tape, STEPS_PER_TICK, axis=0):
+                        commands.append(session.step(command))
+                except PhysicalStop as exc:
+                    stop = str(exc)
+                commands += [[math.nan]*3]*(steps-len(commands))  # never matched by an executed command
                 poses = np.stack([row['base_pose_world'] for row in session.samples])
+                poses = np.concatenate([poses, np.repeat(poses[-1:], steps*10-len(poses), axis=0)])
+                stops.append(stop)
                 horizon = poses[np.arange(49, 400, 50)]
                 xy = (horizon[:, :3]-initial[:3])@Q
                 yaw = [heading(Q.T@rotation_xyzw(p[3:])) for p in horizon]
@@ -70,7 +87,7 @@ class OracleForecaster:
                 setattr(session, name, value)
         motion = torch.tensor(np.asarray(motions), dtype=torch.float32)
         self.receipts.append(dict(observed_ns=context.measured_ns, requested_commands=requested.tolist(),
-                                  applied_commands=applied, motion_xy_yaw=motion.tolist()))
+                                  applied_commands=applied, motion_xy_yaw=motion.tolist(), physical_stops=stops))
         self.branches.append(dict(observed_ns=context.measured_ns, branches=branches))
         return torch.cat((motion[:, :, :2], motion[:, :, 2:3].sin(), motion[:, :, 2:3].cos(),
                           torch.full((6, TICKS, 1), -1000.)), dim=-1).numpy()
@@ -79,10 +96,22 @@ class OracleForecaster:
         """The executed-prefix check (see the module docstring)."""
         stamps = np.rint(np.array([s['timestamp_s'] for s in samples])*1e9).astype(np.int64)
         poses = np.stack([s['base_pose_world'] for s in samples])
-        by_time = {r['simulator_ns']: r for r in requests}
+        by_time = {r['simulator_ns']: r for r in requests if 'applied_command' in r}  # not the step a stop interrupted
+        escapes = np.array(sorted(r['simulator_ns'] for r in requests if r.get('escape_dispatch')), np.int64)
         rows = []
         for plan in self.branches:
             origin = plan['observed_ns']
+            start = by_time.get(origin)
+            escaped = np.searchsorted(escapes, origin, 'right') > np.searchsorted(escapes, origin-ESCAPE_WINDOW_NS)
+            if start is None:  # the mission ended before this plan's start was executed
+                rows.append(dict(observed_ns=origin, candidate=None, matched_prefix_ms=0, passed=True, skipped=True,
+                                 reason='NOT_EXECUTED'))
+                continue
+            if (start.get('reason') != PASSED or escaped) and not any(
+                    np.allclose(start['applied_command'], branch['applied'][0], rtol=0, atol=1e-7) for branch in plan['branches']):
+                rows.append(dict(observed_ns=origin, candidate=None, matched_prefix_ms=0, passed=True, skipped=True,
+                                 reason='OVERRIDDEN_AT_PLAN_START', dispatch_reason=start.get('reason'), after_escape=bool(escaped)))
+                continue
             for index, branch in enumerate(plan['branches']):
                 length = 0
                 for tick in range(TICKS*STEPS_PER_TICK):

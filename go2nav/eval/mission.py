@@ -71,11 +71,15 @@ def episode_spec(set_name, maze, episode_index, root=None):
     return spec, episode
 
 
-def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=None, strips=None, stall_stop_s=None):
+def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=None, strips=None, stall_stop_s=None,
+                     obstacles=None, obstacle_series='v1', obstacle_speed=None):
     """The `Dynamics` of a mission and its record. `strips` is (mu, marked); strip placement is seeded by the set's
-    original name (the role, or `prelim_test`), the maze and the episode."""
+    original name (the role, or `prelim_test`), the maze and the episode. `obstacles`: how many moving obstacles
+    (`go2nav.sim.obstacles`), placed with a seed of the set, maze, episode and count in `obstacle_series` (v1: the
+    development series), at speeds drawn from `obstacle_speed` (low, high; default `SPEED_M_S`)."""
     from go2nav.sim.dynamics import Dynamics, place_strips, placement_seed
-    if friction is None and strips is None and not stall_stop_s:
+    from go2nav.sim import obstacles as moving
+    if friction is None and strips is None and not stall_stop_s and not obstacles:
         return None, None
     dynamics, record = Dynamics(friction_mu=friction, stall_stop_s=stall_stop_s), {}
     if friction is not None:
@@ -88,21 +92,37 @@ def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=N
         record.update(perturbation='low_friction_strips', mu=mu, marked=marked, placement=placement)
     if stall_stop_s:
         record.update(recording_stall_stop_s=stall_stop_s)
+    if obstacles:
+        seed = moving.placement_seed(set_name, maze, episode_index, obstacles, obstacle_series)
+        dynamics.obstacles = moving.place_obstacles(spec, episode, obstacles, seed, obstacle_speed or moving.SPEED_M_S)
+        record.update(moving_obstacles=dict(count=obstacles, placement=dynamics.obstacles,
+                                            **(dict(series=obstacle_series) if obstacle_series != 'v1' else {}),
+                                            **(dict(speed_m_s=list(obstacle_speed)) if obstacle_speed else {})))
     return dynamics, record
 
 
 def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fit=None, friction=None, strips=None,
-        stall_stop_s=None, degrade=None, margin=None, pessimistic=None, unknown_level=None, demo_textures=False,
-        models=None, harness='reserve_exit_v2', coverage_fix=True):
+        stall_stop_s=None, obstacles=None, degrade=None, margin=None, pessimistic=None, unknown_level=None, demo_textures=False,
+        models=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False, deadlock_escape=False,
+        terminal_burst=False, obstacle_prediction=False, footprint_clearing=False, obstacle_series='v1', obstacle_speed=None,
+        candidates='primitives', safety='primitive'):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
-    perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions). Experiment
+    perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
+    (how many moving obstacles; `obstacle_series` their placement series, `obstacle_speed` their speed range). Experiment
     hooks: `degrade` (a forecast degradation, `controllers.degraded`), `margin` (p95/p99 calibrated clearance margin),
     `pessimistic` (never-observed cells block: revised, seeded or lookaround; bound at `unknown_level`, else the
     margin level, else p99; `planning.caution`). `demo_textures`: demonstration surfaces (`go2nav.sim.demo_appearance`;
     presentation only, never seen in training). `models`: artefact name -> checkpoint, replacing shipped models (a
     retrained chain, or the locomotion policy `go2_locomotion_policy`); recorded with each file's SHA-256. `harness`: 'reserve_exit_v2' (the final harness) or 'v4' (the
     earlier one, for the experiments recorded under it; `go2nav.planning.planner`); `coverage_fix=False`: the
-    translation coverage rule as before 2 October."""
+    translation coverage rule as before 2 October; `map_decay`: occupied cells seen free again are cleared
+    (`go2nav.perception.mapping`, for moving obstacles), and with no route left stale cells are forgotten ('floor':
+    cells once seen as floor first); `deadlock_escape`: the latch timeout and deadlock escape alone; `terminal_burst`:
+    the terminal burst alone (`go2nav.planning.planner`); `obstacle_prediction`: constant-velocity tracks of moving
+    obstacles in the forecast clearance check (`go2nav.perception.tracks`, `go2nav.planning.prediction`);
+    `footprint_clearing`: map cells inside the body's outline are dropped (`go2nav.perception.mapping`); `candidates`:
+    'primitives' (the six actions) or 'lattice' (the command lattice, C1 only; `go2nav.planning.actions`); `safety`:
+    the command safety block, 'primitive' or 'continuous' (`go2nav.locomotion.safety`)."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -113,8 +133,9 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     out.mkdir(parents=True)
     spec, episode = episode_spec(set_name, maze, episode_index)
     dynamics, dynamics_record = mission_dynamics(set_name, maze, episode_index, spec, episode, friction=friction,
-                                                 strips=strips, stall_stop_s=stall_stop_s)
-    from go2nav.planning import caution
+                                                 strips=strips, stall_stop_s=stall_stop_s, obstacles=obstacles,
+                                                 obstacle_series=obstacle_series, obstacle_speed=obstacle_speed)
+    from go2nav.planning import actions, caution
     margin_m = caution.calibrated_bound(arm, margin) if margin else 0.
     unknown_bound = caution.calibrated_bound(arm, unknown_level or margin or 'p99') if pessimistic else None
     save(out/'config.json', dict(arm=arm, set=set_name, maze=maze, episode=episode_index, recovery=recovery,
@@ -126,7 +147,15 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  **(dict(models={name: dict(path=str(path), sha256=sha256(path)) for name, path in models.items()})
                                     if models else {}),
                                  **(dict(harness=harness) if harness != 'reserve_exit_v2' else {}),
-                                 **(dict(coverage_fix=False) if not coverage_fix else {})))
+                                 **(dict(coverage_fix=False) if not coverage_fix else {}),
+                                 **(dict(map_decay=True if map_decay is True else map_decay) if map_decay else {}),
+                                 **(dict(deadlock_escape=True) if deadlock_escape else {}),
+                                 **(dict(terminal_burst=True) if terminal_burst else {}),
+                                 **(dict(obstacle_prediction=True) if obstacle_prediction else {}),
+                                 **(dict(footprint_clearing=True) if footprint_clearing else {}),
+                                 **(dict(candidates=candidates, lattice_axes=actions.LATTICE_AXES)
+                                    if candidates == 'lattice' else {}),
+                                 **(dict(safety=safety) if safety != 'primitive' else {})))
     save(out/'specification.json', spec)
     save(out/'episode.json', episode)
     cv2.setNumThreads(1)
@@ -141,7 +170,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         policy = Path(models['go2_locomotion_policy']) if models and 'go2_locomotion_policy' in models \
             else artifacts.path('go2_locomotion_policy')
         session = MissionSession(spec, out/'native', policy_checkpoint=policy,
-                                 dynamics=dynamics, demo_textures=demo_textures)
+                                 dynamics=dynamics, demo_textures=demo_textures, safety=safety)
         cues = settled_task_cues(episode, session.settle())
         if arm == 'C0':
             from go2nav.controllers.oracle import OracleForecaster
@@ -154,7 +183,10 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                           home_xy=cues['return_initial_body_xy_m'], arrival_radius_m=.02,
                                           navigation_frames=4800, recovery=recovery, margin_m=margin_m,
                                           unknown=caution.UnknownCells(unknown_bound, pessimistic) if pessimistic else None,
-                                          harness=harness, coverage_fix=coverage_fix)
+                                          harness=harness, coverage_fix=coverage_fix, map_decay=map_decay,
+                                          deadlock_escape=deadlock_escape, terminal_burst=terminal_burst,
+                                          obstacle_prediction=obstacle_prediction, footprint_clearing=footprint_clearing,
+                                          candidates=actions.LATTICE if candidates == 'lattice' else actions.ACTIONS)
         history = deque(maxlen=4)
         for tick in range(STEP_BUDGET):
             now = session.sim_ns
@@ -229,6 +261,8 @@ def persist(session, folder):
     if session.packet_rows:
         np.savez_compressed(folder/'policy_histories.npz', **{key: np.stack([row[key] for row in session.packet_rows])
                                                               for key in session.packet_rows[0]})
+    if getattr(session, 'obstacles', None) is not None:
+        np.savez_compressed(folder/'obstacle_trace.npz', **session.obstacles.arrays())
     save(folder/'contact_topology.json', dict(link_names=session.link_names, environment_object_ids=session.object_ids,
                                               robot_link_ids=sorted(session.world.links['robot']),
                                               support_link_ids=sorted(session.world.links['support']),
@@ -248,6 +282,9 @@ def main():
     p.add_argument('--friction', type=float, help='uniform floor and robot friction (stage 1)')
     p.add_argument('--strips', help='low-friction strips MU:marked or MU:unmarked (stage 2)')
     p.add_argument('--stall-stop-s', type=float, help='stop a recording mission stalled this long (60)')
+    p.add_argument('--obstacles', type=int, help='moving obstacles (go2nav.sim.obstacles)')
+    p.add_argument('--obstacle-series', default='v1', help='obstacle placement series (v1: development)')
+    p.add_argument('--obstacle-speed', help='obstacle speed range LOW:HIGH in m/s (default 0.15:0.35)')
     p.add_argument('--degrade', help='forecast degradation: scale:S, fwdscale:S, turnscale:S or noise:E_mm')
     p.add_argument('--margin', choices=('p95', 'p99'), help='calibrated clearance margin')
     p.add_argument('--pessimistic', choices=('revised', 'seeded', 'lookaround'), help='never-observed cells block')
@@ -256,6 +293,17 @@ def main():
     p.add_argument('--models', type=Path, help='YAML mapping artefact names to checkpoints that replace the shipped ones')
     p.add_argument('--harness', choices=('reserve_exit_v2', 'v4'), default='reserve_exit_v2')
     p.add_argument('--coverage-fix', choices=('on', 'off'), default='on')
+    p.add_argument('--map-decay', choices=('on', 'floor', 'off'), default='off',
+                   help='clear occupied cells seen free again; forget stale cells with no route (floor: seen-floor cells first)')
+    p.add_argument('--deadlock-escape', choices=('on', 'off'), default='off', help='latch timeout and deadlock escape only')
+    p.add_argument('--terminal-burst', choices=('on', 'off'), default='off', help='terminal burst only')
+    p.add_argument('--obstacle-prediction', choices=('on', 'off'), default='off',
+                   help='constant-velocity obstacle tracks in the clearance check')
+    p.add_argument('--safety', choices=('primitive', 'continuous'), default='primitive', help='command safety block')
+    p.add_argument('--candidates', choices=('primitives', 'lattice'), default='primitives',
+                   help='forecast candidates: the six primitives or the command lattice (C1)')
+    p.add_argument('--footprint-clearing', choices=('on', 'off'), default='off',
+                   help="drop map cells inside the body's outline")
     p.add_argument('--out', type=Path, required=True)
     a = p.parse_args()
     strips = None
@@ -265,10 +313,14 @@ def main():
             p.error('--strips needs MU:marked or MU:unmarked')
         strips = (float(mu), mark == 'marked')
     result = run(a.arm, a.set, a.maze, a.out, episode_index=a.episode, recovery=a.recovery == 'on', decoder_fit=a.decoder_fit,
-                 friction=a.friction, strips=strips, stall_stop_s=a.stall_stop_s, degrade=a.degrade, margin=a.margin,
+                 friction=a.friction, strips=strips, stall_stop_s=a.stall_stop_s, obstacles=a.obstacles, degrade=a.degrade, margin=a.margin,
                  pessimistic=a.pessimistic, unknown_level=a.unknown_level, demo_textures=a.demo_textures,
                  models=yaml.safe_load(a.models.read_text()) if a.models else None, harness=a.harness,
-                 coverage_fix=a.coverage_fix == 'on')
+                 coverage_fix=a.coverage_fix == 'on', map_decay=dict(on=True, floor='floor', off=False)[a.map_decay],
+                 deadlock_escape=a.deadlock_escape == 'on', terminal_burst=a.terminal_burst == 'on',
+                 obstacle_prediction=a.obstacle_prediction == 'on', footprint_clearing=a.footprint_clearing == 'on',
+                 obstacle_series=a.obstacle_series, candidates=a.candidates, safety=a.safety,
+                 obstacle_speed=tuple(map(float, a.obstacle_speed.split(':'))) if a.obstacle_speed else None)
     print(json.dumps(result))
 
 

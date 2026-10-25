@@ -29,10 +29,11 @@ import numpy as np
 from go2nav.perception.mapping import RoutingMap
 from go2nav.perception.obstacles import DepthObstacleObserver
 from go2nav.perception.registration import FloorRegistration
+from go2nav.perception.tracks import ObstacleTracker
 from go2nav.perception.visual_odometry import VisualOdometry
 from go2nav.perception.visual_support import SupportedView
 from go2nav.planning import grid
-from go2nav.planning.actions import COMMIT_TICKS, PERIOD_NS
+from go2nav.planning.actions import ACTIONS, COMMIT_TICKS, PERIOD_NS, translating
 from go2nav.planning.dispatch import PASSED, CommitmentLedger, ScheduledCommand, dispatch_check
 from go2nav.planning.mission import RoundTripMission
 from go2nav.planning.planner import Planner
@@ -47,6 +48,7 @@ POSE_WINDOW_FRAMES = 256
 FLOOR_HOLD = 'FLOOR_REACQUISITION_HOLD'
 VIEW_RECOVERY_HOLD = 'WAITING_FOR_POST_VISUAL_RECOVERY_PLAN'
 FLOOR_STREAK_FRAMES, FLOOR_PLAN_DELAY_NS = 4, 400_000_000
+FORGET_UNSEEN_NS = 30_000_000_000  # map clearing on: walls kept when no route is left (a full scan takes about 20 s)
 
 
 @dataclass
@@ -80,12 +82,19 @@ class NavigationController:
     """See the module docstring."""
 
     def __init__(self, forecaster, *, goal_xy, home_xy, arrival_radius_m=.02, navigation_frames=4800, recovery=False,
-                 margin_m=0., unknown=None, harness='reserve_exit_v2', coverage_fix=True):
+                 margin_m=0., unknown=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False,
+                 deadlock_escape=False, terminal_burst=False, obstacle_prediction=False, footprint_clearing=False,
+                 candidates=ACTIONS):
         self.forecaster = forecaster
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
-        self.routing_map, self.obstacles = RoutingMap(), DepthObstacleObserver()
+        self.routing_map = RoutingMap(clear_seen_free=bool(map_decay), clear_footprint=footprint_clearing)
+        self.obstacles = DepthObstacleObserver()
+        self.forget_floor_first = map_decay == 'floor'
         self.planner = Planner(arrival_radius_m=arrival_radius_m, recovery=recovery, margin_m=margin_m, unknown=unknown,
-                               harness=harness, coverage_fix=coverage_fix)
+                               harness=harness, coverage_fix=coverage_fix, deadlock_escape=deadlock_escape,
+                               terminal_burst=terminal_burst, obstacle_prediction=obstacle_prediction,
+                               candidates=candidates)
+        self.tracker = ObstacleTracker() if obstacle_prediction else None
         self.mission = RoundTripMission(goal_xy, home_xy, arrival_radius_m=arrival_radius_m, navigation_frames=navigation_frames)
         self.ledger = CommitmentLedger()
         self.plans, self.rejected, self.served = [], {}, set()
@@ -134,6 +143,10 @@ class NavigationController:
         if registered is not None and frame.frame%MAP_PERIOD_FRAMES == 0:
             self.latest_map = self.routing_map.update(frame.frame, frame.measured_ns, registered.position, registered.rotation,
                                                       frame.depth, frame.auxiliary_depth, frame.specific_force)
+            if self.tracker is not None:
+                self.planner.tracks = self.tracker.update(self.latest_map)
+            if self.latest_map.cleared and self.planning and self.planning[-1].get('reason') == 'VIEW_BUDGET_EXHAUSTED':
+                self.planner.scan_target, self.planner.scan_index = None, 0  # freed cells: look around again
             if frame.frame >= MAP_PERIOD_FRAMES:
                 self._plan(frame, registered)
         self.latest_obstacles = self.obstacles.observe(frame.depth, frame.auxiliary_depth, frame.gyro_rates,
@@ -168,7 +181,16 @@ class NavigationController:
                                    phase=phase, generation=generation, view=self.view)
         objective = self.planner.objective(route, snapshot, registered.position, registered.rotation, prefix)
         if objective is None:
-            self.planning.append(dict(frame=frame.frame, reason='VIEW_BUDGET_EXHAUSTED'))
+            forgotten = 0
+            if self.routing_map.clear_seen_free:  # no route after a full look around: forget walls not seen lately
+                # ('floor': first only cells once seen as floor; every stale cell only when none of those is left)
+                if self.forget_floor_first:
+                    forgotten = len(self.routing_map.forget(now-FORGET_UNSEEN_NS, floor_only=True))
+                if not forgotten:
+                    forgotten = len(self.routing_map.forget(now-FORGET_UNSEEN_NS))
+                if forgotten:
+                    self.planner.scan_target, self.planner.scan_index = None, 0
+            self.planning.append(dict(frame=frame.frame, reason='VIEW_BUDGET_EXHAUSTED', forgotten_cells=forgotten))
             return
         goal_body, scan_error = objective
         forecast_xy = None
@@ -179,12 +201,13 @@ class NavigationController:
             context = PlanContext(frame.frame, now, frame.history,
                                   tuple(self.policy_packets[now-d] for d in (1_000_000_000, 500_000_000, 0)),
                                   dict(self.registered_poses), tuple(self.ledger.commitments))
-            prediction = self.forecaster.forecast(context, prefix, pulse=self.planner.pulse)
+            lattice = {} if self.planner.candidates == ACTIONS else dict(candidates=self.planner.candidates)
+            prediction = self.forecaster.forecast(context, prefix, pulse=self.planner.pulse, **lattice)
             selected = self.planner.select(prediction, goal_body, scan_error, snapshot, registered.position,
                                            registered.rotation, generation=generation)
             forecast_xy = np.asarray(prediction)[:, :, :2].tolist()
         plan = ScheduledCommand.prepare(selected['action'], observed_ns=now,
-                                        pulse=self.planner.pulse and selected['action'] in ('forward', 'left_arc', 'right_arc'))
+                                        pulse=self.planner.pulse and translating(selected['action']))
         if self.planner.backup_plan:  # recorded as a hold; a translation, so a pulse in the terminal approach
             plan = replace(plan, command=tuple(selected['requested_command']),
                            expires_ns=plan.dispatch_ns+(1 if self.planner.pulse else COMMIT_TICKS)*PERIOD_NS)

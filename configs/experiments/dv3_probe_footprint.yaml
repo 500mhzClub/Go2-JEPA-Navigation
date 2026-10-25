@@ -1,0 +1,70 @@
+name: 'dv3 probe with footprint clearing: constant-velocity prediction plus map cells under the body dropped'
+description: The dv3 probe's obstacle missions with --footprint-clearing on as well (a contact in the dv3 probe came from
+  phantom map cells inside the body outline that blocked every translation while turns in place crept toward a wall). Paired
+  with dv2 and the dv3 probe.
+cohorts:
+- name: dv3q_obst1_c1
+  arms: &id001
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  obstacles: 1
+  episodes:
+  - - 10
+    - 0
+  - - 12
+    - 0
+  - - 14
+    - 0
+  - - 17
+    - 0
+  - - 22
+    - 0
+  - - 28
+    - 0
+  - - 13
+    - 0
+  - - 11
+    - 0
+  - - 19
+    - 0
+  - - 29
+    - 0
+  footprint_clearing: 'on'
+- name: dv3q_obst2_c1
+  arms: *id001
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  obstacles: 2
+  episodes:
+  - - 10
+    - 0
+  - - 13
+    - 0
+  - - 20
+    - 0
+  - - 24
+    - 0
+  - - 26
+    - 0
+  - - 17
+    - 0
+  - - 11
+    - 0
+  - - 10
+    - 1
+  - - 23
+    - 0
+  - - 29
+    - 1
+  footprint_clearing: 'on'

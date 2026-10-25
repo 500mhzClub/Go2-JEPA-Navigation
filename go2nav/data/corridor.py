@@ -12,7 +12,8 @@ early and are kept. Tapes:
 - switch_family: 3 quiet ticks, 10 ticks of the prefix action, the suffix action's candidate plan, 10 zero ticks;
 - short_pulse: 3 quiet ticks, 10 ticks of the preceding action, 3 zero ticks, one tick of the pulse action, 8 zero;
 - balanced_start (balanced_start_horizon): 10 zero ticks, then 5 (8) ticks of the action. These also capture one
-  frame at the moment of a physical stop.
+  frame at the moment of a physical stop;
+- command_range: the plan's own tape (random command-lattice segments on open floor; `go2nav.data.command_range`).
 
 A trial folder holds rgb_NNNN.png and native_depth_NNNN.npz per frame, frames.json, command_tape.json,
 physics_trace.npz, policy_histories.npz, contact_events.json and result.json.
@@ -78,12 +79,17 @@ def balanced_tape(ticks):
     return tape
 
 
+def command_range_tape(trial):
+    tape = trial['tape']
+    return [(c, 1 if i < 3 else 3 if i >= len(tape)-10 else 2, 'command_range') for i, c in enumerate(tape)]
+
+
 TAPES = dict(geometry_progress_family=family_tape, switch_family=switch_tape, short_pulse=short_pulse_tape,
-             balanced_start=balanced_tape(5), balanced_start_horizon=balanced_tape(8))
+             balanced_start=balanced_tape(5), balanced_start_horizon=balanced_tape(8), command_range=command_range_tape)
 CAPTURE_AT_STOP = ('balanced_start', 'balanced_start_horizon')
 
 
-def collect(name, trial_name, out):
+def collect(name, trial_name, out, policy=None, safety='primitive'):
     import cv2
     import torch
     from go2nav.eval.mission import persist, save
@@ -100,8 +106,8 @@ def collect(name, trial_name, out):
     save(out/'specification.json', spec)
     started, stop, frames, executed = time.monotonic(), None, [], []
     scene.init_genesis(spec['procedural_seed'])
-    session = MissionSession(spec, out/'visual_meshes', policy_checkpoint=artifacts.path('go2_locomotion_policy'),
-                             noise_sigma_m=0., noise_layout=0, robot_visible=False)
+    session = MissionSession(spec, out/'visual_meshes', policy_checkpoint=Path(policy) if policy else artifacts.path('go2_locomotion_policy'),
+                             noise_sigma_m=0., noise_layout=0, robot_visible=False, safety=safety)
 
     def capture(aligned=True):
         index, rgb, depth, _ = session.capture(aligned=aligned)
@@ -137,11 +143,13 @@ def main():
     p.add_argument('collection', choices=sorted(TAPES))
     p.add_argument('trial')
     p.add_argument('out', type=Path)
+    p.add_argument('--policy', type=Path, help='locomotion policy checkpoint (default: the shipped one)')
+    p.add_argument('--safety', choices=('primitive', 'continuous'), default='primitive', help='command safety block')
     a = p.parse_args()
     import os
     os.environ.setdefault('PYOPENGL_PLATFORM', 'egl')
     os.environ.setdefault('EGL_DEVICE_ID', '0')
-    print(json.dumps(collect(a.collection, a.trial, a.out)))
+    print(json.dumps(collect(a.collection, a.trial, a.out, a.policy, a.safety)))
 
 
 if __name__ == '__main__':

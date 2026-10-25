@@ -1,0 +1,114 @@
+name: 'Development round dv1: C1 on the continuous policy, validation mazes 10-29'
+description: 'P2b tuning round on the development mazes (validation 10-29, episodes 0 and 1), static and with one and two
+  moving obstacles; C1, six primitives, recovery off, continuous-contract locomotion policy. Rules: round 1: dv0 with precise
+  forgetting (--map-decay floor) and the deadlock escape. Paired with the previous round.'
+cohorts:
+- name: dv1_static_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  episodes: &id001
+  - - 10
+    - 0
+  - - 10
+    - 1
+  - - 11
+    - 0
+  - - 11
+    - 1
+  - - 12
+    - 0
+  - - 12
+    - 1
+  - - 13
+    - 0
+  - - 13
+    - 1
+  - - 14
+    - 0
+  - - 14
+    - 1
+  - - 15
+    - 0
+  - - 15
+    - 1
+  - - 16
+    - 0
+  - - 16
+    - 1
+  - - 17
+    - 0
+  - - 17
+    - 1
+  - - 18
+    - 0
+  - - 18
+    - 1
+  - - 19
+    - 0
+  - - 19
+    - 1
+  - - 20
+    - 0
+  - - 20
+    - 1
+  - - 21
+    - 0
+  - - 21
+    - 1
+  - - 22
+    - 0
+  - - 22
+    - 1
+  - - 23
+    - 0
+  - - 23
+    - 1
+  - - 24
+    - 0
+  - - 24
+    - 1
+  - - 25
+    - 0
+  - - 25
+    - 1
+  - - 26
+    - 0
+  - - 26
+    - 1
+  - - 27
+    - 0
+  - - 27
+    - 1
+  - - 28
+    - 0
+  - - 28
+    - 1
+  - - 29
+    - 0
+  - - 29
+    - 1
+- name: dv1_obst1_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  obstacles: 1
+  episodes: *id001
+- name: dv1_obst2_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  obstacles: 2
+  episodes: *id001

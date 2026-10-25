@@ -3,7 +3,8 @@
 Genesis' own scene state is not a complete physics snapshot, so the capture copies every mutable solver field (the
 Quadrants fields and arrays reachable from the scene and its active solvers, except two immutable geometry tables),
 plus the session's own state: time, executed command, rate-limit window, the sensor histories, the policy's last
-action, and the Python, NumPy and torch random states. Restoring also resets the renderer's caches.
+action, the moving obstacles' walk state, and the Python, NumPy and torch random states. Restoring also resets the
+renderer's caches.
 """
 import copy
 import random
@@ -12,7 +13,7 @@ import numpy as np
 
 STATIC_FIELDS = ('._sdf_info.geoms_sdf_', '._support_field_info.support_')
 SESSION_FIELDS = ('sim_ns', 'last_executed', 'window', 'window_start_command', 'body_sensor', 'history', 'fast_history',
-                  'phase', 'guard')
+                  'phase', 'guard', 'base_xy')
 RECORD_LISTS = ('samples', 'contact_packets', 'contact_times', 'contact_events')
 
 
@@ -52,6 +53,7 @@ def capture(session):
                 solver={path: field.to_numpy() for path, field in fields},
                 session={name: copy.deepcopy(getattr(session, name)) for name in SESSION_FIELDS},
                 policy_last_actions=np.array(session.policy.last_actions, copy=True),
+                obstacles=session.obstacles.state() if getattr(session, 'obstacles', None) is not None else None,
                 rng=dict(python=random.getstate(), numpy=np.random.get_state(), torch_cpu=torch.get_rng_state().clone(),
                          torch_devices=[s.clone().cpu() for s in torch.cuda.get_rng_state_all()] if torch.cuda.is_available() else []))
 
@@ -66,6 +68,8 @@ def restore(session, snapshot):
     for name, value in snapshot['session'].items():
         setattr(session, name, copy.deepcopy(value))
     session.policy.last_actions = np.array(snapshot['policy_last_actions'], copy=True)
+    if snapshot.get('obstacles') is not None:
+        session.obstacles.restore(snapshot['obstacles'])
     session.world.scene._visualizer.reset()
     rng = snapshot['rng']
     random.setstate(rng['python'])

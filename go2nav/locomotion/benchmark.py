@@ -14,10 +14,16 @@ Two runs in the training environment (flat floor; optional uniform friction), wi
 **Switching.** Every robot cycles through all primitives in a shuffled order, switching every `switch_s` seconds. Per
 switch: the mean absolute tracking error over the first second after the switch, and over the rest of the interval.
 
+**Lattice** (the continuous contract, docs/dynamic/PLAN.md P1): steady tracking, as above, of every command of a grid
+over the continuous range (`LATTICE`: forward x lateral x yaw), `lattice_robots` robots each; per command and in summary
+(median and worst RMS per axis, resets). **Continuous switching**: switching as above, between commands drawn uniformly
+over the range. Both run for every policy, so a primitive policy is measured on the same grid.
+
 The command enters only through the policy's observation, exactly as in missions. `--compare` prints two results side by
 side with differences.
 """
 import argparse
+import itertools
 import json
 from pathlib import Path
 
@@ -30,6 +36,7 @@ from go2nav.locomotion.policy import build_actor, load_config
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = REPO/'configs/locomotion/contract_ppo.yaml'
+LATTICE = dict(vx=(-.25, -.1, 0., .15, .3, .45), vy=(-.2, 0., .2), yaw=(-.8, -.4, 0., .4, .8))
 
 
 def _setup(checkpoint, n_envs, friction, seed):
@@ -94,12 +101,55 @@ def switching(env, actor, primitives, switch_s, seed):
                 resets=int(resets.sum()))
 
 
-def run(checkpoint, *, robots=32, horizon_s=8.0, warmup_s=2.0, switch_s=2.0, friction=None, seed=20260516):
+def lattice(env, actor, robots, horizon_s, warmup_s):
+    """Steady tracking of every `LATTICE` command, in chunks of the environment's size."""
+    commands = np.array(list(itertools.product(*LATTICE.values())), dtype=np.float32)
+    per_env = np.repeat(commands, robots, axis=0)
+    steps, warmup = int(round(horizon_s/env.dt)), int(round(warmup_s/env.dt))
+    sq_error, achieved_mean, resets = [], [], []
+    for start in range(0, len(per_env), env.num_envs):
+        chunk = per_env[start:start+env.num_envs]
+        full = np.zeros((env.num_envs, 3), dtype=np.float32)
+        full[:len(chunk)] = chunk
+        achieved, reset = _rollout(env, actor, [torch.as_tensor(full, device=env.device)]*steps)
+        window = achieved[warmup:, :len(chunk)]
+        sq_error.append(((window-chunk)**2).mean(axis=0))
+        achieved_mean.append(window.mean(axis=0))
+        resets.append(reset[:, :len(chunk)].sum(axis=0))
+    sq_error, achieved_mean, resets = (np.concatenate(x).reshape(len(commands), robots, -1) for x in (sq_error, achieved_mean, resets))
+    rms = np.sqrt(sq_error.mean(axis=1))
+    rows = [dict(command=c.tolist(), achieved_mean=a.mean(axis=0).tolist(), rms_error=r.tolist(), resets=int(n.sum()))
+            for c, a, r, n in zip(commands, achieved_mean, rms, resets)]
+    return dict(robots_per_command=robots, grid=LATTICE, commands=rows,
+                median_rms=np.median(rms, axis=0).tolist(), worst_rms=rms.max(axis=0).tolist(),
+                worst_command=[commands[int(i)].tolist() for i in rms.argmax(axis=0)], resets=int(resets.sum()))
+
+
+def continuous_switching(env, actor, switch_s, switches, seed):
+    """Switching between commands drawn uniformly over the `LATTICE` range."""
+    rng = np.random.default_rng(seed)
+    low, high = (np.array([f(v) for v in LATTICE.values()], dtype=np.float32) for f in (min, max))
+    bank = rng.uniform(low, high, (switches, env.num_envs, 3)).astype(np.float32)
+    per_switch = int(round(switch_s/env.dt))
+    schedule = np.repeat(bank, per_switch, axis=0)
+    achieved, resets = _rollout(env, actor, [torch.as_tensor(c, device=env.device) for c in schedule])
+    error = np.abs(achieved-schedule).reshape(switches, per_switch, env.num_envs, 3)[1:]
+    first = int(round(1.0/env.dt))
+    return dict(switch_s=switch_s, switches=int(error.shape[0]*env.num_envs),
+                first_second_mean_abs_error=error[:, :first].mean(axis=(0, 1, 2)).tolist(),
+                settled_mean_abs_error=error[:, first:].mean(axis=(0, 1, 2)).tolist(),
+                resets=int(resets.sum()))
+
+
+def run(checkpoint, *, robots=32, lattice_robots=8, horizon_s=8.0, warmup_s=2.0, switch_s=2.0, friction=None,
+        seed=20260516):
     env, actor, primitives = _setup(checkpoint, robots*len(load_primitives()), friction, seed)
     return dict(checkpoint=str(checkpoint), friction=friction, robots_per_primitive=robots, horizon_s=horizon_s,
                 warmup_s=warmup_s, seed=seed, axes=['vx_mps', 'vy_mps', 'yaw_rate_radps'],
                 steady=steady(env, actor, primitives, robots, horizon_s, warmup_s),
-                switching=switching(env, actor, primitives, switch_s, seed))
+                switching=switching(env, actor, primitives, switch_s, seed),
+                lattice=lattice(env, actor, lattice_robots, horizon_s, warmup_s),
+                continuous_switching=continuous_switching(env, actor, switch_s, 9, seed))
 
 
 def load_primitives():
@@ -118,6 +168,16 @@ def compare(a, b):
     lines.append(f"switching: first-second error A {np.round(sa['first_second_mean_abs_error'], 3).tolist()} "
                  f"B {np.round(sb['first_second_mean_abs_error'], 3).tolist()}; settled A {np.round(sa['settled_mean_abs_error'], 3).tolist()} "
                  f"B {np.round(sb['settled_mean_abs_error'], 3).tolist()}; resets {sa['resets']}/{sb['resets']}")
+    if 'lattice' in a and 'lattice' in b:
+        la, lb = a['lattice'], b['lattice']
+        lines.append(f"lattice ({len(la['commands'])} commands): median rms A {np.round(la['median_rms'], 3).tolist()} "
+                     f"B {np.round(lb['median_rms'], 3).tolist()}; worst A {np.round(la['worst_rms'], 3).tolist()} "
+                     f"B {np.round(lb['worst_rms'], 3).tolist()}; resets {la['resets']}/{lb['resets']}")
+        ca, cb = a['continuous_switching'], b['continuous_switching']
+        lines.append(f"continuous switching: first-second error A {np.round(ca['first_second_mean_abs_error'], 3).tolist()} "
+                     f"B {np.round(cb['first_second_mean_abs_error'], 3).tolist()}; settled A "
+                     f"{np.round(ca['settled_mean_abs_error'], 3).tolist()} B {np.round(cb['settled_mean_abs_error'], 3).tolist()}; "
+                     f"resets {ca['resets']}/{cb['resets']}")
     return '\n'.join(lines)
 
 

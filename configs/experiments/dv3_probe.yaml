@@ -1,0 +1,86 @@
+name: 'dv3 probe: constant-velocity obstacle prediction on a sample of dv2 missions'
+description: 'Before the full dv3 round: dv2 rules plus --obstacle-prediction on (constant-velocity tracks of moving obstacles
+  in the forecast clearance check), on 24 dv2 missions (time-outs, a pose loss, beacon-not-home, round trips and static missions).
+  Paired with dv2.'
+cohorts:
+- name: dv3p_static_c1
+  arms: &id001
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  episodes:
+  - - 10
+    - 0
+  - - 17
+    - 1
+  - - 22
+    - 0
+  - - 14
+    - 1
+- name: dv3p_obst1_c1
+  arms: *id001
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  obstacles: 1
+  episodes:
+  - - 10
+    - 0
+  - - 12
+    - 0
+  - - 14
+    - 0
+  - - 17
+    - 0
+  - - 22
+    - 0
+  - - 28
+    - 0
+  - - 13
+    - 0
+  - - 11
+    - 0
+  - - 19
+    - 0
+  - - 29
+    - 0
+- name: dv3p_obst2_c1
+  arms: *id001
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  obstacles: 2
+  episodes:
+  - - 10
+    - 0
+  - - 13
+    - 0
+  - - 20
+    - 0
+  - - 24
+    - 0
+  - - 26
+    - 0
+  - - 17
+    - 0
+  - - 11
+    - 0
+  - - 10
+    - 1
+  - - 23
+    - 0
+  - - 29
+    - 1

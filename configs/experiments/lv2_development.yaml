@@ -1,0 +1,132 @@
+name: 'Lattice development round lv2: no lateral, and backing off from inside the footprint, validation mazes 10-29'
+description: 'lv1 (yaw to 0.45 rad/s) with two safety fixes, both lattice-only. (1) No lateral axis (25 candidates):
+  both cameras look ahead, and every obstacle contact of lv1 (six) and three of lv0 slid sideways into space no camera
+  watched. (2) Back-off: the continuous policy creeps about 1 mm/s on a zero command, and every wall contact of lv1
+  (six) came after minutes of holding while the base crept from 0.45 m to 0.26-0.32 m of the wall with every
+  candidate blocked; inside the footprint, the translation never closer than hold that ends furthest out is taken.
+  Paired with lv1 (and dv3).'
+cohorts:
+- name: lv2_static_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  episodes: &id001
+  - - 10
+    - 0
+  - - 10
+    - 1
+  - - 11
+    - 0
+  - - 11
+    - 1
+  - - 12
+    - 0
+  - - 12
+    - 1
+  - - 13
+    - 0
+  - - 13
+    - 1
+  - - 14
+    - 0
+  - - 14
+    - 1
+  - - 15
+    - 0
+  - - 15
+    - 1
+  - - 16
+    - 0
+  - - 16
+    - 1
+  - - 17
+    - 0
+  - - 17
+    - 1
+  - - 18
+    - 0
+  - - 18
+    - 1
+  - - 19
+    - 0
+  - - 19
+    - 1
+  - - 20
+    - 0
+  - - 20
+    - 1
+  - - 21
+    - 0
+  - - 21
+    - 1
+  - - 22
+    - 0
+  - - 22
+    - 1
+  - - 23
+    - 0
+  - - 23
+    - 1
+  - - 24
+    - 0
+  - - 24
+    - 1
+  - - 25
+    - 0
+  - - 25
+    - 1
+  - - 26
+    - 0
+  - - 26
+    - 1
+  - - 27
+    - 0
+  - - 27
+    - 1
+  - - 28
+    - 0
+  - - 28
+    - 1
+  - - 29
+    - 0
+  - - 29
+    - 1
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+- name: lv2_obst1_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacles: 1
+  episodes: *id001
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+- name: lv2_obst2_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacles: 2
+  episodes: *id001
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous

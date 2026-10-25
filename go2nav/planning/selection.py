@@ -5,7 +5,8 @@ progress toward the waypoint, plus a heading term: the reduction of the heading 
 min(0.35 m, waypoint distance). Contact is not predicted (its score is disabled).
 
 **Clearance** (`clearance_check`). Each action's forecast path (eight 100-ms segments from the current pose) is
-measured against the stored 1-cm obstacle cells. A path is clear if it keeps the 0.45-m footprint plus a 3-cm
+measured against the stored 1-cm obstacle cells (with obstacle prediction, moving tracks where they will be at each
+segment's time: `planning.prediction`). A path is clear if it keeps the 0.45-m footprint plus a 3-cm
 reserve for translations; one that starts inside the reserve may still pass if it leaves it (reserve recovery), and
 a blocked translation passes if its clearance never decreases and ends higher (reserve exit). The best-scoring clear
 action wins, else hold. In-place turns are re-checked with their own reserve (`reserve_turns`), and a blocked turn
@@ -28,7 +29,8 @@ import math
 import numpy as np
 
 from go2nav.planning import grid
-from go2nav.planning.actions import ACTIONS, COMMIT_TICKS, PREFIX_TICKS, TRANSLATIONS, TURNS, command
+from go2nav.planning.actions import (ACTIONS, COMMIT_TICKS, PERIOD_NS, PREFIX_TICKS, command, representative_turn,
+                                     translating, turn_direction)
 
 CONTACT_PENALTY_M = 1.2
 SCAN_ANGULAR_SCALE_M = .35
@@ -36,15 +38,27 @@ TRANSLATION_RESERVE_M = TURN_RESERVE_M = .03
 EXIT_TOLERANCE_M = .001
 STOPPING_ALLOWANCE_S = .5
 COVERAGE_RADIUS_M = .48
+BACK_OFF_GAIN_M, BACK_OFF_REACH_M, BACK_OFF = .005, .10, 'BACKS_OFF_INSIDE_FOOTPRINT'
 
 
 def wrap(value):
     return math.atan2(math.sin(value), math.cos(value))
 
 
+def names(selection):
+    """The selection's candidate names, in forecast order."""
+    return [r['action'] for r in selection['candidates']]
+
+
+def in_place(selection):
+    """`hold` and the in-place turns among the selection's candidates."""
+    return tuple(a for a in names(selection) if a == 'hold' or turn_direction(a))
+
+
 def choose(selection, index):
     """Make action `index` the selection's choice (in place)."""
-    selection.update(action=ACTIONS[index], action_index=index, requested_command=command(ACTIONS[index]),
+    action = names(selection)[index]
+    selection.update(action=action, action_index=index, requested_command=command(action),
                      selected_reserve_recovery=bool(selection['memory_forecast_candidates'][index]['reserve_recovery_path_clear']),
                      selected_stepwise_recovery=bool(selection['memory_forecast_candidates'][index].get(
                          'stepwise_reserve_recovery_path_clear', False)))
@@ -60,13 +74,15 @@ def best_clear(selection, allowed=None):
     values = utilities(selection)
     eligible = [i for i, r in enumerate(selection['memory_forecast_candidates'])
                 if r['action'] in values and r['nominal_predicted_path_clear'] and (allowed is None or r['action'] in allowed)]
-    return (max(eligible, key=lambda i: values[ACTIONS[i]]) if eligible else ACTIONS.index('hold')), bool(eligible)
+    rows = selection['memory_forecast_candidates']
+    return (max(eligible, key=lambda i: values[rows[i]['action']]) if eligible else names(selection).index('hold')), bool(eligible)
 
 
 # -- scoring ---------------------------------------------------------------------------------------------------------
 
-def score(prediction, goal_body):
-    """Score the forecasts (6, 8, 5: x, y, sin yaw, cos yaw, contact logit) toward a waypoint in the body frame."""
+def score(prediction, goal_body, candidates=ACTIONS):
+    """Score the forecasts (N, 8, 5: x, y, sin yaw, cos yaw, contact logit) of the candidates toward a waypoint in
+    the body frame."""
     p, goal = np.asarray(prediction), np.asarray(goal_body, float)
     begin, end = PREFIX_TICKS-1, PREFIX_TICKS+COMMIT_TICKS-1
     start, stop = p[:, begin, :2], p[:, end, :2]
@@ -75,7 +91,7 @@ def score(prediction, goal_body):
     utility = progress-CONTACT_PENALTY_M*contact
     result = dict(candidates=[dict(action=a, predicted_progress_during_commit_m=float(progress[i]),
                                    predicted_contact_by_commit_end=float(contact[i]), utility_m=float(utility[i]))
-                              for i, a in enumerate(ACTIONS)])
+                              for i, a in enumerate(candidates)])
     scale = min(SCAN_ANGULAR_SCALE_M, float(np.linalg.norm(goal)))
     errors = []
     for index in (begin, end):
@@ -89,8 +105,8 @@ def score(prediction, goal_body):
                    predicted_heading_error_at_commit_start_rad=float(errors[0][i]),
                    predicted_heading_error_at_commit_end_rad=float(errors[1][i]))
         row['utility_m'] += float(alignment[i])
-    selected = max(range(6), key=lambda i: result['candidates'][i]['utility_m'])
-    action = ACTIONS[selected]
+    selected = max(range(len(candidates)), key=lambda i: result['candidates'][i]['utility_m'])
+    action = candidates[selected]
     return result | dict(action=action, action_index=selected, requested_command=command(action),
                          waypoint_body_xy_m=goal.tolist(), alignment_scale_m=scale,
                          selection_objective='distance_and_heading_progress_minus_contact')
@@ -101,7 +117,7 @@ def scan_override(selection, prediction, scan_error):
     scores = []
     begin, end = PREFIX_TICKS-1, PREFIX_TICKS+COMMIT_TICKS-1
     for i, row in enumerate(selection['candidates']):
-        if row['action'] not in ('hold', 'left_turn', 'right_turn'):
+        if row['action'] != 'hold' and not turn_direction(row['action']):
             continue
         yaw = math.atan2(prediction[i, end, 2], prediction[i, end, 3])-math.atan2(prediction[i, begin, 2], prediction[i, begin, 3])
         remaining = math.atan2(math.sin(scan_error-yaw), math.cos(scan_error-yaw))
@@ -159,11 +175,13 @@ def clearance_check(selection, prediction, clearance, position, rotation, exits=
     """Keep the choice clear of stored obstacles (see the module docstring), with reserve recovery and (`exits`) the
     reserve exit."""
     rows = []
-    for i, action in enumerate(ACTIONS):
+    during = getattr(clearance, 'minimum_during', None)  # moving obstacles predicted (planning.prediction)
+    step = PERIOD_NS/1e9
+    for i, action in enumerate(names(selection)):
         points = forecast_path(prediction, i, position, rotation)
         minimum, distances = None, []
-        for begin, end in zip(points[:-1], points[1:]):
-            value = clearance.minimum(begin, end)
+        for k, (begin, end) in enumerate(zip(points[:-1], points[1:])):
+            value = during(begin, end, k*step, (k+1)*step) if during is not None else clearance.minimum(begin, end)
             distances.append(value)
             if value is not None:
                 minimum = value if minimum is None else min(minimum, value)
@@ -180,14 +198,14 @@ def clearance_check(selection, prediction, clearance, position, rotation, exits=
     result = selection | dict(before_memory_filter_action=selection['action'], memory_forecast_candidates=rows)
     passed = []
     for row in rows if exits else ():
-        passes = bool(row['action'] in TRANSLATIONS and not row['nominal_predicted_path_clear']
+        passes = bool(translating(row['action']) and not row['nominal_predicted_path_clear']
                       and exit_clear(row['segment_clearances_m']))
         row['reserve_exit_path_clear'] = passes
         if passes:
             row.update(nominal_predicted_path_clear=True, clearance_check_mode='RESERVE_EXIT')
             passed.append(row['action'])
     index, eligible = best_clear(result)
-    result.update(action=ACTIONS[index], action_index=index, requested_command=command(ACTIONS[index]),
+    result.update(action=names(result)[index], action_index=index, requested_command=command(names(result)[index]),
                   memory_forecast_status='CLEAR_CANDIDATE_SELECTED' if eligible else 'NO_CLEAR_CANDIDATE_ZERO_REQUESTED',
                   selected_reserve_recovery=bool(rows[index]['reserve_recovery_path_clear']))
     if exits:
@@ -200,7 +218,7 @@ def reserve_turns(selection, exits=True):
     reselect."""
     result = deepcopy(selection)
     for row in result['memory_forecast_candidates']:
-        if row['action'] not in TURNS:
+        if not turn_direction(row['action']):
             continue
         required = .45+TURN_RESERVE_M
         full = row['minimum_predicted_path_clearance_m'] is None or row['minimum_predicted_path_clearance_m'] > required+1e-12
@@ -218,7 +236,7 @@ def reserve_turns(selection, exits=True):
         return result
     passed = []
     for row in result['memory_forecast_candidates']:
-        passes = bool(row['action'] in TURNS and not row['nominal_predicted_path_clear']
+        passes = bool(turn_direction(row['action']) and not row['nominal_predicted_path_clear']
                       and turn_hold_clear(row['segment_clearances_m']))
         row['turn_exit_path_clear'] = passes
         if passes:
@@ -242,7 +260,7 @@ def recover_turn(selection, heading, generation, latch, exits=True):
         action = result['action']
         candidates = {r['action']: r for r in result['candidates']}
         clearance = next(r for r in result['memory_forecast_candidates'] if r['action'] == action)
-        if (action in TRANSLATIONS and clearance['full_reserve_path_clear']
+        if (translating(action) and clearance['full_reserve_path_clear']
                 and candidates[action]['predicted_progress_during_commit_m'] > 0.
                 and candidates[action]['position_contact_utility_m'] > candidates['hold']['position_contact_utility_m']):
             result['clearance_turn'] = dict(active=False, event='FULL_RESERVE_PROGRESS_REJOINS_ROUTE',
@@ -259,28 +277,29 @@ def recover_turn(selection, heading, generation, latch, exits=True):
             latch = latch | dict(previous_remaining_rad=remaining)
     preferred = result['before_memory_filter_action']
     by_action = {r['action']: r for r in result['memory_forecast_candidates']}
-    if result['action'] == 'hold' and preferred in TRANSLATIONS:
+    turn = lambda direction: representative_turn(names(result), direction)
+    if result['action'] == 'hold' and translating(preferred):
         goal = result['waypoint_body_xy_m']
         error = math.atan2(goal[1], goal[0])
         if abs(error) > .1:
-            preferred = 'left_turn' if error > 0 else 'right_turn'
-    if latch is None and event is None and preferred in TURNS:
-        alternative = 'right_turn' if preferred == 'left_turn' else 'left_turn'
+            preferred = turn(1 if error > 0 else -1)
+    if latch is None and event is None and turn_direction(preferred):
+        alternative = turn(-turn_direction(preferred))
         error = result.get('scan_heading_error_rad')
         if error is None:
             goal = result['waypoint_body_xy_m']
             error = math.atan2(goal[1], goal[0])
         if (abs(error) > .1 and not by_action[preferred]['nominal_predicted_path_clear']
                 and by_action[alternative]['nominal_predicted_path_clear']):
-            direction = 1 if alternative == 'left_turn' else -1
+            direction = turn_direction(alternative)
             latch = dict(target_heading_rad=wrap(heading+error), direction=direction,
                          previous_remaining_rad=(direction*error)%(2*math.pi), mission_generation=generation,
                          blocked_preferred_action=preferred)
             event = 'CLEAR_ALTERNATIVE_TURN_LATCHED'
     if latch is not None:
-        action = 'left_turn' if latch['direction'] == 1 else 'right_turn'
+        action = turn(latch['direction'])
         clear = by_action[action]['nominal_predicted_path_clear']
-        other = 'right_turn' if action == 'left_turn' else 'left_turn'
+        other = turn(-latch['direction'])
         full_alternative = by_action[other].get('full_reserve_path_clear', False)
         if not clear and (full_alternative or by_action[other].get('stepwise_reserve_recovery_path_clear')):
             direction = -latch['direction']
@@ -290,7 +309,7 @@ def recover_turn(selection, heading, generation, latch, exits=True):
             action, clear = other, True
             event = ('FULL_RESERVE_ALTERNATIVE_DIRECTION_SELECTED' if full_alternative
                      else 'CLEARANCE_INCREASING_RECOVERY_DIRECTION_SELECTED')
-        choose(result, ACTIONS.index(action if clear else 'hold'))
+        choose(result, names(result).index(action if clear else 'hold'))
         result['clearance_turn'] = latch | dict(active=True, event=event, latched_turn_forecast_clear=clear)
     elif event is not None:
         result['clearance_turn'] = dict(active=False, event=event)
@@ -307,12 +326,12 @@ def terminal_progress(selection):
     candidates = {r['action']: r for r in result['candidates']}
     baseline = max(candidates['hold']['position_contact_utility_m'], candidates[result['action']]['position_contact_utility_m'])
     eligible = [i for i, row in enumerate(result['memory_forecast_candidates'])
-                if row['action'] in TRANSLATIONS and row['nominal_predicted_path_clear']
+                if translating(row['action']) and row['nominal_predicted_path_clear']
                 and candidates[row['action']]['predicted_progress_during_commit_m'] > 0.
                 and candidates[row['action']]['position_contact_utility_m'] > baseline]
     original = result['action']
     if eligible:
-        choose(result, max(eligible, key=lambda i: candidates[ACTIONS[i]]['position_contact_utility_m']))
+        choose(result, max(eligible, key=lambda i: result['candidates'][i]['position_contact_utility_m']))
     result['terminal_position_priority'] = dict(original_action=original, selected_action=result['action'],
                                                 changed=original != result['action'],
                                                 original_selection_objective=result.get('selection_objective'))
@@ -324,7 +343,7 @@ def predicted_arrival_hold(selection, prediction, arrival_radius_m):
     """Hold when the hold forecast already ends inside the arrival radius, nearly still (≤ 5 cm/s)."""
     if (selection.get('clearance_turn') or {}).get('active'):
         return selection
-    hold = ACTIONS.index('hold')
+    hold = names(selection).index('hold')
     xy = np.asarray(prediction)[hold, -2:, :2]
     distances = np.linalg.norm(xy-np.asarray(selection['waypoint_body_xy_m']), axis=-1)
     speed = float(np.linalg.norm(xy[1]-xy[0])/.1)
@@ -347,10 +366,10 @@ def require_arrival_entry(selection, prediction, arrival_radius_m):
     considered = bool(priority.get('changed') and result['action'] == priority.get('selected_action'))
     changed = False
     if considered:
-        endpoint = np.asarray(prediction)[ACTIONS.index(result['action']), 6, :2]
+        endpoint = np.asarray(prediction)[names(result).index(result['action']), 6, :2]
         distance = float(np.linalg.norm(endpoint-np.asarray(result['waypoint_body_xy_m'])))
         if not np.isfinite(distance) or distance > arrival_radius_m:
-            choose(result, ACTIONS.index(priority['original_action']))
+            choose(result, names(result).index(priority['original_action']))
             result['selection_objective'] = priority['original_selection_objective']
             changed = True
     result['arrival_entry_terminal_priority'] = dict(considered=considered, changed=changed)
@@ -363,14 +382,20 @@ def _finite(values):
     return len(values) == 8 and all(v is not None and math.isfinite(v) for v in values)
 
 
-def recover_against_hold(selection):
+def recover_against_hold(selection, inside=False):
     """When everything but hold is blocked: allow a move that stays outside the footprint, never closer than hold
-    gets, and ends further from obstacles than hold does by max(1 mm, 10% of its reserve deficit)."""
+    gets, and ends further from obstacles than hold does by max(1 mm, 10% of its reserve deficit). With `inside` (a
+    lattice), a robot already inside the footprint (the continuous policy creeps about 1 mm/s on a zero command) backs
+    off: the translation never closer than hold gets that ends furthest out, at least `BACK_OFF_GAIN_M` beyond hold."""
     rows = selection.get('memory_forecast_candidates', [])
-    if selection.get('action') != 'hold' or any(row['nominal_predicted_path_clear'] for row in rows if row['action'] != 'hold'):
+    if selection.get('action') != 'hold':
         return selection
     hold = next(row for row in rows if row['action'] == 'hold')['segment_clearances_m']
-    if not _finite(hold) or min(hold) <= .45:
+    if not _finite(hold):
+        return selection
+    if min(hold) <= .45:  # inside: also while scanning, whose utilities leave out every translation
+        return _back_off(selection, rows, hold) if inside else selection
+    if any(row['nominal_predicted_path_clear'] for row in rows if row['action'] != 'hold'):
         return selection
     eligible = []
     for i, row in enumerate(rows):
@@ -389,7 +414,22 @@ def recover_against_hold(selection):
                clearance_check_mode='IMPROVES_ON_HOLD_WITHIN_NOMINAL_FOOTPRINT')
     result.update(memory_forecast_status='HOLD_RELATIVE_CLEARANCE_RECOVERY',
                   clearance_turn=dict(active=False, event='HOLD_RELATIVE_RECOVERY_RESELECTS_EACH_PLAN'))
-    return choose(result, ACTIONS.index(row['action']))
+    return choose(result, names(result).index(row['action']))
+
+
+def _back_off(selection, rows, hold):
+    eligible = [(row['segment_clearances_m'][-1], min(row['segment_clearances_m']), i) for i, row in enumerate(rows)
+                if translating(row['action']) and _finite(row['segment_clearances_m'])
+                and min(row['segment_clearances_m']) >= min(hold) and row['segment_clearances_m'][-1] >= hold[-1]+BACK_OFF_GAIN_M]
+    if not eligible:
+        return selection
+    _, _, index = max(eligible)
+    result = deepcopy(selection)
+    row = result['memory_forecast_candidates'][index]
+    row.update(nominal_predicted_path_clear=True, reserve_recovery_path_clear=True, clearance_check_mode=BACK_OFF)
+    result.update(memory_forecast_status='INSIDE_FOOTPRINT_BACK_OFF',
+                  clearance_turn=dict(active=False, event='INSIDE_FOOTPRINT_BACK_OFF'))
+    return choose(result, names(result).index(row['action']))
 
 
 def heading_release(selection, latch):
@@ -397,9 +437,10 @@ def heading_release(selection, latch):
     is kept until its measured heading is reached). Returns (selection, latch) unchanged in effect."""
     turn = selection.get('clearance_turn') or {}
     preferred, current = selection.get('before_memory_filter_action'), selection['action']
-    if latch is None or not turn.get('active') or preferred not in TURNS or current not in TURNS or preferred == current:
+    if (latch is None or not turn.get('active') or not turn_direction(preferred) or not turn_direction(current)
+            or preferred == current):
         return selection, latch
-    if current != ('left_turn' if latch['direction'] == 1 else 'right_turn'):
+    if current != representative_turn(names(selection), latch['direction']):
         return selection, latch
     clearance = next(r for r in selection['memory_forecast_candidates'] if r['action'] == preferred)
     if not clearance['full_reserve_path_clear']:
@@ -421,21 +462,22 @@ def reposition_survey(selection):
     """While a latched view turn goes the long way: prefer a clear translation that improves on holding."""
     turn = selection.get('clearance_turn') or {}
     preferred = selection.get('before_memory_filter_action')
-    if ('scan_utilities' not in selection or not turn.get('active') or preferred not in TURNS
-            or selection['action'] not in TURNS or selection['action'] == preferred):
+    if ('scan_utilities' not in selection or not turn.get('active') or not turn_direction(preferred)
+            or not turn_direction(selection['action']) or selection['action'] == preferred):
         return selection
     rows = {r['action']: r for r in selection['memory_forecast_candidates']}
     hold = rows['hold']['segment_clearances_m']
     if not _finite(hold) or min(hold) <= .45:
         return selection
     eligible = []
-    for action in TRANSLATIONS:
+    order = names(selection)
+    for action in (a for a in order if translating(a)):
         row = rows[action]
         path = row['segment_clearances_m']
         gain = max(.001, .1*max(0., row['required_path_clearance_m']-min(hold)))
         if (row['full_reserve_path_clear'] and _finite(path) and min(path) > row['required_path_clearance_m']+1e-12
                 and min(path) >= min(hold) and path[-1] >= hold[-1]+gain):
-            eligible.append((min(path), path[-1], -ACTIONS.index(action), gain))
+            eligible.append((min(path), path[-1], -order.index(action), gain))
     if not eligible:
         return selection
     _, _, negative_index, _ = max(eligible)
@@ -452,7 +494,7 @@ def recover_heading_against_hold(selection):
     predicted heading error)."""
     preferred = selection.get('before_memory_filter_action')
     rows = selection.get('memory_forecast_candidates', [])
-    if (selection.get('action') != 'hold' or preferred not in TURNS
+    if (selection.get('action') != 'hold' or not turn_direction(preferred)
             or any(r['nominal_predicted_path_clear'] for r in rows if r['action'] != 'hold')):
         return selection
     by_action = {r['action']: r for r in rows}
@@ -470,7 +512,7 @@ def recover_heading_against_hold(selection):
         if not math.isfinite(start) or not math.isfinite(end) or end >= start:
             return selection
     result = deepcopy(selection)
-    index = ACTIONS.index(preferred)
+    index = names(result).index(preferred)
     result['memory_forecast_candidates'][index].update(nominal_predicted_path_clear=True, reserve_recovery_path_clear=True,
                                                        clearance_check_mode='HEADING_PROGRESS_WITHIN_HOLD_RELATIVE_MINIMUM')
     result.update(memory_forecast_status='HOLD_RELATIVE_HEADING_RECOVERY',
@@ -481,12 +523,14 @@ def recover_heading_against_hold(selection):
 
 # -- dispatch-time stopping and floor coverage -----------------------------------------------------------------------
 
-def stopping_projection(selection, prediction, clearance, position, rotation, *, pulse=False):
+def stopping_projection(selection, prediction, clearance, position, rotation, *, pulse=False, admissible=False):
     """A translation must also stop clear if dispatched from any forecast pose with obstacles seen then: from each
-    pose up to expiry, the requested-speed distance to expiry plus 0.5 s must keep the footprint. Otherwise align or hold."""
+    pose up to expiry, the requested-speed distance to expiry plus 0.5 s must keep the footprint. Otherwise align or hold
+    (`admissible`, for a lattice: the best clear candidate whose projection is clear, translations included, as the
+    dynamic window approach takes the best admissible velocity)."""
     position, rotation = np.asarray(position, float), np.asarray(rotation, float)
     checks = []
-    for i, action in enumerate(ACTIONS):
+    for i, action in enumerate(names(selection)):
         motion = np.asarray(command(action), float)
         if not any(motion[:2]):
             checks.append(dict(action=action, translating=False, projection_clear=True))
@@ -507,18 +551,21 @@ def stopping_projection(selection, prediction, clearance, position, rotation, *,
     result = deepcopy(selection)
     result['planned_stopping_projection'] = dict(candidates=checks, before_action=selection['action'], changed=False)
     selected = next(row for row in checks if row['action'] == selection['action'])
-    if not selected['translating'] or selected['projection_clear']:
+    backing_off = selection.get('memory_forecast_status') == 'INSIDE_FOOTPRINT_BACK_OFF'  # starts inside: its own test
+    if not selected['translating'] or selected['projection_clear'] or backing_off:
         return result
-    index, _ = best_clear(selection, allowed=('hold', 'left_turn', 'right_turn'))
+    allowed = tuple(r['action'] for r in checks if r['projection_clear']) if admissible else in_place(selection)
+    index, _ = best_clear(selection, allowed=allowed)
     choose(result, index)
     result['planned_stopping_projection'].update(changed=True, after_action=result['action'])
     return result
 
 
-def footprint_extension(prediction, position, rotation, floor):
-    """Per action: the map cells within 0.48 m of its forecast path that are not observed floor, beyond those the
+def footprint_extension(prediction, position, rotation, floor, candidates=ACTIONS):
+    """Per candidate: the map cells within 0.48 m of its forecast path that are not observed floor, beyond those the
     current pose and holding already touch."""
-    paths = np.asarray(position)[:2]+np.concatenate((np.zeros((6, 1, 2)), prediction[:, :, :2]), axis=1)@np.asarray(rotation)[:2, :2].T
+    paths = np.asarray(position)[:2]+np.concatenate((np.zeros((len(candidates), 1, 2)), prediction[:, :, :2]),
+                                                    axis=1)@np.asarray(rotation)[:2, :2].T
     low = np.floor((paths.min(axis=(0, 1))-COVERAGE_RADIUS_M)/grid.CELL_M).astype(int)
     high = np.floor((paths.max(axis=(0, 1))+COVERAGE_RADIUS_M)/grid.CELL_M).astype(int)
     low, high = np.maximum(low, -grid.HALF_CELLS), np.minimum(high, grid.HALF_CELLS-1)
@@ -527,37 +574,76 @@ def footprint_extension(prediction, position, rotation, floor):
     current = (grid.segment_cell_distances(paths[0, 0], paths[0, 0], cells) <= COVERAGE_RADIUS_M)&unknown
     masks = [np.logical_or.reduce([grid.segment_cell_distances(a, b, cells) <= COVERAGE_RADIUS_M
                                    for a, b in zip(path, path[1:])])&unknown for path in paths]
-    baseline = current|masks[ACTIONS.index('hold')]
+    baseline = current|masks[candidates.index('hold')]
     return [dict(action=action, new_unknown_cells=int((mask&~baseline).sum()), added_cells=cells[mask&~baseline].tolist(),
                  leaves_map_bounds=bool((path.min(0)-COVERAGE_RADIUS_M < -grid.MAP_HALF_WIDTH_M).any()
                                         or (path.max(0)+COVERAGE_RADIUS_M > grid.MAP_HALF_WIDTH_M).any()))
-            for action, path, mask in zip(ACTIONS, paths, masks)]
+            for action, path, mask in zip(candidates, paths, masks)]
 
 
-def require_floor_coverage(selection, prediction, snapshot, position, rotation, occupied_observed=True):
+def require_floor_coverage(selection, prediction, snapshot, position, rotation, occupied_observed=True, admissible=False):
     """A translation must not sweep unobserved floor: otherwise align or hold, and return the nearest unobserved cell
     it would have swept (to be viewed). Returns (selection, cell or None). Observed occupied cells count as observed
     (the coverage fix of 2 October); with `occupied_observed=False`, the earlier rule, only observed floor does (the
-    view target is still an unobserved cell)."""
-    if selection['action'] not in TRANSLATIONS:
+    view target is still an unobserved cell). With `admissible` (a lattice), the best clear, stopping-clear candidate
+    that sweeps no unobserved floor is taken instead, translations included (no view target then). A back-off from inside
+    the footprint (`recover_against_hold`) reaching at most `BACK_OFF_REACH_M` is exempt."""
+    if not translating(selection['action']):
         return selection, None
     observed = snapshot.floor|snapshot.occupied
-    rows = footprint_extension(prediction, position, rotation, observed if occupied_observed else snapshot.floor)
-    selected = rows[ACTIONS.index(selection['action'])]
+    order = names(selection)
+    needed = sorted({order.index('hold'), order.index(selection['action'])})  # the baseline and the choice only
+    rows = footprint_extension(np.asarray(prediction)[needed], position, rotation,
+                               observed if occupied_observed else snapshot.floor, [order[i] for i in needed])
+    selected = next(r for r in rows if r['action'] == selection['action'])
     if selected['new_unknown_cells'] == 0 and not selected['leaves_map_bounds']:
         return selection | dict(translation_footprint_coverage=dict(rejected=False)), None
+    reach = float(np.linalg.norm(np.asarray(prediction)[order.index(selection['action']), -1, :2]))
+    if selection.get('memory_forecast_status') == 'INSIDE_FOOTPRINT_BACK_OFF' and reach <= BACK_OFF_REACH_M:
+        # a few centimetres into space the body has just left (the cameras never see behind): less risk than creeping on
+        return selection | dict(translation_footprint_coverage=dict(rejected=False, back_off_exempt=True,
+                                                                     new_unknown_cells=selected['new_unknown_cells'])), None
     values = utilities(selection)
     stopping = {r['action']: r['projection_clear'] for r in selection['planned_stopping_projection']['candidates']}
+    if admissible:
+        action = _covered_alternative(selection, prediction, position, rotation,
+                                      observed if occupied_observed else snapshot.floor, stopping, values)
+        if action is not None:
+            result = choose(deepcopy(selection), order.index(action))
+            result['translation_footprint_coverage'] = dict(rejected=True, previous_action=selection['action'],
+                                                            selected_action=action)
+            return result, None
     eligible = [r['action'] for r in selection['memory_forecast_candidates']
-                if r['action'] in ('hold', 'left_turn', 'right_turn') and r['nominal_predicted_path_clear']
+                if r['action'] in in_place(selection) and r['nominal_predicted_path_clear']
                 and stopping[r['action']] and r['action'] in values]
     action = max(eligible, key=lambda a: values[a]) if eligible else 'hold'
     result = deepcopy(selection)
-    choose(result, ACTIONS.index(action))
+    choose(result, order.index(action))
     result['translation_footprint_coverage'] = dict(rejected=True, previous_action=selection['action'], selected_action=action)
     targets = [tuple(c) for c in selected['added_cells'] if tuple(c) not in observed]
     target = min(targets, key=lambda c: (float(np.linalg.norm(grid.centre(c)-np.asarray(position)[:2])), c)) if targets else None
     return result, target
+
+
+def _covered_alternative(selection, prediction, position, rotation, observed, stopping, values):
+    """The best-scoring clear, stopping-clear translation (other than the choice) sweeping no unobserved floor, if it
+    scores above every clear in-place candidate; else None."""
+    order = names(selection)
+    rows = [r for r in selection['memory_forecast_candidates']
+            if r['nominal_predicted_path_clear'] and stopping[r['action']] and r['action'] in values]
+    best_still = max((values[r['action']] for r in rows if r['action'] in in_place(selection)), default=-math.inf)
+    hold = order.index('hold')
+    for r in sorted(rows, key=lambda r: -values[r['action']]):
+        action = r['action']
+        if values[action] <= best_still:
+            return None
+        if not translating(action) or action == selection['action']:
+            continue
+        i = order.index(action)
+        row = footprint_extension(np.asarray(prediction)[[hold, i]], position, rotation, observed, ['hold', action])[1]
+        if row['new_unknown_cells'] == 0 and not row['leaves_map_bounds']:
+            return action
+    return None
 
 
 # -- memory of turns tried at this place -----------------------------------------------------------------------------
@@ -570,7 +656,8 @@ def recover_view_with_arc(selection, prediction, view_body, max_distance_m):
     if selection['action'] != 'hold' or 'scan_utilities' not in selection:
         return selection
     rows = {r['action']: r for r in selection['memory_forecast_candidates']}
-    if any(rows[a]['nominal_predicted_path_clear'] for a in TURNS) or not rows['hold']['nominal_footprint_path_clear']:
+    if (any(r['nominal_predicted_path_clear'] for a, r in rows.items() if turn_direction(a))
+            or not rows['hold']['nominal_footprint_path_clear']):
         return selection
     stopping = {r['action']: r['projection_clear'] for r in selection['planned_stopping_projection']['candidates']}
     prediction, view = np.asarray(prediction, float), np.asarray(view_body, float)
@@ -583,10 +670,11 @@ def recover_view_with_arc(selection, prediction, view_body, max_distance_m):
         yaw -= math.atan2(prediction[index, 2, 2], prediction[index, 2, 3])
         return abs(error)-abs(wrap(error-yaw))
 
-    hold_gain = heading_gain(ACTIONS.index('hold'))
+    order = names(selection)
+    hold_gain = heading_gain(order.index('hold'))
     eligible = []
-    for action in ('left_arc', 'right_arc'):
-        i, row = ACTIONS.index(action), rows[action]
+    for action in (a for a in order if translating(a) and command(a)[2]):
+        i, row = order.index(action), rows[action]
         if not (row['nominal_predicted_path_clear'] and row['nominal_footprint_path_clear']
                 and row['clearance_check_mode'] in ('FULL_RESERVE', 'RESERVE_RECOVERY') and stopping[action]):
             continue
@@ -633,7 +721,7 @@ class RouteTurnMemory:
         released = None
         if self.active is not None and self.generation == generation and weak_trigger is None \
                 and 'scan_utilities' not in selection:
-            action = 'left_turn' if self.active['direction'] == 1 else 'right_turn'
+            action = representative_turn(names(selection), self.active['direction'])
             row = next(r for r in selection['memory_forecast_candidates'] if r['action'] == action)
             if not row['nominal_predicted_path_clear']:
                 released = dict(action=action, target_heading_rad=self.active['target_heading_rad'])
@@ -669,30 +757,31 @@ class RouteTurnMemory:
             else:
                 self.active['previous_remaining_rad'] = remaining
         by_action = {r['action']: r for r in selection['memory_forecast_candidates']}
-        if selection['action'] in TRANSLATIONS:
+        if translating(selection['action']):
             self.attempt = self.active = None
             return selection
         failed = {r['direction'] for r in self.failed if self.nearby(r, position, target)}
         preferred = selection.get('before_memory_filter_action')
-        if self.active is None and preferred in TURNS and abs(error) > .10:
-            direction = -TURNS[preferred]
-            alternative = 'left_turn' if direction == 1 else 'right_turn'
-            if TURNS[preferred] in failed and direction not in failed and by_action[alternative]['nominal_predicted_path_clear']:
+        if self.active is None and turn_direction(preferred) and abs(error) > .10:
+            direction = -turn_direction(preferred)
+            alternative = representative_turn(names(selection), direction)
+            if turn_direction(preferred) in failed and direction not in failed and by_action[alternative]['nominal_predicted_path_clear']:
                 self.active = dict(position=position.copy(), target_heading_rad=target, direction=direction,
                                    previous_remaining_rad=(direction*error)%(2*math.pi))
         result = selection
         if self.active is not None:
-            action = 'left_turn' if self.active['direction'] == 1 else 'right_turn'
+            action = representative_turn(names(selection), self.active['direction'])
             eligible = by_action[action]['nominal_predicted_path_clear']
             result = deepcopy(selection)
-            choose(result, ACTIONS.index(action if eligible else 'hold'))
+            choose(result, names(result).index(action if eligible else 'hold'))
             result['visual_route_turn_memory'] = dict(active=True, direction=self.active['direction'],
                                                       target_heading_rad=self.active['target_heading_rad'],
                                                       failed_directions=sorted(failed), selected_turn_forecast_clear=eligible)
         action = result['action']
-        if action in TURNS:
-            if self.attempt is None or self.attempt['direction'] != TURNS[action] or not self.nearby(self.attempt, position, target):
-                self.attempt = dict(position=position.copy(), target_heading_rad=target, direction=TURNS[action],
+        if turn_direction(action):
+            if (self.attempt is None or self.attempt['direction'] != turn_direction(action)
+                    or not self.nearby(self.attempt, position, target)):
+                self.attempt = dict(position=position.copy(), target_heading_rad=target, direction=turn_direction(action),
                                     start_heading_rad=heading)
         elif self.active is None:
             self.attempt = None
