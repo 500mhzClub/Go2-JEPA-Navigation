@@ -284,3 +284,60 @@ Other findings of the round:
 
 Next: the frozen baseline's evaluation (`configs/experiments/frozen_baseline_eval.yaml`): static parity on R4 and the
 R6 reference, held-out static episode 1, and held-out obstacles (placement series heldout-v1) for C1 and C0.
+
+## The frozen baseline's evaluation (25 October)
+
+`configs/experiments/frozen_baseline_eval.yaml`, the dv3 harness, C1 on the continuous policy (cohorts `fb_*`).
+
+**Static parity** (paired with the records):
+
+| | Frozen dv3 | M3 (continuous policy, R7c-era rules) | Record (six-primitive policy) |
+|---|---|---|---|
+| R4, prelim_test 30-49 ep 0 | 18/20 | 18/20 (1 win, 1 loss) | 20/20 (`rexit2_ref`) |
+| R6 reference, stage2_sets 30-49 | 18/20 | 18/20 (1 win, 1 loss) | 20/20 (`s2ref_cpu`) |
+
+The dv rules cost nothing on static mazes; the gap to the records is the policy's, as M3 found. (The R6 reference
+first ran ten missions with an episode the set lacks; they were rerun with the records' episodes.)
+
+**Held-out** (prelim_test 30-49, placement series heldout-v1, never used in development):
+
+| | Development (validation 10-29) | Held-out |
+|---|---|---|
+| Static | 32/40 | 15/20 (episode 1) |
+| One obstacle | 13/40 | 20/40 |
+| Two obstacles | 9/40 | 10/40 |
+
+- **No sign of overfitting** the rules to the development mazes: held-out matches or beats development.
+- **Pose loss is the largest held-out failure with obstacles** (10 and 11 of 40, development 4 and 7): visual
+  odometry loses both cameras at the end of long stretches of turning or holding while stuck.
+- **One contact in 120 held-out missions** (one obstacle, maze 48 ep0): a rear calf swept a wall during a primitive
+  turn in place.
+
+**C0 on the continuous policy** (its first run there; development never used it) exposed two harness faults:
+- **What-if contacts ended the mission.** A C0 branch that touched an obstacle raised the mission's contact stop: 14
+  of 80 missions were ended by a contact that never happened. Fixed (03efbec): a branch that stops physically holds
+  its last pose. The 14 are rerun.
+- **The executed-prefix check failed 27 missions** that were fine: every failing plan started within 400 ms of an
+  escape dispatch (the escape sends a vetoed turn while the ledger keeps the zero request, so the next plan's
+  committed prefix is zero while the robot still turns). Wherever commands matched, branch and execution agreed to
+  0 mm. The check now skips those plans; outcomes come from the arrivals and stand.
+
+## The continuous-command baseline: lattice rounds (25 October)
+
+The dv3 harness with C1 scoring a command lattice instead of the six primitives (`--candidates lattice`: forward
+-0.10 to 0.45 m/s, lateral ±0.15 m/s, yaw in five steps), the continuous safety block, the dynamic-window fallback,
+and C1's command model refitted on the command-range collection (held-out median error at 800 ms 11.3 mm, against
+24.3 mm for the shipped model). Same 120 development missions as dv3, paired with it.
+
+**lv0** (yaw to ±0.6 rad/s; `configs/experiments/lv0_development.yaml`):
+
+| | Static | One obstacle | Two obstacles | Total |
+|---|---|---|---|---|
+| dv3 (six primitives) | 32 | 13 | 9 | 54 |
+| lv0 | 38 | 25 | 13 | 76 |
+| Wins / losses | 6 / 0 (p 0.03) | 15 / 3 (p 0.008) | 9 / 5 (p 0.42) | 30 / 8 |
+
+- **Faster and more successful,** but **seven missions ended in contact** (dv3: none). Six were turning at 0.6 rad/s,
+  in place or with lateral 0.15 m/s, and a calf swept past the 0.45-m footprint into a wall or an obstacle; one was
+  an 8 N hip touch while holding. 36% of lv0's plans were turns in place at 0.6 rad/s.
+- **lv1** caps the lattice's yaw at the primitives' 0.45 rad/s, the rate the footprint was validated at (7debb4f).
