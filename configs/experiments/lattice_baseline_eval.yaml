@@ -1,0 +1,361 @@
+name: 'Frozen lattice baseline: static parity and the held-out evaluation (P2b, continuous commands)'
+description: 'The dv3 harness with C1 scoring the command lattice frozen at round lv2 (forward -0.10 to 0.45 m/s, no lateral,
+  yaw to 0.45 rad/s; continuous safety block, dynamic-window fallback, back-off from inside the footprint), C1 refitted on
+  the command-range collection, on the continuous-contract policy. The same missions as the frozen six-primitive evaluation
+  (frozen_baseline_eval.yaml), C1 only, paired with it: static parity on R4 and the R6 reference, held-out static episode
+  1, and prelim_test 30-49 episodes 0 and 1 with one and two obstacles in placement series heldout-v1.'
+cohorts:
+- name: lb_r4_c1
+  arms:
+  - C1
+  set: prelim_test_v1
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 0
+  - - 33
+    - 0
+  - - 34
+    - 0
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 0
+  - - 38
+    - 0
+  - - 39
+    - 0
+  - - 40
+    - 0
+  - - 41
+    - 0
+  - - 42
+    - 0
+  - - 43
+    - 0
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 0
+  - - 47
+    - 0
+  - - 48
+    - 0
+  - - 49
+    - 0
+  candidates: lattice
+  safety: continuous
+- name: lb_r6_ref_c1
+  arms:
+  - C1
+  set: stage2_sets_v1
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 1
+  - - 33
+    - 1
+  - - 34
+    - 1
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 1
+  - - 38
+    - 0
+  - - 39
+    - 1
+  - - 40
+    - 0
+  - - 41
+    - 1
+  - - 42
+    - 0
+  - - 43
+    - 1
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 1
+  - - 47
+    - 1
+  - - 48
+    - 1
+  - - 49
+    - 0
+  candidates: lattice
+  safety: continuous
+- name: lb_heldout_static_c1
+  arms:
+  - C1
+  set: prelim_test_v1
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  episodes:
+  - - 30
+    - 1
+  - - 31
+    - 1
+  - - 32
+    - 1
+  - - 33
+    - 1
+  - - 34
+    - 1
+  - - 35
+    - 1
+  - - 36
+    - 1
+  - - 37
+    - 1
+  - - 38
+    - 1
+  - - 39
+    - 1
+  - - 40
+    - 1
+  - - 41
+    - 1
+  - - 42
+    - 1
+  - - 43
+    - 1
+  - - 44
+    - 1
+  - - 45
+    - 1
+  - - 46
+    - 1
+  - - 47
+    - 1
+  - - 48
+    - 1
+  - - 49
+    - 1
+  candidates: lattice
+  safety: continuous
+- name: lb_heldout_obst1_c1
+  arms:
+  - C1
+  set: prelim_test_v1
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  obstacles: 1
+  obstacle_series: heldout-v1
+  episodes:
+  - - 30
+    - 0
+  - - 30
+    - 1
+  - - 31
+    - 0
+  - - 31
+    - 1
+  - - 32
+    - 0
+  - - 32
+    - 1
+  - - 33
+    - 0
+  - - 33
+    - 1
+  - - 34
+    - 0
+  - - 34
+    - 1
+  - - 35
+    - 0
+  - - 35
+    - 1
+  - - 36
+    - 0
+  - - 36
+    - 1
+  - - 37
+    - 0
+  - - 37
+    - 1
+  - - 38
+    - 0
+  - - 38
+    - 1
+  - - 39
+    - 0
+  - - 39
+    - 1
+  - - 40
+    - 0
+  - - 40
+    - 1
+  - - 41
+    - 0
+  - - 41
+    - 1
+  - - 42
+    - 0
+  - - 42
+    - 1
+  - - 43
+    - 0
+  - - 43
+    - 1
+  - - 44
+    - 0
+  - - 44
+    - 1
+  - - 45
+    - 0
+  - - 45
+    - 1
+  - - 46
+    - 0
+  - - 46
+    - 1
+  - - 47
+    - 0
+  - - 47
+    - 1
+  - - 48
+    - 0
+  - - 48
+    - 1
+  - - 49
+    - 0
+  - - 49
+    - 1
+  candidates: lattice
+  safety: continuous
+- name: lb_heldout_obst2_c1
+  arms:
+  - C1
+  set: prelim_test_v1
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  obstacles: 2
+  obstacle_series: heldout-v1
+  episodes:
+  - - 30
+    - 0
+  - - 30
+    - 1
+  - - 31
+    - 0
+  - - 31
+    - 1
+  - - 32
+    - 0
+  - - 32
+    - 1
+  - - 33
+    - 0
+  - - 33
+    - 1
+  - - 34
+    - 0
+  - - 34
+    - 1
+  - - 35
+    - 0
+  - - 35
+    - 1
+  - - 36
+    - 0
+  - - 36
+    - 1
+  - - 37
+    - 0
+  - - 37
+    - 1
+  - - 38
+    - 0
+  - - 38
+    - 1
+  - - 39
+    - 0
+  - - 39
+    - 1
+  - - 40
+    - 0
+  - - 40
+    - 1
+  - - 41
+    - 0
+  - - 41
+    - 1
+  - - 42
+    - 0
+  - - 42
+    - 1
+  - - 43
+    - 0
+  - - 43
+    - 1
+  - - 44
+    - 0
+  - - 44
+    - 1
+  - - 45
+    - 0
+  - - 45
+    - 1
+  - - 46
+    - 0
+  - - 46
+    - 1
+  - - 47
+    - 0
+  - - 47
+    - 1
+  - - 48
+    - 0
+  - - 48
+    - 1
+  - - 49
+    - 0
+  - - 49
+    - 1
+  candidates: lattice
+  safety: continuous
