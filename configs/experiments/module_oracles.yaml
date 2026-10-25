@@ -2,9 +2,10 @@ name: 'Failure analysis: module oracles on the frozen lattice baseline (validati
 description: 'The lattice baseline frozen at lv2 with one harness module at a time given the ground truth (go2nav.controllers.truth),
   at one and two obstacles, paired with lv2. The map: full (the true map, moving obstacles in the route grid as now) and static
   (the true map, moving obstacles only in the 1-cm cells the clearance check sees, not in the route grid; the gap between
-  the two is what routing around a moving obstacle as if it were a wall costs). The pose: the true pose for visual odometry
-  and registration. Obstacle prediction: true futures in the clearance check. Each gain bounds what learning that module can
-  give (docs/dynamic/PLAN.md, failure analysis).'
+  the two is what routing around a moving obstacle as if it were a wall costs). And obstacles (the perceived map, its obstacle
+  pixels removed, the true obstacles added now: no trails). The pose: the true pose for visual odometry and registration.
+  Obstacle prediction: true futures in the clearance check. Each gain bounds what learning that module can give (docs/dynamic/PLAN.md,
+  failure analysis).'
 cohorts:
 - name: or_map_static_obst1_c1
   arms: &id001
@@ -207,3 +208,33 @@ cohorts:
   safety: continuous
   obstacles: 2
   map_oracle: full
+- name: or_map_obst_obst1_c1
+  arms: *id001
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  episodes: *id002
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+  obstacles: 1
+  map_oracle: obstacles
+- name: or_map_obst_obst2_c1
+  arms: *id001
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  episodes: *id002
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+  obstacles: 2
+  map_oracle: obstacles
