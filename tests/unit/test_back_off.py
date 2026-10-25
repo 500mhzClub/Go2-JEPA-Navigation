@@ -18,3 +18,10 @@ def test_a_robot_inside_the_footprint_backs_off_only_on_a_lattice():
 def test_no_back_off_without_enough_gain():
     s = selection({'hold': [.40]*8, 'cmd-0.10+0.00+0.00': [.40+.0005*k for k in range(1, 9)]})
     assert sel.recover_against_hold(s, inside=True) is s
+
+
+def test_back_off_while_scanning_and_a_reserve_exit_is_marked():
+    s = selection({'hold': [.40]*8, 'cmd-0.10+0.00+0.00': [.40+.004*k for k in range(1, 9)]})
+    s['memory_forecast_candidates'][1]['nominal_predicted_path_clear'] = True  # the reserve exit
+    s['scan_utilities'] = [dict(action='hold', utility_m=0.)]
+    assert sel.recover_against_hold(s, inside=True)['action'] == 'cmd-0.10+0.00+0.00'

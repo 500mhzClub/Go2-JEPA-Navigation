@@ -353,4 +353,7 @@ lv0 and lv1:
   two obstacles: 0.33 m in 300 s, 98% zero commands), until a calf, hip or the base touched it.
 - **lv2** (`configs/experiments/lv2_development.yaml`): no lateral axis (25 candidates), and a back-off from inside
   the footprint (the translation never closer than hold that ends furthest out, at least 5 mm beyond hold; the
-  stopping projection, which a pose inside the footprint always fails, does not veto it).
+  stopping projection, which a pose inside the footprint always fails, does not veto it). A first lv2 launch was
+  stopped a third of the way in: the back-off never ran while the planner scanned for a view (scan utilities leave out
+  every translation, and the reserve exit had already marked the reversals clear), so a robot crept into a wall as in
+  lv1. The back-off now comes first when inside the footprint (its partial cohorts are kept as `lv2pre_*`).

@@ -388,13 +388,15 @@ def recover_against_hold(selection, inside=False):
     lattice), a robot already inside the footprint (the continuous policy creeps about 1 mm/s on a zero command) backs
     off: the translation never closer than hold gets that ends furthest out, at least `BACK_OFF_GAIN_M` beyond hold."""
     rows = selection.get('memory_forecast_candidates', [])
-    if selection.get('action') != 'hold' or any(row['nominal_predicted_path_clear'] for row in rows if row['action'] != 'hold'):
+    if selection.get('action') != 'hold':
         return selection
     hold = next(row for row in rows if row['action'] == 'hold')['segment_clearances_m']
     if not _finite(hold):
         return selection
-    if min(hold) <= .45:
+    if min(hold) <= .45:  # inside: also while scanning, whose utilities leave out every translation
         return _back_off(selection, rows, hold) if inside else selection
+    if any(row['nominal_predicted_path_clear'] for row in rows if row['action'] != 'hold'):
+        return selection
     eligible = []
     for i, row in enumerate(rows):
         if row['action'] == 'hold':
