@@ -398,3 +398,35 @@ is a map rule (how a mover's trail is cleared), which belongs to both baselines.
 would change what the gap between the two baselines measures, the action set alone. It goes to the failure analysis,
 for both arms. Held-out evaluation: `configs/experiments/lattice_baseline_eval.yaml` (cohorts `lb_*`), the frozen
 six-primitive evaluation's C1 missions with the lattice flags, paired with them.
+
+## The lattice baseline's evaluation (25 October)
+
+`configs/experiments/lattice_baseline_eval.yaml` (cohorts `lb_*`, commit 71d3f54): the frozen six-primitive
+evaluation's C1 missions with the lattice frozen at lv2, paired with them.
+
+| | Six primitives (dv3) | Lattice (lv2) | Wins / losses | p | Lattice, development |
+|---|---|---|---|---|---|
+| R4, prelim_test 30-49 ep 0 | 18/20 | 20/20 | 2 / 0 | 0.50 | |
+| R6 reference, stage2_sets 30-49 | 18/20 | 20/20 | 2 / 0 | 0.50 | |
+| Held-out static (episode 1) | 15/20 | 19/20 | 5 / 1 | 0.22 | 38/40 |
+| Held-out, one obstacle | 20/40 | 32/40 | 14 / 2 | 0.004 | 31/40 |
+| Held-out, two obstacles | 10/40 | 21/40 | 15 / 4 | 0.02 | 18/40 |
+| All 140 | 81 | 112 | 38 / 7 | < 0.001 | |
+
+- **Static parity restored:** 20/20 on R4 and on the R6 reference, the records' result (no wins or losses against
+  `rexit2_ref` and `s2ref_cpu`). The continuous policy's two static losses on each set (M3) were the six primitives',
+  not the policy's.
+- **No contacts** in 140 missions (six primitives: one).
+- **No sign of overfitting:** held-out matches development at every level.
+- **Faster where both succeed on static mazes** (median mission 114-137 s against 136-176 s), at a slightly lower
+  outbound SPL (0.65-0.76 against 0.72-0.85): the lattice drives faster on wider arcs.
+- **Pose loss nearly gone** with obstacles (3 and 1 of 40, against 10 and 11): it ended long stretches of turning or
+  holding while stuck, which the lattice has far fewer of.
+- **The residual is the map:** 23 of the 27 obstacle failures spend over 40% of their plans with no route and no
+  frontier on the map (the sealed passages of lv2). Two obstacles also leave nine missions that reach the beacon
+  and do not get home.
+
+**What the action set is worth:** with the same forecaster (C1), harness rules and policy, scoring a 25-command lattice
+instead of six primitives turns 81 of 140 held-out missions into 112 (38 wins, 7 losses). The gap includes what the
+lattice needed to be safe (C1's refit on the command range, the continuous safety block, the back-off from inside the
+footprint). Both baselines are frozen; the failure analysis starts from the map's sealed passages, common to both.
