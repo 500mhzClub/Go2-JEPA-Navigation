@@ -22,6 +22,9 @@ is measured, so the centroid sits nearer the robot than the true centre; the off
 the slope is still the obstacle's motion. A track not seen for `KEEP_UNSEEN_S` is dropped (its cells stay in the map
 as stored cells).
 
+**Trails** (`trail`): every 5-cm cell a track has occupied; with mover trails on, the routing map keeps a confirmed
+track's trail only while it is seen occupied (`perception.mapping`).
+
 **Moving tracks** (`moving`): confirmed, with speed at least `MIN_SPEED_M_S`. The planner takes their cells out of the stored cells
 and checks each forecast segment against them shifted by the velocity times the segment's time
 (`planning.prediction`).
@@ -49,6 +52,7 @@ class Track:
     history: list = field(default_factory=list)   # [(t_ns, centroid xy)]
     velocity: np.ndarray = field(default_factory=lambda: np.zeros(2))
     footprint: frozenset = frozenset()             # its 5-cm cells at the previous observation
+    trail: frozenset = frozenset()                 # every 5-cm cell it has occupied
     motion_updates: int = 0                        # updates that showed motion (see the module docstring)
 
     @property
@@ -143,6 +147,7 @@ class ObstacleTracker:
         vacated = len((track.footprint-coarse)&free)
         track.motion_updates += entered+vacated >= MOTION_CELLS
         track.footprint = coarse
+        track.trail = track.trail|coarse
         track.cells = frozenset(map(tuple, points.tolist()))
         track.seen_ns = now
         track.history = [h for h in track.history if now-h[0] <= WINDOW_S*1e9]+[(now, centroid(points))]

@@ -1,0 +1,254 @@
+name: 'Trail probe: mover trails on both frozen baselines, validation mazes 10-29'
+description: 'One probe round after the failure analysis (docs/dynamic/STATUS.md): the six-primitive baseline (dv3) and the
+  lattice baseline (lv2), each with mover trails on (a confirmed obstacle track''s cells stay in the routing map only while
+  seen occupied; go2nav.perception.mapping), static and with one and two moving obstacles. Paired with dv3 and lv2. The deployable
+  counterpart of the map oracles: the true map gained 10 of 80 over lv2.'
+cohorts:
+- name: tp_six_static_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  episodes: &id001
+  - - 10
+    - 0
+  - - 10
+    - 1
+  - - 11
+    - 0
+  - - 11
+    - 1
+  - - 12
+    - 0
+  - - 12
+    - 1
+  - - 13
+    - 0
+  - - 13
+    - 1
+  - - 14
+    - 0
+  - - 14
+    - 1
+  - - 15
+    - 0
+  - - 15
+    - 1
+  - - 16
+    - 0
+  - - 16
+    - 1
+  - - 17
+    - 0
+  - - 17
+    - 1
+  - - 18
+    - 0
+  - - 18
+    - 1
+  - - 19
+    - 0
+  - - 19
+    - 1
+  - - 20
+    - 0
+  - - 20
+    - 1
+  - - 21
+    - 0
+  - - 21
+    - 1
+  - - 22
+    - 0
+  - - 22
+    - 1
+  - - 23
+    - 0
+  - - 23
+    - 1
+  - - 24
+    - 0
+  - - 24
+    - 1
+  - - 25
+    - 0
+  - - 25
+    - 1
+  - - 26
+    - 0
+  - - 26
+    - 1
+  - - 27
+    - 0
+  - - 27
+    - 1
+  - - 28
+    - 0
+  - - 28
+    - 1
+  - - 29
+    - 0
+  - - 29
+    - 1
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  mover_trails: 'on'
+- name: tp_six_obst1_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacles: 1
+  episodes: *id001
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  mover_trails: 'on'
+- name: tp_six_obst2_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacles: 2
+  episodes: *id001
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  mover_trails: 'on'
+- name: tp_lat_static_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  episodes: &id002
+  - - 10
+    - 0
+  - - 10
+    - 1
+  - - 11
+    - 0
+  - - 11
+    - 1
+  - - 12
+    - 0
+  - - 12
+    - 1
+  - - 13
+    - 0
+  - - 13
+    - 1
+  - - 14
+    - 0
+  - - 14
+    - 1
+  - - 15
+    - 0
+  - - 15
+    - 1
+  - - 16
+    - 0
+  - - 16
+    - 1
+  - - 17
+    - 0
+  - - 17
+    - 1
+  - - 18
+    - 0
+  - - 18
+    - 1
+  - - 19
+    - 0
+  - - 19
+    - 1
+  - - 20
+    - 0
+  - - 20
+    - 1
+  - - 21
+    - 0
+  - - 21
+    - 1
+  - - 22
+    - 0
+  - - 22
+    - 1
+  - - 23
+    - 0
+  - - 23
+    - 1
+  - - 24
+    - 0
+  - - 24
+    - 1
+  - - 25
+    - 0
+  - - 25
+    - 1
+  - - 26
+    - 0
+  - - 26
+    - 1
+  - - 27
+    - 0
+  - - 27
+    - 1
+  - - 28
+    - 0
+  - - 28
+    - 1
+  - - 29
+    - 0
+  - - 29
+    - 1
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+  mover_trails: 'on'
+- name: tp_lat_obst1_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacles: 1
+  episodes: *id002
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+  mover_trails: 'on'
+- name: tp_lat_obst2_c1
+  arms:
+  - C1
+  set: validation
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacles: 2
+  episodes: *id002
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+  mover_trails: 'on'

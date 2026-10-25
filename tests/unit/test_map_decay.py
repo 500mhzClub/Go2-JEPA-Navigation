@@ -83,3 +83,17 @@ def test_footprint_clearing_drops_cells_under_the_body(monkeypatch):
         snapshot = update(routing_map, monkeypatch, [], [(.1, 0., .3), (0., .2, .3), (1.025, .025, .3)])
         assert ((2, 0) in snapshot.occupied) is not clear and ((10, 0) in snapshot.fine_occupied) is not clear
         assert (0, 4) in snapshot.occupied and (20, 0) in snapshot.occupied
+
+
+def test_mover_trails_stay_only_while_seen_occupied(monkeypatch):
+    for trails in (False, True):
+        routing_map = mapping.RoutingMap(clear_seen_free=True, mover_trails=trails)
+        routing_map.B, routing_map.floor_height = np.eye(3), FLOOR
+        update(routing_map, monkeypatch, [], [(1.025, .025, .3), (1.5, .5, .3)])  # a mover's cell and a wall's
+        routing_map.mark_mover({(20, 0)})
+        seen = update(routing_map, monkeypatch, [], [(1.025, .025, .3)])          # the mover still seen there
+        assert (20, 0) in seen.occupied
+        gone = update(routing_map, monkeypatch, [], [])                           # out of view: neither is seen
+        assert ((20, 0) in gone.occupied) is not trails and ((102, 2) in gone.fine_occupied) is not trails
+        assert (30, 10) in gone.occupied
+        assert not routing_map.movers

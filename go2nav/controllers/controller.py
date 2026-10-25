@@ -9,7 +9,8 @@
    *floor re-acquisition*: a frame whose floor measurement the registration rejects has no pose. The mission holds,
    every queued plan is vetoed, nothing is mapped or planned from the frame, and the robot holds until four
    consecutive frames are registered again; planning resumes no earlier than 400 ms after the rejected frame;
-3. every fourth frame: the routing map (`perception.mapping`), then from frame 10 a plan (`planning.planner` with the
+3. every fourth frame: the routing map (`perception.mapping`; with `mover_trails`, the confirmed tracks' trails are
+   marked as moving obstacles' after the tracker's update), then from frame 10 a plan (`planning.planner` with the
    controller's forecaster), committed in the ledger (`planning.dispatch`);
 4. the depth obstacles for dispatch (`perception.obstacles`).
 
@@ -90,10 +91,12 @@ class NavigationController:
     def __init__(self, forecaster, *, goal_xy, home_xy, arrival_radius_m=.02, navigation_frames=4800, recovery=False,
                  margin_m=0., unknown=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False,
                  deadlock_escape=False, terminal_burst=False, obstacle_prediction=False, footprint_clearing=False,
-                 candidates=ACTIONS, truth=None, pose_oracle=False, map_oracle=None, prediction_oracle=False):
+                 candidates=ACTIONS, truth=None, pose_oracle=False, map_oracle=None, prediction_oracle=False,
+                 mover_trails=False):
         self.forecaster = forecaster
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
-        self.routing_map = RoutingMap(clear_seen_free=bool(map_decay), clear_footprint=footprint_clearing)
+        self.routing_map = RoutingMap(clear_seen_free=bool(map_decay), clear_footprint=footprint_clearing,
+                                      mover_trails=mover_trails)
         self.obstacles = DepthObstacleObserver()
         self.forget_floor_first = map_decay == 'floor'
         self.planner = Planner(arrival_radius_m=arrival_radius_m, recovery=recovery, margin_m=margin_m, unknown=unknown,
@@ -102,6 +105,8 @@ class NavigationController:
                                obstacle_prediction='oracle' if prediction_oracle else obstacle_prediction,
                                candidates=candidates)
         self.tracker = ObstacleTracker() if obstacle_prediction and not prediction_oracle else None
+        if mover_trails and self.tracker is None:
+            raise ValueError('mover trails need the obstacle tracker (obstacle_prediction)')
         if (pose_oracle or map_oracle or prediction_oracle) and truth is None:
             raise ValueError('module oracles need the ground truth')
         self.truth, self.pose_oracle, self.prediction_oracle = truth, pose_oracle, prediction_oracle
@@ -165,6 +170,7 @@ class NavigationController:
                 self.latest_map = self.map_oracle.apply(self.latest_map, registered.position, registered.rotation)
             if self.tracker is not None:
                 self.planner.tracks = self.tracker.update(self.latest_map)
+                self.routing_map.mark_mover(frozenset().union(*(t.trail for t in self.planner.tracks if t.confirmed)))
             if self.prediction_oracle:
                 self.planner.tracks = truth_oracles.oracle_tracks(self.truth, self.latest_map, registered.position,
                                                                   registered.rotation)
