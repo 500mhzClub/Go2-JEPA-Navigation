@@ -38,6 +38,7 @@ TRANSLATION_RESERVE_M = TURN_RESERVE_M = .03
 EXIT_TOLERANCE_M = .001
 STOPPING_ALLOWANCE_S = .5
 COVERAGE_RADIUS_M = .48
+BACK_OFF_GAIN_M, BACK_OFF = .005, 'BACKS_OFF_INSIDE_FOOTPRINT'
 
 
 def wrap(value):
@@ -381,15 +382,19 @@ def _finite(values):
     return len(values) == 8 and all(v is not None and math.isfinite(v) for v in values)
 
 
-def recover_against_hold(selection):
+def recover_against_hold(selection, inside=False):
     """When everything but hold is blocked: allow a move that stays outside the footprint, never closer than hold
-    gets, and ends further from obstacles than hold does by max(1 mm, 10% of its reserve deficit)."""
+    gets, and ends further from obstacles than hold does by max(1 mm, 10% of its reserve deficit). With `inside` (a
+    lattice), a robot already inside the footprint (the continuous policy creeps about 1 mm/s on a zero command) backs
+    off: the translation never closer than hold gets that ends furthest out, at least `BACK_OFF_GAIN_M` beyond hold."""
     rows = selection.get('memory_forecast_candidates', [])
     if selection.get('action') != 'hold' or any(row['nominal_predicted_path_clear'] for row in rows if row['action'] != 'hold'):
         return selection
     hold = next(row for row in rows if row['action'] == 'hold')['segment_clearances_m']
-    if not _finite(hold) or min(hold) <= .45:
+    if not _finite(hold):
         return selection
+    if min(hold) <= .45:
+        return _back_off(selection, rows, hold) if inside else selection
     eligible = []
     for i, row in enumerate(rows):
         if row['action'] == 'hold':
@@ -407,6 +412,21 @@ def recover_against_hold(selection):
                clearance_check_mode='IMPROVES_ON_HOLD_WITHIN_NOMINAL_FOOTPRINT')
     result.update(memory_forecast_status='HOLD_RELATIVE_CLEARANCE_RECOVERY',
                   clearance_turn=dict(active=False, event='HOLD_RELATIVE_RECOVERY_RESELECTS_EACH_PLAN'))
+    return choose(result, names(result).index(row['action']))
+
+
+def _back_off(selection, rows, hold):
+    eligible = [(row['segment_clearances_m'][-1], min(row['segment_clearances_m']), i) for i, row in enumerate(rows)
+                if translating(row['action']) and _finite(row['segment_clearances_m'])
+                and min(row['segment_clearances_m']) >= min(hold) and row['segment_clearances_m'][-1] >= hold[-1]+BACK_OFF_GAIN_M]
+    if not eligible:
+        return selection
+    _, _, index = max(eligible)
+    result = deepcopy(selection)
+    row = result['memory_forecast_candidates'][index]
+    row.update(nominal_predicted_path_clear=True, reserve_recovery_path_clear=True, clearance_check_mode=BACK_OFF)
+    result.update(memory_forecast_status='INSIDE_FOOTPRINT_BACK_OFF',
+                  clearance_turn=dict(active=False, event='INSIDE_FOOTPRINT_BACK_OFF'))
     return choose(result, names(result).index(row['action']))
 
 
@@ -529,7 +549,8 @@ def stopping_projection(selection, prediction, clearance, position, rotation, *,
     result = deepcopy(selection)
     result['planned_stopping_projection'] = dict(candidates=checks, before_action=selection['action'], changed=False)
     selected = next(row for row in checks if row['action'] == selection['action'])
-    if not selected['translating'] or selected['projection_clear']:
+    backing_off = selection.get('memory_forecast_status') == 'INSIDE_FOOTPRINT_BACK_OFF'  # starts inside: its own test
+    if not selected['translating'] or selected['projection_clear'] or backing_off:
         return result
     allowed = tuple(r['action'] for r in checks if r['projection_clear']) if admissible else in_place(selection)
     index, _ = best_clear(selection, allowed=allowed)

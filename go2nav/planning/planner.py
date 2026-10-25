@@ -372,7 +372,8 @@ class Planner:
         if terminal:
             result = sel.terminal_progress(result)
             result = sel.predicted_arrival_hold(result, prediction, self.arrival_radius_m)
-        recovered = sel.recover_against_hold(result)
+        lattice = self.candidates != ACTIONS
+        recovered = sel.recover_against_hold(result, inside=lattice)
         if recovered is not result:
             self.clearance_turn = None
         result = recovered
@@ -386,7 +387,6 @@ class Planner:
             result = sel.recover_heading_against_hold(repositioned)
             if result is not repositioned:
                 self.clearance_turn = None
-        lattice = self.candidates != ACTIONS
         result = sel.stopping_projection(result, prediction, clearance, q, Q, pulse=self.pulse, admissible=lattice)
         if result['planned_stopping_projection']['changed']:
             self.clearance_turn = None

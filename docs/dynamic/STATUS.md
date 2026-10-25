@@ -341,3 +341,16 @@ and C1's command model refitted on the command-range collection (held-out median
   in place or with lateral 0.15 m/s, and a calf swept past the 0.45-m footprint into a wall or an obstacle; one was
   an 8 N hip touch while holding. 36% of lv0's plans were turns in place at 0.6 rad/s.
 - **lv1** caps the lattice's yaw at the primitives' 0.45 rad/s, the rate the footprint was validated at (7debb4f).
+
+**lv1** (yaw capped at 0.45 rad/s): static 38, one obstacle 24, two obstacles 13; 75 in all (lv0 76; 9 wins, 10
+losses), and **12 contacts** (lv0 7). The yaw rate was not the cause. Two mechanisms account for all 19 contacts of
+lv0 and lv1:
+- **Sideways into unwatched space (10, all with obstacles):** a command with a lateral component (in lv1 always
+  lateral and yaw of one sign, a crab into the turn), a front calf meeting an obstacle the map had never shown (0.5-0.65 m
+  predicted clearance, no track). Both cameras look ahead; the six primitives never step sideways.
+- **Creep while held (9, walls):** the continuous policy creeps about 1 mm/s on a zero command. The robot held for
+  minutes with every candidate blocked while its base crept from 0.45 m to 0.26-0.32 m of a wall (maze 13 ep0 with
+  two obstacles: 0.33 m in 300 s, 98% zero commands), until a calf, hip or the base touched it.
+- **lv2** (`configs/experiments/lv2_development.yaml`): no lateral axis (25 candidates), and a back-off from inside
+  the footprint (the translation never closer than hold that ends furthest out, at least 5 mm beyond hold; the
+  stopping projection, which a pose inside the footprint always fails, does not veto it).
