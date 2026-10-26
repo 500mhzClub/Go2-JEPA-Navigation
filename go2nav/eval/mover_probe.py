@@ -32,13 +32,18 @@ executed commands, and under the hold and advance tapes. Per horizon, and at h =
 the encoder see it at all?), two heads read the mover's position from [z_t, z(t+h) - z_t, z_t - z_(t-1),
 z_t - z_(t-3)] (C5's decoder input): ridge (`fit_ridge`; is it linearly readable?) and an MLP (`fit_mlp`), trained on
 the training mazes' windows and scored on the validation mazes' (by kind: `val` explore, mission and free units, and
-`transfer`, the held-out looks). Scores (`score`): position error (m) over all windows, the event windows, the
-responsive ones, waiting movers and non-polite ones; skill on event windows (1 - error / the baseline's error, against
-persistence and constant velocity). **Response test** (`response`, the rollout heads): on the windows with a
+`transfer`, the held-out looks). At h = 0 a head reads the mover's position (**localisation**); at h > 0 it reads the
+mover's displacement from t, and its forecast is the true position at t plus that displacement: the baselines start
+from the true position too, so the scores compare forecasts of the mover's motion, not localisation. Scores (`score`):
+error (m) over all windows, the event windows, the responsive ones, waiting movers, non-polite ones, and event windows
+with the mover within `NEAR_M` (the decisions that matter); skill on event windows (1 - error / the baseline's error,
+against persistence and constant velocity). **Response test** (`response`, the rollout heads): on the windows with a
 counterfactual, the predicted response (the head on the advance rollout minus on the hold rollout) against the true
 one (`cf_advance - cf_hold`): the **response gain** (the least-squares slope of predicted on true, over the responsive
-windows; 95% interval from 1,000 bootstrap draws of units) and the **spurious response** (the median predicted response
-where the true one is 0).
+windows; 95% interval from 1,000 bootstrap draws of units), the **spurious response** (the median predicted response
+where the true one is 0: the head misreading the robot's own motion under the advance tape as the mover's), and
+`r2`, 1 - the summed squared error of the predicted response over the summed squared true response, over all the
+windows with a counterfactual (below 0: the predicted responses are more noise than signal).
 """
 import argparse
 import copy
@@ -291,6 +296,7 @@ def summary(data):
 
 PROBE_SEED, UPDATES, BATCH, LR, WEIGHT_DECAY, GRAD_CLIP = 2026102701, 10000, 512, 3e-4, 1e-4, 1.
 RIDGE_LAMBDAS = (1e-1, 1., 1e1, 1e2, 1e3, 1e4)
+NEAR_M = 2.
 TAPES = ('executed', *CONTRAST)
 
 
@@ -422,8 +428,9 @@ def score(data, rows, predicted, j):
     if j is None:
         return out
     event, respond = events(data)[rows, j], responsive(data)[rows, j]
+    near = np.linalg.norm(data['xy_t'][rows], axis=-1) < NEAR_M
     masks = dict(event=event, responsive=respond, waiting=data['waiting'][rows],
-                 impolite_event=event & ~data['polite'][rows])
+                 impolite_event=event & ~data['polite'][rows], near_event=event & near)
     for name, mask in masks.items():
         out[f'{name}_median_m'] = round(float(np.median(error[mask])), 3) if mask.any() else None
     for name in ('persistence', 'constant_velocity'):
@@ -442,6 +449,8 @@ def response(data, rows, hold, advance, j):
     respond, still = responsive(data)[rows, j] & cf, cf & (np.nan_to_num(np.linalg.norm(true, axis=-1)) == 0)
     groups = data['unit'][rows]
     out = dict(responsive=int(respond.sum()), unresponsive=int(still.sum()))
+    if cf.any():
+        out['r2'] = round(1-float(((predicted[cf]-true[cf])**2).sum())/max(float((true[cf]**2).sum()), 1e-12), 3)
     if respond.sum() >= 10:
         r = np.flatnonzero(respond)
         out.update(gain=round(gain(predicted[r], true[r]), 3),
@@ -489,10 +498,11 @@ def probe(root, world_model, train, evaluation, out, *, updates=UPDATES, device=
                 if j is None and source == 'rollout':
                     continue
                 key = 'executed' if source == 'rollout' else 'true'
-                y = torch.from_numpy(dtrain['xy_t'][rtrain] if j is None else dtrain['target'][rtrain, j]).float()
-                predict = fit(gpu(ftrain, rtrain, key, j), y.to(device))
+                y = dtrain['xy_t'][rtrain] if j is None else dtrain['target'][rtrain, j]-dtrain['xy_t'][rtrain]
+                predict = fit(gpu(ftrain, rtrain, key, j), torch.from_numpy(y).float().to(device))
+                start = 0. if j is None else deval['xy_t'][reval]          # displacements start from the true xy
                 with torch.no_grad():
-                    p = {tape: predict(gpu(feval, reval, tape, j)).cpu().numpy()
+                    p = {tape: start+predict(gpu(feval, reval, tape, j)).cpu().numpy()
                          for tape in ((key,) if source == 'true' or j is None else TAPES)}
                 for s in rows_out:
                     m = split == s
