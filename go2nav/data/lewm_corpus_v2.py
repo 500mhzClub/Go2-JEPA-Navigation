@@ -13,8 +13,10 @@ pool, and seeds keyed by the version as well. What changes:
 - **Policy and harness:** the continuous-contract policy, and C1 with its lattice refit (`MODELS`), driving the
   lattice baseline's harness (lv2, `HARNESS`: 25 commands, no lateral, the continuous safety block), recovery off.
 - **Explore:** with probability 0.25 a plan's command is replaced by a random command of the corpus lattice (`AXES`:
-  forward -0.10 to 0.45 m/s, lateral +-0.15 m/s, yaw +-0.6 rad/s), lateral with probability `LATERAL_SHARE`. The
-  harness and its dispatch checks are unchanged; a scripted backup is never replaced.
+  forward -0.10 to 0.45 m/s, lateral +-0.15 m/s, yaw +-0.6 rad/s), lateral with probability `LATERAL_SHARE`, unless
+  the free driver's stand-off rule, on the true pose, walls and obstacles, rejects it (`FreeDriverV2.admissible`: a
+  random reverse or sideways step goes where no camera looks). The harness and its dispatch checks are unchanged; a
+  scripted backup is never replaced.
 - **Free driver** (`FreeDriverV2`): v1's segments at the range's speeds and with lateral commands, plus sideways steps
   and **encounters** (when an obstacle is in sight: approach it, wait 1-5 s, then back off, step aside, turn away or
   wait on), under v1's stand-off rule for any direction of travel, with the obstacles as well as the walls.
@@ -51,7 +53,7 @@ MODELS = REPO/'outputs/locomotion/continuous_policy_c1_lattice.yaml'
 HARNESS = dict(map_decay='floor', deadlock_escape=True, terminal_burst=True, obstacle_prediction=True,
                footprint_clearing=True)
 AXES = dict(forward=(-.10, 0., .15, .30, .45), lateral=(-.15, 0., .15), yaw=(-.6, -.3, 0., .3, .6))
-LATERAL_SHARE = .5
+LATERAL_SHARE = .75
 COUNTS, COUNT_P = (0, 1, 2, 3, 4), (.15, .30, .30, .15, .10)
 IMPOLITE_SHARE = .2
 MIN_OBSTACLE_PIXELS = 200       # an obstacle counts as in view from this many depth pixels
@@ -121,16 +123,17 @@ class Recorder(v1.Recorder):
         return n, blocks
 
 
-def exploring(planner, rng, epsilon):
+def exploring(planner, rng, epsilon, admissible=lambda command: True):
     """Wrap `planner.select`: with probability `epsilon` a random corpus-lattice command (`random_command`) replaces
-    the choice (never a scripted backup), marked in the selection as `exploration`."""
+    the choice (never a scripted backup, nor a command `admissible` rejects), marked in the selection as
+    `exploration`."""
     from go2nav.planning.actions import name
     original = planner.select
 
     def select(*args, **kwargs):
         result = original(*args, **kwargs)
         draw, substitute = rng.random(), random_command(rng)
-        if not planner.backup_plan and draw < epsilon:
+        if not planner.backup_plan and draw < epsilon and admissible(substitute):
             result = dict(result, action=name(*substitute), action_index=-1, requested_command=substitute,
                           exploration=dict(planner_action=result['action']))
         return result
@@ -156,7 +159,9 @@ def run_mission(spec, episode, recorder, *, cap, epsilon, seed, meshes, dynamics
                                       home_xy=cues['return_initial_body_xy_m'], arrival_radius_m=.02,
                                       navigation_frames=4800, recovery=False, candidates=LATTICE, **HARNESS)
     if epsilon:
-        exploring(controller.planner, np.random.default_rng(seed), epsilon)
+        geometry = FreeDriverV2(spec, np.random.default_rng(seed), movers=lambda: [w.xy for w in walkers])
+        exploring(controller.planner, np.random.default_rng(seed), epsilon,
+                  admissible=lambda c: geometry.admissible(c, session.samples[-1]['base_pose_world']))
     history = deque(maxlen=4)
     try:
         for tick in range(cap*v1.FRAME_STEPS):
@@ -193,20 +198,23 @@ class FreeDriverV2(v1.FreeDriver):
     """v1's free driver (see `go2nav.data.lewm_corpus.FreeDriver`) over the continuous command range, with the moving
     obstacles (`movers`: a callable giving their current world xy; privileged, a collector only). Segments, drawn at
     random (encounters only while an obstacle is in sight, their weight otherwise shared out):
-    - harness structure (25%): four-tick commitments of corpus-lattice commands (`random_command`), one-tick
+    - harness structure (20%): four-tick commitments of corpus-lattice commands (`random_command`), one-tick
       translation pulses, and starts after 1.2-2 s of rest;
     - cruise (20%): v1's, at 0.15, 0.30 or 0.45 m/s, or a steady arc (0.16-0.30 m/s, yaw 0.3-0.6 rad/s);
-    - Ornstein-Uhlenbeck commands (15%): forward -0.10 to 0.45 m/s, yaw +-0.6 rad/s, and in half of them lateral
-      +-0.15 m/s;
+    - Ornstein-Uhlenbeck commands (15%): forward -0.10 to 0.45 m/s, yaw +-0.6 rad/s, and in three in four of them
+      lateral +-0.15 m/s;
     - wall approaches (10%): v1's, at 0.12, 0.20 or 0.30 m/s;
-    - sideways steps (10%): lateral +-0.15 m/s for 0.5-2 s, alone or with yaw +-0.3 rad/s;
+    - sideways steps (15%): lateral 0.15 m/s for 0.5-2 s towards the side with more room, reversing where the
+      stand-off stops it, alone or with yaw +-0.3 rad/s;
     - encounters (20%): face the nearest obstacle in sight, approach at 0.15 or 0.30 m/s, steering at it, until
       0.7-1.1 m from its centre, wait 1-5 s, then back off (-0.10 m/s, 1-3 s), step aside, turn away or wait on.
-    The stand-off rule is v1's for any direction of travel: a translation whose way along its direction of travel is
-    shorter than 0.45 m, or that would bring the body centre closer to a wall or an obstacle's surface and within
-    0.45 m of it in the next 0.6 s, becomes a turn in place; below 0.43 m it backs straight out."""
+    The stand-off rule (`admissible`) is v1's for any direction of travel: a translation whose way along its direction
+    of travel is shorter than 0.45 m (0.30 m sideways: the body is 0.24 m wide), or that would bring the body centre
+    closer to a wall or an obstacle's surface and within 0.45 m of it in the next 0.6 s, becomes a turn in place.
+    Below 0.43 m it steps out, forward, back or sideways, whichever leaves it clearest, until 0.47 m clear."""
 
-    WEIGHTS = dict(harness=.25, cruise=.20, ou=.15, wall=.10, side=.10, encounter=.20)
+    WEIGHTS = dict(harness=.20, cruise=.20, ou=.15, wall=.10, side=.15, encounter=.20)
+    SIDE_AHEAD_M = .30
 
     def __init__(self, spec, rng, movers=lambda: ()):
         super().__init__(spec, rng)
@@ -287,7 +295,7 @@ class FreeDriverV2(v1.FreeDriver):
 
     def _ou(self):
         yield
-        sideways = self.rng.random() < .5
+        sideways = self.rng.random() < .75
         v, s, w, dt = self.rng.uniform(0, .3), 0., self.rng.uniform(-.5, .5), .1
         for _ in range(int(self.rng.integers(20, 41))):
             v += 1.5*(.2-v)*dt+.18*math.sqrt(dt)*self.rng.normal()
@@ -312,11 +320,15 @@ class FreeDriverV2(v1.FreeDriver):
             pose = yield (0., 0., turn)
 
     def _side(self):
-        yield
-        lateral = .15 if self.rng.random() < .5 else -.15
+        pose = yield
+        h = v1.yaw_of(pose)
+        room = [self.free_distance(pose[:2], h+side*math.pi/2, limit=1.) for side in (1, -1)]
+        lateral = .15 if room[0] >= room[1] else -.15
         yaw = float(self.rng.choice((0., 0., -.3, .3)))
         for _ in range(int(self.rng.integers(5, 21))):
-            yield (0., lateral, yaw)
+            if not self.admissible((0., lateral, yaw), pose):
+                lateral = -lateral
+            pose = yield (0., lateral, yaw)
 
     def _encounter(self):
         pose = yield
@@ -350,29 +362,45 @@ class FreeDriverV2(v1.FreeDriver):
             for _ in range(int(self.rng.integers(10, 41))):
                 pose = yield (0., 0., 0.)
 
+    def admissible(self, command, pose):
+        """Whether a command keeps the stand-off (see the class docstring): any command while the body is clear of the
+        escape distance, a translation only if its way is open and it does not close on anything within 0.45 m."""
+        xy, h = np.asarray(pose[:2], float), v1.yaw_of(pose)
+        now = self.clearance(xy)
+        vx, vy, wz = command
+        if not (vx or vy):
+            return now >= self.ESCAPE_M or not wz
+        path, heading = [xy], h
+        for _ in range(6):  # the next 0.6 s of the command, in 0.1-s steps
+            heading += wz*.1
+            c, s = math.cos(heading), math.sin(heading)
+            path.append(path[-1]+.1*np.array([c*vx-s*vy, s*vx+c*vy]))
+        closest = min(self.clearance(q) for q in path[1:])
+        open_way = self.free_distance(xy, h+math.atan2(vy, vx), limit=1.) >= (self.SIDE_AHEAD_M if abs(vy) > abs(vx)
+                                                                                else self.AHEAD_M)
+        return open_way and not (closest < self.BODY_M and closest < now)
+
+    def _escape(self, xy, h):
+        """The step at 0.12 m/s, forward, back or sideways, whose position 0.3 m on is clearest."""
+        c, s = math.cos(h), math.sin(h)
+        steps = ((.12, 0.), (-.12, 0.), (0., .12), (0., -.12))
+        world = lambda v: np.array([c*v[0]-s*v[1], s*v[0]+c*v[1]])/.12   # the step's unit direction in the world
+        return (*max(steps, key=lambda v: self.clearance(xy+.3*world(v))), 0.)
+
     def _safe(self, command, pose):
         xy, h = np.asarray(pose[:2], float), v1.yaw_of(pose)
         now = self.clearance(xy)
         if now < self.ESCAPE_M or self.escaping:
             self.escaping = now < self.CLEAR_M
             if self.escaping:
-                ahead, behind = self.free_distance(xy, h, limit=1.), self.free_distance(xy, h+math.pi, limit=1.)
-                return (.12 if ahead >= behind else -.12, 0., 0.)
+                return self._escape(xy, h)
         vx, vy, wz = command
-        if vx or vy:
-            path, heading = [xy], h
-            for _ in range(6):  # the next 0.6 s of the command, in 0.1-s steps
-                heading += wz*.1
-                c, s = math.cos(heading), math.sin(heading)
-                path.append(path[-1]+.1*np.array([c*vx-s*vy, s*vx+c*vy]))
-            closest = min(self.clearance(q) for q in path[1:])
-            travel = h+math.atan2(vy, vx)
-            if self.free_distance(xy, travel, limit=1.) < self.AHEAD_M or (closest < self.BODY_M and closest < now):
-                if self.blocked_turn is None:
-                    self.blocked_turn = .45 if self.rng.random() < .5 else -.45
-                return (0., 0., wz if wz else self.blocked_turn)
-        self.blocked_turn = None
-        return (vx, vy, wz)
+        if self.admissible(command, pose):
+            self.blocked_turn = None
+            return (vx, vy, wz)
+        if self.blocked_turn is None:
+            self.blocked_turn = .45 if self.rng.random() < .5 else -.45
+        return (0., 0., wz if wz else self.blocked_turn)
 
 
 def run_free(spec, recorder, *, cap, seed, meshes, random_look, dynamics):

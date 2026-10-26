@@ -29,6 +29,14 @@ def test_a_non_polite_obstacle_walks_up_to_the_robot_and_never_turns_back():
     assert 0. < gap <= moving.ASSERTIVE_GAP_M+.01
 
 
+def test_a_non_polite_obstacle_stops_short_of_the_robot_from_the_side_too():
+    w = walker(False)
+    robot = w.xy+np.array([-.9, .35])      # ahead and to the side of its path
+    for _ in range(200):
+        w.step(.02, robot)
+    assert np.linalg.norm(w.xy-robot) >= moving.RADIUS_M+moving.ROBOT_REACH_M
+
+
 def test_placements_record_politeness_only_when_off_and_draw_the_same():
     episode = dict(home_se2_world=[0., 0., 0.], beacon_xy_world=[0., 0.])
     polite = moving.place_obstacles(LAYOUT, episode, 2, 7)
@@ -53,9 +61,10 @@ def test_unit_obstacles_are_keyed_by_unit_and_fit_the_layout():
         assert record['count'] <= 3 and (placement is None) == (record['count'] == 0)   # three cells 3+ hops out
 
 
-def driver(movers=()):
-    """A free driver in a 1.22 m wide passage along x (walls at y = +-0.65), with obstacles at `movers`."""
-    walls = [dict(centre_xyz=[2., y, .7], size_xyz=[6., .08, 1.4], yaw_rad=0.) for y in (-.65, .65)]
+def driver(movers=(), half_width=.65):
+    """A free driver in a passage along x (walls at y = +-`half_width`; 1.22 m wide by default), with obstacles at
+    `movers`."""
+    walls = [dict(centre_xyz=[2., y, .7], size_xyz=[6., .08, 1.4], yaw_rad=0.) for y in (-half_width, half_width)]
     return v2.FreeDriverV2(dict(geometry=dict(wall_boxes=walls)), np.random.default_rng(0), movers=lambda: list(movers))
 
 
@@ -68,11 +77,14 @@ def test_a_sideways_step_into_a_wall_becomes_a_turn_and_into_open_space_passes()
     assert d._safe((0., .15, 0.), pose(2., .15, 0.))[:2] == (0., 0.)      # 0.46 m to the wall on the left
     assert d._safe((0., .15, 0.), pose(2., 0., 0.)) == (0., .15, 0.)      # 0.61 m: clear
     assert d._safe((0., .15, 0.), pose(2., .15, -math.pi/2)) == (0., .15, 0.)   # facing -y, left is +x: open
+    assert d.admissible((0., -.15, 0.), pose(2., .15, 0.))                 # the other side: 0.76 m
 
 
 def test_obstacles_count_in_the_stand_off_and_walls_hide_them():
     assert driver()._safe((.3, 0., 0.), pose(2., 0., 0.)) == (.3, 0., 0.)
     assert driver([(2.8, 0.)])._safe((.3, 0., 0.), pose(2., 0., 0.))[:2] == (0., 0.)    # its surface 0.63 m ahead
     assert driver([(2.5, 0.)])._safe((.3, 0., 0.), pose(2., 0., 0.)) == (-.12, 0., 0.)  # 0.33 m: back out
+    beside = driver([(2., -.6)], half_width=3.)                         # in the open, 0.42 m from its surface
+    assert beside._safe((0., 0., 0.), pose(2., 0., 0.)) == (0., .12, 0.)  # step away sideways
     assert driver([(3., 0.)]).in_sight([2., 0.]) is not None
     assert driver([(3., 1.5)]).in_sight([2., 0.]) is None                # beyond the wall at y = 0.65

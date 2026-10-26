@@ -10,8 +10,9 @@ along a passage, never straight back unless the cell is a dead end; at each cell
 `PAUSE_PROBABILITY`. **Polite** (the first condition): an obstacle stops while the robot's base is within `YIELD_M`
 ahead of it (in front of its heading and within `YIELD_HALF_WIDTH_M` of its line of travel), and after `GIVE_UP_S`
 stopped it turns back to the cell it came from. **Non-polite** (`polite=False`, a harder condition and a share of
-the corpus v2 units): it walks on until it is about to touch the robot (its edge within `ASSERTIVE_GAP_M` of the
-robot's reach `ROBOT_REACH_M`, ahead of it), then waits there for the way to clear and never turns back. Every draw
+the corpus v2 units): it walks on until it is about to touch the robot (heading towards the robot's centre, from any
+side, with its edge within `ASSERTIVE_GAP_M` of the robot's reach `ROBOT_REACH_M`), then waits there for the way to
+clear and never turns back. Every draw
 comes from the obstacle's own generator, so a mission replays exactly.
 
 The obstacles are fixed rigid entities moved by `set_pos` (kinematic: they push the robot and are not pushed). Any
@@ -120,8 +121,7 @@ class Walker:
         h, r = self.heading(), np.asarray(robot_xy[:2], float)-self.xy
         ahead, across = float(h@r), abs(float(h[0]*r[1]-h[1]*r[0]))
         if not self.polite:
-            reach = RADIUS_M+ROBOT_REACH_M
-            return 0. < ahead < reach+ASSERTIVE_GAP_M and across < reach
+            return ahead > 0. and float(np.linalg.norm(r)) < RADIUS_M+ROBOT_REACH_M+ASSERTIVE_GAP_M
         return 0. < ahead < YIELD_M and across < YIELD_HALF_WIDTH_M
 
     def step(self, dt, robot_xy):
