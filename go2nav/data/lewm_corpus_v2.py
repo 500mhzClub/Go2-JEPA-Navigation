@@ -9,7 +9,8 @@ continuous-contract policy, collected on the lewm_sets_v1 mazes like corpus v1 (
     python -m go2nav.data.lewm_corpus_v2 stats ROOT                # the command statistics of `command_dim=3` models
 
 **Units** are v1's (explore, mission, free; transfer on the validation mazes), with the same frame caps, resume and
-pool, and seeds keyed by the version as well. What changes:
+pool, and seeds keyed by the version as well; a mission unit that reaches an unported harness branch ends there
+(`UNPORTED_BRANCH`; the frames up to it are kept, like `POSE_LOST`). What changes:
 - **Policy and harness:** the continuous-contract policy, and C1 with its lattice refit (`MODELS`), driving the
   lattice baseline's harness (lv2, `HARNESS`: 25 commands, no lateral, the continuous safety block), recovery off.
 - **Explore:** with probability 0.25 a plan's command is replaced by a random command of the corpus lattice (`AXES`:
@@ -146,7 +147,7 @@ def run_mission(spec, episode, recorder, *, cap, epsilon, seed, meshes, dynamics
     from go2nav.controllers import arms
     from go2nav.controllers.controller import NavigationController, SensorFrame
     from go2nav.controllers.truth import GroundTruth
-    from go2nav.perception.rigid import PoseLost
+    from go2nav.perception.rigid import PoseLost, UnportedBranch
     from go2nav.planning.actions import LATTICE, command
     from go2nav.sim.session import MissionSession, PhysicalStop, settled_task_cues
     models = load_models()
@@ -189,6 +190,8 @@ def run_mission(spec, episode, recorder, *, cap, epsilon, seed, meshes, dynamics
         return str(error)
     except PoseLost:
         return 'POSE_LOST'
+    except UnportedBranch:  # a harness branch no traced mission reached (an explore swap can lead there): ends here
+        return 'UNPORTED_BRANCH'
     return None
 
 
