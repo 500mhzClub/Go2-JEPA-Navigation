@@ -21,6 +21,13 @@ barely change within a unit (chi near 0.01 in its collapsed DROID runs, 0.12 in 
 many places of its maze, so chi also counts place changes; the step share, the mean squared 100-ms change of z over
 twice its total variance (1 for independent frames), measures how much z moves per step. On the 17 October Go2 chain (docs/lewm/STATUS.md) `c5` on validation
 mazes at 800 ms read 13.6 mm (T7 score 21.5 mm); the screening bar is 9.5 mm.
+
+**Conditions** (corpus v2, docs/dynamic/PLAN.md P4: the displacement test split by condition, and switching tapes):
+each split and horizon also reports every head's median XY error on the windows of each condition (`CONDITIONS`):
+an obstacle in view at t (dynamic.npz), within 0.5 m of a wall at t (the maze's wall boxes), a tape whose command
+changes at least twice in its eight ticks, and a tape with a lateral command. `cmds` (commands only) is the dead
+reckoning a world model has to beat there. Corpus v2 has no contact or friction conditions (contacts end a unit). The
+command components follow the world model (`COMMAND_AXES`).
 """
 import argparse
 import json
@@ -32,7 +39,7 @@ import torch
 import torch.nn as nn
 
 from go2nav.data.lewm_corpus import body_motion
-from go2nav.models.lewm import action_blocks, control_stats, load_world_model, normalise_frames
+from go2nav.models.lewm import COMMAND_AXES, action_blocks, control_stats, load_world_model, normalise_frames
 
 HS = (5, 8)
 HEADS = ('probe', 'c5', 'cmds', 'c6')
@@ -40,6 +47,25 @@ HEADS = ('probe', 'c5', 'cmds', 'c6')
 # mostly translate (median 123 mm, cruise 152), and T7's score averages its movement types: the mean of the bins'
 # medians (`bin_mean_xy_mm`) weights fast motion as T7 does, where the median over all windows hides it.
 TRANSLATION_BINS = (('still', 0., 20.), ('slow', 20., 80.), ('walk', 80., 160.), ('fast', 160., 1e9))
+CONDITIONS = ('mover_in_view', 'near_wall', 'switching', 'lateral')
+NEAR_WALL_M = .5     # body centre to wall: corridor centre lines are 0.61 m off, stand-offs stop at 0.45 m
+
+
+def conditions(root, folder, steps, t):
+    """(w,) masks of `CONDITIONS` for the windows at frames t (all False for the obstacle conditions in corpus v1)."""
+    ticks = steps['executed'][:, 0]                                           # each tick's first executed command
+    tape = np.stack([ticks[t+k] for k in range(8)], 1)                        # (w, 8, 3)
+    changes = (np.abs(np.diff(tape, axis=1)) > 1e-3).any(-1).sum(1)
+    out = dict(switching=changes >= 2, lateral=(np.abs(tape[..., 1]) > 1e-3).any(1),
+               mover_in_view=np.zeros(len(t), bool), near_wall=np.zeros(len(t), bool))
+    if (folder/'dynamic.npz').exists():
+        from go2nav.data.lewm_corpus_v2 import MIN_OBSTACLE_PIXELS, FreeDriverV2
+        from go2nav.eval.mover_probe import unit_spec
+        with np.load(folder/'dynamic.npz') as dynamic:
+            out['mover_in_view'] = dynamic['obstacle_pixels'][t] >= MIN_OBSTACLE_PIXELS
+        geometry = FreeDriverV2(unit_spec(root, json.loads((folder/'meta.json').read_text())), np.random.default_rng(0))
+        out['near_wall'] = np.array([geometry.wall_clearance(steps['pose'][s, :2]) < NEAR_WALL_M for s in t])
+    return {k: torch.from_numpy(v) for k, v in out.items()}
 
 
 @torch.no_grad()
@@ -56,9 +82,10 @@ def unit_data(model, root, units, index, u, dev, cmean, cstd):
     starts = index['start'][index['unit'] == u]
     t = starts+3
     targets = body_motion(steps['pose'], t[:, None], t[:, None]+np.asarray(HS))
-    blocks = action_blocks(steps['executed'], cmean, cstd).to(dev)          # (n, 10)
-    hist = torch.from_numpy(((steps['applied_history'][:, :, [0, 2]]-cmean)/cstd).astype(np.float32)).to(dev)  # (n,15,2)
-    tape = torch.from_numpy(((steps['executed'][:, 0, [0, 2]]-cmean)/cstd).astype(np.float32)).to(dev)       # (n,2) first cmd of tick
+    axes = COMMAND_AXES[model.config.command_dim]
+    blocks = action_blocks(steps['executed'], cmean, cstd).to(dev)          # (n, 5 x C)
+    hist = torch.from_numpy(((steps['applied_history'][:, :, axes]-cmean)/cstd).astype(np.float32)).to(dev)  # (n,15,C)
+    tape = torch.from_numpy(((steps['executed'][:, 0, axes]-cmean)/cstd).astype(np.float32)).to(dev)       # (n,C) first cmd of tick
     tt = torch.from_numpy(t).to(dev)
     zh = torch.stack([z[tt+k] for k in (-3, -2, -1, 0)], 1)                  # (w, 4, D)
     zf = torch.stack([z[tt+h] for h in HS], 1)                                # (w, 2, D)
@@ -68,10 +95,10 @@ def unit_data(model, root, units, index, u, dev, cmean, cstd):
         with torch.autocast('cuda', dtype=torch.bfloat16):
             rolled.append(model.rollout(zh[s:s+2048], acts[s:s+2048], 8).float())
     rolled = torch.cat(rolled)[:, [h-1 for h in HS]]                         # (w, 2, D)
-    tapes = torch.stack([tape[tt+k] for k in range(8)], 1)                    # (w, 8, 2)
+    tapes = torch.stack([tape[tt+k] for k in range(8)], 1)                    # (w, 8, C)
     return dict(zh=zh.cpu(), zf=zf.cpu(), zr=rolled.cpu(), past=hist[tt].cpu(), tape=tapes.cpu(),
                 y=torch.from_numpy(targets.astype(np.float32)),                # y (w, 2, 3)
-                unit=torch.full((len(t),), u))
+                unit=torch.full((len(t),), u), **conditions(root, folder, steps, t))
 
 
 def within_share(z, unit):
@@ -142,6 +169,10 @@ def fit_eval(data, kind, dev, updates, batch=512):
                                       if m.any() and low_mm > 0 else float('nan'))
                 res[f'{split}@{h*100}ms']['bins'] = bins
                 res[f'{split}@{h*100}ms']['bin_mean_xy_mm'] = float(np.nanmean([b['median_xy_mm'] for b in bins.values()]))
+                masks = {name: data[split][name].to(dev) for name in CONDITIONS}
+                res[f'{split}@{h*100}ms']['conditions'] = {
+                    name: dict(n=int(m.sum()), median_xy_mm=xy[m].median().item() if m.any() else float('nan'))
+                    for name, m in masks.items()}
     return res
 
 
@@ -159,7 +190,7 @@ def run(world, corpus, *, train_units=300, val_units=60, transfer_units=20, upda
                   val=pick('lewm_val', ('explore', 'mission', 'free'), val_units),
                   transfer=pick('lewm_val', ('transfer',), transfer_units))
     model = load_world_model(world, dev)
-    cmean, cstd = control_stats()
+    cmean, cstd = control_stats(model.config.command_dim)
     started, data = time.time(), {}
     for split, ids in chosen.items():
         parts = [unit_data(model, root, units, index, u, dev, cmean, cstd) for u in ids if (index['unit'] == u).any()]
