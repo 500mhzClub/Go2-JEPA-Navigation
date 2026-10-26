@@ -361,8 +361,12 @@ class Planner:
         if scan_error is not None:
             result = sel.scan_override(result, prediction, scan_error)
         checked = self._cautious(clearance, snapshot, q)
-        moving = (self.tracks if self.obstacle_prediction == 'oracle' else tracks.moving(self.tracks)) \
-            if self.obstacle_prediction else []
+        if not self.obstacle_prediction:
+            moving = []
+        elif self.obstacle_prediction == 'oracle':
+            moving = self.tracks
+        else:
+            moving = tracks.moving(self.tracks)
         if moving:
             stored = grid.FineClearance(predicted.without(snapshot.fine_occupied, moving))
             checked = predicted.PredictedClearance(self._cautious(stored, snapshot, q), moving, snapshot.measured_ns)

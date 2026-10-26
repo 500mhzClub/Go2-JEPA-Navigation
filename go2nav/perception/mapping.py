@@ -28,12 +28,12 @@ centre) and fine cells inside the body's outline at the current pose (`FOOTPRINT
 Nothing but the robot can be there; such cells come from an obstacle that passed close or from pose error, and they
 block every translation (as costmaps clear the robot's footprint).
 
-**Mover trails** (`mover_trails`, for moving obstacles): cells the controller marks as a moving obstacle's (`mark_mover`:
-the trail of a confirmed track, `perception.tracks`) stay occupied only while an update sees them occupied. Any other
-update drops them, with their fine cells this update does not see occupied, and they are floor again (a track stands
-on floor once seen free). An obstacle out of view leaves no trail, wherever it went: the cells clearing seen-free
-cannot reach (round a corner) no longer seal the passage it walked, and one standing still out of view is mapped
-again when the cameras see it. In view it blocks routes as any obstacle does.
+**Mover trails** (`mover_trails`, for moving obstacles): cells the controller marks as a moving obstacle's
+(`mark_mover`: the trail of a confirmed track, `perception.tracks`) stay occupied only while an update sees them
+occupied. Any other update drops them, with their fine cells this update does not see occupied, and they are floor
+again (a track stands on floor once seen free). An obstacle out of view leaves no trail, wherever it went: the cells
+clearing seen-free cannot reach (round a corner) no longer seal the passage it walked, and one standing still out of
+view is mapped again when the cameras see it. In view it blocks routes as any obstacle does.
 """
 from dataclasses import dataclass
 

@@ -121,14 +121,14 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     cells once seen as floor first); `deadlock_escape`: the latch timeout and deadlock escape alone; `terminal_burst`:
     the terminal burst alone (`go2nav.planning.planner`); `obstacle_prediction`: constant-velocity tracks of moving
     obstacles in the forecast clearance check (`go2nav.perception.tracks`, `go2nav.planning.prediction`);
-    `footprint_clearing`: map cells inside the body's outline are dropped (`go2nav.perception.mapping`); `mover_trails`:
-    a confirmed obstacle track's cells stay in the map only while seen occupied (`go2nav.perception.mapping`); `candidates`:
-    'primitives' (the six actions) or 'lattice' (the command lattice, C1 only; `go2nav.planning.actions`); `safety`:
-    the command safety block, 'primitive' or 'continuous' (`go2nav.locomotion.safety`). Module oracles (the failure
-    analysis; `go2nav.controllers.truth`): `pose_oracle` (the true pose), `map_oracle` ('obstacles': perceived walls with
-    the moving obstacles where they truly are; 'full': the true map; 'static': the true map, obstacles kept out of the
-    route grid), `prediction_oracle` (true obstacle futures in the
-    clearance check)."""
+    `footprint_clearing`: map cells inside the body's outline are dropped (`go2nav.perception.mapping`);
+    `mover_trails`: a confirmed obstacle track's cells stay in the map only while seen occupied
+    (`go2nav.perception.mapping`); `candidates`: 'primitives' (the six actions) or 'lattice' (the command lattice, C1
+    only; `go2nav.planning.actions`); `safety`: the command safety block, 'primitive' or 'continuous'
+    (`go2nav.locomotion.safety`). Module oracles (the failure analysis; `go2nav.controllers.truth`): `pose_oracle` (the
+    true pose), `map_oracle` ('obstacles': perceived walls with the moving obstacles where they truly are; 'full': the
+    true map; 'static': the true map, obstacles kept out of the route grid), `prediction_oracle` (true obstacle futures
+    in the clearance check)."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -323,8 +323,8 @@ def main():
                    help="a confirmed obstacle track's cells stay in the map only while seen occupied")
     p.add_argument('--pose-oracle', choices=('on', 'off'), default='off', help='the true pose (module oracle)')
     p.add_argument('--map-oracle', choices=('obstacles', 'full', 'static', 'off'), default='off',
-                   help='obstacles: perceived walls, true obstacles; full: the true map; static: the true map, obstacles '
-                        'kept out of the route grid (module oracle)')
+                   help='obstacles: perceived walls, true obstacles; full: the true map; static: the true map, '
+                        'obstacles kept out of the route grid (module oracle)')
     p.add_argument('--prediction-oracle', choices=('on', 'off'), default='off',
                    help='true obstacle futures in the clearance check (module oracle)')
     p.add_argument('--out', type=Path, required=True)

@@ -132,7 +132,8 @@ class MapOracle:
             raise ValueError(f'map oracle mode {mode!r}')
         self.truth, self.mode = truth, mode
         if mode != 'obstacles':
-            self.wall_points = {size: np.concatenate([_box(w, size) for w in truth.walls]) for size in (CELL_M, FINE_CELL_M)}
+            self.wall_points = {size: np.concatenate([_box(w, size) for w in truth.walls])
+                                for size in (CELL_M, FINE_CELL_M)}
             corners = self.wall_points[CELL_M][:, :2]
             low, high = corners.min(0), corners.max(0)
             g = [np.arange(lo, hi, CELL_M/2) for lo, hi in zip(low, high)]
@@ -140,7 +141,7 @@ class MapOracle:
             self.floor_points = np.stack((x.ravel(), y.ravel(), np.zeros(x.size)), axis=1)
 
     def mask(self, depth, auxiliary_depth):
-        """The depth pairs with the obstacles' pixels made invalid ('obstacles'; unchanged for 'full')."""
+        """The depth pairs with the obstacles' pixels made invalid ('obstacles'; unchanged in the other modes)."""
         if self.mode != 'obstacles':
             return depth, auxiliary_depth
         out = []
@@ -164,9 +165,9 @@ class MapOracle:
         floor = frozenset(_cells(self.floor_points, B, A, b, CELL_M)-walls)
         if self.mode == 'static':
             coarse = set()
-        return replace(snapshot, floor=floor, occupied=frozenset(walls|coarse), fine_occupied=frozenset(fine_walls|fine),
-                       current_floor=floor, current_occupied=frozenset(walls|coarse),
-                       current_fine_occupied=frozenset(fine_walls|fine), cleared=frozenset())
+        occupied, fine_occupied = frozenset(walls|coarse), frozenset(fine_walls|fine)
+        return replace(snapshot, floor=floor, occupied=occupied, fine_occupied=fine_occupied, current_floor=floor,
+                       current_occupied=occupied, current_fine_occupied=fine_occupied, cleared=frozenset())
 
 
 @dataclass

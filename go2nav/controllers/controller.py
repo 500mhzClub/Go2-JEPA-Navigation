@@ -18,9 +18,9 @@
 it passes the dispatch check, the mission and the committed-prefix check; otherwise zero, with the reason.
 
 **Module oracles** (the failure analysis; `controllers.truth`, given the mission's `GroundTruth` as `truth`):
-`pose_oracle` replaces step 1 with the true pose; `map_oracle` ('obstacles', 'full' or 'static') masks the depth images the map is
-built from and replaces the map's cells; `prediction_oracle` gives the planner every obstacle's true future positions
-in place of the tracker's.
+`pose_oracle` replaces step 1 with the true pose; `map_oracle` ('obstacles', 'full' or 'static') masks the depth
+images the map is built from and replaces the map's cells; `prediction_oracle` gives the planner every obstacle's true
+future positions in place of the tracker's.
 
 With no forecaster the controller is the model-free C2: the planner's reactive selection replaces forecasting and
 scoring (`Planner.select_reactive`).
@@ -170,7 +170,8 @@ class NavigationController:
                 self.latest_map = self.map_oracle.apply(self.latest_map, registered.position, registered.rotation)
             if self.tracker is not None:
                 self.planner.tracks = self.tracker.update(self.latest_map)
-                self.routing_map.mark_mover(frozenset().union(*(t.trail for t in self.planner.tracks if t.confirmed)))
+                if self.routing_map.mover_trails:
+                    self.routing_map.mark_mover(set().union(*(t.trail for t in self.planner.tracks if t.confirmed)))
             if self.prediction_oracle:
                 self.planner.tracks = truth_oracles.oracle_tracks(self.truth, self.latest_map, registered.position,
                                                                   registered.rotation)
