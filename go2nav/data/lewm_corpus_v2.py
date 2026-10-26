@@ -198,22 +198,22 @@ class FreeDriverV2(v1.FreeDriver):
     """v1's free driver (see `go2nav.data.lewm_corpus.FreeDriver`) over the continuous command range, with the moving
     obstacles (`movers`: a callable giving their current world xy; privileged, a collector only). Segments, drawn at
     random (encounters only while an obstacle is in sight, their weight otherwise shared out):
-    - harness structure (20%): four-tick commitments of corpus-lattice commands (`random_command`), one-tick
+    - harness structure (15%): four-tick commitments of corpus-lattice commands (`random_command`), one-tick
       translation pulses, and starts after 1.2-2 s of rest;
-    - cruise (20%): v1's, at 0.15, 0.30 or 0.45 m/s, or a steady arc (0.16-0.30 m/s, yaw 0.3-0.6 rad/s);
+    - cruise (15%): v1's, at 0.15, 0.30 or 0.45 m/s, or a steady arc (0.16-0.30 m/s, yaw 0.3-0.6 rad/s);
     - Ornstein-Uhlenbeck commands (15%): forward -0.10 to 0.45 m/s, yaw +-0.6 rad/s, and in three in four of them
       lateral +-0.15 m/s;
     - wall approaches (10%): v1's, at 0.12, 0.20 or 0.30 m/s;
-    - sideways steps (15%): lateral 0.15 m/s for 0.5-2 s towards the side with more room, reversing where the
+    - sideways steps (20%): lateral 0.15 m/s for 0.5-2 s towards the side with more room, reversing where the
       stand-off stops it, alone or with yaw +-0.3 rad/s;
-    - encounters (20%): face the nearest obstacle in sight, approach at 0.15 or 0.30 m/s, steering at it, until
+    - encounters (25%): face the nearest obstacle in sight, approach at 0.15 or 0.30 m/s, steering at it, until
       0.7-1.1 m from its centre, wait 1-5 s, then back off (-0.10 m/s, 1-3 s), step aside, turn away or wait on.
     The stand-off rule (`admissible`) is v1's for any direction of travel: a translation whose way along its direction
     of travel is shorter than 0.45 m (0.30 m sideways: the body is 0.24 m wide), or that would bring the body centre
     closer to a wall or an obstacle's surface and within 0.45 m of it in the next 0.6 s, becomes a turn in place.
     Below 0.43 m it steps out, forward, back or sideways, whichever leaves it clearest, until 0.47 m clear."""
 
-    WEIGHTS = dict(harness=.20, cruise=.20, ou=.15, wall=.10, side=.15, encounter=.20)
+    WEIGHTS = dict(harness=.15, cruise=.15, ou=.15, wall=.10, side=.20, encounter=.25)
     SIDE_AHEAD_M = .30
 
     def __init__(self, spec, rng, movers=lambda: ()):
