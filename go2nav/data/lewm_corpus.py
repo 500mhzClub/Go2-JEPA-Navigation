@@ -459,11 +459,11 @@ def code_identity():
 
 # -- the collection pool ----------------------------------------------------------------------------------------------
 
-def plan_units(root, roles, mazes=None):
+def plan_units(root, roles, mazes=None, role_kinds=ROLE_KINDS):
     from go2nav.mazes.sets import MazeSet
     maze_set = MazeSet(SET, root=mazes_root(root))
     return [(role, maze, kind) for role in roles for maze in maze_set.maze_ids(role)
-            if mazes is None or maze in mazes for kind in ROLE_KINDS[role]]
+            if mazes is None or maze in mazes for kind in role_kinds[role]]
 
 
 def available_memory():
@@ -472,12 +472,14 @@ def available_memory():
     return int(info['MemAvailable'].split()[0])*1024
 
 
-def collect(root, roles, *, mazes=None, workers=None, egl_devices=None):
-    """Run every unit not yet done, `workers` at a time (default: cores - 2), as memory allows. Resumable."""
+def collect(root, roles, *, mazes=None, workers=None, egl_devices=None, module='go2nav.data.lewm_corpus',
+            role_kinds=ROLE_KINDS, memory_gib=MEMORY_GIB):
+    """Run every unit not yet done, `workers` at a time (default: cores - 2), as memory allows. Resumable. `module`
+    runs each unit (`python -m MODULE unit ...`; another corpus version reuses this pool)."""
     root = Path(root)
     egl_devices = tuple(egl_devices or (os.environ.get('EGL_DEVICE_ID', '0'),))
     ensure_mazes(root)
-    units = plan_units(root, roles, mazes)
+    units = plan_units(root, roles, mazes, role_kinds)
     pending = [u for u in units if not (root/'units'/u[0]/unit_name(*u[1:])/'.done').exists()]
     workers = workers or max(1, (os.cpu_count() or 2)-2)
     print(json.dumps(dict(units=len(units), pending=len(pending), workers=workers)), flush=True)
@@ -490,7 +492,7 @@ def collect(root, roles, *, mazes=None, workers=None, egl_devices=None):
         device = egl_devices[units.index(unit) % len(egl_devices)]
         with open(logs/f'{role}_{unit_name(maze, kind)}.log', 'w') as log:
             try:
-                code = subprocess.run([sys.executable, '-m', 'go2nav.data.lewm_corpus', 'unit', str(root), role, str(maze), kind],
+                code = subprocess.run([sys.executable, '-m', module, 'unit', str(root), role, str(maze), kind],
                                       cwd=REPO, stdout=log, stderr=subprocess.STDOUT, timeout=UNIT_TIMEOUT_S,
                                       env=os.environ | dict(EGL_DEVICE_ID=device, PYOPENGL_PLATFORM='egl')).returncode
             except subprocess.TimeoutExpired:
@@ -503,7 +505,7 @@ def collect(root, roles, *, mazes=None, workers=None, egl_devices=None):
     with ThreadPoolExecutor(workers) as pool:
         futures, queue = {}, list(pending)
         while queue or futures:
-            while queue and len(futures) < workers and available_memory() > (MEMORY_GIB+MEMORY_MARGIN_GIB)*1024**3:
+            while queue and len(futures) < workers and available_memory() > (memory_gib+MEMORY_MARGIN_GIB)*1024**3:
                 unit = queue.pop(0)
                 futures[pool.submit(run, unit)] = unit
             if not futures:

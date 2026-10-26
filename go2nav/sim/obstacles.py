@@ -9,8 +9,10 @@ depth layer (3-65 cm above the floor) sees them.
 along a passage, never straight back unless the cell is a dead end; at each cell a pause of `PAUSE_S` with probability
 `PAUSE_PROBABILITY`. **Polite** (the first condition): an obstacle stops while the robot's base is within `YIELD_M`
 ahead of it (in front of its heading and within `YIELD_HALF_WIDTH_M` of its line of travel), and after `GIVE_UP_S`
-stopped it turns back to the cell it came from. Every draw comes from the obstacle's own generator, so a mission
-replays exactly.
+stopped it turns back to the cell it came from. **Non-polite** (`polite=False`, a harder condition and a share of
+the corpus v2 units): it walks on until it is about to touch the robot (its edge within `ASSERTIVE_GAP_M` of the
+robot's reach `ROBOT_REACH_M`, ahead of it), then waits there for the way to clear and never turns back. Every draw
+comes from the obstacle's own generator, so a mission replays exactly.
 
 The obstacles are fixed rigid entities moved by `set_pos` (kinematic: they push the robot and are not pushed). Any
 contact with one is a disallowed contact (`go2nav.sim.contacts`); the evaluator attributes it from the trace.
@@ -29,6 +31,7 @@ SPEED_M_S = (.15, .35)
 MIN_START_HOPS = 3
 PAUSE_PROBABILITY, PAUSE_S = .3, (1., 4.)
 YIELD_M, YIELD_HALF_WIDTH_M, GIVE_UP_S = .8, .6, 3.
+ROBOT_REACH_M, ASSERTIVE_GAP_M = .40, .05   # the body's half-diagonal is about 0.38 m
 COLOURS = ((.80, .35, .25), (.25, .45, .80), (.85, .70, .20), (.35, .65, .35))
 
 
@@ -64,9 +67,10 @@ def cell_of(xy):
     return tuple(int(round(v/PITCH_M)) for v in xy[:2])
 
 
-def place_obstacles(spec, episode, count, seed, speed=SPEED_M_S):
+def place_obstacles(spec, episode, count, seed, speed=SPEED_M_S, polite=True):
     """The obstacles of an episode: [dict(start_cell, speed_m_s, walk_seed, radius_m, height_m, colour)], speeds drawn
-    from `speed` (the same draws for any range, so a range changes only the speeds)."""
+    from `speed` (the same draws for any range, so a range changes only the speeds); non-polite obstacles also carry
+    `polite: False`."""
     rng = np.random.default_rng(seed)
     neighbours = passages(spec)
     hops = hops_from(neighbours, cell_of(episode['home_se2_world']))
@@ -76,7 +80,8 @@ def place_obstacles(spec, episode, count, seed, speed=SPEED_M_S):
         raise ValueError(f'{len(candidates)} cells can hold an obstacle, {count} asked')
     starts = [candidates[i] for i in rng.choice(len(candidates), size=count, replace=False)]
     return [dict(start_cell=list(c), speed_m_s=float(rng.uniform(*speed)), walk_seed=int(rng.integers(2**62)),
-                 radius_m=RADIUS_M, height_m=HEIGHT_M, colour=list(COLOURS[k % len(COLOURS)]))
+                 radius_m=RADIUS_M, height_m=HEIGHT_M, colour=list(COLOURS[k % len(COLOURS)]),
+                 **({} if polite else dict(polite=False)))
             for k, c in enumerate(starts)]
 
 
@@ -89,6 +94,7 @@ class Walker:
     rng: np.random.Generator
     came_from: tuple = None
     target: tuple = None
+    polite: bool = True
     pause_left: float = 0.
     blocked_for: float = 0.
     xy: np.ndarray = field(default=None)
@@ -113,6 +119,9 @@ class Walker:
             return False
         h, r = self.heading(), np.asarray(robot_xy[:2], float)-self.xy
         ahead, across = float(h@r), abs(float(h[0]*r[1]-h[1]*r[0]))
+        if not self.polite:
+            reach = RADIUS_M+ROBOT_REACH_M
+            return 0. < ahead < reach+ASSERTIVE_GAP_M and across < reach
         return 0. < ahead < YIELD_M and across < YIELD_HALF_WIDTH_M
 
     def step(self, dt, robot_xy):
@@ -122,7 +131,7 @@ class Walker:
             return self.xy
         if self.yields_to(robot_xy):
             self.blocked_for += dt
-            if self.blocked_for >= GIVE_UP_S:   # turn back to the cell it left
+            if self.polite and self.blocked_for >= GIVE_UP_S:   # turn back to the cell it left
                 self.cell, self.target, self.blocked_for = self.target, self.cell, 0.
             return self.xy
         self.blocked_for = 0.
@@ -144,7 +153,8 @@ class ObstacleField:
     def __init__(self, spec, placement, entities):
         neighbours = passages(spec)
         self.placement, self.entities = placement, entities
-        self.walkers = [Walker(neighbours, tuple(o['start_cell']), o['speed_m_s'], np.random.default_rng(o['walk_seed']))
+        self.walkers = [Walker(neighbours, tuple(o['start_cell']), o['speed_m_s'],
+                               np.random.default_rng(o['walk_seed']), polite=o.get('polite', True))
                         for o in placement]
         self.heights = [o['height_m'] for o in placement]
         self.trace = []    # per physics step after settling: (timestamp_s, [(x, y), ...])
