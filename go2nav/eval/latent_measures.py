@@ -80,12 +80,13 @@ def candidate_tapes(past, tape):
 
 @torch.inference_mode()
 def lewm(world_model, cache_folder, out, device='cuda:0'):
-    from go2nav.models.lewm import control_stats, load_world_model
+    from go2nav.models.lewm import COMMAND_AXES, control_stats, load_world_model
     from go2nav.training.lewm_decoder import LatentCache, neighbours
     contexts = load_contexts()
     cache = LatentCache(cache_folder, contexts)
     model = load_world_model(world_model, device)
-    mean, std = (torch.as_tensor(v, device=device) for v in control_stats())
+    axes = COMMAND_AXES[model.config.command_dim]
+    mean, std = (torch.as_tensor(v, device=device) for v in control_stats(model.config.command_dim))
     z = lambda names: np.asarray(cache.z[[cache.row[n] for n in names]], np.float32)
 
     def context_arrays(idx):
@@ -100,7 +101,7 @@ def lewm(world_model, cache_folder, out, device='cuda:0'):
         """zh (B, 4, D) np; past (B, 3, 3); tapes (B, 8, 3) -> (B, 8, D)."""
         out_ = []
         for s in range(0, len(zh), 512):
-            commands = (torch.tensor(np.concatenate([past[s:s+512], tapes[s:s+512]], 1)[..., [0, 2]], device=device)-mean)/std
+            commands = (torch.tensor(np.concatenate([past[s:s+512], tapes[s:s+512]], 1)[..., axes], device=device)-mean)/std
             actions = commands[:, :, None].expand(-1, -1, 5, -1).flatten(2)
             with torch.autocast(torch.device(device).type, dtype=torch.bfloat16):
                 out_.append(model.rollout(torch.tensor(zh[s:s+512], device=device), actions, 8).float().cpu().numpy())

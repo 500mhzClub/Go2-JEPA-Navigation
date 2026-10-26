@@ -234,7 +234,7 @@ def run_lewm(protocol_path, corpus, world_model, out, *, device='cuda:0', cache=
         heads['c6'] = torch.load(out/'c6.pt', weights_only=False)
     else:
         torch.manual_seed(protocol['seed']+1)
-        c6 = LatentDirectPredictor(D, mean, scale).to(device)
+        c6 = LatentDirectPredictor(D, mean, scale, command_dim=dim).to(device)
         def c6_batch(m, idx):
             w, j = pick(idx)
             return m.normalized(zh[w].float(), past[w], tape[w], hz[w, j]), y[w, j]
@@ -242,7 +242,7 @@ def run_lewm(protocol_path, corpus, world_model, out, *, device='cuda:0', cache=
         heads['c6'] = dict(state=c6.cpu().state_dict(), history=histories['c6'])
         atomic_save(heads['c6'], out/'c6.pt')
     fit = dict(c5=heads['c5']['state'], c6=heads['c6']['state'], latent=D, target_mean=mean, target_scale=scale,
-               protocol=protocol['name'], world_model_sha256=sha256_file(world_model))
+               command_dim=dim, protocol=protocol['name'], world_model_sha256=sha256_file(world_model))
     atomic_save(fit, out/'fit.pt')
     if cache is not None:
         from go2nav.training.lewm_decoder import LatentCache, evaluate

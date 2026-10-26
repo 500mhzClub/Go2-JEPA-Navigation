@@ -66,7 +66,7 @@ class LeWMForecaster(_LeWMInputs):
     def forecast(self, context, prefix, *, pulse):
         z, history, executed = self.inputs(context, prefix, pulse)
         past = self.normalised(history[-3:])[None].expand(6, -1, -1)
-        commands = torch.cat((past, self.normalised(executed)), dim=1)            # (6, 11, 2)
+        commands = torch.cat((past, self.normalised(executed)), dim=1)            # (6, 11, command_dim)
         actions = commands[:, :, None].expand(-1, -1, 5, -1).flatten(2)            # each tick's command, five times
         with torch.autocast(self.device.type, dtype=torch.bfloat16, enabled=self.device.type == 'cuda'):
             rolled = self.model.rollout(z.expand(6, -1, -1), actions, 8).float()  # (6, 8, D)
@@ -85,7 +85,7 @@ class LeWMDirectForecaster(_LeWMInputs):
     def forecast(self, context, prefix, *, pulse):
         z, history, executed = self.inputs(context, prefix, pulse)
         past = self.normalised(history)[None].expand(48, -1, -1)
-        tapes = self.normalised(executed)[:, None].expand(-1, 8, -1, -1).reshape(48, 8, 2)
+        tapes = self.normalised(executed)[:, None].expand(-1, 8, -1, -1).reshape(48, 8, len(self.axes))
         horizons = torch.arange(1, 9, device=self.device).repeat(6)
         motion = self.head(z.expand(48, -1, -1), past, tapes, horizons)
         return output(motion.reshape(6, 8, 3).cpu())

@@ -468,18 +468,19 @@ class LatentMotionDecoder(nn.Module):
 
 class LatentDirectPredictor(nn.Module):
     """C6, C4's counterpart on LeWM's own encoder: motion at a horizon from the four frames' z, the normalised 1.5-s
-    applied-command history (15 x (forward, yaw)) and the candidate's commands up to the horizon (later ones zeroed),
-    with no predicted future."""
+    applied-command history (15 x the world model's command components, `COMMAND_AXES[command_dim]`) and the
+    candidate's commands up to the horizon (later ones zeroed), with no predicted future."""
 
-    def __init__(self, latent, mean, scale, hidden=896):
+    def __init__(self, latent, mean, scale, hidden=896, command_dim=2):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(4*latent+30+16+1, hidden), nn.GELU(), nn.Linear(hidden, hidden), nn.GELU(),
-                                 nn.Linear(hidden, 3))
+        self.command_dim = command_dim
+        self.net = nn.Sequential(nn.Linear(4*latent+(15+8)*command_dim+1, hidden), nn.GELU(), nn.Linear(hidden, hidden),
+                                 nn.GELU(), nn.Linear(hidden, 3))
         self.register_buffer('target_mean', torch.as_tensor(mean, dtype=torch.float32).clone())
         self.register_buffer('target_scale', torch.as_tensor(scale, dtype=torch.float32).clone())
 
     def normalized(self, z, past, tape, horizon):
-        """z (B, 4, D); past (B, 15, 2) normalised; tape (B, 8, 2) normalised commands; horizon (B,) in 1-8."""
+        """z (B, 4, D); past (B, 15, C) normalised; tape (B, 8, C) normalised commands; horizon (B,) in 1-8."""
         steps = torch.arange(8, device=z.device)[None]
         future = tape*(steps < horizon[:, None])[:, :, None]
         return self.net(torch.cat((z.flatten(1), past.flatten(1), future.flatten(1), horizon[:, None].float()/8), dim=1))
@@ -489,10 +490,12 @@ class LatentDirectPredictor(nn.Module):
 
 
 def load_heads(path, device='cpu'):
-    """The C5 decoder and C6 of a fit file ({'c5', 'c6', 'latent', 'target_mean', 'target_scale'})."""
+    """The C5 decoder and C6 of a fit file ({'c5', 'c6', 'latent', 'target_mean', 'target_scale'}, and
+    'command_dim' when it is not 2)."""
     state = torch.load(path, map_location='cpu', weights_only=False)
     c5 = LatentMotionDecoder(state['latent'], state['target_mean'], state['target_scale'])
     c5.load_state_dict(state['c5'])
-    c6 = LatentDirectPredictor(state['latent'], state['target_mean'], state['target_scale'])
+    c6 = LatentDirectPredictor(state['latent'], state['target_mean'], state['target_scale'],
+                               command_dim=state.get('command_dim', 2))
     c6.load_state_dict(state['c6'])
     return c5.to(device).eval().requires_grad_(False), c6.to(device).eval().requires_grad_(False)

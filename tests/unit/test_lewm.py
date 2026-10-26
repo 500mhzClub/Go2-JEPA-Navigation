@@ -164,3 +164,15 @@ def test_action_blocks_take_lateral_only_with_three_component_statistics():
     three = action_blocks(commands, np.zeros(3, np.float32), np.ones(3, np.float32))
     assert two.shape[-1] == 10 and torch.allclose(two[0, :2], torch.tensor([.2, .3]))
     assert three.shape[-1] == 15 and torch.allclose(three[0, :3], torch.tensor([.2, .1, .3]))
+
+
+@pytest.mark.parametrize('command_dim', [2, 3])
+def test_c6_takes_the_world_models_command_components_and_round_trips(tmp_path, command_dim):
+    from go2nav.models.lewm import LatentDirectPredictor, LatentMotionDecoder, load_heads
+    c6 = LatentDirectPredictor(8, torch.zeros(3), torch.ones(3), command_dim=command_dim)
+    out = c6(torch.zeros(2, 4, 8), torch.zeros(2, 15, command_dim), torch.zeros(2, 8, command_dim), torch.tensor([1, 8]))
+    assert out.shape == (2, 3)
+    c5 = LatentMotionDecoder(8, torch.zeros(3), torch.ones(3))
+    torch.save(dict(c5=c5.state_dict(), c6=c6.state_dict(), latent=8, target_mean=torch.zeros(3),
+                    target_scale=torch.ones(3), **({'command_dim': 3} if command_dim == 3 else {})), tmp_path/'fit.pt')
+    assert load_heads(tmp_path/'fit.pt')[1].command_dim == command_dim
