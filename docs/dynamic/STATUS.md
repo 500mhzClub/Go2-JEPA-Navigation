@@ -495,3 +495,43 @@ module recovers at most 10 of lv2's 31 obstacle failures. The hand fix the oracl
 works only with a give-way rule (retreat beyond the yield distance when a still mover holds the goal or the route
 ahead); without one it trades sealed passages for standoffs. Moving obstacles that react to the robot are what a
 learned world model can predict and a hand rule has to special-case.
+
+### The obstacles map oracle and the trail probe (26 October)
+
+**Obstacles map oracle** (`map_oracle: obstacles`, cohorts `or_map_obst_*`, commit 72fdbbc). This is the perceived map
+with the obstacles' pixels removed and the true obstacles added at each update, so it has no trails. It separates the
+true map's gain into trails and prior knowledge of the maze.
+
+| | One obstacle | Two obstacles | All 80 | Wins / losses (against lv2) | p |
+|---|---|---|---|---|---|
+| lv2 | 31 | 18 | 49 | | |
+| Map, `obstacles` | 33 | 23 | 56 | 12 / 5 | 0.14 |
+| Map, `full` | 36 | 23 | 59 | 14 / 4 | 0.03 |
+
+Trails account for 7 of the true map's 10. No `obstacles` failure is a standoff, but 12 of 24 are still sealed
+passages, sealed by the true mover where it stands.
+
+**Trail probe** (`configs/experiments/trail_probe.yaml`, cohorts `tp_*`, commit 6692bf0): the deployable rule.
+- **The rule** (`mover_trails`, `perception.mapping`): a confirmed track's cells stay in the routing map only while an
+  update sees them occupied. Out of view they revert to floor; in view they block routes as before.
+- **The setup:** both frozen baselines with the rule on, on development mazes 10-29, paired with dv3 and lv2.
+
+| | Six primitives (dv3 → probe) | Wins / losses | Lattice (lv2 → probe) | Wins / losses |
+|---|---|---|---|---|
+| Static | 32 → 32 | 1 / 1 | 38 → 37 | 0 / 1 |
+| One obstacle | 13 → 15 | 8 / 6 | 31 → 31 | 5 / 5 |
+| Two obstacles | 9 → 10 | 6 / 5 | 18 → 23 | 6 / 1 |
+| Obstacles, all 80 | 22 → 25 | 14 / 11 (p 0.69) | 49 → 54 | 11 / 6 (p 0.33) |
+
+- **No regression and no contacts** (240 missions); no standoffs.
+- **The lattice reaches the oracle's level:** 54 against the `obstacles` oracle's 56 (5 / 5 head to head). The rule
+  recovers what removing trails can give; what is left of the sealed passages (22 of 26 failures) is the mover in
+  view on the only path.
+- **The six primitives trade:** sealed passages fall from 18 of 58 failures to 4 of 55, but pose loss rises (22
+  against 11, mostly while turning for views). Their limit is elsewhere (the primitives' turning, `ADDITIONAL_VIEW`).
+- **Stopping rule:** neither baseline passes. Both trade failures (losses reach half the wins), and neither is
+  significant.
+
+**Decision:** the baselines stay frozen at dv3 and lv2. The probe is the hand-rule ceiling on the map's headroom:
+the best deployable trail rule matches the oracle for trails (+5 of 80 on the lattice, not significant). The
+remaining headroom is the decision a mover in view forces, which is where learning goes next.
