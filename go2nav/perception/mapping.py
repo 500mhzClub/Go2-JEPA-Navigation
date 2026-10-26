@@ -27,6 +27,13 @@ fine cells.
 centre) and fine cells inside the body's outline at the current pose (`FOOTPRINT_HALF_M` along and across the body).
 Nothing but the robot can be there; such cells come from an obstacle that passed close or from pose error, and they
 block every translation (as costmaps clear the robot's footprint).
+
+**Mover trails** (`mover_trails`, for moving obstacles): cells the controller marks as a moving obstacle's
+(`mark_mover`: the trail of a confirmed track, `perception.tracks`) stay occupied only while an update sees them
+occupied. Any other update drops them, with their fine cells this update does not see occupied, and they are floor
+again (a track stands on floor once seen free). An obstacle out of view leaves no trail, wherever it went: the cells
+clearing seen-free cannot reach (round a corner) no longer seal the passage it walked, and one standing still out of
+view is mapped again when the cameras see it. In view it blocks routes as any obstacle does.
 """
 from dataclasses import dataclass
 
@@ -256,13 +263,19 @@ def footprint_cells(Q, q, size):
 class RoutingMap:
     """See the module docstring. `update` takes the registered pose and both depth images of one frame."""
 
-    def __init__(self, clear_seen_free=False, clear_footprint=False):
-        self.clear_seen_free, self.clear_footprint = clear_seen_free, clear_footprint
+    def __init__(self, clear_seen_free=False, clear_footprint=False, mover_trails=False):
+        self.clear_seen_free, self.clear_footprint, self.mover_trails = clear_seen_free, clear_footprint, mover_trails
+        self.movers = set()   # cells marked as a moving obstacle's (`mark_mover`)
         self.B = None
         self.floor_height = None
         self.floor, self.occupied, self.fine_occupied = set(), set(), set()
         self.seen_ns, self.fine_seen_ns = {}, {}  # when each occupied cell was last seen occupied
         self.latest = None
+
+    def mark_mover(self, cells):
+        """Mark 5-cm cells as a moving obstacle's (with mover trails on; see the module docstring)."""
+        if self.mover_trails:
+            self.movers |= set(cells)
 
     def forget(self, before_ns, floor_only=False):
         """Drop the occupied cells (and fine cells) last seen occupied before `before_ns`, with `floor_only` only cells
@@ -332,6 +345,14 @@ class RoutingMap:
                 self.occupied -= cleared
                 self.fine_occupied -= {c for c in self.fine_occupied
                                        if (c[0]//ratio, c[1]//ratio) in cleared and c not in new_fine}
+        if self.mover_trails and self.movers:
+            gone = self.movers-new_occupied
+            if gone:
+                ratio = round(CELL_M/FINE_CELL_M)
+                self.occupied -= gone
+                self.fine_occupied -= {c for c in self.fine_occupied
+                                       if (c[0]//ratio, c[1]//ratio) in gone and c not in new_fine}
+                self.movers -= gone
         if self.clear_footprint:
             body, fine_body = footprint_cells(Q, q, CELL_M), footprint_cells(Q, q, FINE_CELL_M)
             new_occupied -= body

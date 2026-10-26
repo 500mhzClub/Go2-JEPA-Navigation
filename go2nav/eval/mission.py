@@ -105,7 +105,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         stall_stop_s=None, obstacles=None, degrade=None, margin=None, pessimistic=None, unknown_level=None, demo_textures=False,
         models=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False, deadlock_escape=False,
         terminal_burst=False, obstacle_prediction=False, footprint_clearing=False, obstacle_series='v1', obstacle_speed=None,
-        candidates='primitives', safety='primitive'):
+        candidates='primitives', safety='primitive', pose_oracle=False, map_oracle=None, prediction_oracle=False,
+        mover_trails=False):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
     (how many moving obstacles; `obstacle_series` their placement series, `obstacle_speed` their speed range). Experiment
@@ -120,9 +121,14 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     cells once seen as floor first); `deadlock_escape`: the latch timeout and deadlock escape alone; `terminal_burst`:
     the terminal burst alone (`go2nav.planning.planner`); `obstacle_prediction`: constant-velocity tracks of moving
     obstacles in the forecast clearance check (`go2nav.perception.tracks`, `go2nav.planning.prediction`);
-    `footprint_clearing`: map cells inside the body's outline are dropped (`go2nav.perception.mapping`); `candidates`:
-    'primitives' (the six actions) or 'lattice' (the command lattice, C1 only; `go2nav.planning.actions`); `safety`:
-    the command safety block, 'primitive' or 'continuous' (`go2nav.locomotion.safety`)."""
+    `footprint_clearing`: map cells inside the body's outline are dropped (`go2nav.perception.mapping`);
+    `mover_trails`: a confirmed obstacle track's cells stay in the map only while seen occupied
+    (`go2nav.perception.mapping`); `candidates`: 'primitives' (the six actions) or 'lattice' (the command lattice, C1
+    only; `go2nav.planning.actions`); `safety`: the command safety block, 'primitive' or 'continuous'
+    (`go2nav.locomotion.safety`). Module oracles (the failure analysis; `go2nav.controllers.truth`): `pose_oracle` (the
+    true pose), `map_oracle` ('obstacles': perceived walls with the moving obstacles where they truly are; 'full': the
+    true map; 'static': the true map, obstacles kept out of the route grid), `prediction_oracle` (true obstacle futures
+    in the clearance check)."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -153,9 +159,12 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  **(dict(terminal_burst=True) if terminal_burst else {}),
                                  **(dict(obstacle_prediction=True) if obstacle_prediction else {}),
                                  **(dict(footprint_clearing=True) if footprint_clearing else {}),
+                                 **(dict(mover_trails=True) if mover_trails else {}),
                                  **(dict(candidates=candidates, lattice_axes=actions.LATTICE_AXES)
                                     if candidates == 'lattice' else {}),
-                                 **(dict(safety=safety) if safety != 'primitive' else {})))
+                                 **(dict(safety=safety) if safety != 'primitive' else {}),
+                                 **(dict(oracles=dict(pose=pose_oracle, map=map_oracle, prediction=prediction_oracle))
+                                    if pose_oracle or map_oracle or prediction_oracle else {})))
     save(out/'specification.json', spec)
     save(out/'episode.json', episode)
     cv2.setNumThreads(1)
@@ -179,6 +188,10 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
             from go2nav.controllers.degraded import DegradedForecaster
             forecaster = DegradedForecaster(forecaster, degrade)
         save(out/'public_task_cues.json', cues)
+        truth = None
+        if pose_oracle or map_oracle or prediction_oracle:
+            from go2nav.controllers.truth import GroundTruth
+            truth = GroundTruth(session)
         controller = NavigationController(forecaster, goal_xy=cues['goal_initial_body_xy_m'],
                                           home_xy=cues['return_initial_body_xy_m'], arrival_radius_m=.02,
                                           navigation_frames=4800, recovery=recovery, margin_m=margin_m,
@@ -186,7 +199,9 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                           harness=harness, coverage_fix=coverage_fix, map_decay=map_decay,
                                           deadlock_escape=deadlock_escape, terminal_burst=terminal_burst,
                                           obstacle_prediction=obstacle_prediction, footprint_clearing=footprint_clearing,
-                                          candidates=actions.LATTICE if candidates == 'lattice' else actions.ACTIONS)
+                                          candidates=actions.LATTICE if candidates == 'lattice' else actions.ACTIONS,
+                                          truth=truth, pose_oracle=pose_oracle, map_oracle=map_oracle,
+                                          prediction_oracle=prediction_oracle, mover_trails=mover_trails)
         history = deque(maxlen=4)
         for tick in range(STEP_BUDGET):
             now = session.sim_ns
@@ -304,6 +319,14 @@ def main():
                    help='forecast candidates: the six primitives or the command lattice (C1)')
     p.add_argument('--footprint-clearing', choices=('on', 'off'), default='off',
                    help="drop map cells inside the body's outline")
+    p.add_argument('--mover-trails', choices=('on', 'off'), default='off',
+                   help="a confirmed obstacle track's cells stay in the map only while seen occupied")
+    p.add_argument('--pose-oracle', choices=('on', 'off'), default='off', help='the true pose (module oracle)')
+    p.add_argument('--map-oracle', choices=('obstacles', 'full', 'static', 'off'), default='off',
+                   help='obstacles: perceived walls, true obstacles; full: the true map; static: the true map, '
+                        'obstacles kept out of the route grid (module oracle)')
+    p.add_argument('--prediction-oracle', choices=('on', 'off'), default='off',
+                   help='true obstacle futures in the clearance check (module oracle)')
     p.add_argument('--out', type=Path, required=True)
     a = p.parse_args()
     strips = None
@@ -320,7 +343,9 @@ def main():
                  deadlock_escape=a.deadlock_escape == 'on', terminal_burst=a.terminal_burst == 'on',
                  obstacle_prediction=a.obstacle_prediction == 'on', footprint_clearing=a.footprint_clearing == 'on',
                  obstacle_series=a.obstacle_series, candidates=a.candidates, safety=a.safety,
-                 obstacle_speed=tuple(map(float, a.obstacle_speed.split(':'))) if a.obstacle_speed else None)
+                 obstacle_speed=tuple(map(float, a.obstacle_speed.split(':'))) if a.obstacle_speed else None,
+                 pose_oracle=a.pose_oracle == 'on', map_oracle=None if a.map_oracle == 'off' else a.map_oracle,
+                 prediction_oracle=a.prediction_oracle == 'on', mover_trails=a.mover_trails == 'on')
     print(json.dumps(result))
 
 

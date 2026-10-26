@@ -430,3 +430,108 @@ evaluation's C1 missions with the lattice frozen at lv2, paired with them.
 instead of six primitives turns 81 of 140 held-out missions into 112 (38 wins, 7 losses). The gap includes what the
 lattice needed to be safe (C1's refit on the command range, the continuous safety block, the back-off from inside the
 footprint). Both baselines are frozen; the failure analysis starts from the map's sealed passages, common to both.
+
+## Failure analysis on the lattice baseline (25 October)
+
+Branch `feature/failure-analysis`. The lattice baseline frozen at lv2 (C1, the non-learned forecaster; development
+mazes 10-29, episodes 0 and 1), paired with lv2's missions on the same obstacle placements.
+
+### Density curve
+
+`configs/experiments/density_curve.yaml` (cohorts `dn_*`, commit 0c9faa4). Round trips of 40:
+
+| Obstacles | 0.15-0.35 m/s (lv2) | 0.35-0.55 m/s | Wins / losses (fast against lv2) | p |
+|---|---|---|---|---|
+| 0 | 38 | | | |
+| 1 | 31 | 28 | 4 / 7 | 0.55 |
+| 2 | 18 | 11 | 2 / 9 | 0.07 |
+| 4 | 5 | 4 | | |
+
+- **The sealed passage dominates at every point** (failures with over 40% of plans finding no route and no frontier):
+  26 of 35 failures at four obstacles, 20 of 29 at two fast ones. At four fast obstacles pose loss joins it (15 of
+  36 failures).
+- **First lattice contacts** (no contacts in lv2's 260 missions): four runs, at the fast or four-obstacle settings, all
+  with an obstacle and all attributed to the robot. Two came while backing up and turning (rear calf, 129-146 N), two
+  while turning in place or holding (base 58 N, front hip 2 N). The cameras look forward, and the back-off's safety
+  check cannot see what is behind the robot.
+
+### Module oracles
+
+`configs/experiments/module_oracles.yaml` (cohorts `or_*`, commit f63aa82; `go2nav/controllers/truth.py`). One
+module at a time is given the simulator's ground truth, placed through the estimated pose; 80 missions each (one and
+two obstacles, 40 each).
+
+| Oracle | One obstacle | Two obstacles | All 80 | Wins / losses (against lv2) | p |
+|---|---|---|---|---|---|
+| None (lv2) | 31 | 18 | 49 | | |
+| Map, `full` (true walls, floor and obstacles; movers block routes as perceived ones do) | 36 | 23 | 59 | 14 / 4 | 0.03 |
+| Map, `static` (as `full`, movers kept out of the 5-cm route grid) | 33 | 24 | 57 | 17 / 9 | 0.17 |
+| Obstacle prediction (true futures in the clearance check) | 29 | 20 | 49 | 4 / 4 | 1.0 |
+| Pose (true pose for odometry and floor registration) | 26 | 17 | 43 | 8 / 14 | 0.29 |
+
+- **The map is the only module with headroom:** the true map turns 10 of the 31 failures into round trips (p 0.03).
+  It removes the ghost trails and the need to explore. Under it, 16 of the 21 failures are still sealed passages, now
+  sealed by the true mover on the maze's only path, routed as a wall. Pose loss rises to 9 failures (from 3).
+- **Routing through movers trades sealed passages for standoffs.** With movers out of the route grid, no failure is a
+  sealed passage. Instead, every failure that ran (22 of 23; one floor-registration error) has a still mover and the
+  robot within 1 m of each other for over 60 s, about 0.7 m apart. The mover is parked on the beacon (16) or on home
+  (6). No other cohort, lv2 included, has a standoff that long.
+  - **Why:** a polite walker stops while the robot is within 0.8 m ahead of it, and turns back after 3 s. A mover on
+    a goal at the end of a dead end turns back into the dead end, can only come out towards the robot, and stops
+    again. The robot, routed through it, waits on the clearance check.
+  - Routing movers as walls keeps the robot back, so the mover walks out. Routing through it chases it into the dead
+    end and traps it.
+  - The two map oracles end level (11 / 9 head to head).
+- **Prediction is not the limit:** true futures change nothing; the failure mix is unchanged.
+- **Pose is not the limit either.** The deficit is within noise (p 0.29), and the failures are lv2's kind (31 of 36
+  sealed passages, none from the oracle itself). One loss traced (maze 11, episode 0) runs identical to lv2 for 60 s,
+  then diverges on a mover's timing and runs out of time on the return.
+- **Noise:** missions that differ in anything diverge after the first encounter with a mover, so a few missions in 40
+  either way is noise. Module comparisons need the pooled 80.
+
+**What it says:** among polite walkers in perfect mazes, the limit is a decision, not perception. The robot has to
+choose between holding back, backing off to let a mover out, and taking another way. Perfect perception of any one
+module recovers at most 10 of lv2's 31 obstacle failures. The hand fix the oracles point to, routing through movers,
+works only with a give-way rule (retreat beyond the yield distance when a still mover holds the goal or the route
+ahead); without one it trades sealed passages for standoffs. Moving obstacles that react to the robot are what a
+learned world model can predict and a hand rule has to special-case.
+
+### The obstacles map oracle and the trail probe (26 October)
+
+**Obstacles map oracle** (`map_oracle: obstacles`, cohorts `or_map_obst_*`, commit 72fdbbc). This is the perceived map
+with the obstacles' pixels removed and the true obstacles added at each update, so it has no trails. It separates the
+true map's gain into trails and prior knowledge of the maze.
+
+| | One obstacle | Two obstacles | All 80 | Wins / losses (against lv2) | p |
+|---|---|---|---|---|---|
+| lv2 | 31 | 18 | 49 | | |
+| Map, `obstacles` | 33 | 23 | 56 | 12 / 5 | 0.14 |
+| Map, `full` | 36 | 23 | 59 | 14 / 4 | 0.03 |
+
+Trails account for 7 of the true map's 10. No `obstacles` failure is a standoff, but 12 of 24 are still sealed
+passages, sealed by the true mover where it stands.
+
+**Trail probe** (`configs/experiments/trail_probe.yaml`, cohorts `tp_*`, commit 6692bf0): the deployable rule.
+- **The rule** (`mover_trails`, `perception.mapping`): a confirmed track's cells stay in the routing map only while an
+  update sees them occupied. Out of view they revert to floor; in view they block routes as before.
+- **The setup:** both frozen baselines with the rule on, on development mazes 10-29, paired with dv3 and lv2.
+
+| | Six primitives (dv3 → probe) | Wins / losses | Lattice (lv2 → probe) | Wins / losses |
+|---|---|---|---|---|
+| Static | 32 → 32 | 1 / 1 | 38 → 37 | 0 / 1 |
+| One obstacle | 13 → 15 | 8 / 6 | 31 → 31 | 5 / 5 |
+| Two obstacles | 9 → 10 | 6 / 5 | 18 → 23 | 6 / 1 |
+| Obstacles, all 80 | 22 → 25 | 14 / 11 (p 0.69) | 49 → 54 | 11 / 6 (p 0.33) |
+
+- **No regression and no contacts** (240 missions); no standoffs.
+- **The lattice reaches the oracle's level:** 54 against the `obstacles` oracle's 56 (5 / 5 head to head). The rule
+  recovers what removing trails can give; what is left of the sealed passages (22 of 26 failures) is the mover in
+  view on the only path.
+- **The six primitives trade:** sealed passages fall from 18 of 58 failures to 4 of 55, but pose loss rises (22
+  against 11, mostly while turning for views). Their limit is elsewhere (the primitives' turning, `ADDITIONAL_VIEW`).
+- **Stopping rule:** neither baseline passes. Both trade failures (losses reach half the wins), and neither is
+  significant.
+
+**Decision:** the baselines stay frozen at dv3 and lv2. The probe is the hand-rule ceiling on the map's headroom:
+the best deployable trail rule matches the oracle for trails (+5 of 80 on the lattice, not significant). The
+remaining headroom is the decision a mover in view forces, which is where learning goes next.

@@ -38,6 +38,17 @@ def test_tracks_an_obstacle_walking_over_seen_floor_at_its_speed():
     assert live[0].confirmed and tracks.moving(live) == live
 
 
+def test_a_track_trail_holds_every_cell_it_occupied():
+    tracker = tracks.ObstacleTracker()
+    seen = set()
+    for k in range(6):
+        t = .4*k
+        centre = np.array((3.-.3*t, 0.))
+        seen |= coarse(arc(centre))
+        live = tracker.update(snapshot(t, arc(centre), PASSAGE, centre))
+    assert live[0].trail == seen and live[0].footprint < live[0].trail
+
+
 def test_a_static_fragment_whose_shape_shifts_with_the_view_is_not_predicted():
     """A wall end on floor cells (misregistered): its visible part, and so its centroid, drifts, but it never enters
     floor seen free or leaves its cells free."""
