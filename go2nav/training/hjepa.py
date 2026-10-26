@@ -139,10 +139,13 @@ def validate_upper(model, corpus, indices, *, device, seed=VALIDATION_SEED, batc
 
 def validation_sets(corpus_root, config, upper_kinds=('mission', 'explore')):
     """Level 1's validation and held-out-look windows, and the upper levels' validation clips, with fixed indices."""
-    history = config.level1.history
-    validation = Corpus(corpus_root, length=history+EVAL_STEPS, roles=('lewm_val',), kinds=('explore', 'mission', 'free'))
-    transfer = Corpus(corpus_root, length=history+EVAL_STEPS, roles=('lewm_val',), kinds=('transfer',))
-    clips = Corpus(corpus_root, length=config.clip_length, roles=('lewm_val',), kinds=tuple(upper_kinds))
+    history, dim = config.level1.history, config.level1.command_dim
+    length = history+EVAL_STEPS
+    validation = Corpus(corpus_root, length=length, roles=('lewm_val',), kinds=('explore', 'mission', 'free'),
+                        command_dim=dim)
+    transfer = Corpus(corpus_root, length=length, roles=('lewm_val',), kinds=('transfer',), command_dim=dim)
+    clips = Corpus(corpus_root, length=config.clip_length, roles=('lewm_val',), kinds=tuple(upper_kinds),
+                   command_dim=dim)
     return dict(validation=(validation, validation.fixed(VALIDATION_WINDOWS, VALIDATION_SEED)),
                 transfer=(transfer, transfer.fixed(TRANSFER_WINDOWS, VALIDATION_SEED)),
                 clips=(clips, clips.fixed(UPPER_VALIDATION_CLIPS, VALIDATION_SEED)))
@@ -170,8 +173,11 @@ def train(config, corpus_root, out, *, device='cuda:0'):
         torch.cuda.set_per_process_memory_fraction(runtime.get('memory_fraction', MEMORY_FRACTION), device)
     mconfig = model_config(config)
     level1_weights, upper_weights = weights(config)
-    windows = Corpus(corpus_root, length=mconfig.level1.history+level1_weights['rollout_steps'], roles=('lewm_train',))
-    clips = Corpus(corpus_root, length=mconfig.clip_length, roles=('lewm_train',), kinds=tuple(data['upper_kinds']))
+    dim = mconfig.level1.command_dim
+    windows = Corpus(corpus_root, length=mconfig.level1.history+level1_weights['rollout_steps'], roles=('lewm_train',),
+                     command_dim=dim)
+    clips = Corpus(corpus_root, length=mconfig.clip_length, roles=('lewm_train',), kinds=tuple(data['upper_kinds']),
+                   command_dim=dim)
     sets = validation_sets(corpus_root, mconfig, data['upper_kinds'])
 
     model = HJEPA.seeded(seed, mconfig).to(device).train()

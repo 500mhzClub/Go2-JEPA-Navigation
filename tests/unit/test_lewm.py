@@ -155,3 +155,12 @@ def test_body_motion_and_the_motion_term():
                    generator=torch.Generator().manual_seed(0))
     terms['motion'].backward()
     assert model.motion['4'].net[0].weight.grad.abs().sum() > 0 and model.encoder.patch_embed.weight.grad.abs().sum() > 0
+
+
+def test_action_blocks_take_lateral_only_with_three_component_statistics():
+    from go2nav.models.lewm import action_blocks
+    commands = torch.tensor([[[.2, .1, .3]]*5])
+    two = action_blocks(commands, np.zeros(2, np.float32), np.ones(2, np.float32))
+    three = action_blocks(commands, np.zeros(3, np.float32), np.ones(3, np.float32))
+    assert two.shape[-1] == 10 and torch.allclose(two[0, :2], torch.tensor([.2, .3]))
+    assert three.shape[-1] == 15 and torch.allclose(three[0, :3], torch.tensor([.2, .1, .3]))

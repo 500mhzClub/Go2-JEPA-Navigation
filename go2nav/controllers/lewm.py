@@ -17,7 +17,7 @@ import torch
 
 from go2nav.controllers.neural import applied_history, planned_commands
 from go2nav.locomotion.safety import apply_limits
-from go2nav.models.lewm import control_stats, normalise_frames, resize_frame
+from go2nav.models.lewm import COMMAND_AXES, control_stats, normalise_frames, resize_frame
 
 FRAME_SPACING_NS = 100_000_000
 
@@ -32,7 +32,9 @@ class _LeWMInputs:
     def __init__(self, world_model, device):
         self.device = torch.device(device)
         self.model = world_model.to(self.device).eval()
-        self.mean, self.std = (torch.as_tensor(v, device=self.device) for v in control_stats())
+        dim = self.model.config.command_dim
+        self.axes = COMMAND_AXES[dim]
+        self.mean, self.std = (torch.as_tensor(v, device=self.device) for v in control_stats(dim))
 
     def inputs(self, context, prefix, pulse):
         """z (1, 4, D) of the history frames, the applied history (15, 3), and the six executed tapes (6, 8, 3)."""
@@ -48,8 +50,9 @@ class _LeWMInputs:
         return z, history, executed
 
     def normalised(self, commands):
-        """Commands (..., 3) to normalised (forward, yaw) (..., 2)."""
-        return (torch.as_tensor(np.asarray(commands)[..., [0, 2]], dtype=torch.float32, device=self.device)-self.mean)/self.std
+        """Commands (..., 3) to the normalised components the model takes: (forward, yaw) (..., 2), or all three."""
+        commands = torch.as_tensor(np.asarray(commands)[..., self.axes], dtype=torch.float32, device=self.device)
+        return (commands-self.mean)/self.std
 
 
 class LeWMForecaster(_LeWMInputs):

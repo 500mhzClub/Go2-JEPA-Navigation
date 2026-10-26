@@ -6,6 +6,7 @@ continuous-contract policy, collected on the lewm_sets_v1 mazes like corpus v1 (
     python -m go2nav.data.lewm_corpus_v2 unit ROOT ROLE MAZE KIND
     python -m go2nav.data.lewm_corpus_v2 index ROOT [--length L]
     python -m go2nav.data.lewm_corpus_v2 audit ROOT                # the data gates (L0 and L0 dynamic)
+    python -m go2nav.data.lewm_corpus_v2 stats ROOT                # the command statistics of `command_dim=3` models
 
 **Units** are v1's (explore, mission, free; transfer on the validation mazes), with the same frame caps, resume and
 pool, and seeds keyed by the version as well. What changes:
@@ -513,6 +514,25 @@ def audit(root, *, workers=None):
     return report
 
 
+def command_stats(root):
+    """Mean and standard deviation of the executed (forward, lateral, yaw) commands of the training units' valid
+    blocks, written where `command_dim=3` world models read them (`go2nav.models.lewm.CONTROL_STATS_3`)."""
+    from go2nav.models.lewm import CONTROL_STATS_3
+    total, square, count = np.zeros(3), np.zeros(3), 0
+    for folder in v1.unit_folders(root, roles=['lewm_train']):
+        with np.load(folder/'steps.npz') as steps:
+            commands = steps['executed'][steps['block_valid']].reshape(-1, 3).astype(np.float64)
+        total, square, count = total+commands.sum(0), square+(commands**2).sum(0), count+len(commands)
+    mean = total/count
+    stats = dict(description='Mean and standard deviation of executed commands [forward m/s, lateral m/s, yaw rad/s] '
+                             'on the corpus v2 training units (valid blocks); normalise the action blocks of world '
+                             'models with command_dim 3.',
+                 control_mean=mean.tolist(), control_std=np.sqrt(square/count-mean**2).tolist(), commands=int(count),
+                 source=f'go2nav.data.lewm_corpus_v2 stats ({Path(root).name})')
+    CONTROL_STATS_3.write_text(json.dumps(stats, indent=1)+'\n')
+    return stats
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest='command', required=True)
@@ -533,6 +553,8 @@ def main():
     i.add_argument('--length', type=int, default=12)
     a = sub.add_parser('audit')
     a.add_argument('root', type=Path)
+    s = sub.add_parser('stats')
+    s.add_argument('root', type=Path)
     args = p.parse_args()
     if args.command == 'unit':
         os.environ.setdefault('PYOPENGL_PLATFORM', 'egl')
@@ -543,8 +565,10 @@ def main():
                                  egl_devices=args.egl_devices, module=__spec__.name) else 0)
     elif args.command == 'index':
         print(json.dumps(v1.build_index(args.root, length=args.length), indent=1))
-    else:
+    elif args.command == 'audit':
         print(json.dumps(audit(args.root), indent=1))
+    else:
+        print(json.dumps(command_stats(args.root), indent=1))
 
 
 if __name__ == '__main__':

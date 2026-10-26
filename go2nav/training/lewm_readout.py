@@ -47,7 +47,7 @@ def corpus_windows(model, root, units, device, stride=1):
     root = Path(root)
     meta = json.loads((root/'index_12.json').read_text())['units']
     index = np.load(root/'index_12.npz')
-    cmean, cstd = control_stats()
+    cmean, cstd = control_stats(model.config.command_dim)
     out = {k: [] for k in ('zh', 'true', 'rollout', 'y')}
     for u in units:
         starts = index['start'][index['unit'] == u]

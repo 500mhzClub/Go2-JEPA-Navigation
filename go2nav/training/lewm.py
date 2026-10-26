@@ -165,10 +165,13 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     motion_weight = objective.get('motion_weight', 0.)
     if bool(motion_weight) != mconfig.motion_dynamics:
         raise ValueError('objective.motion_weight > 0 and model.motion_dynamics go together')
-    corpus = Corpus(corpus_root, length=length, roles=tuple(data.get('train_roles', ('lewm_train',))), poses=bool(motion_weight))
+    dim = mconfig.command_dim
+    corpus = Corpus(corpus_root, length=length, roles=tuple(data.get('train_roles', ('lewm_train',))),
+                    poses=bool(motion_weight), command_dim=dim)
     val_length = mconfig.history+EVAL_STEPS
-    validation = Corpus(corpus_root, length=val_length, roles=('lewm_val',), kinds=('explore', 'mission', 'free'))
-    transfer = Corpus(corpus_root, length=val_length, roles=('lewm_val',), kinds=('transfer',))
+    validation = Corpus(corpus_root, length=val_length, roles=('lewm_val',), kinds=('explore', 'mission', 'free'),
+                        command_dim=dim)
+    transfer = Corpus(corpus_root, length=val_length, roles=('lewm_val',), kinds=('transfer',), command_dim=dim)
     val_indices, transfer_indices = validation.fixed(VALIDATION_WINDOWS, VALIDATION_SEED), transfer.fixed(TRANSFER_WINDOWS, VALIDATION_SEED)
 
     inverse_weight = objective.get('inverse_weight', 0.)
@@ -276,9 +279,10 @@ def evaluate(checkpoint, corpus_root, *, rollout_steps=EVAL_STEPS, device='cuda:
     from go2nav.models.lewm import load_world_model
     device = torch.device(device)
     model = load_world_model(checkpoint, device)
-    length = model.config.history+rollout_steps
-    validation = Corpus(corpus_root, length=length, roles=('lewm_val',), kinds=('explore', 'mission', 'free'))
-    transfer = Corpus(corpus_root, length=length, roles=('lewm_val',), kinds=('transfer',))
+    length, dim = model.config.history+rollout_steps, model.config.command_dim
+    validation = Corpus(corpus_root, length=length, roles=('lewm_val',), kinds=('explore', 'mission', 'free'),
+                        command_dim=dim)
+    transfer = Corpus(corpus_root, length=length, roles=('lewm_val',), kinds=('transfer',), command_dim=dim)
     return dict(validation=validate(model, validation, validation.fixed(VALIDATION_WINDOWS, VALIDATION_SEED),
                                     rollout_steps=rollout_steps, device=device),
                 transfer=validate(model, transfer, transfer.fixed(TRANSFER_WINDOWS, VALIDATION_SEED),

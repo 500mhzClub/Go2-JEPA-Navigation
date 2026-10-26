@@ -165,7 +165,7 @@ def atomic_save(value, path):
 def lewm_features(model, root, protocol, device):
     """zh (n, 4, D), rollout at each window's horizons (n, k, D), y (n, k, 3), past (n, 15, 3), tape (n, 8, 3), h (n, k)."""
     from go2nav.models.lewm import action_blocks, control_stats, normalise_frames
-    cmean, cstd = control_stats()
+    cmean, cstd = control_stats(model.config.command_dim)
     out = {k: [] for k in ('zh', 'fut', 'y', 'past', 'tape', 'h')}
     for _, path, starts, horizons in by_unit(protocol):
         frames = np.load(Path(root)/path/'frames.npy', mmap_mode='r')
@@ -192,7 +192,8 @@ def lewm_features(model, root, protocol, device):
 
 
 def run_lewm(protocol_path, corpus, world_model, out, *, device='cuda:0', cache=None):
-    from go2nav.models.lewm import LatentDirectPredictor, LatentMotionDecoder, control_stats, load_world_model
+    from go2nav.models.lewm import (COMMAND_AXES, LatentDirectPredictor, LatentMotionDecoder, control_stats,
+                                    load_world_model)
     raise_open_file_limit()
     out = Path(out)
     if (out/'.done').exists():
@@ -200,16 +201,18 @@ def run_lewm(protocol_path, corpus, world_model, out, *, device='cuda:0', cache=
     out.mkdir(parents=True, exist_ok=True)
     protocol = json.loads(Path(protocol_path).read_text())
     started = time.time()
-    data = lewm_features(load_world_model(world_model, device), corpus, protocol, device)
+    model = load_world_model(world_model, device)
+    dim = model.config.command_dim
+    data = lewm_features(model, corpus, protocol, device)
     n, k = data['h'].shape
     print(json.dumps(dict(pairs=n*k, wall_s=round(time.time()-started))), flush=True)
     flat = data['y'].reshape(-1, 3).double()
     mean, scale = flat.mean(0).float(), flat.std(0).float()
     D = data['zh'].shape[-1]
     zh, fut, y = data['zh'].to(device), data['fut'].to(device), data['y'].to(device)
-    cmean, cstd = (torch.as_tensor(v, dtype=torch.float32, device=device) for v in control_stats())
-    past = (data['past'][..., [0, 2]].to(device)-cmean)/cstd
-    tape = (data['tape'][..., [0, 2]].to(device)-cmean)/cstd
+    cmean, cstd = (torch.as_tensor(v, dtype=torch.float32, device=device) for v in control_stats(dim))
+    past = (data['past'][..., COMMAND_AXES[dim]].to(device)-cmean)/cstd
+    tape = (data['tape'][..., COMMAND_AXES[dim]].to(device)-cmean)/cstd
     hz = data['h'].to(device)
 
     def pick(idx):  # pair index -> (window, slot)

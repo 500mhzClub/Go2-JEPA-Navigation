@@ -10,7 +10,8 @@ Face layout that the official code instantiates (`vit_hf`), written out here.
 **Go2 configuration** (see docs/lewm/PLAN.md):
 - one model step is 100 ms: one camera frame and the five 50 Hz policy steps after it (the paper's frameskip 5);
 - the action of a step is its block of five executed (forward, yaw) commands, normalised by the control statistics
-  (data/training/control_norm_stats.json): 10 values;
+  (data/training/control_norm_stats.json): 10 values; with `command_dim=3` (corpus v2, `go2nav.data.lewm_corpus_v2`)
+  the block holds (forward, lateral, yaw), normalised by corpus v2's statistics (`CONTROL_STATS_3`): 15 values;
 - frames are the primary camera's 640 x 480 RGB resized to 224 x 168 (bicubic; `resize_frame`), the full field of
   view; with patch 14 the encoder sees 16 x 12 tokens;
 - the predictor attends over `history` = 4 frames (t-300 .. t ms) and rolls out autoregressively.
@@ -42,6 +43,8 @@ IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 REPO = Path(__file__).resolve().parents[2]
 CONTROL_STATS = REPO/'data/training/control_norm_stats.json'
+CONTROL_STATS_3 = REPO/'data/training/control_norm_stats_corpus_v2.json'
+COMMAND_AXES = {2: [0, 2], 3: [0, 1, 2]}   # the command components (forward, lateral, yaw) an action block holds
 
 
 @dataclass(frozen=True)
@@ -98,15 +101,17 @@ def normalise_frames(frames):
     return (x-mean)/std
 
 
-def control_stats():
-    stats = json.loads(CONTROL_STATS.read_text())
+def control_stats(command_dim=2):
+    """Mean and standard deviation of the command components a block holds (`COMMAND_AXES`)."""
+    stats = json.loads((CONTROL_STATS if command_dim == 2 else CONTROL_STATS_3).read_text())
     return np.asarray(stats['control_mean'], np.float32), np.asarray(stats['control_std'], np.float32)
 
 
 def action_blocks(commands, mean, std):
-    """Executed commands (..., 5, 3) [vx, vy, wz] (or (..., 5, 2) [vx, wz]) to normalised action blocks (..., 10)."""
+    """Executed commands (..., 5, 3) [vx, vy, wz] (or (..., 5, 2) [vx, wz]) to normalised action blocks (..., 10), or
+    (..., 15) with three-component statistics."""
     commands = torch.as_tensor(commands, dtype=torch.float32)
-    if commands.shape[-1] == 3:
+    if commands.shape[-1] == 3 and len(mean) == 2:
         commands = commands[..., [0, 2]]
     mean, std = (torch.as_tensor(v, dtype=torch.float32, device=commands.device) for v in (mean, std))
     return ((commands-mean)/std).flatten(-2)
