@@ -3,6 +3,7 @@ moving obstacle will be, and how it will respond to the robot's own commands?
 
     python -m go2nav.eval.mover_probe labels ROOT --out LABELS.npz [--roles lewm_val] [--stride 5] [--workers N]
     python -m go2nav.eval.mover_probe probe ROOT --world-model LEWM.pt --train TRAIN.npz --eval EVAL.npz --out DIR
+    python -m go2nav.eval.mover_probe probe ROOT --world-model HJEPA.pt --level 2 ...      # H-JEPA's 1.6 s level
 
 **Windows** (`labels`): in corpus v2's units with obstacles, the decision frames t (every `stride`-th, with 4 frames of
 history and `HORIZONS[-1]` frames of future) whose primary depth image has an obstacle in it (`MIN_OBSTACLE_PIXELS`),
@@ -359,6 +360,72 @@ def lewm_features(model, root, data, device):
     return out
 
 
+def hjepa_features(model, root, data, device, level=2):
+    """As `lewm_features`, for an H-JEPA's upper `level` (period p frames, `context` states): `zh` (W, context, D) its
+    states at t-(context-1)p..t, and `true` and each tape's rollout (the level's own predictor, one step per p frames,
+    each transition's macro-action from its p command blocks) at the horizons that are multiples of p (zeros at the
+    others). `ok`: windows with t >= (context-1)p and valid command blocks over the whole span."""
+    import torch
+    from go2nav.models.lewm import action_blocks, control_stats, normalise_frames
+    root, H = Path(root), np.asarray(HORIZONS)
+    upper, p = model.upper[level-2], model.config.periods[level-1]
+    n, D, W = upper.config.context, upper.config.latent, len(data['t'])
+    reached = [j for j, h in enumerate(H) if h % p == 0]
+    steps = int(H[reached[-1]]//p)
+    cmean, cstd = control_stats(model.config.level1.command_dim)
+    out = dict(zh=torch.zeros(W, n, D, dtype=torch.float16), true=torch.zeros(W, len(H), D, dtype=torch.float16),
+               **{tape: torch.zeros(W, len(H), D, dtype=torch.float16) for tape in TAPES},
+               ok=torch.zeros(W, dtype=bool))
+    autocast = lambda: torch.autocast(torch.device(device).type, dtype=torch.bfloat16)
+    with torch.inference_mode():
+        for u, path in enumerate(data['units']):
+            rows = np.flatnonzero(data['unit'] == u)
+            if not len(rows):
+                continue
+            folder = root/str(path)
+            steps_npz = dict(np.load(folder/'steps.npz'))
+            t = data['t'][rows]
+            valid = steps_npz['block_valid']
+            ok = np.array([s >= (n-1)*p and valid[s-(n-1)*p:s+steps*p].all() for s in t], bool)
+            rows, t = rows[ok], t[ok]
+            if not len(rows):
+                continue
+            offsets = np.arange(-(n-1), steps+1)*p
+            needed = np.unique((t[:, None]+offsets).ravel())
+            frames = np.load(folder/'frames.npy', mmap_mode='r')
+            z = torch.zeros(len(frames), model.config.level1.latent, device=device)
+            for s in range(0, len(needed), 512):
+                chunk = needed[s:s+512]
+                x = torch.from_numpy(np.ascontiguousarray(frames[chunk])).to(device)
+                with autocast():
+                    z[torch.from_numpy(chunk).to(device)] = model.level1.encode(normalise_frames(x)[:, None])[:, 0].float()
+            tt = torch.from_numpy(t).to(device)
+            states = model.states(torch.stack([z[tt+o] for o in offsets], 1), level).float()
+            blocks = action_blocks(steps_npz['executed'], cmean, cstd).to(device)
+            past = torch.stack([blocks[tt-(n-1)*p+k] for k in range((n-1)*p)], 1)
+            tapes = dict(executed=torch.stack([blocks[tt+k] for k in range(steps*p)], 1))
+            for name, command in CONTRAST.items():
+                tape = np.stack([contrast_tape(command, previous, steps*p) for previous in data['previous'][rows]])
+                tapes[name] = action_blocks(tape, cmean, cstd).to(device)
+            out['zh'][rows] = states[:, :n].half().cpu()
+            for j in reached:
+                out['true'][rows, j] = states[:, n-1+H[j]//p].half().cpu()
+            for name, tape in tapes.items():
+                macros = model.macros(torch.cat((past, tape), 1), level).float()
+                context, pending, rolled = states[:, :n], macros[:, :n-1], []
+                for k in range(steps):
+                    m = torch.cat((pending, macros[:, n-1+k:n+k]), 1)
+                    with autocast():
+                        nxt = upper.predict(context, m)[:, -1].float()
+                    rolled.append(nxt)
+                    context, pending = torch.cat((context[:, 1:], nxt[:, None]), 1), m[:, 1:]
+                for j in reached:
+                    out[name][rows, j] = rolled[H[j]//p-1].half().cpu()
+            out['ok'][rows] = True
+    out['horizons'] = reached
+    return out
+
+
 def head_inputs(zh, future):
     """C5's decoder input [z_t, future - z_t, z_t - z_(t-1), z_t - z_(t-3)] (float32)."""
     import torch
@@ -474,33 +541,40 @@ def kinds(data):
     return np.where(kind == 'transfer', 'transfer', 'val')
 
 
-def probe(root, world_model, train, evaluation, out, *, updates=UPDATES, device='cuda:0'):
+def probe(root, world_model, train, evaluation, out, *, updates=UPDATES, device='cuda:0', level=1):
     """Fit the heads on `train`'s windows and score them on `evaluation`'s (see the module docstring); results.json
-    in `out`, with the latents cached per labels file."""
+    in `out`, with the latents cached per labels file. `level` > 1: `world_model` is an H-JEPA checkpoint and the
+    heads read that level's states (`hjepa_features`), at the horizons it reaches."""
     import torch
-    from go2nav.models.lewm import load_world_model
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
-    model = load_world_model(world_model, device)
+    if level == 1:
+        from go2nav.models.lewm import load_world_model
+        model, features = load_world_model(world_model, device), lewm_features
+    else:
+        from go2nav.models.hjepa import load_hjepa
+        model = load_hjepa(world_model, device)
+        features = lambda *a: hjepa_features(*a, level=level)
     sets = {}
     for name, path in (('train', train), ('eval', evaluation)):
         data = dict(np.load(path))
         cache = out/f'features_{name}.pt'
         if not cache.exists():
-            torch.save(lewm_features(model, root, data, device), cache)
+            torch.save(features(model, root, data, device), cache)
         sets[name] = (data, torch.load(cache))
     (dtrain, ftrain), (deval, feval) = sets['train'], sets['eval']
     rtrain, reval = np.flatnonzero(ftrain['ok'].numpy()), np.flatnonzero(feval['ok'].numpy())
     split = kinds(deval)[reval]
     gpu = lambda f, rows, key, j: head_inputs(f['zh'][rows].to(device), (f['zh'][rows, -1] if j is None
                                                                          else f[key][rows, j]).to(device))
-    results = dict(world_model=str(world_model), train_windows=int(len(rtrain)), eval_windows=int(len(reval)),
-                   horizons_s=[0.]+[h/10 for h in HORIZONS], heads={})
+    reached = ftrain.get('horizons', list(range(len(HORIZONS))))
+    results = dict(world_model=str(world_model), level=level, train_windows=int(len(rtrain)),
+                   eval_windows=int(len(reval)), horizons_s=[0.]+[HORIZONS[j]/10 for j in reached], heads={})
     for head, fit in (('ridge', lambda x, y: fit_ridge(x, y, dtrain['unit'][rtrain])),
                       ('mlp', lambda x, y: fit_mlp(x, y, updates=updates))):
         for source in ('true', 'rollout'):
             rows_out = {s: [] for s in ('val', 'transfer')}
-            for j in (None, *range(len(HORIZONS))):
+            for j in (None, *reached):
                 if j is None and source == 'rollout':
                     continue
                 key = 'executed' if source == 'rollout' else 'true'
@@ -544,9 +618,11 @@ def main():
     p.add_argument('--out', required=True)
     p.add_argument('--updates', type=int, default=UPDATES)
     p.add_argument('--device', default='cuda:0')
+    p.add_argument('--level', type=int, default=1, help='an H-JEPA checkpoint\'s upper level (2: 1.6 s)')
     args = parser.parse_args()
     if args.command == 'probe':
-        probe(args.root, args.world_model, args.train, args.eval, args.out, updates=args.updates, device=args.device)
+        probe(args.root, args.world_model, args.train, args.eval, args.out, updates=args.updates, device=args.device,
+              level=args.level)
     if args.command == 'labels':
         print(json.dumps(labels(args.root, args.out, roles=args.roles, stride=args.stride, workers=args.workers),
                          indent=1))
