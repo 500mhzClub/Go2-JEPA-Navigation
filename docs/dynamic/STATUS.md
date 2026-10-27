@@ -535,3 +535,68 @@ passages, sealed by the true mover where it stands.
 **Decision:** the baselines stay frozen at dv3 and lv2. The probe is the hand-rule ceiling on the map's headroom:
 the best deployable trail rule matches the oracle for trails (+5 of 80 on the lattice, not significant). The
 remaining headroom is the decision a mover in view forces, which is where learning goes next.
+
+## P3: corpus v2 (26 October)
+
+Branch `feature/dynamic-world-models`. Collected on the continuous policy with 0-4 movers (674 units with a
+non-polite fifth), lateral commands kept in the blocks.
+
+- **Size:** 4,000 units, 3.23 M action blocks, 2.93 M frames (about 340 GB). Units by mover count: 589 / 1,259 /
+  1,144 / 615 / 393 for 0-4.
+- **Stops:** 3,847 clean, 121 pose loss, 25 disallowed contacts (contact stops under 5% in every kind).
+- **Command statistics:** `data/training/control_norm_stats_corpus_v2.json`; yaw command to rate correlation 0.99 at
+  lag 0.
+
+Three of the audit's gates missed. I accepted each with its reason (`gates_accepted.json` beside the audit) rather
+than collect again:
+
+| Gate | Result | Why accepted |
+|---|---|---|
+| Each movement type at least 20k windows | Starts from rest 17.4k (87%) | The v1 primitive classifier undercounts starts from rest under continuous commands; every other type passes |
+| Lateral at least 10% of blocks | 8.9% (289k blocks) | Mission units carry none by design (the lattice harness has no lateral) and are 39% of blocks; free 19.9%, explore 10.9% |
+| Mover in view at least 20% of frames | 17.4% (478k frames) | 3-4 mover units reach 23-29%; a top-up of free units would move it under one point |
+
+## P4: LeWM v2 and the mover gate (27 October)
+
+**LeWM v2** (`outputs/lewm/go2_v2`): span8w's settings on corpus v2 (ViT-Tiny, inverse dynamics on spans 1 and 8,
+15-value action blocks), 60k steps at 0.49 s/step.
+- Validation rollout error 0.032 at the first step to 0.092 at the eighth, against shuffled actions 0.83, zero
+  command 0.61 and persistence 0.68; transfer 0.050 to about 0.13. L2 action sensitivity holds; effective rank 20.3.
+- Gates L1-L4 (the LeWM acceptance gates) still to run on it: the GPU is busy with H-JEPA v2.
+
+**Two fixes on the way** (both committed):
+- The trainer held 30.4 GB of the R9700's 34 GB; GPU jobs are now capped at 85% (f434a1d), since that card also
+  drives the desktop.
+- Validation crashed at step 4,999: the zero-command baseline assumed two command components (bda8b42).
+
+**R9700 bus drop** (27 October, 05:17): "device lost from bus" in plain training, with no warning before it. Resumed
+from the step-11,999 checkpoint with matching losses. A telemetry service now logs temperatures, power, clocks and
+fan every 15 s (memory runs at 92-94 °C against a critical 108; power at the 300 W cap with spikes to 420 W).
+
+### The mover gate
+
+The gate (PLAN P4) was set before the final model was scored. "Ceiling" is the better per measure of two supervised
+CNNs trained on the four history frames themselves (`go2nav.eval.mover_ceiling`, plain and regularised: mirror and
+photometric augmentation, dropout, weight decay, epoch selection on held-out training units).
+
+| Measure | Pass mark | LeWM v2 | Patch tokens | Ceiling |
+|---|---|---|---|---|
+| Localisation, h = 0 (median error) | 1.25 x ceiling = 0.164 m | 0.216 m ✗ | 0.152 m ✓ | 0.131 m |
+| Velocity skill at 0.8 s | half the ceiling = 0.126 | 0.08 (0.02 through rollouts) ✗ | 0.08 ✗ | 0.251 |
+| Response at 1.6 / 3.2 s | gain and 95% CI above 0.12, R2 above 0 | gain 0.16 / 0.17, CI from 0.121 / 0.141, R2 -0.48 / -0.24 ✗ | | |
+
+- **Patch tokens:** the same frozen LeWM v2 encoder, but its 12 x 16 final-layer patch tokens instead of the [CLS]
+  summary, read by a small convolutional head trained exactly as the ceiling (`mover_ceiling --patches`, abea321).
+- **The response is not real.** The rollouts' predicted displacement is as large where no response should happen
+  (spurious 0.04 / 0.09 m against predicted 0.045 / 0.095 m), so R2 stays negative.
+- **Event skill** (reported, not gated): LeWM 0.02-0.07, the ceiling 0.07-0.17. The plain ceiling's 0 or below
+  was overfitting; the regularised one does see some of the walkers' turns and pauses.
+- **The patch head** selected epoch 2 (it overfits fast and has no augmentation), so its velocity is weaker
+  evidence than its localisation.
+
+**Reading.** The encoder holds the movers: its patch tokens localise within 16% of a CNN trained for the job. The
+[CLS] bottleneck the world model predicts in loses most of it (65% worse). H-JEPA's upper levels are built from the
+same [CLS] latent, so they cannot recover it; they are still probed when H-JEPA v2 finishes, as planned.
+
+**Decision (per the gate):** a representation change is proposed (PLAN P4b, a patch-grid LeWM) and P5's hybrid
+is built meanwhile.

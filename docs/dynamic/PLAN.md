@@ -194,6 +194,51 @@ a paper draft, as an upper bound.
     positions as an auxiliary training target, never an input) and its compute, and meanwhile build P5's hybrid
     (tracked movers for mover state, the world model for the robot's own motion, give-way kept as a rule).
 
+### P4b. Patch-grid LeWM (proposed 27 October, after the mover gate failed)
+
+**Why.** LeWM v2 failed the mover gate on all three measures. Its encoder's patch tokens localise movers within 16%
+of the supervised ceiling, but the [CLS] latent the predictor works on is 65% worse (STATUS, P4). The information is
+in the encoder and lost at the bottleneck. So the state keeps a coarse grid of patch tokens, and the predictor
+forecasts the grid as well as [CLS]: predicting where each region's content goes next is also a direct training
+signal for motion, which the velocity measure needs.
+
+**Model** (`grid` in the config; everything not listed is go2_v2's):
+- **State per frame:** [CLS]'s z (192) as now, plus G = 12 grid tokens. The 12 x 16 patch tokens are average-pooled
+  over 4 x 4 blocks to 3 x 4, and each goes through a shared BatchNorm projector to 192 (the [CLS] projector's shape,
+  its own weights).
+- **Predictor:** the same transformer (6 blocks, width 192) over the history's 4 x 13 tokens, with a spatial position
+  embedding (13) added to the temporal one. Attention is block-causal: a token sees every token of its own frame
+  and of earlier frames. Every token of a frame is conditioned on that frame's action (AdaLN, as now). Each position
+  predicts the matching token of the next frame; rollouts are autoregressive as now.
+- **Loss:** the teacher-forced and 8-step rollout MSE on [CLS] plus the same on the grid (mean over tokens), weight
+  1 each. SIGReg on [CLS] and on each grid position (the batch as samples), averaged. Inverse dynamics on [CLS] only,
+  as go2_v2 (spans 1 and 8, weight 100), so the robot's own motion stays where C5-C8 read it.
+- **Not chosen first:** the movers' positions as an auxiliary target. It uses privileged labels, and it would teach
+  [CLS] where movers are without giving the predictor a reason to move them. It stays the fallback if the grid
+  model localises but its response test fails.
+
+**Compute.**
+- Per sample, go2_v2's encoder does about 30 times the predictor's work (12 frames x 193 tokens through 5.5M
+  parameters, against about 36 predicted [CLS] tokens through 10.8M).
+- Thirteen tokens per frame raise the predictor to about 40% of the encoder. That gives about 1.4 x go2_v2's
+  0.49 s/step: about 0.7 s/step, **about 12 h** for 60k steps.
+- A 6 x 8 grid would be about 2.5 x (about 20 h).
+- A 30-minute smoke run first measures throughput and memory under the 85% cap; encoder block checkpointing is
+  available if memory runs short.
+- The R9700 cannot hold it beside H-JEPA v2 (25 GB), so it starts when H-JEPA v2 finishes.
+
+**Probe and gates.**
+- `mover_probe` reads grid models from [CLS] and the 12 grid tokens: the ridge and MLP heads on the flattened
+  tokens, and the patch head on the 3 x 4 grid, at h = 0 and through the rollouts.
+- The mover gate is unchanged. L1-L4 are scored on [CLS] and must not fall below go2_v2's, so the robot's own motion
+  does not regress.
+- If 3 x 4 misses localisation, 6 x 8 is next (the patch tokens passed at 12 x 16).
+
+**Planning cost.** A rollout pushes 13 tokens per frame through the predictor instead of one, about 10 times
+go2_v2's cost per candidate (the encoder runs once per decision). This is measured before P5 sets candidate counts.
+
+**H-JEPA** stays on [CLS] until the grid model passes; then its upper levels can read the pooled grid.
+
 ### P5. Planning over continuous commands
 
 1. **Command representation.** A command tape with a derived category replaces the action names, so the harness rules
@@ -225,6 +270,7 @@ Each step runs on R4 (static), R6 reference and R7, so a gain in dynamic scenes 
 | P2 | Development, plus about 240 R7 missions (about 5 h) |
 | P3 | About 10 h on the CPU |
 | P4 | About 14 h per model on the GPU |
+| P4b | About 12 h on the GPU (the 3 x 4 grid), after H-JEPA v2 |
 | P5 | Mostly missions; CEM costs scale with candidates times rollout |
 
 - P1 and P2 run in parallel. P3 waits for both, and P4 waits for P3.
