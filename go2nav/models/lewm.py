@@ -182,6 +182,11 @@ class ViTEncoder(nn.Module):
         return pixels.reshape(b, c, h//p, p, w//p, p).permute(0, 2, 4, 1, 3, 5).reshape(b, (h//p)*(w//p), c*p*p)
 
     def forward(self, pixels):
+        return self.tokens(pixels)[:, 0]
+
+    def tokens(self, pixels):
+        """(B, 3, H, W) to the final layer's normalised tokens (B, 1 + H/p * W/p, width): [CLS], then the patches in
+        row-major order (the world models use only [CLS]; the patches are for probes)."""
         x = self.patch_embed(self.patches(pixels))
         x = torch.cat((self.cls_token.expand(len(x), -1, -1), x), dim=1)+self.position
         recompute = self.training and torch.is_grad_enabled()
@@ -190,7 +195,7 @@ class ViTEncoder(nn.Module):
                 x = torch.utils.checkpoint.checkpoint(block, x, use_reentrant=False)
             else:
                 x = block(x)
-        return self.norm(x)[:, 0]
+        return self.norm(x)
 
 
 # -- the official modules ----------------------------------------------------------------------------------------------
