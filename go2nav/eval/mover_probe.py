@@ -41,13 +41,13 @@ with the mover within `NEAR_M` (the decisions that matter); skill on event windo
 against persistence and constant velocity; walkers choose their turns and pauses at random, so even a head trained on
 the frames (`go2nav.eval.mover_ceiling`) has none); and the **velocity skill**, 1 - error / persistence's error on the
 `straight` windows (moving, no event), where constant velocity is exact: 1 is a perfect velocity estimate.
-**Response test** (`response`, the rollout heads): on the windows with a
-counterfactual, the predicted response (the head on the advance rollout minus on the hold rollout) against the true
-one (`cf_advance - cf_hold`): the **response gain** (the least-squares slope of predicted on true, over the responsive
-windows; 95% interval from 1,000 bootstrap draws of units), the **spurious response** (the median predicted response
-where the true one is 0: the head misreading the robot's own motion under the advance tape as the mover's), and
-`r2`, 1 - the summed squared error of the predicted response over the summed squared true response, over all the
-windows with a counterfactual (below 0: the predicted responses are more noise than signal).
+**Response test** (`response`, the rollout heads): on the windows with a counterfactual, the predicted response (the
+head on the advance rollout minus on the hold rollout) against the true one (`cf_advance - cf_hold`): the **response
+gain** (the least-squares slope of predicted on true, over the responsive windows; 95% interval from 1,000 bootstrap
+draws of units), the **spurious response** (the median predicted response where the true one is 0: the head misreading
+the robot's own motion under the advance tape as the mover's), and `r2`, 1 - the summed squared error of the predicted
+response over the summed squared true response, over all the windows with a counterfactual (below 0: the predicted
+responses are more noise than signal).
 """
 import argparse
 import copy
