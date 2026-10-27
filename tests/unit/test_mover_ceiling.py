@@ -13,3 +13,10 @@ def test_the_network_reads_uint8_frame_stacks():
     from go2nav.eval.mover_ceiling import HISTORY, network
     net = network(56, 72, 10)
     assert net(torch.zeros(2, HISTORY, 56, 72, 3, dtype=torch.uint8)).shape == (2, 10)
+
+
+def test_mirroring_flips_the_image_and_the_lateral_targets():
+    import torch
+    from go2nav.eval.mover_ceiling import mirrored
+    y = torch.tensor([[1., 2., 3., 4.], [1., 2., 3., 4.]])
+    assert torch.equal(mirrored(y, torch.tensor([True, False])), torch.tensor([[1., -2., 3., -4.], [1., 2., 3., 4.]]))

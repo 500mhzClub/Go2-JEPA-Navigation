@@ -37,7 +37,9 @@ mover's displacement from t, and its forecast is the true position at t plus tha
 from the true position too, so the scores compare forecasts of the mover's motion, not localisation. Scores (`score`):
 error (m) over all windows, the event windows, the responsive ones, waiting movers, non-polite ones, and event windows
 with the mover within `NEAR_M` (the decisions that matter); skill on event windows (1 - error / the baseline's error,
-against persistence and constant velocity). **Response test** (`response`, the rollout heads): on the windows with a
+against persistence and constant velocity; walkers choose their turns and pauses at random, so even a head trained on
+the frames (`go2nav.eval.mover_ceiling`) has none); and the **velocity skill**, 1 - error / persistence's error on the
+`straight` windows (moving, no event), where constant velocity is exact: 1 is a perfect velocity estimate. **Response test** (`response`, the rollout heads): on the windows with a
 counterfactual, the predicted response (the head on the advance rollout minus on the hold rollout) against the true
 one (`cf_advance - cf_hold`): the **response gain** (the least-squares slope of predicted on true, over the responsive
 windows; 95% interval from 1,000 bootstrap draws of units), the **spurious response** (the median predicted response
@@ -429,14 +431,18 @@ def score(data, rows, predicted, j):
         return out
     event, respond = events(data)[rows, j], responsive(data)[rows, j]
     near = np.linalg.norm(data['xy_t'][rows], axis=-1) < NEAR_M
+    straight = ~event & data['moving'][rows]
     masks = dict(event=event, responsive=respond, waiting=data['waiting'][rows],
-                 impolite_event=event & ~data['polite'][rows], near_event=event & near)
+                 impolite_event=event & ~data['polite'][rows], near_event=event & near, straight=straight)
     for name, mask in masks.items():
         out[f'{name}_median_m'] = round(float(np.median(error[mask])), 3) if mask.any() else None
     for name in ('persistence', 'constant_velocity'):
         base = np.linalg.norm(data[name][rows, j]-target, axis=-1)
         out[f'event_skill_vs_{name}'] = round(1-float(np.median(error[event]))/float(np.median(base[event])), 3) \
             if event.any() else None
+    base = np.linalg.norm(data['persistence'][rows, j]-target, axis=-1)
+    out['velocity_skill'] = round(1-float(np.median(error[straight]))/float(np.median(base[straight])), 3) \
+        if straight.any() else None
     return out
 
 

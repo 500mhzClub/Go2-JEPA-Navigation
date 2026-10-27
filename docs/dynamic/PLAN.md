@@ -176,6 +176,23 @@ a paper draft, as an upper bound.
   - Probe obstacle position relative to the robot from level-1 rollouts and from upper-level predictions, against
     obstacle persistence.
   - This is the first place H-JEPA's 1.6-12.8 s horizon can matter: whether a corridor will be free in 3 s.
+- **Mover gate (set 27 October, before the final models were scored).** Probe: `go2nav.eval.mover_probe`;
+  supervised ceiling: `go2nav.eval.mover_ceiling`, a CNN trained on the frames themselves (the ceiling below is
+  the better of its plain and regularised runs, per measure).
+  - What the ceiling showed: the frames localise a mover to 0.156 m (median; the world models' latents read about
+    0.24 m), but even supervised, nothing forecasts the walkers' turns and pauses beyond persistence; they are random
+    by construction. Event skill is therefore reported, not gated.
+  - **Response (the gate):** on the validation mazes, through the rollouts under the hold and advance tapes, the
+    ridge head's response gain above 0.12 at 1.6 s and 3.2 s, with its 95% interval above 0.12 and response R2 above
+    0 (the predicted responses carry more signal than noise). This is the give-way decision the failure analysis
+    found to be the limit, and only a command-conditioned model can supply it.
+  - **Localisation:** the h = 0 readout within 1.25 x the ceiling's median error.
+  - **Velocity:** velocity skill (1 - error / persistence's error on windows where the mover walks straight, so
+    constant velocity is exact) at 0.8 s at least half the ceiling's.
+  - Reported for LeWM's encoder and rollouts, and for H-JEPA's level 1 and its 1.6 s level.
+  - **If no model passes the response gate:** propose a representation change (patch-level prediction, or the mover
+    positions as an auxiliary training target, never an input) and its compute, and meanwhile build P5's hybrid
+    (tracked movers for mover state, the world model for the robot's own motion, give-way kept as a rule).
 
 ### P5. Planning over continuous commands
 
