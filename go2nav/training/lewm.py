@@ -22,6 +22,9 @@ whole loss compiled (`torch.compile`, autotuned GEMMs; 453 ms per step on the R9
 the last checkpoint with the same data stream, and metrics.jsonl is cut back to it. A non-finite loss skips its update
 (recorded); 20 in a row stop the run.
 
+`runtime.memory_fraction` (default 0.85) caps this process's share of GPU memory: on the development machine the
+training GPU also drives the display, and running it out of memory crashed the desktop session.
+
 **Validation** (every `validate_every` steps, at the end, and `evaluate`), on fixed windows of the validation mazes
 (explore, mission and free units) and, separately, the transfer units (the held-out look):
 - teacher-forced prediction loss and SIGReg;
@@ -54,6 +57,7 @@ REPO = Path(__file__).resolve().parents[2]
 VALIDATION_WINDOWS, TRANSFER_WINDOWS, VALIDATION_SEED = 2048, 1024, 2026101702
 EVAL_STEPS = 8  # validation always rolls out the forecaster's 8 steps
 MAX_NONFINITE = 20
+MEMORY_FRACTION = .85
 
 
 def load_config(path, overrides=()):
@@ -158,6 +162,8 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     device = torch.device(device)
     torch.backends.cuda.matmul.allow_tf32 = True
     seed, data, objective, optim, runtime = (config[k] for k in ('seed', 'data', 'objective', 'optimiser', 'runtime'))
+    if device.type == 'cuda':  # the R9700 also drives the desktop: an overrun must fail here, not starve the compositor
+        torch.cuda.set_per_process_memory_fraction(runtime.get('memory_fraction', MEMORY_FRACTION), device)
     mconfig = model_config(config)
     length = mconfig.history+objective['rollout_steps']
     if data['length'] != length:
