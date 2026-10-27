@@ -36,7 +36,7 @@ HISTORY = 4
 
 
 def _unit_frames(args):
-    """Write one unit's windows' frames t-3..t into the stack (rows of `out`); returns the usable mask of its windows."""
+    """Write one unit's windows' frames t-3..t into the stack (rows of `out`); returns its windows' usable mask."""
     root, path, t, rows, out = args
     folder = Path(root)/path
     with np.load(folder/'steps.npz') as steps:

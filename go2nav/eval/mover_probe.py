@@ -40,7 +40,8 @@ error (m) over all windows, the event windows, the responsive ones, waiting move
 with the mover within `NEAR_M` (the decisions that matter); skill on event windows (1 - error / the baseline's error,
 against persistence and constant velocity; walkers choose their turns and pauses at random, so even a head trained on
 the frames (`go2nav.eval.mover_ceiling`) has none); and the **velocity skill**, 1 - error / persistence's error on the
-`straight` windows (moving, no event), where constant velocity is exact: 1 is a perfect velocity estimate. **Response test** (`response`, the rollout heads): on the windows with a
+`straight` windows (moving, no event), where constant velocity is exact: 1 is a perfect velocity estimate.
+**Response test** (`response`, the rollout heads): on the windows with a
 counterfactual, the predicted response (the head on the advance rollout minus on the hold rollout) against the true
 one (`cf_advance - cf_hold`): the **response gain** (the least-squares slope of predicted on true, over the responsive
 windows; 95% interval from 1,000 bootstrap draws of units), the **spurious response** (the median predicted response
@@ -398,7 +399,8 @@ def hjepa_features(model, root, data, device, level=2):
                 chunk = needed[s:s+512]
                 x = torch.from_numpy(np.ascontiguousarray(frames[chunk])).to(device)
                 with autocast():
-                    z[torch.from_numpy(chunk).to(device)] = model.level1.encode(normalise_frames(x)[:, None])[:, 0].float()
+                    encoded = model.level1.encode(normalise_frames(x)[:, None])[:, 0]
+                z[torch.from_numpy(chunk).to(device)] = encoded.float()
             tt = torch.from_numpy(t).to(device)
             states = model.states(torch.stack([z[tt+o] for o in offsets], 1), level).float()
             blocks = action_blocks(steps_npz['executed'], cmean, cstd).to(device)
