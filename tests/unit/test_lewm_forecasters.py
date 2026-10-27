@@ -68,3 +68,25 @@ def test_the_history_must_be_four_frames_100_ms_apart(setup):
     forecaster = LeWMForecaster(world, LatentMotionDecoder(32, [0.]*3, [1.]*3), device='cpu')
     with pytest.raises(ValueError):
         forecaster.forecast(replace(context, history=late), [(0., 0., 0.)]*3, pulse=False)
+
+
+@pytest.mark.parametrize('grid', [(), (3, 4)])
+def test_lattice_candidates_with_three_components_and_a_grid(setup, grid):
+    from go2nav.planning.actions import ACTIONS, LATTICE
+    _, context, _ = setup
+    torch.manual_seed(1)
+    config = LeWMConfig(width=48, depth=2, heads=2, mlp=96, latent=32, projector_hidden=64, predictor_depth=2,
+                        predictor_heads=2, predictor_head_dim=16, predictor_mlp=64, command_dim=3, grid=grid)
+    world = LeWorldModel(config).eval()
+    for block in world.predictor.layers:
+        torch.nn.init.normal_(block.adaLN_modulation[-1].weight, std=.1)
+    decoder = LatentMotionDecoder(32, [0.]*3, [.1]*3).eval()
+    head = LatentDirectPredictor(32, [0.]*3, [.1]*3, command_dim=3).eval()
+    torch.nn.init.normal_(head.net[0].weight, std=.05)
+    prefix = [(.2, 0., 0.)]*3
+    for forecaster in (LeWMForecaster(world, decoder, device='cpu'), LeWMDirectForecaster(world, head, device='cpu')):
+        lattice = forecaster.forecast(context, prefix, pulse=False, candidates=LATTICE)
+        six = forecaster.forecast(context, prefix, pulse=False)
+        assert lattice.shape == (len(LATTICE), 8, 5) and six.shape == (6, 8, 5)
+        some = forecaster.forecast(context, prefix, pulse=False, candidates=ACTIONS[1:3])
+        assert np.allclose(some, six[1:3], atol=1e-5)                 # a candidate's forecast ignores the others

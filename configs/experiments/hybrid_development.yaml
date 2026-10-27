@@ -1,0 +1,174 @@
+name: 'P5 hybrid: the lattice baseline with LeWM v2 forecasting the robot, validation mazes 10-29'
+description: 'P5''s hybrid (docs/dynamic/PLAN.md, after the P4 mover gate failed): lv2''s harness unchanged (tracked movers
+  for the movers'' state, the give-way and clearance rules), with the robot''s own motion forecast by LeWM v2 through its
+  corpus-v2 heads (go2nav.training.lewm_heads_v2): C5 the rollout read by the decoder, C6 the direct head. 25 lattice candidates,
+  static and with one and two moving obstacles. Paired with lv2 (C1''s command model).'
+cohorts:
+- name: hy_static_c5
+  arms:
+  - C5
+  set: validation
+  recovery: 'off'
+  models: outputs/lewm/hybrid_models.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  episodes: &id001
+  - - 10
+    - 0
+  - - 10
+    - 1
+  - - 11
+    - 0
+  - - 11
+    - 1
+  - - 12
+    - 0
+  - - 12
+    - 1
+  - - 13
+    - 0
+  - - 13
+    - 1
+  - - 14
+    - 0
+  - - 14
+    - 1
+  - - 15
+    - 0
+  - - 15
+    - 1
+  - - 16
+    - 0
+  - - 16
+    - 1
+  - - 17
+    - 0
+  - - 17
+    - 1
+  - - 18
+    - 0
+  - - 18
+    - 1
+  - - 19
+    - 0
+  - - 19
+    - 1
+  - - 20
+    - 0
+  - - 20
+    - 1
+  - - 21
+    - 0
+  - - 21
+    - 1
+  - - 22
+    - 0
+  - - 22
+    - 1
+  - - 23
+    - 0
+  - - 23
+    - 1
+  - - 24
+    - 0
+  - - 24
+    - 1
+  - - 25
+    - 0
+  - - 25
+    - 1
+  - - 26
+    - 0
+  - - 26
+    - 1
+  - - 27
+    - 0
+  - - 27
+    - 1
+  - - 28
+    - 0
+  - - 28
+    - 1
+  - - 29
+    - 0
+  - - 29
+    - 1
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+- name: hy_obst1_c5
+  arms:
+  - C5
+  set: validation
+  recovery: 'off'
+  models: outputs/lewm/hybrid_models.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacles: 1
+  episodes: *id001
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+- name: hy_obst2_c5
+  arms:
+  - C5
+  set: validation
+  recovery: 'off'
+  models: outputs/lewm/hybrid_models.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacles: 2
+  episodes: *id001
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+- name: hy_static_c6
+  arms:
+  - C6
+  set: validation
+  recovery: 'off'
+  models: outputs/lewm/hybrid_models.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  episodes: *id001
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+- name: hy_obst1_c6
+  arms:
+  - C6
+  set: validation
+  recovery: 'off'
+  models: outputs/lewm/hybrid_models.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacles: 1
+  episodes: *id001
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous
+- name: hy_obst2_c6
+  arms:
+  - C6
+  set: validation
+  recovery: 'off'
+  models: outputs/lewm/hybrid_models.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacles: 2
+  episodes: *id001
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  candidates: lattice
+  safety: continuous

@@ -123,8 +123,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     obstacles in the forecast clearance check (`go2nav.perception.tracks`, `go2nav.planning.prediction`);
     `footprint_clearing`: map cells inside the body's outline are dropped (`go2nav.perception.mapping`);
     `mover_trails`: a confirmed obstacle track's cells stay in the map only while seen occupied
-    (`go2nav.perception.mapping`); `candidates`: 'primitives' (the six actions) or 'lattice' (the command lattice, C1
-    only; `go2nav.planning.actions`); `safety`: the command safety block, 'primitive' or 'continuous'
+    (`go2nav.perception.mapping`); `candidates`: 'primitives' (the six actions) or 'lattice' (the command lattice; C1,
+    C5 and C6; `go2nav.planning.actions`); `safety`: the command safety block, 'primitive' or 'continuous'
     (`go2nav.locomotion.safety`). Module oracles (the failure analysis; `go2nav.controllers.truth`): `pose_oracle` (the
     true pose), `map_oracle` ('obstacles': perceived walls with the moving obstacles where they truly are; 'full': the
     true map; 'static': the true map, obstacles kept out of the route grid), `prediction_oracle` (true obstacle futures
@@ -316,7 +316,7 @@ def main():
                    help='constant-velocity obstacle tracks in the clearance check')
     p.add_argument('--safety', choices=('primitive', 'continuous'), default='primitive', help='command safety block')
     p.add_argument('--candidates', choices=('primitives', 'lattice'), default='primitives',
-                   help='forecast candidates: the six primitives or the command lattice (C1)')
+                   help='forecast candidates: the six primitives or the command lattice (C1, C5, C6)')
     p.add_argument('--footprint-clearing', choices=('on', 'off'), default='off',
                    help="drop map cells inside the body's outline")
     p.add_argument('--mover-trails', choices=('on', 'off'), default='off',
