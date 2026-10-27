@@ -24,6 +24,10 @@ through a BatchNorm MLP projector (the final LayerNorm would otherwise keep SIGR
 its own action by AdaLN-zero (scale, shift, gate; zero-initialised), then a BatchNorm MLP projector: 6 blocks,
 16 heads of 64, MLP 2048, dropout 0.1 (about 10.8M parameters at z 192). Position i predicts z of frame i+1.
 
+**Patch grid** (`grid`, docs/dynamic/PLAN.md P4b): the state also holds the final layer's patch tokens average-pooled
+to a coarse grid (3 x 4: 13 tokens a frame with [CLS]), each through its own projector; the predictor forecasts every
+token, block-causally over frames. `cls` takes [CLS]'s z from a state, so heads and gates read it as before.
+
 **Loss** (`losses`): the paper's teacher-forced next-embedding MSE over the history, plus (optionally, the Go2
 configuration) the MSE of a K-step autoregressive rollout, plus lambda x SIGReg of every frame's z, step by step.
 """
@@ -71,10 +75,16 @@ class LeWMConfig:
     inverse_spans: tuple = (1,)     # frame spans the inverse dynamics decodes over (1: consecutive frames)
     inverse_span_weights: tuple = ()  # relative weights of those spans in the inverse term (empty: equal)
     motion_dynamics: bool = False   # also decode the body-frame motion over each span (privileged poses; a variant)
+    grid: tuple = ()                # (rows, cols): the state also holds the patch tokens pooled to this grid (P4b)
 
     @property
     def action_dim(self):
         return self.block_steps*self.command_dim
+
+    @property
+    def tokens(self):
+        """Tokens per frame in the state: [CLS], then the grid's (1 without a grid)."""
+        return 1+math.prod(self.grid) if self.grid else 1
 
     @classmethod
     def named(cls, size, **overrides):
@@ -251,10 +261,19 @@ class Attention(nn.Module):
         self.to_qkv = nn.Linear(dim, inner*3, bias=False)
         self.to_out = nn.Sequential(nn.Linear(inner, dim), nn.Dropout(dropout))
 
-    def forward(self, x, causal=True):
+    def forward(self, x, causal=True, mask=None):
+        """`mask` (n, n) bool, True where a query may attend, replaces the causal mask (the grid's block-causal one).
+        Masked attention is written out: ROCm's masked SDPA kernels read out of bounds (hipErrorIllegalAddress, NaN
+        gradients), and at the grid's 52 tokens the explicit form costs little."""
         b, n, _ = x.shape
         q, k, v = (t.reshape(b, n, self.heads, -1).transpose(1, 2) for t in self.to_qkv(self.norm(x)).chunk(3, dim=-1))
-        out = F.scaled_dot_product_attention(q, k, v, dropout_p=self.dropout if self.training else 0., is_causal=causal)
+        if mask is None:
+            out = F.scaled_dot_product_attention(q, k, v, dropout_p=self.dropout if self.training else 0.,
+                                                 is_causal=causal)
+        else:
+            scores = (q@k.transpose(-2, -1)).float()*q.size(-1)**-.5
+            weights = scores.masked_fill(~mask, float('-inf')).softmax(-1).to(v.dtype)
+            out = F.dropout(weights, self.dropout, self.training)@v
         return self.to_out(out.transpose(1, 2).reshape(b, n, -1))
 
 
@@ -271,26 +290,41 @@ class ConditionalBlock(nn.Module):
         nn.init.zeros_(self.adaLN_modulation[-1].weight)
         nn.init.zeros_(self.adaLN_modulation[-1].bias)
 
-    def forward(self, x, c):
+    def forward(self, x, c, mask=None):
         shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.adaLN_modulation(c).chunk(6, dim=-1)
-        x = x+gate_msa*self.attn(modulate(self.norm1(x), shift_msa, scale_msa))
+        x = x+gate_msa*self.attn(modulate(self.norm1(x), shift_msa, scale_msa), mask=mask)
         return x+gate_mlp*self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
 
 
 class ARPredictor(nn.Module):
-    """Autoregressive next-embedding predictor: z (B, T<=history, D) and action embeddings (B, T, D) to (B, T, D)."""
+    """Autoregressive next-embedding predictor: z (B, T<=history, D) and action embeddings (B, T, D) to (B, T, D).
 
-    def __init__(self, *, num_frames, depth, heads, dim_head, mlp_dim, dim, dropout=0.):
+    With `tokens` > 1 (the grid), z is (B, T, tokens, D): a spatial embedding is added to the temporal one, every token
+    of a frame is conditioned on that frame's action, and attention is block-causal (a token sees every token of its
+    own frame and of the earlier ones). Returns (B, T, tokens, D)."""
+
+    def __init__(self, *, num_frames, depth, heads, dim_head, mlp_dim, dim, dropout=0., tokens=1):
         super().__init__()
         self.pos_embedding = nn.Parameter(torch.randn(1, num_frames, dim))
+        if tokens > 1:  # absent from [CLS]-only models, so their checkpoints load unchanged
+            self.space_embedding = nn.Parameter(torch.randn(1, 1, tokens, dim))
         self.layers = nn.ModuleList(ConditionalBlock(dim, heads, dim_head, mlp_dim, dropout) for _ in range(depth))
         self.norm = nn.LayerNorm(dim)
 
     def forward(self, x, c):
-        x = x+self.pos_embedding[:, :x.size(1)]
+        if x.dim() == 3:
+            x = x+self.pos_embedding[:, :x.size(1)]
+            for block in self.layers:
+                x = block(x, c)
+            return self.norm(x)
+        b, t, s, _ = x.shape
+        x = (x+self.pos_embedding[:, :t, None]+self.space_embedding).flatten(1, 2)
+        c = c[:, :, None].expand(-1, -1, s, -1).flatten(1, 2)
+        frame = torch.arange(t, device=x.device).repeat_interleave(s)
+        mask = frame[None] <= frame[:, None]
         for block in self.layers:
-            x = block(x, c)
-        return self.norm(x)
+            x = block(x, c, mask)
+        return self.norm(x).unflatten(1, (t, s))
 
 
 class Embedder(nn.Module):
@@ -328,8 +362,15 @@ class LeWorldModel(nn.Module):
         self.action_encoder = Embedder(config.action_dim, config.action_smoothed_dim, config.latent, config.action_mlp_scale)
         self.predictor = ARPredictor(num_frames=config.history, depth=config.predictor_depth,
                                      heads=config.predictor_heads, dim_head=config.predictor_head_dim,
-                                     mlp_dim=config.predictor_mlp, dim=config.latent, dropout=config.predictor_dropout)
+                                     mlp_dim=config.predictor_mlp, dim=config.latent, dropout=config.predictor_dropout,
+                                     tokens=config.tokens)
         self.pred_proj = MLP(config.latent, config.projector_hidden, config.latent)
+        if config.grid:
+            rows, cols = (size//config.patch for size in config.image_hw)
+            if rows % config.grid[0] or cols % config.grid[1]:
+                raise ValueError(f'the grid must divide the {rows} x {cols} patches')
+            self.grid_projector = MLP(config.width, config.projector_hidden, config.latent)
+            self.grid_pred_proj = MLP(config.latent, config.projector_hidden, config.latent)
         self.inverse = MLP(2*config.latent, config.projector_hidden, config.action_dim) if config.inverse_dynamics else None
         longer = [int(k) for k in config.inverse_spans if int(k) > 1] if config.inverse_dynamics else []
         if longer:  # one head per longer span (absent from single-span models, so their checkpoints load unchanged)
@@ -345,20 +386,37 @@ class LeWorldModel(nn.Module):
         return cls(config)
 
     def encode(self, pixels):
-        """Normalised frames (B, T, 3, H, W) to z (B, T, D)."""
+        """Normalised frames (B, T, 3, H, W) to the state: z (B, T, D), or with a grid (B, T, 1+G, D), [CLS]'s z then
+        the grid tokens in row-major order (the patch tokens average-pooled to the grid, each through `grid_projector`).
+        `cls` takes [CLS]'s z from either."""
         b = pixels.size(0)
-        return self.projector(self.encoder(pixels.flatten(0, 1))).unflatten(0, (b, -1))
+        if not self.config.grid:
+            return self.projector(self.encoder(pixels.flatten(0, 1))).unflatten(0, (b, -1))
+        tokens = self.encoder.tokens(pixels.flatten(0, 1))
+        (rows, cols), (gr, gc) = (size//self.config.patch for size in self.config.image_hw), self.config.grid
+        pooled = tokens[:, 1:].reshape(len(tokens), gr, rows//gr, gc, cols//gc, -1).mean((2, 4)).flatten(1, 2)
+        grid = self.grid_projector(pooled.flatten(0, 1)).unflatten(0, pooled.shape[:2])
+        return torch.cat((self.projector(tokens[:, 0])[:, None], grid), 1).unflatten(0, (b, -1))
+
+    def cls(self, z):
+        """[CLS]'s z from a state (..., D) or (..., 1+G, D)."""
+        return z[..., 0, :] if self.config.grid else z
 
     def predict(self, z, actions):
-        """z (B, T, D) and action blocks (B, T, A) to the predicted next z at every position (B, T, D)."""
+        """z (B, T, D) and action blocks (B, T, A) to the predicted next z at every position (B, T, D); with a grid,
+        states (B, T, 1+G, D) to (B, T, 1+G, D)."""
         out = self.predictor(z, self.action_encoder(actions))
-        return self.pred_proj(out.flatten(0, 1)).unflatten(0, (z.size(0), -1))
+        if not self.config.grid:
+            return self.pred_proj(out.flatten(0, 1)).unflatten(0, (z.size(0), -1))
+        cls = self.pred_proj(out[:, :, 0].flatten(0, 1)).unflatten(0, out.shape[:2])
+        grid = self.grid_pred_proj(out[:, :, 1:].flatten(0, 2)).unflatten(0, (*out.shape[:2], -1))
+        return torch.cat((cls[:, :, None], grid), 2)
 
     def rollout(self, z, actions, steps):
         """Autoregressive prediction from the history: z (B, N, D) of the N history frames and action blocks
         (B, N-1+steps, A), the action after each history frame and then after each predicted frame. Step k attends over
         the last N frames (k..k+N-1, true then predicted) with their actions `actions[:, k:k+N]`. Returns the `steps`
-        predicted z (B, steps, D)."""
+        predicted z (B, steps, D) (states (B, steps, 1+G, D) with a grid)."""
         n = self.config.history
         if z.size(1) != n or actions.size(1) < n-1+steps:
             raise ValueError(f'{n} history frames and {n-1+steps} actions required')
@@ -372,7 +430,8 @@ class LeWorldModel(nn.Module):
     def infer_actions(self, z, span=1):
         """The inverse-dynamics variant: the action block between consecutive frames, from [z_t, z_(t+1) - z_t];
         z (B, T, D) to (B, T-1, A). With `span` k > 1, the mean action block over frames t..t+k, from
-        [z_t, z_(t+k) - z_t] (B, T-k, A)."""
+        [z_t, z_(t+k) - z_t] (B, T-k, A). With a grid, from [CLS]'s z."""
+        z = self.cls(z)
         head = self.inverse if span == 1 else self.inverse_long[str(span)]
         pairs = torch.cat((z[:, :-span], z[:, span:]-z[:, :-span]), dim=-1)
         return head(pairs.flatten(0, 1)).unflatten(0, (z.size(0), -1))
@@ -390,7 +449,7 @@ def body_motion(poses, span):
 
 
 def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight=0., generator=None, poses=None,
-           motion_weight=0., z=None):
+           motion_weight=0., z=None, grid_weight=1.):
     """The training objective on windows of `history + rollout_steps` frames (rollout_steps >= 1).
 
     pixels (B, T, 3, H, W) normalised, actions (B, T-1, A); or, with `pixels` None, the frames' z (B, T, D) already
@@ -405,16 +464,28 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight
       against the mean action block across it;
     - `motion` (motion_weight > 0, with `poses` (B, T, 3)): the same weighted mean of the MSE of the body-frame motion
       over each span, decoded from [z_t, z_(t+k) - z_t] and scaled by k x `MOTION_SCALE_PER_STEP`.
+
+    With a grid (P4b), `pred`, `rollout` and the inverse and motion terms are [CLS]'s; `grid_pred` and `grid_rollout`
+    are the same MSE over the grid tokens, weighted by `grid_weight`; `sigreg` is the mean of [CLS]'s and the grid's
+    (each grid position at each time step a separate set of samples).
     """
-    n = model.config.history
+    n, grid, cls = model.config.history, bool(model.config.grid), model.cls
     z = model.encode(pixels) if z is None else z
     pred = model.predict(z[:, :n], actions[:, :n])
-    terms = dict(pred=(pred-z[:, 1:n+1]).pow(2).mean())
+    terms = dict(pred=(cls(pred)-cls(z[:, 1:n+1])).pow(2).mean())
+    if grid:
+        terms['grid_pred'] = (pred[:, :, 1:]-z[:, 1:n+1, 1:]).pow(2).mean()
     if rollout_steps > 1:
         rolled = model.rollout(z[:, :n], actions, rollout_steps)
-        terms['rollout'] = (rolled-z[:, n:n+rollout_steps]).pow(2).mean()
-    terms['sigreg'] = sigreg(z.float().transpose(0, 1), generator)
+        terms['rollout'] = (cls(rolled)-cls(z[:, n:n+rollout_steps])).pow(2).mean()
+        if grid:
+            terms['grid_rollout'] = (rolled[:, :, 1:]-z[:, n:n+rollout_steps, 1:]).pow(2).mean()
+    terms['sigreg'] = sigreg(cls(z).float().transpose(0, 1), generator)
+    if grid:
+        terms['sigreg'] = (terms['sigreg']+sigreg(z[:, :, 1:].float().flatten(1, 2).transpose(0, 1), generator))/2
     terms['loss'] = terms['pred']+terms.get('rollout', 0.)+lam*terms['sigreg']
+    if grid:
+        terms['loss'] = terms['loss']+grid_weight*(terms['grid_pred']+terms.get('grid_rollout', 0.))
     if inverse_weight:
         sums = torch.cat((torch.zeros_like(actions[:, :1]), actions.cumsum(1)), dim=1)
         spans = [int(k) for k in model.config.inverse_spans]
@@ -426,9 +497,10 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight
         spans = [int(k) for k in model.config.inverse_spans]
         weights = [float(w) for w in model.config.inverse_span_weights] or [1.]*len(spans)
         scale = torch.tensor(MOTION_SCALE_PER_STEP, device=z.device)
+        zc = cls(z)
         def term(k):
-            pairs = torch.cat((z[:, :-k], z[:, k:]-z[:, :-k]), dim=-1)
-            decoded = model.motion[str(k)](pairs.flatten(0, 1)).unflatten(0, (z.size(0), -1))
+            pairs = torch.cat((zc[:, :-k], zc[:, k:]-zc[:, :-k]), dim=-1)
+            decoded = model.motion[str(k)](pairs.flatten(0, 1)).unflatten(0, (zc.size(0), -1))
             return (decoded-body_motion(poses.float(), k)/(k*scale)).pow(2).mean()
         terms['motion'] = sum(w*term(k) for k, w in zip(spans, weights))/sum(weights)
         terms['loss'] = terms['loss']+motion_weight*terms['motion']
@@ -443,6 +515,7 @@ def load_world_model(path, device='cpu'):
     state = torch.load(path, map_location='cpu', weights_only=False)
     config = dict(state['config'])
     config['image_hw'] = tuple(config['image_hw'])
+    config['grid'] = tuple(config.get('grid', ()))
     model = LeWorldModel(LeWMConfig(**config))
     model.load_state_dict(state['model_state_dict'])
     return model.to(device).eval().requires_grad_(False)

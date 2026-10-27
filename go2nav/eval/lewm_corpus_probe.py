@@ -78,7 +78,7 @@ def unit_data(model, root, units, index, u, dev, cmean, cstd):
         x = torch.from_numpy(np.ascontiguousarray(frames[s:s+1024])).to(dev, non_blocking=True)
         with torch.autocast('cuda', dtype=torch.bfloat16):
             zs.append(model.encode(normalise_frames(x)[:, None])[:, 0].float())
-    z = torch.cat(zs)
+    z = torch.cat(zs)                                                          # (n, D), or (n, 1+G, D) with a grid
     starts = index['start'][index['unit'] == u]
     t = starts+3
     targets = body_motion(steps['pose'], t[:, None], t[:, None]+np.asarray(HS))
@@ -94,7 +94,8 @@ def unit_data(model, root, units, index, u, dev, cmean, cstd):
     for s in range(0, len(tt), 2048):
         with torch.autocast('cuda', dtype=torch.bfloat16):
             rolled.append(model.rollout(zh[s:s+2048], acts[s:s+2048], 8).float())
-    rolled = torch.cat(rolled)[:, [h-1 for h in HS]]                         # (w, 2, D)
+    rolled = model.cls(torch.cat(rolled))[:, [h-1 for h in HS]]              # (w, 2, D), [CLS]'s with a grid
+    zh, zf = model.cls(zh), model.cls(zf)
     tapes = torch.stack([tape[tt+k] for k in range(8)], 1)                    # (w, 8, C)
     return dict(zh=zh.cpu(), zf=zf.cpu(), zr=rolled.cpu(), past=hist[tt].cpu(), tape=tapes.cpu(),
                 y=torch.from_numpy(targets.astype(np.float32)),                # y (w, 2, 3)

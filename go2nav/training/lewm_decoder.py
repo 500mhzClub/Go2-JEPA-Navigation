@@ -75,7 +75,8 @@ class _Frames(torch.utils.data.Dataset):
 
 
 class LatentCache:
-    """frames.f16 (frames, D), rollout.f16 (contexts, 8, D), frames.json, meta.json."""
+    """frames.f16 (frames, D), rollout.f16 (contexts, 8, D), frames.json, meta.json. With a grid world model (P4b)
+    these hold [CLS]'s z, and frames_state.f16 (frames, 1+G, D) the whole states the rollouts start from."""
 
     def __init__(self, folder, contexts):
         self.folder, self.contexts = Path(folder), contexts
@@ -108,27 +109,35 @@ class LatentCache:
         out.mkdir(parents=True, exist_ok=True)
         model = load_world_model(world_model, device)
         latent, dim = model.config.latent, model.config.command_dim
+        state = (model.config.tokens, latent) if model.config.grid else (latent,)
         axes = COMMAND_AXES[dim]
         names = sorted({f for c in contexts for f in neighbours(c['frames'][2])+neighbours(c['frames'][2], future=8)})
         row = {n: i for i, n in enumerate(names)}
         started = time.time()
         if not (out/'frames.done').exists():
             store = np.memmap(out/'frames.f16', dtype=np.float16, mode='w+', shape=(len(names), latent))
+            full = np.memmap(out/'frames_state.f16', dtype=np.float16, mode='w+', shape=(len(names), *state)) \
+                if model.config.grid else None
             loader = torch.utils.data.DataLoader(_Frames(names, roots), batch_size=batch, num_workers=workers, pin_memory=True,
                                                  prefetch_factor=4)
             done = 0
             for frames in loader:
                 with torch.autocast(torch.device(device).type, dtype=torch.bfloat16):
                     z = model.encode(normalise_frames(frames.to(device, non_blocking=True))[:, None])[:, 0]
-                store[done:done+len(frames)] = z.float().cpu().numpy()
+                store[done:done+len(frames)] = model.cls(z).float().cpu().numpy()
+                if full is not None:
+                    full[done:done+len(frames)] = z.float().cpu().numpy()
                 done += len(frames)
             store.flush()
+            if full is not None:
+                full.flush()
             (out/'frames.json').write_text(json.dumps(names)+'\n')
             (out/'frames.done').touch()
             print(json.dumps(dict(frames=len(names), wall_s=round(time.time()-started))), flush=True)
         if not (out/'rollout.done').exists():
-            z_all = torch.from_numpy(np.asarray(np.memmap(out/'frames.f16', dtype=np.float16, mode='r', shape=(len(names), latent)),
-                                                np.float32)).to(device)
+            source = out/('frames_state.f16' if model.config.grid else 'frames.f16')
+            z_all = np.memmap(source, dtype=np.float16, mode='r', shape=(len(names), *state))
+            z_all = torch.from_numpy(np.asarray(z_all, np.float32)).to(device)
             mean, std = (torch.as_tensor(v, device=device) for v in control_stats(dim))
             store = np.memmap(out/'rollout.f16', dtype=np.float16, mode='w+', shape=(len(contexts), 8, latent))
             for start in range(0, len(contexts), batch):
@@ -139,7 +148,7 @@ class LatentCache:
                 commands = (torch.cat((past, tape), 1)-mean)/std                       # (B, 11, command_dim)
                 actions = commands[:, :, None].expand(-1, -1, 5, -1).flatten(2)       # each tick's command, five times
                 with torch.autocast(torch.device(device).type, dtype=torch.bfloat16):
-                    store[start:start+len(part)] = model.rollout(z, actions, 8).float().cpu().numpy()
+                    store[start:start+len(part)] = model.cls(model.rollout(z, actions, 8)).float().cpu().numpy()
             store.flush()
             (out/'meta.json').write_text(json.dumps(dict(world_model=str(world_model), world_model_sha256=sha256_file(world_model),
                                                          latent=latent, command_dim=dim, contexts=len(contexts),

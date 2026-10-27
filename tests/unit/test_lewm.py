@@ -36,7 +36,7 @@ def test_predictor_is_causal():
         torch.nn.init.normal_(block.adaLN_modulation[-1].weight, std=.1)
     z, actions = torch.randn(2, 4, 32), torch.randn(2, 4, 10)
     later = z.clone()
-    later[:, 3] += 1.
+    later[:, 3] += torch.randn(2, 32)  # not a constant: the LayerNorms remove a uniform shift
     a, b = model.predict(z, actions), model.predict(later, actions)
     assert torch.allclose(a[:, :3], b[:, :3]) and not torch.allclose(a[:, 3], b[:, 3])
 
@@ -187,3 +187,44 @@ def test_c6_takes_the_world_models_command_components_and_round_trips(tmp_path, 
     torch.save(dict(c5=c5.state_dict(), c6=c6.state_dict(), latent=8, target_mean=torch.zeros(3),
                     target_scale=torch.ones(3), **({'command_dim': 3} if command_dim == 3 else {})), tmp_path/'fit.pt')
     assert load_heads(tmp_path/'fit.pt')[1].command_dim == command_dim
+
+
+def test_the_grid_state_pools_the_patches_and_its_predictor_is_block_causal(tmp_path):
+    model = LeWorldModel.seeded(4, small(grid=(3, 4), inverse_dynamics=True)).eval()
+    assert model.config.tokens == 13 and not hasattr(LeWorldModel.seeded(4, small()).predictor, 'space_embedding')
+    pixels = normalise_frames(torch.randint(0, 255, (2, 4, 168, 224, 3), dtype=torch.uint8))
+    z = model.encode(pixels)
+    assert z.shape == (2, 4, 13, 32) and model.cls(z).shape == (2, 4, 32)
+    tokens = model.encoder.tokens(pixels[:, 0])
+    pooled = tokens[:, 1:].reshape(2, 3, 4, 4, 4, 48).mean((2, 4)).reshape(2, 12, 48)  # 4 x 4 blocks of patches
+    assert torch.allclose(z[:, 0, 1:], model.grid_projector(pooled.flatten(0, 1)).unflatten(0, (2, 12)), atol=1e-5)
+    assert torch.allclose(z[:, 0, 0], model.projector(tokens[:, 0]), atol=1e-5)
+    for block in model.predictor.layers:
+        torch.nn.init.normal_(block.adaLN_modulation[-1].weight, std=.1)
+    actions = torch.randn(2, 4, 10)
+    later = z.clone()
+    later[:, 3, 5] += torch.randn(2, 32)                                  # one grid token of the last frame
+    a, b = model.predict(z, actions), model.predict(later, actions)
+    assert a.shape == (2, 4, 13, 32)
+    assert torch.allclose(a[:, :3], b[:, :3]) and not torch.allclose(a[:, 3], b[:, 3])
+    assert not torch.allclose(a[:, 3, 0], b[:, 3, 0])                       # [CLS] sees its own frame's grid
+    rolled = model.rollout(z, torch.randn(2, 4-1+3, 10), 3)
+    assert rolled.shape == (2, 3, 13, 32)
+    assert model.infer_actions(z).shape == (2, 3, 10)                      # inverse dynamics on [CLS]
+    save_world_model(tmp_path/'g.pt', model)
+    loaded = load_world_model(tmp_path/'g.pt')
+    assert loaded.config.grid == (3, 4) and torch.allclose(loaded.encode(pixels), z, atol=1e-5)
+
+
+def test_grid_losses_train_both_parts_and_keep_the_cls_terms():
+    model = LeWorldModel.seeded(5, small(grid=(3, 4))).train()
+    pixels = normalise_frames(torch.randint(0, 255, (4, 6, 168, 224, 3), dtype=torch.uint8))
+    actions = torch.randn(4, 5, 10)
+    terms = losses(model, pixels, actions, rollout_steps=2, sigreg=SIGReg(num_proj=32), lam=.09,
+                   generator=torch.Generator().manual_seed(0), grid_weight=.5)
+    assert {'pred', 'rollout', 'grid_pred', 'grid_rollout', 'sigreg'} <= set(terms) and torch.isfinite(terms['loss'])
+    expected = terms['pred']+terms['rollout']+.09*terms['sigreg']+.5*(terms['grid_pred']+terms['grid_rollout'])
+    assert torch.allclose(terms['loss'], expected)
+    terms['grid_rollout'].backward()
+    assert model.grid_projector.net[0].weight.grad.abs().sum() > 0 and model.predictor.space_embedding.grad is not None
+    assert model.encoder.patch_embed.weight.grad.abs().sum() > 0

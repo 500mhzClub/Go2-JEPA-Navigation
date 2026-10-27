@@ -313,12 +313,14 @@ def usable(steps, t):
 def lewm_features(model, root, data, device):
     """Per window of `data` (labels): `zh` (W, history, D) z of frames t-3..t, `true` (W, len(HORIZONS), D) and, per
     tape of `TAPES`, the rollout to each horizon (W, len(HORIZONS), D), as float16; and `ok` (W,) the usable windows
-    (`usable`; the others are zeros)."""
+    (`usable`; the others are zeros). With a grid (P4b), D is the whole state's: [CLS] and the grid tokens,
+    flattened."""
     import torch
     from go2nav.models.lewm import action_blocks, control_stats, normalise_frames
     root, H, n = Path(root), np.asarray(HORIZONS), model.config.history
     cmean, cstd = control_stats(model.config.command_dim)
-    D, W = model.config.latent, len(data['t'])
+    state = (model.config.tokens, model.config.latent) if model.config.grid else (model.config.latent,)
+    D, W = math.prod(state), len(data['t'])
     out = dict(zh=torch.zeros(W, n, D, dtype=torch.float16), true=torch.zeros(W, len(H), D, dtype=torch.float16),
                **{tape: torch.zeros(W, len(H), D, dtype=torch.float16) for tape in TAPES},
                ok=torch.zeros(W, dtype=bool))
@@ -337,7 +339,7 @@ def lewm_features(model, root, data, device):
                 continue
             needed = np.unique(np.concatenate([t[:, None]+np.arange(1-n, 1), t[:, None]+H], 1))
             frames = np.load(folder/'frames.npy', mmap_mode='r')
-            z = torch.zeros(len(frames), D, device=device)
+            z = torch.zeros(len(frames), *state, device=device)
             for s in range(0, len(needed), 512):
                 chunk = needed[s:s+512]
                 x = torch.from_numpy(np.ascontiguousarray(frames[chunk])).to(device)
@@ -351,12 +353,12 @@ def lewm_features(model, root, data, device):
             for name, command in CONTRAST.items():
                 tape = np.stack([contrast_tape(command, previous, H[-1]) for previous in data['previous'][rows]])
                 tapes[name] = action_blocks(tape, cmean, cstd).to(device)
-            out['zh'][rows] = zh.half().cpu()
-            out['true'][rows] = torch.stack([z[tt+h] for h in H], 1).half().cpu()
+            out['zh'][rows] = zh.flatten(2).half().cpu()
+            out['true'][rows] = torch.stack([z[tt+h] for h in H], 1).flatten(2).half().cpu()
             for name, tape in tapes.items():
                 with autocast():
                     rolled = model.rollout(zh, torch.cat((past, tape), 1), int(H[-1])).float()
-                out[name][rows] = rolled[:, H-1].half().cpu()
+                out[name][rows] = rolled[:, H-1].flatten(2).half().cpu()
             out['ok'][rows] = True
     return out
 

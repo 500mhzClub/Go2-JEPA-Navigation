@@ -75,7 +75,8 @@ def load_config(path, overrides=()):
 def model_config(config):
     m = config['model']
     return LeWMConfig.named(m.get('size', 'tiny'), history=m['history'],
-                            **{k: tuple(v) if k == 'image_hw' else v for k, v in m.items() if k not in ('size', 'history')})
+                            **{k: tuple(v) if k in ('image_hw', 'grid') else v for k, v in m.items()
+                               if k not in ('size', 'history')})
 
 
 def keyed_seed(*keys):
@@ -104,12 +105,14 @@ def zero_command_actions(actions, corpus):
 
 @torch.no_grad()
 def validate(model, corpus, indices, *, rollout_steps, device, seed=VALIDATION_SEED, batch=128):
-    """Validation metrics on the windows `indices` of `corpus` (see the module docstring)."""
+    """Validation metrics on the windows `indices` of `corpus` (see the module docstring). With a grid, every metric
+    is [CLS]'s, plus the grid tokens' rollout and persistence errors by step."""
     was_training = model.training
     model.eval()
-    n, k = model.config.history, rollout_steps
+    n, k, grid, cls = model.config.history, rollout_steps, bool(model.config.grid), model.cls
     sums, count, zs = defaultdict(float), 0, []
-    per_step = {name: np.zeros(k) for name in ('rollout', 'shuffled', 'zero', 'persistence')}
+    per_step = {name: np.zeros(k) for name in ('rollout', 'shuffled', 'zero', 'persistence')
+                + (('grid_rollout', 'grid_persistence') if grid else ())}
     sigreg = SIGReg().to(device)
     generator = torch.Generator(device=device).manual_seed(seed)
     shuffle = torch.Generator().manual_seed(seed)
@@ -129,12 +132,16 @@ def validate(model, corpus, indices, *, rollout_steps, device, seed=VALIDATION_S
             variants['zero'] = zeroed
             for name, acts in variants.items():
                 rolled = model.rollout(z[:, :n], acts, k).float()
-                per_step[name] += (rolled-target).pow(2).mean(-1).sum(0).cpu().numpy()
-        per_step['persistence'] += (z[:, n-1:n]-target).pow(2).mean(-1).sum(0).cpu().numpy()
+                per_step[name] += (cls(rolled)-cls(target)).pow(2).mean(-1).sum(0).cpu().numpy()
+                if grid and name == 'rollout':
+                    per_step['grid_rollout'] += (rolled-target)[:, :, 1:].pow(2).mean((-2, -1)).sum(0).cpu().numpy()
+        per_step['persistence'] += (cls(z[:, n-1:n])-cls(target)).pow(2).mean(-1).sum(0).cpu().numpy()
+        if grid:
+            per_step['grid_persistence'] += (z[:, n-1:n]-target)[:, :, 1:].pow(2).mean((-2, -1)).sum(0).cpu().numpy()
         b = len(frames)
-        sums['pred'] += float((pred-z[:, 1:n+1]).pow(2).mean())*b
-        sums['sigreg'] += float(sigreg(z.transpose(0, 1), generator))*b
-        zs.append(z[:, n-1].cpu())
+        sums['pred'] += float((cls(pred)-cls(z[:, 1:n+1])).pow(2).mean())*b
+        sums['sigreg'] += float(sigreg(cls(z).transpose(0, 1), generator))*b
+        zs.append(cls(z[:, n-1]).cpu())
         count += b
     z = torch.cat(zs).double()
     eig = torch.linalg.eigvalsh(torch.cov(z.T)).clamp(min=0)
@@ -223,7 +230,7 @@ def train(config, corpus_root, out, *, device='cuda:0'):
         with torch.autocast(device.type, dtype=torch.bfloat16):
             terms = loss_fn(model, normalise_frames(frames), actions, rollout_steps=objective['rollout_steps'],
                             sigreg=sigreg, lam=objective['sigreg_weight'], inverse_weight=inverse_weight, generator=generator,
-                            poses=poses, motion_weight=motion_weight)
+                            poses=poses, motion_weight=motion_weight, grid_weight=objective.get('grid_weight', 1.))
         optimiser.zero_grad(set_to_none=True)
         if not torch.isfinite(terms['loss']):
             nonfinite += 1
