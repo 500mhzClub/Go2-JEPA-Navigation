@@ -166,6 +166,17 @@ def test_action_blocks_take_lateral_only_with_three_component_statistics():
     assert three.shape[-1] == 15 and torch.allclose(three[0, :3], torch.tensor([.2, .1, .3]))
 
 
+
+@pytest.mark.parametrize('command_dim', [2, 3])
+def test_zero_command_baseline_matches_the_action_blocks(command_dim):
+    from types import SimpleNamespace
+    from go2nav.models.lewm import action_blocks
+    from go2nav.training.lewm import zero_command_actions
+    mean, std = np.arange(1, command_dim+1, dtype=np.float32)/10, np.full(command_dim, .5, np.float32)
+    zero = action_blocks(torch.zeros(4, 8, 5, 3), mean, std)
+    assert torch.equal(zero_command_actions(torch.ones_like(zero), SimpleNamespace(mean=mean, std=std)), zero)
+
+
 @pytest.mark.parametrize('command_dim', [2, 3])
 def test_c6_takes_the_world_models_command_components_and_round_trips(tmp_path, command_dim):
     from go2nav.models.lewm import LatentDirectPredictor, LatentMotionDecoder, load_heads

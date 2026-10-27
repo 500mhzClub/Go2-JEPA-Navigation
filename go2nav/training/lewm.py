@@ -99,7 +99,7 @@ def atomic_save(value, path):
 def zero_command_actions(actions, corpus):
     """Action blocks of zero commands, normalised like the corpus's."""
     zero = torch.as_tensor(-corpus.mean/corpus.std, dtype=actions.dtype, device=actions.device)
-    return zero.repeat(actions.shape[-1]//2).expand_as(actions)
+    return zero.repeat(actions.shape[-1]//len(zero)).expand_as(actions)
 
 
 @torch.no_grad()
