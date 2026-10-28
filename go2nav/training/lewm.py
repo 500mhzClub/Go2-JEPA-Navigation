@@ -26,6 +26,8 @@ the last checkpoint with the same data stream, and metrics.jsonl is cut back to 
 training GPU also drives the display, and running it out of memory crashed the desktop session.
 `runtime.checkpoint_blocks` (the first n ViT blocks) and `runtime.checkpoint_predictor` recompute activations in the
 backward pass instead of storing them: the same gradients for more compute (the grid model needs both at batch 128).
+`runtime.compile_scope: encoder` compiles only the ViT blocks: compiled, the grid predictor's backward corrupts other
+gradients from batch 64 on this machine (the projectors' gradients reach 1e5-1e6 against about 1 eagerly).
 
 **Validation** (every `validate_every` steps, at the end, and `evaluate`), on fixed windows of the validation mazes
 (explore, mission and free units) and, separately, the transfer units (the held-out look):
@@ -215,7 +217,12 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     if first >= optim['steps'] and (out/'lewm.pt').exists():
         return out/'lewm.pt'
 
-    loss_fn = torch.compile(losses, mode=runtime['compile']) if runtime.get('compile') else losses
+    if runtime.get('compile_scope') == 'encoder':  # only the ViT blocks compiled; the rest runs eagerly
+        for block in model.encoder.blocks:
+            block.compile(mode=runtime['compile'])
+        loss_fn = losses
+    else:
+        loss_fn = torch.compile(losses, mode=runtime['compile']) if runtime.get('compile') else losses
     action_blind = objective.get('action_blind', False)
     loader = torch.utils.data.DataLoader(
         WindowBatches(corpus, seed=seed, first=first, last=optim['steps'], mazes_per_batch=data['mazes_per_batch'],
