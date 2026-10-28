@@ -24,6 +24,8 @@ the last checkpoint with the same data stream, and metrics.jsonl is cut back to 
 
 `runtime.memory_fraction` (default 0.85) caps this process's share of GPU memory: on the development machine the
 training GPU also drives the display, and running it out of memory crashed the desktop session.
+`runtime.checkpoint_blocks` (the first n ViT blocks) and `runtime.checkpoint_predictor` recompute activations in the
+backward pass instead of storing them: the same gradients for more compute (the grid model needs both at batch 128).
 
 **Validation** (every `validate_every` steps, at the end, and `evaluate`), on fixed windows of the validation mazes
 (explore, mission and free units) and, separately, the transfer units (the held-out look):
@@ -192,6 +194,7 @@ def train(config, corpus_root, out, *, device='cuda:0'):
         raise ValueError('objective.inverse_weight > 0 and model.inverse_dynamics go together')
     model = LeWorldModel.seeded(seed, mconfig).to(device).train()
     model.predictor.checkpoint = bool(runtime.get('checkpoint_predictor'))
+    model.encoder.checkpoint_blocks = runtime.get('checkpoint_blocks', 0)
     sigreg = SIGReg(knots=objective.get('sigreg_knots', 17), num_proj=objective['sigreg_projections']).to(device)
     optimiser = torch.optim.AdamW(model.parameters(), lr=optim['lr'], weight_decay=optim['weight_decay'], fused=True)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(optim['warmup_steps'], optim['steps']))
