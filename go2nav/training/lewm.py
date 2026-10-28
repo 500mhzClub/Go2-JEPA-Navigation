@@ -191,6 +191,7 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     if bool(inverse_weight) != mconfig.inverse_dynamics:
         raise ValueError('objective.inverse_weight > 0 and model.inverse_dynamics go together')
     model = LeWorldModel.seeded(seed, mconfig).to(device).train()
+    model.predictor.checkpoint = bool(runtime.get('checkpoint_predictor'))
     sigreg = SIGReg(knots=objective.get('sigreg_knots', 17), num_proj=objective['sigreg_projections']).to(device)
     optimiser = torch.optim.AdamW(model.parameters(), lr=optim['lr'], weight_decay=optim['weight_decay'], fused=True)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(optim['warmup_steps'], optim['steps']))

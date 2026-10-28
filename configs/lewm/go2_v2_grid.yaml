@@ -10,4 +10,4 @@ objective: {rollout_steps: 8, sigreg_weight: 0.08, sigreg_projections: 1024, sig
             inverse_weight: 100., grid_weight: 1.}
 optimiser: {lr: 5.0e-5, weight_decay: 1.0e-3, warmup_steps: 2000, steps: 60000, grad_clip: 1.0}
 runtime: {compile: max-autotune-no-cudagraphs, workers: 10, prefetch: 2, log_every: 100, validate_every: 5000,
-          checkpoint_every: 1000, milestone_every: 10000}
+          checkpoint_every: 1000, milestone_every: 10000, checkpoint_predictor: true}

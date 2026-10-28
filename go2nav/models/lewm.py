@@ -40,6 +40,7 @@ import numpy as np
 from PIL import Image
 import torch
 from torch import nn
+import torch.utils.checkpoint
 from torch.nn import functional as F
 
 from go2nav.models.norm import LayerNorm
@@ -296,7 +297,9 @@ class ARPredictor(nn.Module):
 
     With `tokens` > 1 (the grid), z is (B, T, tokens, D): a spatial embedding is added to the temporal one, every token
     of a frame is conditioned on that frame's action, and attention is block-causal (a token sees every token of its
-    own frame and of the earlier ones). Returns (B, T, tokens, D)."""
+    own frame and of the earlier ones). Returns (B, T, tokens, D). `checkpoint` (set by the trainer) recomputes each
+    block's activations in the backward pass instead of keeping them: the grid's 13 tokens a frame over an 8-step
+    rollout do not fit at batch 128 otherwise."""
 
     def __init__(self, *, num_frames, depth, heads, dim_head, mlp_dim, dim, dropout=0., tokens=1):
         super().__init__()
@@ -305,12 +308,18 @@ class ARPredictor(nn.Module):
             self.space_embedding = nn.Parameter(torch.randn(1, 1, tokens, dim))
         self.layers = nn.ModuleList(ConditionalBlock(dim, heads, dim_head, mlp_dim, dropout) for _ in range(depth))
         self.norm = LayerNorm(dim)
+        self.checkpoint = False
+
+    def run(self, block, *args):
+        if self.checkpoint and torch.is_grad_enabled():
+            return torch.utils.checkpoint.checkpoint(block, *args, use_reentrant=False)
+        return block(*args)
 
     def forward(self, x, c):
         if x.dim() == 3:
             x = x+self.pos_embedding[:, :x.size(1)]
             for block in self.layers:
-                x = block(x, c)
+                x = self.run(block, x, c)
             return self.norm(x)
         b, t, s, _ = x.shape
         x = (x+self.pos_embedding[:, :t, None]+self.space_embedding).flatten(1, 2)
@@ -318,7 +327,7 @@ class ARPredictor(nn.Module):
         frame = torch.arange(t, device=x.device).repeat_interleave(s)
         mask = frame[None] <= frame[:, None]
         for block in self.layers:
-            x = block(x, c, mask)
+            x = self.run(block, x, c, mask)
         return self.norm(x).unflatten(1, (t, s))
 
 

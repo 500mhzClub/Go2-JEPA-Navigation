@@ -228,3 +228,15 @@ def test_grid_losses_train_both_parts_and_keep_the_cls_terms():
     terms['grid_rollout'].backward()
     assert model.grid_projector.net[0].weight.grad.abs().sum() > 0 and model.predictor.space_embedding.grad is not None
     assert model.encoder.patch_embed.weight.grad.abs().sum() > 0
+
+
+def test_predictor_checkpointing_keeps_the_gradients():
+    model = LeWorldModel.seeded(5, small(grid=(3, 4))).eval()
+    z, actions = torch.randn(2, 4, 13, model.config.latent), torch.randn(2, 4, 10)
+    grads = []
+    for checkpoint in (False, True):
+        model.zero_grad()
+        model.predictor.checkpoint = checkpoint
+        model.predict(z, actions).square().mean().backward()
+        grads.append([p.grad.clone() for p in model.predictor.parameters()])
+    assert all(torch.allclose(a, b, atol=1e-6) for a, b in zip(*grads))
