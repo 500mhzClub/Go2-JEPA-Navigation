@@ -1,9 +1,10 @@
 """LayerNorm with its own backward pass.
 
-torch 2.12.0+rocm7.2 on the R9700 (gfx1201) returns wrong weight and bias gradients from the fused LayerNorm (and
-RMSNorm) backward kernel from 128 rows up: errors as large as the gradients themselves, varying from run to run at a few
-thousand rows, while the input gradient and the forward pass are right (BatchNorm, GroupNorm and Linear are right too).
-Every LayerNorm's gain and bias trained on that build took a random walk near its initial value instead of learning.
+torch before 2.13 on RDNA (the R9700, gfx1201) never writes the odd-indexed elements of the fused LayerNorm (and
+RMSNorm) backward's weight and bias gradients from 128 rows up: they hold whatever the allocator's memory held, while
+the even elements, the input gradient and the forward pass are right (pytorch/pytorch#199265, fixed by #183864 in
+2.13). Half of every LayerNorm gain and bias trained on torch 2.12.0+rocm7.2 took a random walk near its initial value
+instead of learning.
 
 `LayerNorm` normalises with the plain kernel's forward and computes all three gradients itself, in elementwise ops and
 sums, from the saved input and weight: the memory of the fused op (writing the affine out as autograd ops would keep an
