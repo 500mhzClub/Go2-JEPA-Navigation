@@ -4,6 +4,7 @@ through `models` (`lewm_c5_decoder_and_c6`).
 
     python -m go2nav.training.lewm_heads_v2 WORLD.pt --corpus ROOT --out DIR [--train-units 400] [--val-units 60]
                                             [--transfer-units 20] [--stride 2] [--updates 20000] [--device cpu]
+    python -m go2nav.training.lewm_heads_v2 WORLD.pt --corpus ROOT --out DIR --rescore    # DIR/heads.pt, scored again
 
 T7's decoder contexts (`training.lewm_decoder`) hold the six primitives and no lateral command; the lattice planner
 asks for 25 continuous tapes, which corpus v2 covers. Windows: every `stride`-th window of units drawn with a fixed
@@ -17,8 +18,11 @@ Targets: the body-frame motion from t to t+h, h = 1..8, from the poses. Both hea
 `lewm_corpus_probe`'s (AdamW 3e-4, cosine, batch 512 of (window, horizon) pairs, clip 1), in normalised target units
 (the training targets' mean and spread), over all eight horizons.
 
-Evaluation (`evaluation.json`): per split, at 500 and 800 ms, each head's median XY error and RMS yaw, overall and on
-windows whose tape holds a lateral command or switches at least twice.
+Evaluation (`evaluation.json`): per split, at 500 and 800 ms, each head's median XY error and RMS yaw, overall, on
+windows whose tape holds a lateral command or switches at least twice, on the `moving` ones (the robot travels at
+least `MOVING_M` or turns at least `TURNING_DEG` by that horizon) and the `translating` ones (it travels at least
+`TRANSLATING_M`): most windows hold rests and turns in place, whose near-zero travel flatters the overall median. `--rescore` gathers the evaluation splits again (the same units) and
+scores the saved heads.
 """
 import argparse
 import json
@@ -29,12 +33,15 @@ import numpy as np
 import torch
 
 from go2nav.data.lewm_corpus import body_motion
-from go2nav.models.lewm import (COMMAND_AXES, LatentDirectPredictor, LatentMotionDecoder, control_stats,
+from go2nav.models.lewm import (COMMAND_AXES, LatentDirectPredictor, LatentMotionDecoder, control_stats, load_heads,
                                 load_world_model, normalise_frames)
 from go2nav.training.common import sha256_file
 
 HORIZONS = 8
 REPORTED = (5, 8)
+MOVING_M = .05
+TRANSLATING_M = .1
+TURNING_DEG = 10.
 SEED = 2026102701
 
 
@@ -77,8 +84,9 @@ def unit_windows(model, folder, starts, mean, std, device, batch=512):
                 switching=torch.from_numpy(switches >= 2))
 
 
-def gather(model, root, *, train_units, val_units, transfer_units, stride, device, seed=SEED):
-    """The windows of each split, units drawn as `lewm_corpus_probe` draws them (index_12)."""
+def gather(model, root, *, train_units, val_units, transfer_units, stride, device, seed=SEED,
+           splits=('train', 'val', 'transfer')):
+    """The windows of each of `splits`, units drawn as `lewm_corpus_probe` draws them (index_12)."""
     rng = np.random.default_rng(seed)
     units = json.loads((root/'index_12.json').read_text())['units']
     index = np.load(root/'index_12.npz')
@@ -92,6 +100,8 @@ def gather(model, root, *, train_units, val_units, transfer_units, stride, devic
     mean, std = control_stats(model.config.command_dim)
     data, started = {}, time.time()
     for split, ids in chosen.items():
+        if split not in splits:
+            continue
         parts = [unit_windows(model, root/units[u]['path'], index['start'][index['unit'] == u][::stride], mean, std,
                               device) for u in ids if (index['unit'] == u).any()]
         data[split] = {k: torch.cat([p[k] for p in parts]) for k in parts[0]}
@@ -139,9 +149,11 @@ def evaluate(c5, c6, data):
     out = {}
     for split, d in data.items():
         for h in REPORTED:
-            masks = dict(all=torch.ones(len(d['y']), dtype=bool), lateral=d['lateral'], switching=d['switching'])
-            p5, p6 = predict(c5, c6, d, h)
             y = d['y'][:, h-1]
+            moving = (y[:, :2].norm(dim=1) >= MOVING_M) | (torch.rad2deg(y[:, 2]).abs() >= TURNING_DEG)
+            masks = dict(all=torch.ones(len(d['y']), dtype=bool), lateral=d['lateral'], switching=d['switching'],
+                         moving=moving, translating=y[:, :2].norm(dim=1) >= TRANSLATING_M)
+            p5, p6 = predict(c5, c6, d, h)
             row = {}
             for head, p in (('c5', p5), ('c6', p6)):
                 xy = (p[:, :2]-y[:, :2]).norm(dim=1)*1000
@@ -150,6 +162,7 @@ def evaluate(c5, c6, data):
                                         rmse_yaw_deg=float(yaw[m].pow(2).mean().sqrt()) if m.any() else None)
                              for name, m in masks.items()}
             row['median_true_mm'] = float((y[:, :2].norm(dim=1)*1000).median())
+            row['median_true_moving_mm'] = float((y[moving, :2].norm(dim=1)*1000).median()) if moving.any() else None
             out[f'{split}@{h*100}ms'] = row
     return out
 
@@ -165,9 +178,18 @@ def main():
     p.add_argument('--stride', type=int, default=2)
     p.add_argument('--updates', type=int, default=20000)
     p.add_argument('--device', default='cpu')
+    p.add_argument('--rescore', action='store_true', help='score DIR/heads.pt again on the evaluation splits')
     a = p.parse_args()
     torch.manual_seed(SEED)
     model = load_world_model(a.world, a.device)
+    if a.rescore:
+        c5, c6 = load_heads(a.out/'heads.pt')
+        data, _ = gather(model, a.corpus, train_units=a.train_units, val_units=a.val_units,
+                         transfer_units=a.transfer_units, stride=a.stride, device=a.device, splits=('val', 'transfer'))
+        evaluation = evaluate(c5, c6, data)
+        (a.out/'evaluation.json').write_text(json.dumps(evaluation, indent=1)+'\n')
+        print(json.dumps({k: {h: v[h]['moving']['median_xy_mm'] for h in ('c5', 'c6')} for k, v in evaluation.items()}))
+        return
     data, chosen = gather(model, a.corpus, train_units=a.train_units, val_units=a.val_units,
                           transfer_units=a.transfer_units, stride=a.stride, device=a.device)
     c5, c6, mean, scale = fit(data, model.config.latent, model.config.command_dim, updates=a.updates)
