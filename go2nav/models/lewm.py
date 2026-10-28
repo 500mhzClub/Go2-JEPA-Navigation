@@ -42,6 +42,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from go2nav.models.norm import LayerNorm
+
 FRAME_SIZE = (224, 168)  # (width, height) of the encoder input
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
@@ -135,10 +137,10 @@ class ViTBlock(nn.Module):
     def __init__(self, width, heads, mlp):
         super().__init__()
         self.heads = heads
-        self.norm1 = nn.LayerNorm(width, eps=1e-12)
+        self.norm1 = LayerNorm(width, eps=1e-12)
         self.qkv = nn.Linear(width, 3*width)
         self.proj = nn.Linear(width, width)
-        self.norm2 = nn.LayerNorm(width, eps=1e-12)
+        self.norm2 = LayerNorm(width, eps=1e-12)
         self.mlp = nn.Sequential(nn.Linear(width, mlp), nn.GELU(), nn.Linear(mlp, width))
 
     def forward(self, x):
@@ -170,7 +172,7 @@ class ViTEncoder(nn.Module):
         self.cls_token = nn.Parameter(torch.zeros(1, 1, config.width))
         self.position = nn.Parameter(torch.zeros(1, 1+(h//config.patch)*(w//config.patch), config.width))
         self.blocks = nn.ModuleList(ViTBlock(config.width, config.heads, config.mlp) for _ in range(config.depth))
-        self.norm = nn.LayerNorm(config.width, eps=1e-12)
+        self.norm = LayerNorm(config.width, eps=1e-12)
         self.apply(self._init)
         nn.init.trunc_normal_(self.cls_token, std=.02)
         nn.init.trunc_normal_(self.position, std=.02)
@@ -243,7 +245,7 @@ class SIGReg(nn.Module):
 class FeedForward(nn.Module):
     def __init__(self, dim, hidden_dim, dropout=0.):
         super().__init__()
-        self.net = nn.Sequential(nn.LayerNorm(dim), nn.Linear(dim, hidden_dim), nn.GELU(), nn.Dropout(dropout),
+        self.net = nn.Sequential(LayerNorm(dim), nn.Linear(dim, hidden_dim), nn.GELU(), nn.Dropout(dropout),
                                  nn.Linear(hidden_dim, dim), nn.Dropout(dropout))
 
     def forward(self, x):
@@ -257,23 +259,16 @@ class Attention(nn.Module):
         super().__init__()
         inner = dim_head*heads
         self.heads, self.dropout = heads, dropout
-        self.norm = nn.LayerNorm(dim)
+        self.norm = LayerNorm(dim)
         self.to_qkv = nn.Linear(dim, inner*3, bias=False)
         self.to_out = nn.Sequential(nn.Linear(inner, dim), nn.Dropout(dropout))
 
     def forward(self, x, causal=True, mask=None):
-        """`mask` (n, n) bool, True where a query may attend, replaces the causal mask (the grid's block-causal one).
-        Masked attention is written out: ROCm's masked SDPA kernels read out of bounds (hipErrorIllegalAddress, NaN
-        gradients), and at the grid's 52 tokens the explicit form costs little."""
+        """`mask` (n, n) bool, True where a query may attend, replaces the causal mask (the grid's block-causal one)."""
         b, n, _ = x.shape
         q, k, v = (t.reshape(b, n, self.heads, -1).transpose(1, 2) for t in self.to_qkv(self.norm(x)).chunk(3, dim=-1))
-        if mask is None:
-            out = F.scaled_dot_product_attention(q, k, v, dropout_p=self.dropout if self.training else 0.,
-                                                 is_causal=causal)
-        else:
-            scores = (q@k.transpose(-2, -1)).float()*q.size(-1)**-.5
-            weights = scores.masked_fill(~mask, float('-inf')).softmax(-1).to(v.dtype)
-            out = F.dropout(weights, self.dropout, self.training)@v
+        out = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=self.dropout if self.training else 0.,
+                                             is_causal=causal and mask is None)
         return self.to_out(out.transpose(1, 2).reshape(b, n, -1))
 
 
@@ -309,7 +304,7 @@ class ARPredictor(nn.Module):
         if tokens > 1:  # absent from [CLS]-only models, so their checkpoints load unchanged
             self.space_embedding = nn.Parameter(torch.randn(1, 1, tokens, dim))
         self.layers = nn.ModuleList(ConditionalBlock(dim, heads, dim_head, mlp_dim, dropout) for _ in range(depth))
-        self.norm = nn.LayerNorm(dim)
+        self.norm = LayerNorm(dim)
 
     def forward(self, x, c):
         if x.dim() == 3:
