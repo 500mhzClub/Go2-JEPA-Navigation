@@ -3,8 +3,12 @@
 torch before 2.13 on RDNA (the R9700, gfx1201) never writes the odd-indexed elements of the fused LayerNorm (and
 RMSNorm) backward's weight and bias gradients from 128 rows up: they hold whatever the allocator's memory held, while
 the even elements, the input gradient and the forward pass are right (pytorch/pytorch#199265, fixed by #183864 in
-2.13). Half of every LayerNorm gain and bias trained on torch 2.12.0+rocm7.2 took a random walk near its initial value
-instead of learning.
+2.13). torch.compile's own kernels are right, so the compiled trainers (LeWM, H-JEPA) were not affected: their
+checkpoints show no odd/even difference. Eagerly trained LayerNorms were (the T1-T4 predictors' final norm: odd gains
+four times as far from 1 as even ones), as is any eager GPU gradient check.
+
+Cost: under torch.compile none (0.20 ms against 0.21 for a forward and backward of 32,768 x 192); eager, about 2.3 times
+the fused op's time for this layer alone.
 
 `LayerNorm` normalises with the plain kernel's forward and computes all three gradients itself, in elementwise ops and
 sums, from the saved input and weight: the memory of the fused op (writing the affine out as autograd ops would keep an
