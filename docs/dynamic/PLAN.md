@@ -239,6 +239,49 @@ go2_v2's cost per candidate (the encoder runs once per decision). This is measur
 
 **H-JEPA** stays on [CLS] until the grid model passes; then its upper levels can read the pooled grid.
 
+### P4c. Frozen-target grid LeWM (approved 29 October, after the grid model failed the mover gate)
+
+**Why.** The grid LeWM fails the gate as go2_v2 does (STATUS, P4b). Its encoder still holds the mover (its patch
+tokens pooled to 3 x 4 localise at 0.156 m), but its grid projector writes one frame-wide signal into every cell
+(spread across cells 0.37 before it, 0.12 after), and the cells lose the mover (0.228 m). This is the failure
+Sobal et al. (2022, arXiv 2211.10831) predicted for JEPAs with variance-style regularisers: features that differ
+between episodes and are predictable over time (layout, texture, the robot's own motion) fill SIGReg's quota at no
+prediction cost, so a small, partly random walker only costs error and is dropped. SIGReg is per cell, so nothing
+stops the cells sharing that code. Any loss on a learned target can be met by removing the information; the remedies
+that worked in the literature use a target the model cannot change (pixels or depth in object masks, frozen
+features as in DINO-WM, arXiv 2411.04983), a discriminative constraint, or object slots.
+
+**Model** (`configs/lewm/go2_v2_frozen_grid.yaml`; everything not listed is go2_v2_grid's):
+- **Encoder:** go2_v2's ViT and [CLS] projector, loaded from its checkpoint and frozen (eval mode, no gradients):
+  the state's [CLS] is go2_v2's z exactly.
+- **Grid:** go2_v2's patch tokens average-pooled to 3 x 4, with no grid projector (`grid_projector: false`). Frozen,
+  they localise the mover at 0.132 m with the patch head (STATUS, P4b), so the target holds it by construction.
+- **Loss:** the teacher-forced and 8-step rollout MSE on [CLS] and on the grid, weight 1 each. No SIGReg and no
+  inverse dynamics: nothing upstream of the predictor trains, so neither can act. Only the predictor, the action
+  encoder and the two output projectors learn.
+- Same seed, data stream and schedule as go2_v2_grid.
+
+**Compute.** No encoder backward pass and no encoder checkpointing: a 30-minute smoke run measures throughput and
+memory first; expected about 0.4-0.5 s/step, **6-8 h** for 60k steps.
+
+**Probe and gates** (set before the model is scored):
+- The mover gate and its pass marks are unchanged. The ridge and MLP heads on the flattened state stay as they are.
+- **Grid readout (new, alongside):** the patch head (`mover_ceiling`'s convolutional head and training) on the 3 x 4
+  grid tokens of frames t-3..t plus the state at t+h, true or rolled out under the executed, hold and advance tapes,
+  predicting the mover's position at t (h = 0) and its displacement to t+h. It is scored as the probe's heads,
+  including the response test. A grid model passes a measure if either readout passes it; both are reported.
+- The same readout is scored on go2_v2_grid (final) for comparison.
+- L1-L4 on [CLS] cannot regress: [CLS] is go2_v2's encoder; the rollouts are scored as usual.
+
+**What this does not fix.** Velocity: no frozen per-frame representation reaches the mark (go2_v2's raw 12 x 16
+patch tokens 0.079 against 0.126). If the rollouts still miss velocity and the response test, the next steps are,
+in order:
+1. The movers' positions as a training-only auxiliary target per grid cell, from corpus v2's `dynamic.npz` (the
+   probe then partly measures that supervision; the transfer split and the response test carry the evidence).
+2. Motion in the encoder's input (two-frame tubelets or a frame-difference channel).
+
+Depth supervision (arXiv 2607.16314, on LeWM) would need depth images re-rendered for corpus v2, which stored RGB only.
+
 ### P5. Planning over continuous commands
 
 1. **Command representation.** A command tape with a derived category replaces the action names, so the harness rules

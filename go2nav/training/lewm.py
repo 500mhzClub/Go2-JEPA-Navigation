@@ -28,6 +28,9 @@ training GPU also drives the display, and running it out of memory crashed the d
 backward pass instead of storing them: the same gradients for more compute (the grid model needs both at batch 128).
 `runtime.compile_scope: encoder` compiles only the ViT blocks: compiled, the grid predictor's backward corrupts other
 gradients from batch 64 on this machine (the projectors' gradients reach 1e5-1e6 against about 1 eagerly).
+`init_encoder` (a checkpoint, repository-relative) loads another world model's encoder and [CLS] projector before
+training; with `model.frozen_encoder` they never train (P4c: `go2_v2_frozen_grid.yaml`, go2_v2's encoder as a fixed
+target, with `model.grid_projector: false`, `sigreg_weight: 0` and no inverse dynamics).
 
 **Validation** (every `validate_every` steps, at the end, and `evaluate`), on fixed windows of the validation mazes
 (explore, mission and free units) and, separately, the transfer units (the held-out look):
@@ -195,6 +198,16 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     if bool(inverse_weight) != mconfig.inverse_dynamics:
         raise ValueError('objective.inverse_weight > 0 and model.inverse_dynamics go together')
     model = LeWorldModel.seeded(seed, mconfig).to(device).train()
+    parents = []
+    if config.get('init_encoder'):  # P4c: another world model's encoder and [CLS] projector (frozen with model.frozen_encoder)
+        source = Path(config['init_encoder'])
+        source = source if source.is_absolute() else REPO/source
+        weights = torch.load(source, map_location='cpu', weights_only=False)['model_state_dict']
+        weights = {k: v for k, v in weights.items() if k.split('.')[0] in ('encoder', 'projector')}
+        missing, unexpected = model.load_state_dict(weights, strict=False)
+        if unexpected or any(k.split('.')[0] in ('encoder', 'projector') for k in missing):
+            raise ValueError(f'{source} does not match the encoder and projector: {unexpected or missing}')
+        parents.append(dict(file=str(config['init_encoder']), sha256=sha256_file(source)))
     model.predictor.checkpoint = bool(runtime.get('checkpoint_predictor'))
     model.encoder.checkpoint_blocks = runtime.get('checkpoint_blocks', 0)
     sigreg = SIGReg(knots=objective.get('sigreg_knots', 17), num_proj=objective['sigreg_projections']).to(device)
@@ -292,7 +305,7 @@ def train(config, corpus_root, out, *, device='cuda:0'):
                       transfer=validate(model, transfer, transfer_indices, rollout_steps=EVAL_STEPS, device=device))
     (out/'evaluation.json').write_text(json.dumps(evaluation, indent=1)+'\n')
     index = Path(corpus_root)/f'index_{length}.npz'
-    write_lineage(out, component='lewm_world_model', seed=seed, config=config, parents=[],
+    write_lineage(out, component='lewm_world_model', seed=seed, config=config, parents=parents,
                   data=dict(corpus=str(corpus_root), index=index.name, index_sha256=sha256_file(index), windows=len(corpus),
                             mazes=int(len(corpus.mazes)), skipped_steps=skipped),
                   checkpoint=final, metrics=evaluation)

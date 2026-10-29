@@ -79,6 +79,8 @@ class LeWMConfig:
     inverse_span_weights: tuple = ()  # relative weights of those spans in the inverse term (empty: equal)
     motion_dynamics: bool = False   # also decode the body-frame motion over each span (privileged poses; a variant)
     grid: tuple = ()                # (rows, cols): the state also holds the patch tokens pooled to this grid (P4b)
+    grid_projector: bool = True     # False: the grid tokens are the pooled patch tokens themselves (P4c; width = latent)
+    frozen_encoder: bool = False    # the encoder and [CLS] projector never train and stay in eval mode (P4c)
 
     @property
     def action_dim(self):
@@ -373,7 +375,10 @@ class LeWorldModel(nn.Module):
             rows, cols = (size//config.patch for size in config.image_hw)
             if rows % config.grid[0] or cols % config.grid[1]:
                 raise ValueError(f'the grid must divide the {rows} x {cols} patches')
-            self.grid_projector = MLP(config.width, config.projector_hidden, config.latent)
+            if config.grid_projector:
+                self.grid_projector = MLP(config.width, config.projector_hidden, config.latent)
+            elif config.width != config.latent:
+                raise ValueError('without a grid projector the patch tokens are the grid state: width must equal latent')
             self.grid_pred_proj = MLP(config.latent, config.projector_hidden, config.latent)
         self.inverse = MLP(2*config.latent, config.projector_hidden, config.action_dim) if config.inverse_dynamics else None
         longer = [int(k) for k in config.inverse_spans if int(k) > 1] if config.inverse_dynamics else []
@@ -383,6 +388,17 @@ class LeWorldModel(nn.Module):
         if config.motion_dynamics:
             self.motion = nn.ModuleDict({str(int(k)): MLP(2*config.latent, config.projector_hidden, 3)
                                          for k in config.inverse_spans})
+        if config.frozen_encoder:
+            self.encoder.requires_grad_(False)
+            self.projector.requires_grad_(False)
+
+    def train(self, mode=True):
+        """As nn.Module.train; a frozen encoder and its [CLS] projector stay in eval mode (BatchNorm's statistics)."""
+        super().train(mode)
+        if self.config.frozen_encoder:
+            self.encoder.eval()
+            self.projector.eval()
+        return self
 
     @classmethod
     def seeded(cls, seed, config=LeWMConfig()):
@@ -391,15 +407,16 @@ class LeWorldModel(nn.Module):
 
     def encode(self, pixels):
         """Normalised frames (B, T, 3, H, W) to the state: z (B, T, D), or with a grid (B, T, 1+G, D), [CLS]'s z then
-        the grid tokens in row-major order (the patch tokens average-pooled to the grid, each through `grid_projector`).
-        `cls` takes [CLS]'s z from either."""
+        the grid tokens in row-major order (the patch tokens average-pooled to the grid, each through `grid_projector`,
+        or as they are without one). `cls` takes [CLS]'s z from either."""
         b = pixels.size(0)
         if not self.config.grid:
             return self.projector(self.encoder(pixels.flatten(0, 1))).unflatten(0, (b, -1))
         tokens = self.encoder.tokens(pixels.flatten(0, 1))
         (rows, cols), (gr, gc) = (size//self.config.patch for size in self.config.image_hw), self.config.grid
         pooled = tokens[:, 1:].reshape(len(tokens), gr, rows//gr, gc, cols//gc, -1).mean((2, 4)).flatten(1, 2)
-        grid = self.grid_projector(pooled.flatten(0, 1)).unflatten(0, pooled.shape[:2])
+        grid = self.grid_projector(pooled.flatten(0, 1)).unflatten(0, pooled.shape[:2]) if self.config.grid_projector \
+            else pooled
         return torch.cat((self.projector(tokens[:, 0])[:, None], grid), 1).unflatten(0, (b, -1))
 
     def cls(self, z):

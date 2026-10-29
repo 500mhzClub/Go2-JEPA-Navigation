@@ -230,6 +230,30 @@ def test_grid_losses_train_both_parts_and_keep_the_cls_terms():
     assert model.encoder.patch_embed.weight.grad.abs().sum() > 0
 
 
+def test_a_frozen_encoder_with_no_grid_projector_is_a_fixed_target(tmp_path):
+    config = small(width=32, grid=(3, 4), grid_projector=False, frozen_encoder=True)
+    model = LeWorldModel.seeded(6, config).train()
+    assert not hasattr(model, 'grid_projector') and not model.encoder.training and not model.projector.training
+    pixels = normalise_frames(torch.randint(0, 255, (4, 6, 168, 224, 3), dtype=torch.uint8))
+    z = model.encode(pixels)
+    tokens = model.encoder.tokens(pixels[:, 0])
+    assert torch.equal(z[:, 0, 1:], tokens[:, 1:].reshape(4, 3, 4, 4, 4, 32).mean((2, 4)).reshape(4, 12, 32))
+    assert not z.requires_grad                                               # no graph through the encoder
+    frozen = {k: v.clone() for k, v in model.state_dict().items() if k.split('.')[0] in ('encoder', 'projector')}
+    optimiser = torch.optim.AdamW(model.parameters(), lr=1e-2, weight_decay=.1)
+    terms = losses(model, pixels, torch.randn(4, 5, 10), rollout_steps=2, sigreg=SIGReg(num_proj=32), lam=0.,
+                   generator=torch.Generator().manual_seed(0))
+    terms['loss'].backward()
+    optimiser.step()
+    assert all(torch.equal(model.state_dict()[k], v) for k, v in frozen.items())  # weights and BatchNorm statistics
+    assert model.predictor.space_embedding.grad is not None
+    save_world_model(tmp_path/'f.pt', model)
+    loaded = load_world_model(tmp_path/'f.pt')
+    assert not loaded.config.grid_projector and torch.allclose(loaded.encode(pixels), model.encode(pixels), atol=1e-5)
+    with pytest.raises(ValueError):
+        LeWorldModel(small(grid=(3, 4), grid_projector=False))                 # width 48 against latent 32
+
+
 def test_predictor_checkpointing_keeps_the_gradients():
     model = LeWorldModel.seeded(5, small(grid=(3, 4))).eval()
     z, actions = torch.randn(2, 4, 13, model.config.latent), torch.randn(2, 4, 10)
