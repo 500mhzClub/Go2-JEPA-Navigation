@@ -5,12 +5,13 @@ tokens, beside the probe's ridge and MLP heads on the flattened state.
 
 **Inputs:** the latents `mover_probe probe` cached in PROBE_DIR (features_{train,eval}.pt) for a grid world model.
 Per window, the grid tokens of frames t-3..t, and for h > 0 also the state at t+h: the true one (`true`, the
-encoder ceiling) or the rollout (`rollout`, trained on the executed tape's and applied to the executed, hold and
-advance tapes'), as the probe's heads. **Head:** `mover_ceiling.patch_network` (its convolutional head, one input
-frame per token frame) predicting the mover's position at t (h = 0) or its displacement to t+h, trained as the
+encoder ceiling) or the rollout (`rollout`, trained on the executed tape's and applied to the executed, hold,
+advance and retreat tapes'), as the probe's heads. **Head:** `mover_ceiling.patch_network` (its convolutional head,
+one input frame per token frame) predicting the mover's position at t (h = 0) or its displacement to t+h, trained as the
 patch-token probe (`patches_go2_v2`): `EPOCHS` epochs, dropout and weight decay as below, the epoch with the lowest
 loss on a tenth of the training units held out. **Scores:** `mover_probe.score` and, for the rollouts,
-`mover_probe.response`, in PROBE_DIR/results_grid.json under the heads `patch_true` and `patch_rollout`.
+`mover_probe.response` and `mover_probe.give_way`, in PROBE_DIR/results_grid.json under the heads `patch_true` and
+`patch_rollout`.
 """
 import argparse
 import copy
@@ -116,6 +117,7 @@ def readout(probe_dir, world_model, train, evaluation, *, device='cpu', threads=
                 entry = dict(horizon_s=0. if j is None else mp.HORIZONS[j]/10, **mp.score(deval, reval[m], p[key][m], j))
                 if source == 'rollout':
                     entry['response'] = mp.response(deval, reval[m], p['hold'][m], p['advance'][m], j)
+                    entry['give_way'] = mp.give_way(deval, reval[m], {t: v[m] for t, v in p.items()}, j)
                 rows_out[s].append(entry)
             results['heads'][f'patch_{source}'] = rows_out
             (probe_dir/'results_grid.json').write_text(json.dumps(results, indent=1)+'\n')

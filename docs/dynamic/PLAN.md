@@ -314,6 +314,34 @@ window. **Only the encoder's state is supervised:** the predictor and its rollou
 
 **Compute:** labels on the CPU (all 4,000 units, in a process pool); training as go2_v2_grid, about 15 h.
 
+### P4e. The give-way gate (declared 29 October, before P4c's and P4d's models are scored)
+
+**Why.** The mover gate checks that a representation holds the movers; it is not a navigation requirement. Its marks
+are relative to the supervised ceiling (velocity skill 0.126 is a median gain of under 2 cm over persistence at
+0.8 s), it pools medians over every distance to 5 m, and its baselines are not what lv2 already has. The module
+oracles (STATUS, failure analysis) found that true futures of every mover change nothing for lv2 (49 against 49,
+4 / 4), since lv2 already predicts tracks at constant velocity; the limit is the give-way decision (hold, back off,
+or take another way) with a mover near and ahead. A world model can add only what constant velocity cannot: how a
+mover responds to the robot's choice.
+
+**Test** (`mover_probe.give_way`, both readouts' rollout heads, the probe's evaluation windows):
+- **Windows:** the mover at t within 1.5 m, ahead (x > 0) and within 0.75 m of the path (|y|), with a
+  counterfactual.
+- **Tapes:** hold, advance (0.3 m/s) and a new retreat tape (-0.10 m/s, the lattice's reverse), through the same
+  rate limits; the truth from `branch` (the walkers against a kinematic robot), as the response test.
+- **Contrasts:** retreat minus hold, and advance minus hold, of the mover's position at 1.6 s and 3.2 s; the model's
+  from its rollouts under each tape, read by the rollout heads.
+- **Scores:** the AUC of the predicted contrast's size for whether the true one exceeds 5 cm (the mover responds to
+  the choice), with a 95% interval over units; and the contrast's R2. lv2's constant velocity has no contrast: AUC
+  0.5, R2 0.
+
+**Pass** (beats lv2's assumption where the decision is made): for the retreat contrast at 1.6 s and at 3.2 s, the
+AUC's 95% interval above 0.5 and R2 above 0, on the validation and the transfer windows, by either readout. The
+advance contrast is reported. Missions stay the final verdict; this gate chooses which models earn them.
+
+The validation labels are regenerated with the retreat tape (the windows and every other label unchanged); models
+already probed are re-scored on their evaluation latents with the new tape.
+
 ### P5. Planning over continuous commands
 
 1. **Command representation.** A command tape with a derived category replaces the action names, so the harness rules

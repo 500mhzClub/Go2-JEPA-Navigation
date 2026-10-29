@@ -21,8 +21,9 @@ hide. Labels, all from the simulator's records (never a model input):
 2-ms physics step. `replay` runs each unit's walkers from their placement against the recorded poses (interpolated
 between the 100-ms frames) and checks them against the recorded positions; frames up to the first one off by more than
 `REPLAY_TOLERANCE_M` replay. From a replayed t, `branch` runs the walkers on against a kinematic robot under a command
-tape (the contrast tapes `CONTRAST`: hold still, advance at 0.3 m/s), executed through the continuous safety block's
-rate limits from the command executed before t, translations stopping short of walls and obstacles. The difference
+tape (the contrast tapes `CONTRAST`: hold still, advance at 0.3 m/s, retreat at 0.1 m/s), executed through the
+continuous safety block's rate limits from the command executed before t, translations stopping short of walls and
+obstacles. The difference
 between the mover's positions under advance and hold is how much it responds to the robot (`response`); 0 where it
 cannot sense the robot. The same branch under the executed tape (`cf_executed`) measures the kinematic robot's error
 against the recorded future.
@@ -48,6 +49,10 @@ draws of units), the **spurious response** (the median predicted response where 
 the robot's own motion under the advance tape as the mover's), and `r2`, 1 - the summed squared error of the predicted
 response over the summed squared true response, over all the windows with a counterfactual (below 0: the predicted
 responses are more noise than signal).
+**Give-way test** (`give_way`, the rollout heads; PLAN P4e): on the windows whose mover is near and ahead
+(`give_way_windows`), whether the predicted contrast of retreating (and advancing) against holding finds the movers
+that respond to it (`auc`, 95% interval from unit bootstrap draws) and how much of it it explains (`r2`); lv2's
+constant-velocity prediction has no contrast (AUC 0.5, R2 0).
 """
 import argparse
 import copy
@@ -69,12 +74,14 @@ HORIZONS = (4, 8, 16, 32)          # frames of 100 ms: level 1 reaches 0.8 s, th
 VELOCITY_FRAMES = 4                # constant velocity over the last 0.4 s
 SUBSTEPS, PHYSICS_DT_S = 50, .002  # walker steps per frame
 REPLAY_TOLERANCE_M = .01
-CONTRAST = dict(hold=(0., 0., 0.), advance=(.3, 0., 0.))
+CONTRAST = dict(hold=(0., 0., 0.), advance=(.3, 0., 0.), retreat=(-.1, 0., 0.))  # retreat: the lattice's reverse
 EVENT_M = .05                      # a mover's motion changes (`events`), or it responds to the robot (`responsive`)
 WALL_STAND_OFF_M = .25             # a kinematic translation stops this far from a wall (the body is 0.24 m wide)
 CAMERA_X_M = .326                  # the primary camera, ahead of the body origin
 HALF_FOV_RAD = math.radians(78.323/2)
 MAX_VIEW_M = 5.
+GIVE_WAY_M, GIVE_WAY_HALF_WIDTH_M = 1.5, .75  # give-way windows: a mover this near, ahead, this close to the path
+GIVE_WAY_CONTRASTS = ('retreat', 'advance')
 
 
 def body_frame(pose, xy):
@@ -217,7 +224,7 @@ def unit_labels(args):
     error, states = replay(spec, placement, pose, recorded, keep={t for t, _ in rows})
     replays = np.cumsum(error > REPLAY_TOLERANCE_M) == 0          # every frame up to here replayed
     out = {key: [] for key in ('t', 'mover', 'xy_t', 'target', 'persistence', 'constant_velocity', 'waiting',
-                               'moving', 'previous', 'replayed', 'cf_executed', 'cf_hold', 'cf_advance')}
+                               'moving', 'previous', 'replayed', 'cf_executed', *(f'cf_{c}' for c in CONTRAST))}
     for t, k in rows:
         p = pose[t]
         velocity = (recorded[t, k]-recorded[t-VELOCITY_FRAMES, k])/(VELOCITY_FRAMES*.1)
@@ -550,6 +557,50 @@ def response(data, rows, hold, advance, j):
     return out
 
 
+def give_way_windows(data, rows):
+    """Whether each window's mover is near and ahead at t (`GIVE_WAY_M`, within `GIVE_WAY_HALF_WIDTH_M` of the path):
+    the situations in which the robot chooses between holding, backing off and going on."""
+    xy = data['xy_t'][rows]
+    return (xy[:, 0] > 0) & (np.abs(xy[:, 1]) < GIVE_WAY_HALF_WIDTH_M) & (np.linalg.norm(xy, axis=-1) < GIVE_WAY_M)
+
+
+def auc(score, label):
+    """The probability that a positive's score exceeds a negative's (ties count half); 0.5 without both classes."""
+    positives, negatives = score[label], score[~label]
+    if not len(positives) or not len(negatives):
+        return .5
+    order = np.argsort(np.concatenate([positives, negatives]), kind='stable')
+    ranks = np.empty(len(order))
+    ranks[order] = np.arange(1, len(order)+1)
+    values = np.concatenate([positives, negatives])
+    for v in np.unique(values):                        # average ranks over ties
+        tied = values == v
+        ranks[tied] = ranks[tied].mean()
+    return float((ranks[:len(positives)].sum()-len(positives)*(len(positives)+1)/2)/(len(positives)*len(negatives)))
+
+
+def give_way(data, rows, predicted, j):
+    """The give-way test (see the module docstring) at horizon index j, from a rollout head's predictions per tape
+    {tape: (n, 2)}: on the give-way windows with a counterfactual, for each of `GIVE_WAY_CONTRASTS` against hold, the
+    true contrast (the mover's position under that tape minus under hold) against the predicted one: `auc` of the
+    predicted contrast's size for whether the true one exceeds `EVENT_M` (95% interval over units), and `r2`. Constant
+    velocity, lv2's prediction, ignores the robot: its contrast is 0, so its AUC is 0.5 and its R2 0."""
+    near = give_way_windows(data, rows) & ~np.isnan(data['cf_hold'][rows, j, 0])
+    out, groups = dict(windows=int(near.sum())), data['unit'][rows][near]
+    for c in GIVE_WAY_CONTRASTS:
+        true = (data[f'cf_{c}'][rows, j]-data['cf_hold'][rows, j])[near]
+        guess = (predicted[c]-predicted['hold'])[near]
+        label, score = np.linalg.norm(true, axis=-1) > EVENT_M, np.linalg.norm(guess, axis=-1)
+        entry = dict(responsive=int(label.sum()))
+        if near.any():
+            entry['r2'] = round(1-float(((guess-true)**2).sum())/max(float((true**2).sum()), 1e-12), 3)
+        if label.sum() >= 10 and (~label).sum() >= 10:
+            entry['auc'] = round(auc(score, label), 3)
+            entry['auc_95'] = bootstrap(groups, lambda i: auc(score[i], label[i]))
+        out[c] = entry
+    return out
+
+
 def kinds(data):
     """Each window's split: `transfer` for transfer units, else `val`."""
     kind = np.array([str(u).rsplit('_', 1)[-1] for u in data['units']])[data['unit']]
@@ -605,6 +656,7 @@ def probe(root, world_model, train, evaluation, out, *, updates=UPDATES, device=
                                  **score(deval, reval[m], p[key][m], j))
                     if source == 'rollout' and j is not None:
                         entry['response'] = response(deval, reval[m], p['hold'][m], p['advance'][m], j)
+                        entry['give_way'] = give_way(deval, reval[m], {t: v[m] for t, v in p.items()}, j)
                     rows_out[s].append(entry)
             results['heads'][f'{head}_{source}'] = rows_out
             (out/'results.json').write_text(json.dumps(results, indent=1)+'\n')

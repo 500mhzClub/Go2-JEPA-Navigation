@@ -96,3 +96,22 @@ def test_heads_and_the_response_gain():
     noisy = .5*true+.01*rng.normal(size=true.shape)
     low, high = mp.bootstrap(np.arange(100) % 10, lambda i: mp.gain(noisy[i], true[i]))
     assert low < .5 < high
+
+
+def test_auc_and_the_give_way_test():
+    rng = np.random.default_rng(1)
+    label = rng.random(400) < .3
+    assert mp.auc(label+rng.normal(0, .01, 400), label) == 1. and mp.auc(np.ones(400), label) == .5
+    assert abs(mp.auc(rng.random(400), label)-.5) < .1
+    n, H = 300, len(mp.HORIZONS)
+    xy = np.stack([rng.uniform(.3, 3., n), rng.uniform(-1.5, 1.5, n)], 1)
+    hold = np.repeat(xy[:, None], H, 1)
+    shift = np.where(rng.random(n) < .4, .3, 0.)[:, None, None]*np.array([1., 0.])  # some movers respond to retreat
+    data = dict(xy_t=xy, cf_hold=hold, cf_retreat=hold+shift, cf_advance=hold.copy(), unit=np.arange(n) % 30)
+    rows = np.arange(n)
+    near = mp.give_way_windows(data, rows)
+    assert near.any() and (np.linalg.norm(xy[near], axis=1) < mp.GIVE_WAY_M).all() and (xy[near, 0] > 0).all()
+    perfect = mp.give_way(data, rows, dict(hold=hold[:, 1], retreat=(hold+shift)[:, 1], advance=hold[:, 1]), 1)
+    assert perfect['windows'] == near.sum() and perfect['retreat']['r2'] == 1. and perfect['retreat']['auc'] == 1.
+    blind = mp.give_way(data, rows, dict(hold=hold[:, 1], retreat=hold[:, 1], advance=hold[:, 1]), 1)
+    assert blind['retreat']['r2'] == 0. and blind['retreat']['auc'] == .5    # constant velocity: no contrast
