@@ -352,6 +352,48 @@ the 0.3-s ceiling. If the 0.3-s ceiling itself fails the pass mark, a 4-frame mo
 its predictor, and the next model change is the history (a longer context or a recurrent state), not the objective;
 if the 3-s ceiling passes and the 0.3-s one does not, that is the measured case for it.
 
+**Ceiling result and the bar** (29 October). The 0.3-s ceiling passes (retreat AUC 0.87 [0.81, 0.92] validation,
+0.85 transfer at 1.6 s; R2 0.61 / 0.32), and 3 s adds little: history is not the limit. A mover stopped for the robot
+responds to a retreat in 85-97% of windows, a moving one in 15-42%, so a one-line rule (the mover near and ahead is
+still) scores AUC 0.80 / 0.77. Raising the bar to the rule was considered and not adopted (approved 29 October): a
+lower bound above 0.80 is about the privileged ceiling's own, and the rule has no magnitude or timing. The bar stays
+at 0.5; each model's gate report carries the rule's AUC beside it, and the rule is tested where it matters, in
+missions (P4f): if lv2 with a give-way rule beats lv2, it becomes the baseline a world model must beat there.
+
+### P4f. The give-way rule in missions, and a give-way top-up of the corpus (approved 29 October)
+
+**Why.** P4c (the frozen-target grid LeWM) keeps the mover (localisation 0.096 m) but fails the give-way gate with
+an inverted ranking (retreat AUC 0.25-0.40 on validation): its rollouts carry movers' current motion on and leave
+still ones still. In corpus v2, when a mover waits for the robot near and ahead (24.6k training windows), the robot
+holds or turns in place in 93% of the next 1.6 s, backs off in 4.3% and advances in 2.3%: the predictor has rarely
+seen a waiting mover answer a retreat. Two follow-ups, one per side of the comparison:
+
+1. **lv2 with a give-way rule** (`configs/experiments/give_way_probe.yaml`, `planner.give_way`). A confirmed track
+   standing still within 1.5 m ahead (within 0.75 m of the heading) while the selection does not advance makes the
+   robot back off at 0.10 m/s, with the scripted backup's checks (observed floor, 0.40 m of stored clearance), until
+   it is 1.3 m away, moves or is lost (at most 8 steps; then 10 plans without the rule; 3 back-offs per track).
+   Validation mazes 10-29, episodes 0 and 1: static and one and two movers, paired with lv2; and with mover trails on,
+   one and two movers, paired with the trail probe's lattice cohorts (their residual is the mover in view on the only
+   path). 200 missions. One probe round, like the trail probe: it asks whether the decision the module oracles named
+   yields to a hand rule. If it wins, lv2 with the rule is frozen as the mission baseline (held-out run as P2b) before
+   any world model is compared in missions.
+2. **A give-way top-up of corpus v2** (`lewm_corpus_v2`, kind `giveway`): one free unit per training maze (1,200,
+   600 frames each), with two to four movers, driven by `GiveWayDriver`: encounters weighted to 65%, each two to four
+   decisions while the mover stays in sight (approach to 0.6-1.1 m, wait 0.3-2 s, then retreat at -0.10 m/s 40%,
+   advance 25%, hold 25%, turn away 10%), under the free driver's stand-off rule. Then P4c retrained on corpus v2
+   plus the top-up (`go2_v2_frozen_giveway`: the same seed, frozen encoder, model and schedule; only
+   `data.train_kinds` differs), probed and read out as P4c, and scored on the mover and give-way gates.
+   - **Gate on the data first:** among the top-up's give-way windows with a mover waiting, the share followed by a
+     retreat within 1.6 s at least 25% (against 4.3%).
+   - **Compute:** collection about 5 h on the CPU (rendering on the R9700, after P4d's training), training about 6 h
+     on the GPU, probe and readout about 4 h on the CPU.
+
+**What the outcomes mean.** If the retrained model passes the give-way gate, the predictor learns the reaction once
+the data contain it: the path is data that exercises the decision, not a new objective. If it still fails with an
+inverted ranking, the predictor's prior (carry motion on) wins even with the data, and the next step is supervising
+the predicted states (P4d's labels on rollouts). If the rule wins in missions and the model passes too, the model must
+beat lv2 with the rule there.
+
 ### P5. Planning over continuous commands
 
 1. **Command representation.** A command tape with a derived category replaces the action names, so the harness rules

@@ -65,6 +65,7 @@ from go2nav.training.common import sha256_file, write_lineage
 REPO = Path(__file__).resolve().parents[2]
 VALIDATION_WINDOWS, TRANSFER_WINDOWS, VALIDATION_SEED = 2048, 1024, 2026101702
 EVAL_STEPS = 8  # validation always rolls out the forecaster's 8 steps
+TRAIN_KINDS = ('explore', 'mission', 'free')  # data.train_kinds: corpus v2's give-way units only where named
 MAX_NONFINITE = 20
 MEMORY_FRACTION = .85
 
@@ -192,7 +193,8 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     if bool(mover_weight) != mconfig.mover_head:
         raise ValueError('objective.mover_weight > 0 and model.mover_head go together')
     corpus = Corpus(corpus_root, length=length, roles=tuple(data.get('train_roles', ('lewm_train',))),
-                    poses=bool(motion_weight), command_dim=dim, movers=bool(mover_weight))
+                    kinds=tuple(data.get('train_kinds', TRAIN_KINDS)), poses=bool(motion_weight), command_dim=dim,
+                    movers=bool(mover_weight))
     val_length = mconfig.history+EVAL_STEPS
     validation = Corpus(corpus_root, length=val_length, roles=('lewm_val',), kinds=('explore', 'mission', 'free'),
                         command_dim=dim)

@@ -21,6 +21,11 @@ pool, and seeds keyed by the version as well; a mission unit that reaches an unp
 - **Free driver** (`FreeDriverV2`): v1's segments at the range's speeds and with lateral commands, plus sideways steps
   and **encounters** (when an obstacle is in sight: approach it, wait 1-5 s, then back off, step aside, turn away or
   wait on), under v1's stand-off rule for any direction of travel, with the obstacles as well as the walls.
+- **Give-way units** (`giveway`, a top-up of the training mazes; docs/dynamic/PLAN.md, P4f): free units driven by
+  `GiveWayDriver`, with two to four movers, so that the robot backs off from, advances on and holds before movers
+  waiting for it (in the first collection it held in 93% of those windows, so a world model could not learn how a
+  waiting mover answers a retreat). `collect --kinds giveway --roles lewm_train` collects them; world models take
+  them only if `data.train_kinds` names them.
 - **Moving obstacles** in every unit (`unit_obstacles`): a count drawn from `COUNTS` (weighted to one and two), placed
   as in the missions (`go2nav.sim.obstacles`; the free units' start stands in for home and beacon), and non-polite
   (`polite=False`: they wait at the robot instead of yielding) in `IMPOLITE_SHARE` of the units that have obstacles.
@@ -56,6 +61,10 @@ HARNESS = dict(map_decay='floor', deadlock_escape=True, terminal_burst=True, obs
 AXES = dict(forward=(-.10, 0., .15, .30, .45), lateral=(-.15, 0., .15), yaw=(-.6, -.3, 0., .3, .6))
 LATERAL_SHARE = .75
 COUNTS, COUNT_P = (0, 1, 2, 3, 4), (.15, .30, .30, .15, .10)
+GIVE_WAY_COUNT_P = (0., 0., .3, .4, .3)     # give-way units: two to four movers
+FRAME_CAPS = dict(v1.FRAME_CAPS, giveway=600)
+KINDS = (*v1.KINDS, 'giveway')
+FREE_KINDS = ('free', 'transfer', 'giveway')
 IMPOLITE_SHARE = .2
 MIN_OBSTACLE_PIXELS = 200       # an obstacle counts as in view from this many depth pixels
 NEAR_M, RELATIVE_SPEED_M_S = 1., .05
@@ -82,7 +91,8 @@ def unit_obstacles(spec, home_se2, beacon_xy, maze, kind):
     cells than the drawn count holds as many as it can."""
     from go2nav.sim import obstacles as moving
     rng = np.random.default_rng(unit_seed(maze, kind, 'obstacles'))
-    count, polite = int(rng.choice(COUNTS, p=COUNT_P)), bool(rng.random() >= IMPOLITE_SHARE)
+    weights = GIVE_WAY_COUNT_P if kind == 'giveway' else COUNT_P
+    count, polite = int(rng.choice(COUNTS, p=weights)), bool(rng.random() >= IMPOLITE_SHARE)
     episode = dict(home_se2_world=list(home_se2), beacon_xy_world=list(beacon_xy))
     while count:
         try:
@@ -406,7 +416,47 @@ class FreeDriverV2(v1.FreeDriver):
         return (0., 0., wz if wz else self.blocked_turn)
 
 
-def run_free(spec, recorder, *, cap, seed, meshes, random_look, dynamics):
+class GiveWayDriver(FreeDriverV2):
+    """The give-way units' driver: `FreeDriverV2` with encounters weighted up (`WEIGHTS`), and each encounter two to
+    four give-way decisions while the mover stays in sight: face it, approach at 0.15 or 0.30 m/s to 0.6-1.1 m from its
+    centre, wait 0.3-2 s, then retreat (-0.10 m/s, the lattice's reverse, for 1-3 s; 40%), advance (0.15 or 0.30 m/s for
+    0.5-1.5 s; 25%), hold (1-3 s; 25%) or turn away (10%). The stand-off rule (`admissible`) still applies, so an advance
+    that would close on the mover becomes a turn in place."""
+
+    WEIGHTS = dict(harness=.05, cruise=.15, ou=.05, wall=.05, side=.05, encounter=.65)
+    DECISIONS = dict(retreat=.40, advance=.25, hold=.25, turn=.10)
+
+    def _encounter(self):
+        pose = yield
+        for _ in range(int(self.rng.integers(2, 5))):
+            target = self.in_sight(pose[:2])
+            if target is None:
+                return
+            pose = yield from self._face(pose, math.atan2(target[1]-pose[1], target[0]-pose[0]))
+            speed, stop_at = float(self.rng.choice((.15, .30))), float(self.rng.uniform(.6, 1.1))
+            for _ in range(60):
+                target = self.in_sight(pose[:2])
+                if target is None or np.linalg.norm(target-np.asarray(pose[:2])) < stop_at:
+                    break
+                error = math.atan2(target[1]-pose[1], target[0]-pose[0])-v1.yaw_of(pose)
+                error = math.atan2(math.sin(error), math.cos(error))
+                pose = yield (speed, 0., float(np.clip(2*error, -.45, .45)))
+            for _ in range(int(self.rng.integers(3, 21))):
+                pose = yield (0., 0., 0.)
+            decision = self.rng.choice(list(self.DECISIONS), p=list(self.DECISIONS.values()))
+            if decision == 'retreat':
+                command, ticks = (-.10, 0., 0.), int(self.rng.integers(10, 31))
+            elif decision == 'advance':
+                command, ticks = (float(self.rng.choice((.15, .30))), 0., 0.), int(self.rng.integers(5, 16))
+            elif decision == 'hold':
+                command, ticks = (0., 0., 0.), int(self.rng.integers(10, 31))
+            else:
+                command, ticks = (0., 0., .45 if self.rng.random() < .5 else -.45), int(self.rng.integers(8, 21))
+            for _ in range(ticks):
+                pose = yield command
+
+
+def run_free(spec, recorder, *, cap, seed, meshes, random_look, dynamics, driver=FreeDriverV2):
     from go2nav.controllers.truth import GroundTruth
     from go2nav.sim.session import MissionSession, PhysicalStop
     session = MissionSession(spec, meshes, policy_checkpoint=Path(load_models()['go2_locomotion_policy']),
@@ -414,7 +464,7 @@ def run_free(spec, recorder, *, cap, seed, meshes, random_look, dynamics):
     session.settle()
     truth = GroundTruth(session)
     walkers = session.obstacles.walkers if session.obstacles is not None else []
-    driver = FreeDriverV2(spec, np.random.default_rng(seed+1), movers=lambda: [w.xy for w in walkers])
+    driver = driver(spec, np.random.default_rng(seed+1), movers=lambda: [w.xy for w in walkers])
     segments = []
     try:
         for tick in range(cap*v1.FRAME_STEPS):
@@ -447,7 +497,7 @@ def collect_unit(root, role, maze, kind):
     partial.mkdir(parents=True)
     started, seed = time.monotonic(), unit_seed(maze, kind)
     recorder, segments, look = Recorder(), None, None
-    if kind in ('free', 'transfer'):
+    if kind in FREE_KINDS:
         from go2nav.sim import random_appearance
         spec, _ = episode_spec(v1.SET, maze, 0, root=v1.mazes_root(root))
         spec = v1.free_spec(spec, seed)
@@ -455,13 +505,14 @@ def collect_unit(root, role, maze, kind):
         placement, obstacles = unit_obstacles(spec, spawn, spawn[:2], maze, kind)
         look = random_appearance.sample(unit_seed(maze, kind, 'look'), held_out=kind == 'transfer')
         scene.init_genesis(spec['procedural_seed'])
-        stop, segments = run_free(spec, recorder, cap=v1.FRAME_CAPS[kind], seed=seed, meshes=partial/'meshes',
-                                  random_look=look, dynamics=Dynamics(obstacles=placement) if placement else None)
+        stop, segments = run_free(spec, recorder, cap=FRAME_CAPS[kind], seed=seed, meshes=partial/'meshes',
+                                  random_look=look, dynamics=Dynamics(obstacles=placement) if placement else None,
+                                  driver=GiveWayDriver if kind == 'giveway' else FreeDriverV2)
     else:
         spec, episode = episode_spec(v1.SET, maze, v1.EPISODES[kind], root=v1.mazes_root(root))
         placement, obstacles = unit_obstacles(spec, episode['home_se2_world'], episode['beacon_xy_world'], maze, kind)
         scene.init_genesis(spec['procedural_seed'])
-        stop = run_mission(spec, episode, recorder, cap=v1.FRAME_CAPS[kind],
+        stop = run_mission(spec, episode, recorder, cap=FRAME_CAPS[kind],
                            epsilon=v1.EPSILON if kind == 'explore' else 0., seed=seed, meshes=partial/'meshes',
                            dynamics=Dynamics(obstacles=placement) if placement else None)
     frames, blocks = recorder.save(partial)
@@ -470,7 +521,7 @@ def collect_unit(root, role, maze, kind):
     shutil.rmtree(partial/'meshes', ignore_errors=True)
     meta = dict(schema='go2nav_lewm_corpus_unit.v2', set=v1.SET, role=role, maze=maze, kind=kind, seed=seed,
                 episode=v1.EPISODES.get(kind), recovery=False, epsilon=v1.EPSILON if kind == 'explore' else 0.,
-                frame_cap=v1.FRAME_CAPS[kind], frames=frames, valid_blocks=blocks, physical_stop=stop, look=look,
+                frame_cap=FRAME_CAPS[kind], frames=frames, valid_blocks=blocks, physical_stop=stop, look=look,
                 obstacles=dict(obstacles, placement=placement), start_se2_world=spec['geometry']['spawn_se2_world'],
                 wall_s=round(time.monotonic()-started, 1), code=v1.code_identity(),
                 models={k: str(Path(v).relative_to(REPO)) for k, v in load_models().items()})
@@ -572,13 +623,14 @@ def main():
     c.add_argument('--roles', nargs='+', default=['lewm_val', 'lewm_train'])
     c.add_argument('--mazes', help='maze range A-B (default: every maze of the roles)')
     c.add_argument('--workers', type=int)
+    c.add_argument('--kinds', nargs='+', choices=KINDS, help='collect only these unit kinds (default: each role\'s v1 kinds)')
     c.add_argument('--egl-devices', nargs='+',
                    help='EGL devices for rendering, used in turn (default: EGL_DEVICE_ID, else 0)')
     u = sub.add_parser('unit')
     u.add_argument('root', type=Path)
     u.add_argument('role')
     u.add_argument('maze', type=int)
-    u.add_argument('kind', choices=v1.KINDS)
+    u.add_argument('kind', choices=KINDS)
     i = sub.add_parser('index')
     i.add_argument('root', type=Path)
     i.add_argument('--length', type=int, default=12)
@@ -592,8 +644,9 @@ def main():
         os.environ.setdefault('EGL_DEVICE_ID', '0')
         print(json.dumps(collect_unit(args.root, args.role, args.maze, args.kind)))
     elif args.command == 'collect':
+        role_kinds = {r: tuple(args.kinds) for r in args.roles} if args.kinds else v1.ROLE_KINDS
         sys.exit(1 if v1.collect(args.root, args.roles, mazes=v1.parse_range(args.mazes), workers=args.workers,
-                                 egl_devices=args.egl_devices, module=__spec__.name) else 0)
+                                 egl_devices=args.egl_devices, module=__spec__.name, role_kinds=role_kinds) else 0)
     elif args.command == 'index':
         print(json.dumps(v1.build_index(args.root, length=args.length), indent=1))
     elif args.command == 'audit':

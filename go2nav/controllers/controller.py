@@ -92,7 +92,7 @@ class NavigationController:
                  margin_m=0., unknown=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False,
                  deadlock_escape=False, terminal_burst=False, obstacle_prediction=False, footprint_clearing=False,
                  candidates=ACTIONS, truth=None, pose_oracle=False, map_oracle=None, prediction_oracle=False,
-                 mover_trails=False):
+                 mover_trails=False, give_way=False):
         self.forecaster = forecaster
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
         self.routing_map = RoutingMap(clear_seen_free=bool(map_decay), clear_footprint=footprint_clearing,
@@ -103,10 +103,12 @@ class NavigationController:
                                harness=harness, coverage_fix=coverage_fix, deadlock_escape=deadlock_escape,
                                terminal_burst=terminal_burst,
                                obstacle_prediction='oracle' if prediction_oracle else obstacle_prediction,
-                               candidates=candidates)
+                               candidates=candidates, give_way=give_way)
         self.tracker = ObstacleTracker() if obstacle_prediction and not prediction_oracle else None
         if mover_trails and self.tracker is None:
             raise ValueError('mover trails need the obstacle tracker (obstacle_prediction)')
+        if give_way and self.tracker is None:
+            raise ValueError('the give-way rule needs the obstacle tracker (obstacle_prediction)')
         if (pose_oracle or map_oracle or prediction_oracle) and truth is None:
             raise ValueError('module oracles need the ground truth')
         self.truth, self.pose_oracle, self.prediction_oracle = truth, pose_oracle, prediction_oracle

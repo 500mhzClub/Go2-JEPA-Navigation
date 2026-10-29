@@ -88,3 +88,22 @@ def test_obstacles_count_in_the_stand_off_and_walls_hide_them():
     assert beside._safe((0., 0., 0.), pose(2., 0., 0.)) == (0., .12, 0.)  # step away sideways
     assert driver([(3., 0.)]).in_sight([2., 0.]) is not None
     assert driver([(3., 1.5)]).in_sight([2., 0.]) is None                # beyond the wall at y = 0.65
+
+
+def test_give_way_encounters_decide_after_waiting_before_a_mover_in_sight():
+    walls = [dict(centre_xyz=[2., y, .7], size_xyz=[6., .08, 1.4], yaw_rad=0.) for y in (-.65, .65)]
+    seen = set()
+    for seed in range(12):
+        d = v2.GiveWayDriver(dict(geometry=dict(wall_boxes=walls)), np.random.default_rng(seed), movers=lambda: [(2.55, 0.)])
+        encounter = d._encounter()
+        next(encounter)
+        commands = []
+        try:
+            for _ in range(400):
+                commands.append(encounter.send(pose(2., 0., 0.)))     # the robot stays 0.55 m from the mover
+        except StopIteration:
+            pass
+        assert commands[0] == (0., 0., 0.)                            # already in range: wait, then decide
+        seen |= {c for c in commands if c != (0., 0., 0.)}
+    assert (-.10, 0., 0.) in seen and {(.15, 0., 0.), (.30, 0., 0.)} & seen
+    assert v2.unit_obstacles(LAYOUT, [0., 0., 0.], [0., 0.], 3, 'giveway')[1]['count'] >= 2

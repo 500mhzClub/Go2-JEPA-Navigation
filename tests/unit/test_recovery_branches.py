@@ -117,3 +117,36 @@ def test_a_backup_step_off_observed_floor_ends_the_script():
     planner._request_backup('deadlock_no_clear_turn')
     step = planner._scripted_backup(hold(), open_floor(), np.array([-.99, 0., 0.]), np.eye(3))
     assert 'backup_aborted' in step and step['requested_command'] == [0., 0., 0.] and planner.backup is None
+
+
+def still_track(xy, track_id=0, confirmed=True):
+    from go2nav.perception.tracks import Track
+    track = Track(track_id, frozenset(), 0, history=[(0, np.asarray(xy, float))], motion_updates=2 if confirmed else 0)
+    return track
+
+
+def test_give_way_backs_off_from_a_still_mover_ahead_until_it_is_clear():
+    planner = Planner(arrival_radius_m=.02, give_way=True)
+    planner.tracks = [still_track((1., .2))]
+    steps = []
+    for k in range(3):
+        planner.backup_plan = False
+        steps.append(planner._give_way(hold(), open_floor(), np.array([-.1*k, 0., 0.]), np.eye(3)))
+    assert all(s['requested_command'] == [-.10, 0., 0.] and s['give_way']['step'] == k+1 for k, s in enumerate(steps))
+    planner.tracks = [still_track((1.5, .2))]                         # 1.3 m clear of the robot's last position
+    planner.backup_plan = False
+    done = planner._give_way(hold(), open_floor(), np.array([-.2, 0., 0.]), np.eye(3))
+    assert done['give_way_ended']['reason'] == 'clear' and done['requested_command'] == [0., 0., 0.]
+    assert planner.give_way_cooldown == 10
+
+
+def test_give_way_ignores_unconfirmed_moving_or_sideways_tracks_and_advancing_selections():
+    planner = Planner(arrival_radius_m=.02, give_way=True)
+    moving = still_track((1., 0.), 1)
+    moving.velocity = np.array([-.2, 0.])
+    for tracks in ([still_track((1., 0.), confirmed=False)], [moving], [still_track((1., 1.))], [still_track((-.5, 0.))]):
+        planner.tracks = tracks
+        assert 'give_way' not in planner._give_way(hold(), open_floor(), np.zeros(3), np.eye(3))
+    planner.tracks = [still_track((1., 0.))]
+    advancing = dict(hold(), requested_command=[.15, 0., 0.])
+    assert 'give_way' not in planner._give_way(advancing, open_floor(), np.zeros(3), np.eye(3))
