@@ -600,3 +600,82 @@ same [CLS] latent, so they cannot recover it; they are still probed when H-JEPA 
 
 **Decision (per the gate):** a representation change is proposed (PLAN P4b, a patch-grid LeWM) and P5's hybrid
 is built meanwhile.
+
+## H-JEPA v2, the C5/C6 heads and the hybrid (28 October)
+
+**H-JEPA v2** (`outputs/hjepa/go2_3level_v2`, three levels trained jointly on corpus v2) fails the mover gate as LeWM
+v2 does. Mover probe, validation:
+
+| | Localisation | Velocity skill at 0.8 s | Response R2 at 1.6 / 3.2 s |
+|---|---|---|---|
+| Level 1, step 40k | 0.199 m | 0.074 | |
+| Level 1, final | 0.193 m | 0.087 | -0.78 / -0.45 |
+| Level 2, final | 0.245 m | | about -1.0 |
+| Pass mark | 0.164 m | 0.126 | above 0 |
+
+The response gains rise (0.20-0.28) but the spurious response is as large as the predicted one: the robot's own
+motion is still read as the mover's.
+
+**C5/C6 heads v2** (`training.lewm_heads_v2 --rescore`, de4fed3): the overall medians are flattered by rests and turns in
+place, so the evaluation now also reports the moving and translating windows. On translating windows at 0.8 s, C6
+(the direct head) is off by a median 4 mm (validation) and 6 mm (transfer); C5 (the decoder on rollouts) 21 and 47 mm.
+For comparison, span8w's C5 and C6 were 5.8 and 2.4 mm, H-JEPA v1's 3.8 mm. C5's gap is the rollout, not the decoder.
+
+**P5 hybrid** (`hybrid_development`, lv2's harness with C5 or C6 as the forecaster over the 25-tape lattice;
+validation mazes 10-29, two episodes each), round trips of 40, paired with lv2:
+
+| Setting | lv2 | C5 | C6 |
+|---|---|---|---|
+| Static | 38 | 40 | 38 |
+| One mover | 31 | 31 | 31 |
+| Two movers | 18 | 20 | 13 |
+| Wins / losses against lv2 | | 13 / 9 (sign test p = 0.52) | 7 / 12 (p = 0.36) |
+
+Neither differs from lv2. One contact: C6, maze 15 episode 1, reversing (forward -0.10 m/s, yaw -0.45 rad/s) into a
+walker on its blind right side about 0.58 m away (the rear-right calf).
+
+## Two PyTorch faults on the R9700 (28 October)
+
+- **LayerNorm gradients** (torch 2.12.0+rocm7.2, gfx1201): the fused LayerNorm and RMSNorm backward never writes the
+  odd-indexed weight and bias gradient elements from 128 rows (pytorch/pytorch#199265, fixed in 2.13). Inductor's
+  kernels are right, so the compiled LeWM and H-JEPA runs were unaffected (no odd/even difference in their
+  checkpoints); the eagerly trained T1-T4 predictors' final norm was (odd gains four times as far from 1). `models.norm`
+  computes the gradients itself; checkpoints load unchanged (cd67933, ee377ec). LeWM v2 is not retrained.
+- **Compiled grid backward:** compiling the whole grid loss corrupts gradients from batch 64 (the projectors' 1e5-1e6
+  against about 1 eagerly; the first grid run diverged and was discarded). The compiled grid predictor blocks alone
+  reproduce it; not the LayerNorm, masked attention, dropout or checkpointing. `runtime.compile_scope: encoder`
+  compiles only the ViT blocks (532aa33): eager gradients, 0.89 s/step against 0.71 compiled.
+
+## P4b: the patch-grid LeWM (29 October)
+
+**Training** (`outputs/lewm/go2_v2_grid`, 60k steps, 14:05-05:05): as a world model it is slightly better than LeWM v2.
+Validation rollout error 0.030 at the first step to 0.080 at the eighth (v2 0.032 to 0.092), transfer 0.046 to about
+0.12 (v2 0.050 to 0.13); the grid tokens beat persistence at every step on both splits. Effective rank 17.7 (v2 20.3).
+
+**Mover gate: fails, as LeWM v2.**
+
+| Validation | Pass mark | Grid | LeWM v2 |
+|---|---|---|---|
+| Localisation (MLP head) | 0.164 m | 0.215 m | 0.216 m |
+| Velocity skill at 0.8 s | 0.126 | 0.083 | 0.080 |
+| Response R2 at 1.6 / 3.2 s | above 0 | -0.75 / -0.54 | -0.48 / -0.24 |
+
+**Where the mover is lost.** The patch-token probe's convolutional head (`mover_ceiling --patches` settings: 20 epochs,
+dropout 0.3, weight decay 0.05, epoch selection) on 3 x 4 token stacks; "cell spread" is the standard deviation across
+a frame's 12 cells:
+
+| Frozen input, validation | Localisation | Velocity skill at 0.8 s | Cell spread |
+|---|---|---|---|
+| LeWM v2 encoder, 12 x 16 patch tokens | 0.152 m | 0.079 | |
+| LeWM v2 encoder, pooled to 3 x 4 | 0.132 m | 0.100 | 0.47 |
+| Grid encoder, pooled to 3 x 4 (before the grid projector), final | 0.156 m | 0.082 | 0.37 |
+| Grid tokens (after the grid projector), final | 0.228 m | 0.042 | 0.12 |
+
+- Pooling to 3 x 4 keeps the mover; the grid model's own encoder still holds it (step 20k: 0.161 m).
+- The grid projector loses it: its cells collapse towards one frame-wide signal. SIGReg is already applied to every
+  grid cell (per cell and time step, across the batch), but it does not stop the cells carrying the same content.
+- Velocity is short of the mark in every row, even v2's raw patch tokens: the frozen per-frame encoder does not hold
+  the walkers' motion well enough for this head (the pixel ceiling reaches 0.251).
+
+**Decision pending:** a grid objective that keeps the cells distinct (no grid projector, or SIGReg on each cell's
+difference from the frame mean) would likely bring localisation to the mark, not velocity.
