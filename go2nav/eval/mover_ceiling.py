@@ -149,14 +149,14 @@ def network(height, width, outputs, dropout=0.):
     return Ceiling()
 
 
-def patch_network(rows, columns, width, outputs, dropout=0.):
+def patch_network(rows, columns, width, outputs, dropout=0., frames=HISTORY):
     import torch
     import torch.nn as nn
 
     class PatchHead(nn.Module):
         def __init__(self):
             super().__init__()
-            c = HISTORY*width+2
+            c = frames*width+2
             self.features = nn.Sequential(nn.Conv2d(c, 256, 3, 1, 1), nn.GroupNorm(8, 256), nn.GELU(),
                                           nn.Conv2d(256, 256, 3, 2, 1), nn.GroupNorm(8, 256), nn.GELU())
             n = 256*((rows+1)//2)*((columns+1)//2)
@@ -166,9 +166,9 @@ def patch_network(rows, columns, width, outputs, dropout=0.):
             self.register_buffer('coords', torch.stack((xs, ys))[None])
 
         def forward(self, tokens):
-            """tokens (B, 4, rows, columns, width)."""
+            """tokens (B, frames, rows, columns, width)."""
             b = len(tokens)
-            x = tokens.float().permute(0, 1, 4, 2, 3).reshape(b, HISTORY*width, rows, columns)
+            x = tokens.float().permute(0, 1, 4, 2, 3).reshape(b, frames*width, rows, columns)
             x = torch.cat((x, self.coords.expand(b, -1, -1, -1)), 1)
             return self.head(self.features(x.contiguous(memory_format=torch.channels_last)))
 
