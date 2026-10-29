@@ -378,9 +378,11 @@ seen a waiting mover answer a retreat. Two follow-ups, one per side of the compa
    yields to a hand rule. If it wins, lv2 with the rule is frozen as the mission baseline (held-out run as P2b) before
    any world model is compared in missions.
 2. **A give-way top-up of corpus v2** (`lewm_corpus_v2`, kind `giveway`): one free unit per training maze (1,200,
-   600 frames each), with two to four movers, driven by `GiveWayDriver`: encounters weighted to 65%, each two to four
-   decisions while the mover stays in sight (approach to 0.6-1.1 m, wait 0.3-2 s, then retreat at -0.10 m/s 40%,
-   advance 25%, hold 25%, turn away 10%), under the free driver's stand-off rule. Then P4c retrained on corpus v2
+   600 frames each), with two to four movers (half the units non-polite), driven by `GiveWayDriver`: encounters
+   weighted to 65%, each two to four decisions while the mover stays in sight (approach to 0.6-1.1 m, wait 0.3-1.2 s,
+   then retreat at -0.10 m/s 50%, advance 20%, hold 20%, turn away 10%), under the free driver's stand-off rule. A
+   six-unit pilot at a first setting (wait to 2 s, retreat 40%, a fifth non-polite) put 14% of one unit's waiting
+   windows before a retreat; at this one, 25.7% (advance 12.4%) over 638 waiting windows (pilot units discarded). Then P4c retrained on corpus v2
    plus the top-up (`go2_v2_frozen_giveway`: the same seed, frozen encoder, model and schedule; only
    `data.train_kinds` differs), probed and read out as P4c, and scored on the mover and give-way gates.
    - **Gate on the data first:** among the top-up's give-way windows with a mover waiting, the share followed by a

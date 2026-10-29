@@ -22,7 +22,7 @@ pool, and seeds keyed by the version as well; a mission unit that reaches an unp
   and **encounters** (when an obstacle is in sight: approach it, wait 1-5 s, then back off, step aside, turn away or
   wait on), under v1's stand-off rule for any direction of travel, with the obstacles as well as the walls.
 - **Give-way units** (`giveway`, a top-up of the training mazes; docs/dynamic/PLAN.md, P4f): free units driven by
-  `GiveWayDriver`, with two to four movers, so that the robot backs off from, advances on and holds before movers
+  `GiveWayDriver`, with two to four movers (half the units non-polite), so that the robot backs off from, advances on and holds before movers
   waiting for it (in the first collection it held in 93% of those windows, so a world model could not learn how a
   waiting mover answers a retreat). `collect --kinds giveway --roles lewm_train` collects them; world models take
   them only if `data.train_kinds` names them.
@@ -62,6 +62,7 @@ AXES = dict(forward=(-.10, 0., .15, .30, .45), lateral=(-.15, 0., .15), yaw=(-.6
 LATERAL_SHARE = .75
 COUNTS, COUNT_P = (0, 1, 2, 3, 4), (.15, .30, .30, .15, .10)
 GIVE_WAY_COUNT_P = (0., 0., .3, .4, .3)     # give-way units: two to four movers
+GIVE_WAY_IMPOLITE_SHARE = .5                # and more of them wait at the robot
 FRAME_CAPS = dict(v1.FRAME_CAPS, giveway=600)
 KINDS = (*v1.KINDS, 'giveway')
 FREE_KINDS = ('free', 'transfer', 'giveway')
@@ -92,7 +93,8 @@ def unit_obstacles(spec, home_se2, beacon_xy, maze, kind):
     from go2nav.sim import obstacles as moving
     rng = np.random.default_rng(unit_seed(maze, kind, 'obstacles'))
     weights = GIVE_WAY_COUNT_P if kind == 'giveway' else COUNT_P
-    count, polite = int(rng.choice(COUNTS, p=weights)), bool(rng.random() >= IMPOLITE_SHARE)
+    impolite = GIVE_WAY_IMPOLITE_SHARE if kind == 'giveway' else IMPOLITE_SHARE
+    count, polite = int(rng.choice(COUNTS, p=weights)), bool(rng.random() >= impolite)
     episode = dict(home_se2_world=list(home_se2), beacon_xy_world=list(beacon_xy))
     while count:
         try:
@@ -419,12 +421,12 @@ class FreeDriverV2(v1.FreeDriver):
 class GiveWayDriver(FreeDriverV2):
     """The give-way units' driver: `FreeDriverV2` with encounters weighted up (`WEIGHTS`), and each encounter two to
     four give-way decisions while the mover stays in sight: face it, approach at 0.15 or 0.30 m/s to 0.6-1.1 m from its
-    centre, wait 0.3-2 s, then retreat (-0.10 m/s, the lattice's reverse, for 1-3 s; 40%), advance (0.15 or 0.30 m/s for
-    0.5-1.5 s; 25%), hold (1-3 s; 25%) or turn away (10%). The stand-off rule (`admissible`) still applies, so an advance
+    centre, wait 0.3-1.2 s, then retreat (-0.10 m/s, the lattice's reverse, for 1-3 s; 50%), advance (0.15 or 0.30 m/s
+    for 0.5-1.5 s; 20%), hold (1-3 s; 20%) or turn away (10%). The stand-off rule (`admissible`) still applies, so an advance
     that would close on the mover becomes a turn in place."""
 
     WEIGHTS = dict(harness=.05, cruise=.15, ou=.05, wall=.05, side=.05, encounter=.65)
-    DECISIONS = dict(retreat=.40, advance=.25, hold=.25, turn=.10)
+    DECISIONS = dict(retreat=.50, advance=.20, hold=.20, turn=.10)
 
     def _encounter(self):
         pose = yield
@@ -441,7 +443,7 @@ class GiveWayDriver(FreeDriverV2):
                 error = math.atan2(target[1]-pose[1], target[0]-pose[0])-v1.yaw_of(pose)
                 error = math.atan2(math.sin(error), math.cos(error))
                 pose = yield (speed, 0., float(np.clip(2*error, -.45, .45)))
-            for _ in range(int(self.rng.integers(3, 21))):
+            for _ in range(int(self.rng.integers(3, 13))):
                 pose = yield (0., 0., 0.)
             decision = self.rng.choice(list(self.DECISIONS), p=list(self.DECISIONS.values()))
             if decision == 'retreat':
