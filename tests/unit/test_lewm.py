@@ -254,6 +254,29 @@ def test_a_frozen_encoder_with_no_grid_projector_is_a_fixed_target(tmp_path):
         LeWorldModel(small(grid=(3, 4), grid_projector=False))                 # width 48 against latent 32
 
 
+def test_the_mover_head_reads_each_column_and_its_loss_trains_the_encoder():
+    model = LeWorldModel.seeded(7, small(grid=(3, 4), mover_head=True)).train()
+    z = torch.randn(2, 5, 13, 32)
+    out = model.eval().movers(z)
+    assert out.shape == (2, 5, 4, 3)
+    changed = z.clone()
+    changed[:, :, 1+4*2+1] += 1.                                    # row 2, column 1
+    moved = model.movers(changed)
+    assert torch.allclose(out[:, :, [0, 2, 3]], moved[:, :, [0, 2, 3]]) and not torch.allclose(out[:, :, 1], moved[:, :, 1])
+    model.train()
+    pixels = normalise_frames(torch.randint(0, 255, (4, 6, 168, 224, 3), dtype=torch.uint8))
+    movers = torch.zeros(4, 6, 4, 3)
+    movers[:, :, 2] = torch.tensor([1., 2.4, -.3])                  # a walker in column 2, 2.4 m ahead
+    terms = losses(model, pixels, torch.randn(4, 5, 10), rollout_steps=2, sigreg=SIGReg(num_proj=32), lam=.09,
+                   generator=torch.Generator().manual_seed(0), movers=movers, mover_weight=.5)
+    without = terms['loss']-.5*terms['mover']
+    assert 'mover' in terms and torch.isfinite(terms['mover']) and terms['mover'] > 0
+    assert torch.allclose(without, terms['pred']+terms['rollout']+.09*terms['sigreg']+terms['grid_pred']
+                          +terms['grid_rollout'], atol=1e-5)
+    terms['mover'].backward()
+    assert model.encoder.patch_embed.weight.grad.abs().sum() > 0 and model.predictor.space_embedding.grad is None
+
+
 def test_predictor_checkpointing_keeps_the_gradients():
     model = LeWorldModel.seeded(5, small(grid=(3, 4))).eval()
     z, actions = torch.randn(2, 4, 13, model.config.latent), torch.randn(2, 4, 10)

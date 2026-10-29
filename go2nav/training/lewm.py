@@ -31,6 +31,8 @@ gradients from batch 64 on this machine (the projectors' gradients reach 1e5-1e6
 `init_encoder` (a checkpoint, repository-relative) loads another world model's encoder and [CLS] projector before
 training; with `model.frozen_encoder` they never train (P4c: `go2_v2_frozen_grid.yaml`, go2_v2's encoder as a fixed
 target, with `model.grid_projector: false`, `sigreg_weight: 0` and no inverse dynamics).
+`objective.mover_weight` with `model.mover_head` adds the training-only mover supervision of P4d on the encoded states
+(`go2_v2_grid_movers.yaml`; labels from `go2nav.data.mover_labels`, which must have run on the corpus).
 
 **Validation** (every `validate_every` steps, at the end, and `evaluate`), on fixed windows of the validation mazes
 (explore, mission and free units) and, separately, the transfer units (the held-out look):
@@ -186,8 +188,11 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     if bool(motion_weight) != mconfig.motion_dynamics:
         raise ValueError('objective.motion_weight > 0 and model.motion_dynamics go together')
     dim = mconfig.command_dim
+    mover_weight = objective.get('mover_weight', 0.)
+    if bool(mover_weight) != mconfig.mover_head:
+        raise ValueError('objective.mover_weight > 0 and model.mover_head go together')
     corpus = Corpus(corpus_root, length=length, roles=tuple(data.get('train_roles', ('lewm_train',))),
-                    poses=bool(motion_weight), command_dim=dim)
+                    poses=bool(motion_weight), command_dim=dim, movers=bool(mover_weight))
     val_length = mconfig.history+EVAL_STEPS
     validation = Corpus(corpus_root, length=val_length, roles=('lewm_val',), kinds=('explore', 'mission', 'free'),
                         command_dim=dim)
@@ -245,16 +250,19 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     generator = torch.Generator(device=device)
     log, started, window = open(out/'metrics.jsonl', 'a'), time.time(), defaultdict(float)
     step = first-1
-    for step, (frames, actions, _, *poses) in enumerate(loader, start=first):
+    for step, (frames, actions, _, *extra) in enumerate(loader, start=first):
         frames, actions = frames.to(device, non_blocking=True), actions.to(device, non_blocking=True)
-        poses = poses[0].to(device, non_blocking=True) if poses else None
+        extra = [e.to(device, non_blocking=True) for e in extra]
+        poses = extra.pop(0) if corpus.with_poses else None
+        movers = extra.pop(0) if corpus.with_movers else None
         if action_blind:
             actions = torch.zeros_like(actions)
         generator.manual_seed(keyed_seed(seed, 'sigreg', step))
         with torch.autocast(device.type, dtype=torch.bfloat16):
             terms = loss_fn(model, normalise_frames(frames), actions, rollout_steps=objective['rollout_steps'],
                             sigreg=sigreg, lam=objective['sigreg_weight'], inverse_weight=inverse_weight, generator=generator,
-                            poses=poses, motion_weight=motion_weight, grid_weight=objective.get('grid_weight', 1.))
+                            poses=poses, motion_weight=motion_weight, grid_weight=objective.get('grid_weight', 1.),
+                            movers=movers, mover_weight=mover_weight)
         optimiser.zero_grad(set_to_none=True)
         if not torch.isfinite(terms['loss']):
             nonfinite += 1

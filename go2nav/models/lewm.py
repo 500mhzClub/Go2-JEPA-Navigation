@@ -81,6 +81,7 @@ class LeWMConfig:
     grid: tuple = ()                # (rows, cols): the state also holds the patch tokens pooled to this grid (P4b)
     grid_projector: bool = True     # False: the grid tokens are the pooled patch tokens themselves (P4c; width = latent)
     frozen_encoder: bool = False    # the encoder and [CLS] projector never train and stay in eval mode (P4c)
+    mover_head: bool = False        # a training-only head reading walkers per grid column from the state (P4d)
 
     @property
     def action_dim(self):
@@ -388,6 +389,10 @@ class LeWorldModel(nn.Module):
         if config.motion_dynamics:
             self.motion = nn.ModuleDict({str(int(k)): MLP(2*config.latent, config.projector_hidden, 3)
                                          for k in config.inverse_spans})
+        if config.mover_head:
+            if not config.grid:
+                raise ValueError('the mover head reads the grid')
+            self.mover = MLP(config.grid[0]*config.latent+config.grid[1], config.projector_hidden, 3)
         if config.frozen_encoder:
             self.encoder.requires_grad_(False)
             self.projector.requires_grad_(False)
@@ -422,6 +427,15 @@ class LeWorldModel(nn.Module):
     def cls(self, z):
         """[CLS]'s z from a state (..., D) or (..., 1+G, D)."""
         return z[..., 0, :] if self.config.grid else z
+
+    def movers(self, z):
+        """The mover head (P4d, training only) on states (..., 1+G, D): per grid column (..., columns, 3), a walker's
+        presence logit and its body-frame position over `MOVER_SCALE_M`, from the column's grid tokens and its index."""
+        rows, columns = self.config.grid
+        cells = z[..., 1:, :].unflatten(-2, (rows, columns)).transpose(-3, -2).flatten(-2)   # (..., columns, rows*D)
+        index = torch.eye(columns, device=z.device, dtype=cells.dtype).expand(*cells.shape[:-1], columns)
+        x = torch.cat((cells, index), -1)
+        return self.mover(x.flatten(0, -2)).unflatten(0, x.shape[:-1])
 
     def predict(self, z, actions):
         """z (B, T, D) and action blocks (B, T, A) to the predicted next z at every position (B, T, D); with a grid,
@@ -458,6 +472,7 @@ class LeWorldModel(nn.Module):
         return head(pairs.flatten(0, 1)).unflatten(0, (z.size(0), -1))
 
 
+MOVER_SCALE_M = 3.  # the mover head's positions are in units of 3 m
 MOTION_SCALE_PER_STEP = (.008, .008, .034)  # m, m, rad: the corpus's 100-ms body-frame motion spread (forward, yaw)
 
 
@@ -470,7 +485,7 @@ def body_motion(poses, span):
 
 
 def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight=0., generator=None, poses=None,
-           motion_weight=0., z=None, grid_weight=1.):
+           motion_weight=0., z=None, grid_weight=1., movers=None, mover_weight=0.):
     """The training objective on windows of `history + rollout_steps` frames (rollout_steps >= 1).
 
     pixels (B, T, 3, H, W) normalised, actions (B, T-1, A); or, with `pixels` None, the frames' z (B, T, D) already
@@ -485,6 +500,9 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight
       against the mean action block across it;
     - `motion` (motion_weight > 0, with `poses` (B, T, 3)): the same weighted mean of the MSE of the body-frame motion
       over each span, decoded from [z_t, z_(t+k) - z_t] and scaled by k x `MOTION_SCALE_PER_STEP`.
+    - `mover` (mover_weight > 0, with `movers` (B, T, columns, 3) from `go2nav.data.mover_labels`): the mover head
+      on every frame's encoded state (never the predicted ones): binary cross-entropy on each column's presence plus
+      the squared error of the position (over `MOVER_SCALE_M`) where a walker is present.
 
     With a grid (P4b), `pred`, `rollout` and the inverse and motion terms are [CLS]'s; `grid_pred` and `grid_rollout`
     are the same MSE over the grid tokens, weighted by `grid_weight`; `sigreg` is the mean of [CLS]'s and the grid's
@@ -525,6 +543,13 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight
             return (decoded-body_motion(poses.float(), k)/(k*scale)).pow(2).mean()
         terms['motion'] = sum(w*term(k) for k, w in zip(spans, weights))/sum(weights)
         terms['loss'] = terms['loss']+motion_weight*terms['motion']
+    if mover_weight:
+        out, movers = model.movers(z).float(), movers.float()
+        present = movers[..., 0]
+        bce = F.binary_cross_entropy_with_logits(out[..., 0], present)
+        position = ((out[..., 1:]-movers[..., 1:]/MOVER_SCALE_M).square().sum(-1)*present).sum()/present.sum().clamp_min(1.)
+        terms['mover'] = bce+position
+        terms['loss'] = terms['loss']+mover_weight*terms['mover']
     return terms
 
 

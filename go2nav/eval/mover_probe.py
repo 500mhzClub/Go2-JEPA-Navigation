@@ -85,10 +85,10 @@ def body_frame(pose, xy):
     return np.stack([c*d[..., 0]+s*d[..., 1], -s*d[..., 0]+c*d[..., 1]], -1)
 
 
-def visible(pose, movers_xy, sight):
-    """Index of the nearest mover in the primary camera's view whose centre the walls do not hide (or None).
-    `sight(a, b)` says whether the walls leave the segment a-b clear."""
-    best = None
+def in_view(pose, movers_xy, sight):
+    """(distance from the camera, index) of every mover in the primary camera's view whose centre the walls do not
+    hide, nearest first. `sight(a, b)` says whether the walls leave the segment a-b clear."""
+    seen = []
     for k, m in enumerate(movers_xy):
         x, y = body_frame(pose, m)
         x -= CAMERA_X_M
@@ -97,9 +97,24 @@ def visible(pose, movers_xy, sight):
             continue
         if abs(math.atan2(y, x)) > HALF_FOV_RAD+math.asin(min(1., moving.RADIUS_M/distance)):
             continue
-        if sight(np.asarray(pose[:2], float), np.asarray(m, float)) and (best is None or distance < best[0]):
-            best = (distance, k)
-    return None if best is None else best[1]
+        if sight(np.asarray(pose[:2], float), np.asarray(m, float)):
+            seen.append((distance, k))
+    return sorted(seen)
+
+
+def visible(pose, movers_xy, sight):
+    """Index of the nearest mover in the primary camera's view whose centre the walls do not hide (or None)."""
+    seen = in_view(pose, movers_xy, sight)
+    return seen[0][1] if seen else None
+
+
+def sight_line(clearance):
+    """`sight(a, b)`: the walls (`clearance(xy)`, the distance to the nearest wall) leave the segment a-b clear."""
+    def sight(a, b):
+        d = b-a
+        distance = float(np.linalg.norm(d))
+        return all(clearance(a+s*d/distance) >= .05 for s in np.arange(.05, max(distance-.2, .05), .05))
+    return sight
 
 
 def walkers(spec, placement):
@@ -187,11 +202,7 @@ def unit_labels(args):
     spec = unit_spec(root, meta)
     geometry = v2.FreeDriverV2(spec, np.random.default_rng(0))
     clearance = geometry.wall_clearance
-
-    def sight(a, b):
-        d = b-a
-        distance = float(np.linalg.norm(d))
-        return all(clearance(a+s*d/distance) >= .05 for s in np.arange(.05, max(distance-.2, .05), .05))
+    sight = sight_line(clearance)
 
     H, n = np.asarray(HORIZONS), len(pose)
     rows = []

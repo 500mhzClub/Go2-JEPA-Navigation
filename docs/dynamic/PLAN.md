@@ -282,6 +282,38 @@ in order:
 
 Depth supervision (arXiv 2607.16314, on LeWM) would need depth images re-rendered for corpus v2, which stored RGB only.
 
+### P4d. Grid LeWM with training-only mover supervision (approved 29 October)
+
+**Why.** The frozen target (P4c) keeps the mover in the state but caps it at go2_v2's encoder: from four frames its
+pooled tokens reach velocity skill 0.100 against 0.126, and the encoder cannot improve. Training jointly lets the
+encoder sharpen its mover features; a fixed label target closes the trap P4c describes, since no latent can meet it
+by dropping the walker. Precedent: object or position supervision on JEPA world models' latents (arXiv 2609.30214,
+which reports SIGReg alone losing pose information that the supervision keeps, against LeWM; 2609.04264; and the
+theory of 2509.12249: when the dynamics and auxiliary losses reach zero, frames that differ in the auxiliary target
+cannot share a latent); privileged training-only information in world models (Scaffolder, arXiv 2405.14853; informed
+POMDPs, 2306.11488; MILE's BEV supervision, 2210.07729).
+
+**Labels** (`go2nav.data.mover_labels`, from corpus v2's records; never a model input): per frame and per image column
+of the 3 x 4 grid, whether a walker is in view there (the mover probe's view test: within 5 m, inside the field of
+view, centre not hidden by the walls) and the nearest such walker's position in the body frame. A column is the
+walker centre's bearing projected through the primary camera (78.3 degrees across, four equal image columns). Frames
+with fewer than 200 obstacle depth pixels have none.
+
+**Model** (`configs/lewm/go2_v2_grid_movers.yaml`): go2_v2_grid (trainable encoder, grid projector, SIGReg, inverse
+dynamics) plus a mover head, an MLP shared by the four columns that reads a column's three grid tokens of the
+encoder's state (and the column's index): a presence logit and the position (scaled by 3 m). Loss `mover`: binary
+cross-entropy on presence plus the squared position error where a walker is present, weight 1, on every frame of the
+window. **Only the encoder's state is supervised:** the predictor and its rollouts see no labels.
+
+**Evidence** (set before training):
+- Localisation at h = 0 is now partly supervised: reported, not evidence.
+- Evidence: the forecasts through the rollouts (velocity skill at 0.8 s, displacements to 3.2 s), the response test,
+  and the transfer split, read by both the probe's heads and the grid readout, against the same pass marks.
+- The final verdict is P5's missions against lv2.
+- L1-L4 on [CLS] must not fall below go2_v2's.
+
+**Compute:** labels on the CPU (all 4,000 units, in a process pool); training as go2_v2_grid, about 15 h.
+
 ### P5. Planning over continuous commands
 
 1. **Command representation.** A command tape with a derived category replaces the action names, so the harness rules
