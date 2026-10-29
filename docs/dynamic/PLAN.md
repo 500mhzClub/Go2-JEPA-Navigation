@@ -342,6 +342,16 @@ advance contrast is reported. Missions stay the final verdict; this gate chooses
 The validation labels are regenerated with the retreat tape (the windows and every other label unchanged); models
 already probed are re-scored on their evaluation latents with the new tape.
 
+**Ceiling** (added 29 October, before P4c's MLP and patch rollout readouts were read; its ridge readout had been).
+Walkers look alike, and whether one responds depends on state the camera shows only through its motion (stopped for
+the robot or pausing at a cell, its heading while stopped, its politeness), so the gate's attainable score depends on
+the history a predictor sees. `eval.give_way_ceiling` fits supervised heads on the give-way windows from privileged
+inputs: the mover's and the robot's true tracks over 0.3 s (a world model's 4 frames), over 3 s, and the 3-s tracks
+plus the walker's internal state (an oracle). The pass mark above is unchanged. A model scores also as a share of
+the 0.3-s ceiling. If the 0.3-s ceiling itself fails the pass mark, a 4-frame model's failure is uninformative about
+its predictor, and the next model change is the history (a longer context or a recurrent state), not the objective;
+if the 3-s ceiling passes and the 0.3-s one does not, that is the measured case for it.
+
 ### P5. Planning over continuous commands
 
 1. **Command representation.** A command tape with a derived category replaces the action names, so the harness rules

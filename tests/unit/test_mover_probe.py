@@ -115,3 +115,17 @@ def test_auc_and_the_give_way_test():
     assert perfect['windows'] == near.sum() and perfect['retreat']['r2'] == 1. and perfect['retreat']['auc'] == 1.
     blind = mp.give_way(data, rows, dict(hold=hold[:, 1], retreat=hold[:, 1], advance=hold[:, 1]), 1)
     assert blind['retreat']['r2'] == 0. and blind['retreat']['auc'] == .5    # constant velocity: no contrast
+
+
+def test_give_way_ceiling_track_is_in_the_body_frame_at_t_and_pads_the_start():
+    from go2nav.eval import give_way_ceiling as g
+    pose = np.zeros((5, 7))
+    pose[:, 0] = np.arange(5)*.1
+    pose[:, 6] = 1.                                                    # identity quaternion: yaw 0
+    recorded = np.zeros((5, 1, 2))
+    recorded[:, 0, 0] = 2.
+    out = g.track(pose, recorded, 1, 0, 4)                            # frames -2..1: two before the unit's start
+    mover, robot = out[:8].reshape(4, 2), out[8:16].reshape(4, 2)
+    np.testing.assert_allclose(mover[:, 0], [1.9, 1.9, 1.9, 1.9])    # 2 m minus the robot's 0.1 m at t
+    np.testing.assert_allclose(robot[:, 0], [-.1, -.1, -.1, 0.])
+    assert out[-1] == .5
