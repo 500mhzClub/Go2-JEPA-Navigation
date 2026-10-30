@@ -1,9 +1,11 @@
-name: 'Give-way probe, committed rule: lv2 backing off 0.40 m, validation mazes 10-29'
-description: docs/dynamic/PLAN.md, P4f. The first rule (give_way_probe, at dc5e21a) backed off by a median of 3 mm, so its
-  cohorts do not test backing off. Here a trigger commits the robot to 0.40 m of reverse whatever the track does, needing
-  only observed floor and 0.40 m of clearance. One and two moving obstacles, paired with lv2 (lv2_obst*).
+name: 'Give-way probe, committed rule: lv2 with mover trails backing off 0.40 m, validation mazes 10-29'
+description: 'docs/dynamic/PLAN.md, P4f. The first rule (give_way_probe, at dc5e21a) backed off by a median of 3 mm, so
+  its cohorts do not test backing off. Here a trigger commits the robot to 0.40 m of reverse whatever the track does, needing
+  only observed floor and 0.40 m of clearance. Mover trails on, paired with the trail probe''s lattice cohorts (tp_lat_obst*):
+  their residual is the mover in view on the only path, and without trails a mover that leaves still seals the passage with
+  its ghost trail.'
 cohorts:
-- name: gwc_obst1_c1
+- name: gwct_obst1_c1
   arms:
   - C1
   set: validation
@@ -99,7 +101,8 @@ cohorts:
   candidates: lattice
   safety: continuous
   give_way: 'on'
-- name: gwc_obst2_c1
+  mover_trails: 'on'
+- name: gwct_obst2_c1
   arms:
   - C1
   set: validation
@@ -195,3 +198,4 @@ cohorts:
   candidates: lattice
   safety: continuous
   give_way: 'on'
+  mover_trails: 'on'

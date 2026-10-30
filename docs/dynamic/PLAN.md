@@ -404,10 +404,11 @@ positions, the mover was standing still at 40% of the triggers, and 216 of the 2
 walkers turning back on their own; the robot had then moved 0.3 m in 14% of those.
 
 So the rule now commits (`configs/experiments/give_way_commit.yaml`): once triggered the robot backs off 0.40 m whatever
-the track does, at most 25 steps, and a step needs only observed floor and 0.40 m of clearance. One and two movers,
-paired with lv2 (the first rule never fired without movers); 80 missions. They replace the runs of the first rule with
-mover trails, stopped at 9 of 80 because the rule they tested changes the robot's motion by millimetres. The first
-rule's cohorts (`gw_*`) are at dc5e21a.
+the track does, at most 25 steps, and a step needs only observed floor and 0.40 m of clearance. Mover trails on, one and
+two movers, paired with the trail probe's lattice cohorts (`tp_lat_obst*`): their residual is the mover in view on the
+only path, and without trails a mover that leaves still seals the passage with its ghost trail. 80 missions, replacing
+the runs of the first rule with mover trails, stopped at 9 of 80 because the rule they tested changes the robot's motion
+by millimetres. The first rule's cohorts (`gw_*`) are at dc5e21a.
 
 ### P5. Planning over continuous commands
 
