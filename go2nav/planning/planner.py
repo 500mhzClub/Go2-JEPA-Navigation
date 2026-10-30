@@ -52,7 +52,8 @@ them (`planning.prediction`); with `'oracle'`, `tracks` are every obstacle at it
 a confirmed track (it has shown motion) stands still within `GIVE_WAY_NEAR_M` ahead, within `GIVE_WAY_HALF_WIDTH_M`
 of the heading, and the selection does not advance, the robot commits to backing off at 0.10 m/s until it has moved
 `GIVE_WAY_BACK_M`, whatever the track then does, or for `GIVE_WAY_BACK_PLANS` steps. A step must stay on observed floor
-with 0.40 m of stored clearance, and unlike the scripted backup it may pass closer to a wall than the robot stands. Then
+with the footprint's clearance (`GIVE_WAY_CLEARANCE_M`), and unlike the scripted backup it may pass closer to a wall than
+the robot stands. Then
 `GIVE_WAY_COOLDOWN_PLANS` plans without the rule, and at most `GIVE_WAY_REPEATS` back-offs per track. A polite walker
 stops while the robot is within 0.8 m ahead of it, and a non-polite one waits at the robot: backing off past that lets
 either walk on (the give-way ceiling: a still mover near and ahead responds to a retreat in 85-97% of the probe's
@@ -83,6 +84,7 @@ BACKUP_SPEED_M_S, BACKUP_PLANS, BACKUP_STEP_S = .10, 5, .4
 BACKUP_FLOOR_M, BACKUP_REPEAT_RADIUS_M = .40, .30
 GIVE_WAY_NEAR_M, GIVE_WAY_HALF_WIDTH_M, GIVE_WAY_BACK_M = 1.5, .75, .40   # centroids: the visible face, ~0.1 m nearer
 GIVE_WAY_BACK_PLANS, GIVE_WAY_COOLDOWN_PLANS, GIVE_WAY_REPEATS = 25, 10, 3
+GIVE_WAY_CLEARANCE_M = grid.FOOTPRINT_RADIUS_M     # 0.40 m put a rear calf into a wall in 2 of the first 7 missions
 ROUTES = ('OBSERVED_FLOOR_ROUTE_TO_FRONTIER', 'OBSERVED_FLOOR_ROUTE_TO_GOAL_CELL')
 HARNESSES = ('reserve_exit_v2', 'v4')
 
@@ -602,15 +604,16 @@ class Planner:
             self.backup_request = reason
 
     @staticmethod
-    def _reverse_step(snapshot, q, Q, keep_clearance=True):
-        """(whether one 400-ms reverse step at the backup speed stays on observed floor with clearance (0.40 m, and with
-        `keep_clearance` no more than 1 cm below the current), its detail)."""
+    def _reverse_step(snapshot, q, Q, clearance_m=None):
+        """(whether one 400-ms reverse step at the backup speed stays on observed floor with clearance (0.40 m and no
+        more than 1 cm below the current, or just `clearance_m`), its detail)."""
         clearance = grid.fine_clearance(snapshot.fine_occupied)
         p, yaw = np.asarray(q, float)[:2], math.atan2(Q[1][0], Q[0][0])
         end = p-BACKUP_SPEED_M_S*BACKUP_STEP_S*np.array([math.cos(yaw), math.sin(yaw)])
         current, path = clearance.minimum(p, p), clearance.minimum(p, end)
         on_floor = all(tuple(c) in snapshot.floor for c in grid.segment_cells(p, end))
-        clear = path is None or (path >= BACKUP_FLOOR_M and (not keep_clearance or current is None or path >= current-.01))
+        clear = path is None or (path >= clearance_m if clearance_m is not None else path >= BACKUP_FLOOR_M
+                                 and (current is None or path >= current-.01))
         return on_floor and clear, dict(current_clearance_m=current, path_clearance_m=path, on_observed_floor=on_floor)
 
     @staticmethod
@@ -665,7 +668,7 @@ class Planner:
             track = min(ahead, key=lambda i: float(np.linalg.norm(ahead[i])))
             self.give_way_counts[track] = self.give_way_counts.get(track, 0)+1
             state = self.give_way_state = dict(track=track, step=0, back_off=self.give_way_counts[track], start=p)
-        ok, check = self._reverse_step(snapshot, q, Q, keep_clearance=False)
+        ok, check = self._reverse_step(snapshot, q, Q, clearance_m=GIVE_WAY_CLEARANCE_M)
         moved = float(np.linalg.norm(p-state['start']))
         detail = dict(track=state['track'], back_off=state['back_off'], step=state['step']+1, moved_m=round(moved, 3),
                       **check)

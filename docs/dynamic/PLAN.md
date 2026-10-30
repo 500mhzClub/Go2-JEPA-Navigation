@@ -404,7 +404,9 @@ positions, the mover was standing still at 40% of the triggers, and 216 of the 2
 walkers turning back on their own; the robot had then moved 0.3 m in 14% of those.
 
 So the rule now commits (`configs/experiments/give_way_commit.yaml`): once triggered the robot backs off 0.40 m whatever
-the track does, at most 25 steps, and a step needs only observed floor and 0.40 m of clearance. Mover trails on, one and
+the track does, at most 25 steps, and a step needs only observed floor and the footprint's 0.45 m of clearance. (At the
+scripted backup's 0.40 m, inside the planner's footprint, a rear calf hit a wall in 2 of the first 7 missions, ending
+both, 4 and 17 frames after a back-off stopped at that floor; those runs are `gwct_*`.) Mover trails on, one and
 two movers, paired with the trail probe's lattice cohorts (`tp_lat_obst*`): their residual is the mover in view on the
 only path, and without trails a mover that leaves still seals the passage with its ghost trail. 80 missions, replacing
 the runs of the first rule with mover trails, stopped at 9 of 80 because the rule they tested changes the robot's motion

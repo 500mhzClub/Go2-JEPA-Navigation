@@ -159,9 +159,10 @@ def test_only_give_way_may_reverse_closer_to_a_wall_than_the_robot_stands():
     yaw = math.pi/4                                                               # reversing towards it, 2.8 cm a step
     Q = np.array([[math.cos(yaw), -math.sin(yaw), 0.], [math.sin(yaw), math.cos(yaw), 0.], [0., 0., 1.]])
     kept, detail = Planner._reverse_step(wall, np.zeros(3), Q)
-    relaxed, _ = Planner._reverse_step(wall, np.zeros(3), Q, keep_clearance=False)
-    assert detail['path_clearance_m'] >= .40 and detail['path_clearance_m'] < detail['current_clearance_m']-.01
+    relaxed, _ = Planner._reverse_step(wall, np.zeros(3), Q, clearance_m=.45)
+    assert detail['path_clearance_m'] >= .45 and detail['path_clearance_m'] < detail['current_clearance_m']-.01
     assert relaxed and not kept
+    assert not Planner._reverse_step(wall, np.zeros(3), Q, clearance_m=.50)[0]
 
 
 def test_give_way_ignores_unconfirmed_moving_or_sideways_tracks_and_advancing_selections():
