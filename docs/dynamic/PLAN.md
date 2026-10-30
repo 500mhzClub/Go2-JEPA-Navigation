@@ -396,6 +396,19 @@ inverted ranking, the predictor's prior (carry motion on) wins even with the dat
 the predicted states (P4d's labels on rollouts). If the rule wins in missions and the model passes too, the model must
 beat lv2 with the rule there.
 
+**The first rule did not back off (30 October).** It scored 38/40, 31/40 and 15/40 against lv2's 38, 31 and 18, which
+says little about backing off: of its 255 triggers, 109 took no reverse step, six moved the robot 10 cm or more, none 30
+cm, and the median was 3 mm. 97 ended on the scripted backup's rule against passing more than 1 cm closer to a wall than
+the robot stands (94 of them had the 0.40 m of clearance), and 130 when the track moved or was lost. Against the true
+positions, the mover was standing still at 40% of the triggers, and 216 of the 255 had walked 0.3 m within 6 s, polite
+walkers turning back on their own; the robot had then moved 0.3 m in 14% of those.
+
+So the rule now commits (`configs/experiments/give_way_commit.yaml`): once triggered the robot backs off 0.40 m whatever
+the track does, at most 25 steps, and a step needs only observed floor and 0.40 m of clearance. One and two movers,
+paired with lv2 (the first rule never fired without movers); 80 missions. They replace the runs of the first rule with
+mover trails, stopped at 9 of 80 because the rule they tested changes the robot's motion by millimetres. The first
+rule's cohorts (`gw_*`) are at dc5e21a.
+
 ### P5. Planning over continuous commands
 
 1. **Command representation.** A command tape with a derived category replaces the action names, so the harness rules

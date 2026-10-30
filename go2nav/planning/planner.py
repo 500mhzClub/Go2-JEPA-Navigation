@@ -50,12 +50,13 @@ them (`planning.prediction`); with `'oracle'`, `tracks` are every obstacle at it
 
 `give_way=True` (the give-way probe, docs/dynamic/PLAN.md, P4f) adds one rule for movers that wait for the robot: when
 a confirmed track (it has shown motion) stands still within `GIVE_WAY_NEAR_M` ahead, within `GIVE_WAY_HALF_WIDTH_M`
-of the heading, and the selection does not advance, the robot backs off at 0.10 m/s (the scripted backup's reverse
-step and checks: observed floor, 0.40 m of stored clearance) until the track is `GIVE_WAY_CLEAR_M` away, moves again
-or is lost, or `GIVE_WAY_BACK_PLANS` steps; then `GIVE_WAY_COOLDOWN_PLANS` plans without the rule, and at most
-`GIVE_WAY_REPEATS` back-offs per track. A polite walker stops while the robot is within 0.8 m ahead of it, and a
-non-polite one waits at the robot: backing off past that lets either walk on (the give-way ceiling: a still mover
-near and ahead responds to a retreat in 85-97% of the probe's windows).
+of the heading, and the selection does not advance, the robot commits to backing off at 0.10 m/s until it has moved
+`GIVE_WAY_BACK_M`, whatever the track then does, or for `GIVE_WAY_BACK_PLANS` steps. A step must stay on observed floor
+with 0.40 m of stored clearance, and unlike the scripted backup it may pass closer to a wall than the robot stands. Then
+`GIVE_WAY_COOLDOWN_PLANS` plans without the rule, and at most `GIVE_WAY_REPEATS` back-offs per track. A polite walker
+stops while the robot is within 0.8 m ahead of it, and a non-polite one waits at the robot: backing off past that lets
+either walk on (the give-way ceiling: a still mover near and ahead responds to a retreat in 85-97% of the probe's
+windows).
 """
 import math
 
@@ -80,8 +81,8 @@ TERMINAL_SPIN_TURNS, TERMINAL_BURST_PLANS = 15, 3
 REACTIVE_ESCAPE_FLOOR_M, REACTIVE_ESCAPE_GAIN_M, REACTIVE_ESCAPE_S, ESCAPE_SLACK_M = .40, .005, .4, .003
 BACKUP_SPEED_M_S, BACKUP_PLANS, BACKUP_STEP_S = .10, 5, .4
 BACKUP_FLOOR_M, BACKUP_REPEAT_RADIUS_M = .40, .30
-GIVE_WAY_NEAR_M, GIVE_WAY_HALF_WIDTH_M, GIVE_WAY_CLEAR_M = 1.5, .75, 1.3   # centroids: the visible face, ~0.1 m nearer
-GIVE_WAY_BACK_PLANS, GIVE_WAY_COOLDOWN_PLANS, GIVE_WAY_REPEATS = 8, 10, 3
+GIVE_WAY_NEAR_M, GIVE_WAY_HALF_WIDTH_M, GIVE_WAY_BACK_M = 1.5, .75, .40   # centroids: the visible face, ~0.1 m nearer
+GIVE_WAY_BACK_PLANS, GIVE_WAY_COOLDOWN_PLANS, GIVE_WAY_REPEATS = 25, 10, 3
 ROUTES = ('OBSERVED_FLOOR_ROUTE_TO_FRONTIER', 'OBSERVED_FLOOR_ROUTE_TO_GOAL_CELL')
 HARNESSES = ('reserve_exit_v2', 'v4')
 
@@ -601,15 +602,15 @@ class Planner:
             self.backup_request = reason
 
     @staticmethod
-    def _reverse_step(snapshot, q, Q):
-        """(whether one 400-ms reverse step at the backup speed stays on observed floor with clearance (0.40 m, and no
-        more than 1 cm below the current), its detail)."""
+    def _reverse_step(snapshot, q, Q, keep_clearance=True):
+        """(whether one 400-ms reverse step at the backup speed stays on observed floor with clearance (0.40 m, and with
+        `keep_clearance` no more than 1 cm below the current), its detail)."""
         clearance = grid.fine_clearance(snapshot.fine_occupied)
         p, yaw = np.asarray(q, float)[:2], math.atan2(Q[1][0], Q[0][0])
         end = p-BACKUP_SPEED_M_S*BACKUP_STEP_S*np.array([math.cos(yaw), math.sin(yaw)])
         current, path = clearance.minimum(p, p), clearance.minimum(p, end)
         on_floor = all(tuple(c) in snapshot.floor for c in grid.segment_cells(p, end))
-        clear = path is None or (path >= BACKUP_FLOOR_M and (current is None or path >= current-.01))
+        clear = path is None or (path >= BACKUP_FLOOR_M and (not keep_clearance or current is None or path >= current-.01))
         return on_floor and clear, dict(current_clearance_m=current, path_clearance_m=path, on_observed_floor=on_floor)
 
     @staticmethod
@@ -663,13 +664,13 @@ class Planner:
                 return result
             track = min(ahead, key=lambda i: float(np.linalg.norm(ahead[i])))
             self.give_way_counts[track] = self.give_way_counts.get(track, 0)+1
-            state = self.give_way_state = dict(track=track, step=0, back_off=self.give_way_counts[track])
-        xy = still.get(state['track'])
-        ok, check = self._reverse_step(snapshot, q, Q)
-        detail = dict(track=state['track'], back_off=state['back_off'], step=state['step']+1,
-                      track_distance_m=None if xy is None else round(float(np.linalg.norm(xy)), 3), **check)
-        end = ('track_lost_or_moving' if xy is None else 'clear' if np.linalg.norm(xy) >= GIVE_WAY_CLEAR_M
-               else 'steps' if state['step'] >= GIVE_WAY_BACK_PLANS else None if ok else 'reverse_blocked')
+            state = self.give_way_state = dict(track=track, step=0, back_off=self.give_way_counts[track], start=p)
+        ok, check = self._reverse_step(snapshot, q, Q, keep_clearance=False)
+        moved = float(np.linalg.norm(p-state['start']))
+        detail = dict(track=state['track'], back_off=state['back_off'], step=state['step']+1, moved_m=round(moved, 3),
+                      **check)
+        end = ('distance' if moved >= GIVE_WAY_BACK_M else 'steps' if state['step'] >= GIVE_WAY_BACK_PLANS
+               else None if ok else 'reverse_blocked')
         if end is not None:
             self.give_way_state, self.give_way_cooldown = None, GIVE_WAY_COOLDOWN_PLANS
             result['give_way_ended'] = dict(detail, reason=end)

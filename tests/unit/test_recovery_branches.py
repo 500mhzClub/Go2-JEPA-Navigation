@@ -125,19 +125,43 @@ def still_track(xy, track_id=0, confirmed=True):
     return track
 
 
-def test_give_way_backs_off_from_a_still_mover_ahead_until_it_is_clear():
+def test_give_way_commits_to_the_distance_whatever_the_mover_then_does():
     planner = Planner(arrival_radius_m=.02, give_way=True)
     planner.tracks = [still_track((1., .2))]
     steps = []
     for k in range(3):
         planner.backup_plan = False
         steps.append(planner._give_way(hold(), open_floor(), np.array([-.1*k, 0., 0.]), np.eye(3)))
+        planner.tracks = []                                           # the mover walks off or is lost: still backing off
     assert all(s['requested_command'] == [-.10, 0., 0.] and s['give_way']['step'] == k+1 for k, s in enumerate(steps))
-    planner.tracks = [still_track((1.5, .2))]                         # 1.3 m clear of the robot's last position
     planner.backup_plan = False
-    done = planner._give_way(hold(), open_floor(), np.array([-.2, 0., 0.]), np.eye(3))
-    assert done['give_way_ended']['reason'] == 'clear' and done['requested_command'] == [0., 0., 0.]
-    assert planner.give_way_cooldown == 10
+    done = planner._give_way(hold(), open_floor(), np.array([-.4, 0., 0.]), np.eye(3))
+    assert done['give_way_ended']['reason'] == 'distance' and done['requested_command'] == [0., 0., 0.]
+    assert done['give_way_ended']['moved_m'] == .4 and planner.give_way_cooldown == 10
+
+
+def test_give_way_ends_when_it_cannot_cover_the_distance():
+    planner = Planner(arrival_radius_m=.02, give_way=True)
+    planner.tracks = [still_track((1., 0.))]
+    for _ in range(26):
+        planner.backup_plan = False
+        step = planner._give_way(hold(), open_floor(), np.zeros(3), np.eye(3))                    # no reverse under it
+    assert step['give_way_ended']['reason'] == 'steps' and step['give_way_ended']['step'] == 26
+    planner = Planner(arrival_radius_m=.02, give_way=True)
+    planner.tracks = [still_track((0., 0.))]
+    step = planner._give_way(hold(), open_floor(), np.array([-.99, 0., 0.]), np.eye(3))           # off observed floor
+    assert step['give_way_ended']['reason'] == 'reverse_blocked' and step['requested_command'] == [0., 0., 0.]
+
+
+def test_only_give_way_may_reverse_closer_to_a_wall_than_the_robot_stands():
+    wall = open_floor()
+    wall.fine_occupied = frozenset((i, -50) for i in range(-200, 200))            # along y = -0.50 m, in 1-cm cells
+    yaw = math.pi/4                                                               # reversing towards it, 2.8 cm a step
+    Q = np.array([[math.cos(yaw), -math.sin(yaw), 0.], [math.sin(yaw), math.cos(yaw), 0.], [0., 0., 1.]])
+    kept, detail = Planner._reverse_step(wall, np.zeros(3), Q)
+    relaxed, _ = Planner._reverse_step(wall, np.zeros(3), Q, keep_clearance=False)
+    assert detail['path_clearance_m'] >= .40 and detail['path_clearance_m'] < detail['current_clearance_m']-.01
+    assert relaxed and not kept
 
 
 def test_give_way_ignores_unconfirmed_moving_or_sideways_tracks_and_advancing_selections():
