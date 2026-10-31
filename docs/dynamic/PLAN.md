@@ -443,8 +443,13 @@ a wall took the target away until it was lost again; only confirmed tracks hold 
    spot. Otherwise the rule goes back to its first version. Also read: the closest approach to a true walker.
 2. **Four walkers** (`configs/experiments/close_up_four_walkers.yaml`): 40 missions paired with `dn_obst4_c1` (5 of 40),
    for information only.
-3. **Held-out evaluation** (`configs/experiments/close_up_heldout.yaml`, cohorts `cuh_*`): once, on the version kept,
-   paired with lv2's 112 of 140 (cohorts `lb_*`).
+3. **Held-out evaluation** (`configs/experiments/close_up_fix_heldout.yaml`, cohorts `cufh_*`): once, on the rule with the
+   fix, paired with lv2's 112 of 140 (cohorts `lb_*`).
+
+**The fix is kept by decision (31 October).** It missed step 1's bar (STATUS), and that rule said the first version
+stays. The user overrode it after seeing the result: the mission-by-mission comparison shows the gains coming from the
+loop going away, and 13 changed missions are too few to settle a 2-to-1 bar. The held-out mazes have seen neither version,
+so the choice does not bias that result, provided one version runs once. Step 2 ran on the first version.
 
 ### P5. Planning over continuous commands
 

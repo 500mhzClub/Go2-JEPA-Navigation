@@ -844,3 +844,7 @@ turning loop for 60 s or more, against 15.
 - **Trapping, first rule against mover trails:** a walker stayed within 2 m of the robot and inside a 1-m span for 60 s or
   more in 5 of 79 missions, against 1 of 79 (6 against 2 s a mission). Closest walker centre 0.45 m against 0.55 m.
 - **Throughput:** non-learned missions use the GPU only to render, and 14 at once ran at the same 0.54x real time as 6.
+
+**The fix is kept after all, by decision (PLAN P4g).** Mission by mission, 4 of the 8 gains are missions whose loop went
+away (0 s against 98-353 s) and that then finished, while 1 of the 5 losses is an early pose loss and 1 of the gains is
+the reverse. The other 4 losses are timeouts, one with 143 s in the loop.

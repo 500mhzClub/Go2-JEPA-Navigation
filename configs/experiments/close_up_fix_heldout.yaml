@@ -1,8 +1,8 @@
-name: Close-up rule held-out evaluation, paired with lv2 (112 of 140)
-description: docs/dynamic/PLAN.md, P2b and P4g. Run once, on the first close-up rule (the fix check missed its bar), with the walkers of lattice_baseline_eval
+name: 'Close-up rule with the fix: held-out evaluation, paired with lv2 (112 of 140)'
+description: docs/dynamic/PLAN.md, P2b and P4g. Run once, on the rule with the fix (kept by decision, the fix check having missed its bar), with the walkers of lattice_baseline_eval
   (cohorts lb_*).
 cohorts:
-- name: cuh_r4_c1
+- name: cufh_r4_c1
   arms:
   - C1
   set: prelim_test_v1
@@ -58,7 +58,7 @@ cohorts:
   safety: continuous
   close_up: 'on'
   mover_trails: 'on'
-- name: cuh_r6_ref_c1
+- name: cufh_r6_ref_c1
   arms:
   - C1
   set: stage2_sets_v1
@@ -114,7 +114,7 @@ cohorts:
   safety: continuous
   close_up: 'on'
   mover_trails: 'on'
-- name: cuh_heldout_static_c1
+- name: cufh_heldout_static_c1
   arms:
   - C1
   set: prelim_test_v1
@@ -170,7 +170,7 @@ cohorts:
   safety: continuous
   close_up: 'on'
   mover_trails: 'on'
-- name: cuh_heldout_obst1_c1
+- name: cufh_heldout_obst1_c1
   arms:
   - C1
   set: prelim_test_v1
@@ -268,7 +268,7 @@ cohorts:
   safety: continuous
   close_up: 'on'
   mover_trails: 'on'
-- name: cuh_heldout_obst2_c1
+- name: cufh_heldout_obst2_c1
   arms:
   - C1
   set: prelim_test_v1
