@@ -119,7 +119,7 @@ def prefer_clearance(route, floor, occupied):
 
 def close_up(snapshot, position, goal, route, *, avoid=(), excluded_frontiers=()):
     """The route up to a cut (see the module docstring), or `route` unchanged when there is nowhere worth walking.
-    `avoid`: the tracks' positions."""
+    `avoid`: the positions of the tracks to stay `CLOSE_UP_STANDOFF_M` from."""
     floor, occupied = set(snapshot.floor), set(snapshot.occupied)
     p = np.asarray(position, float)
     through = prefer_clearance(propose(floor, occupied, frozenset(), p, goal, excluded_frontiers=excluded_frontiers,
