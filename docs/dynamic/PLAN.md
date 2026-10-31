@@ -433,6 +433,19 @@ with `tp_lat_obst*` (54 of 80), about 3 h on the GPU. Set before it runs: the ru
 wins at least twice as many missions as it loses, with the sign test reported. Also read: sealed seconds per mission, and
 whether the robot closes up on walkers that then clear, or stands off and waits as long as before.
 
+**Outcome and last round (approved 31 October).** The rule scored 60 of 80 (STATUS), and losses reached half the wins, so
+this round goes past P2b's stop, by decision, and is the last one. The stand-off counted every track, so a brief track on
+a wall took the target away until it was lost again; only confirmed tracks hold the robot off now.
+
+1. **Fix check** (`configs/experiments/close_up_fix.yaml`, cohorts `cuf_obst*`): the same 80 missions, paired with
+   `cu_obst*`. Set before it runs: the fix is kept if it has no collisions, wins at least twice as many missions as it
+   loses, and fewer than 15 of the 80 missions spend 60 s or more turning between the cut and scanning within 0.4 m of one
+   spot. Otherwise the rule goes back to its first version. Also read: the closest approach to a true walker.
+2. **Four walkers** (`configs/experiments/close_up_four_walkers.yaml`): 40 missions paired with `dn_obst4_c1` (5 of 40),
+   for information only.
+3. **Held-out evaluation** (`configs/experiments/close_up_heldout.yaml`, cohorts `cuh_*`): once, on the version kept,
+   paired with lv2's 112 of 140 (cohorts `lb_*`).
+
 ### P5. Planning over continuous commands
 
 1. **Command representation.** A command tape with a derived category replaces the action names, so the harness rules

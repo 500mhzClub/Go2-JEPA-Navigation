@@ -1,0 +1,368 @@
+name: Close-up rule held-out evaluation, paired with lv2 (112 of 140)
+description: docs/dynamic/PLAN.md, P2b and P4g. Run once, on the version the fix check keeps, with the walkers of lattice_baseline_eval
+  (cohorts lb_*).
+cohorts:
+- name: cuh_r4_c1
+  arms:
+  - C1
+  set: prelim_test_v1
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 0
+  - - 33
+    - 0
+  - - 34
+    - 0
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 0
+  - - 38
+    - 0
+  - - 39
+    - 0
+  - - 40
+    - 0
+  - - 41
+    - 0
+  - - 42
+    - 0
+  - - 43
+    - 0
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 0
+  - - 47
+    - 0
+  - - 48
+    - 0
+  - - 49
+    - 0
+  candidates: lattice
+  safety: continuous
+  close_up: 'on'
+  mover_trails: 'on'
+- name: cuh_r6_ref_c1
+  arms:
+  - C1
+  set: stage2_sets_v1
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  episodes:
+  - - 30
+    - 0
+  - - 31
+    - 0
+  - - 32
+    - 1
+  - - 33
+    - 1
+  - - 34
+    - 1
+  - - 35
+    - 0
+  - - 36
+    - 0
+  - - 37
+    - 1
+  - - 38
+    - 0
+  - - 39
+    - 1
+  - - 40
+    - 0
+  - - 41
+    - 1
+  - - 42
+    - 0
+  - - 43
+    - 1
+  - - 44
+    - 0
+  - - 45
+    - 0
+  - - 46
+    - 1
+  - - 47
+    - 1
+  - - 48
+    - 1
+  - - 49
+    - 0
+  candidates: lattice
+  safety: continuous
+  close_up: 'on'
+  mover_trails: 'on'
+- name: cuh_heldout_static_c1
+  arms:
+  - C1
+  set: prelim_test_v1
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  episodes:
+  - - 30
+    - 1
+  - - 31
+    - 1
+  - - 32
+    - 1
+  - - 33
+    - 1
+  - - 34
+    - 1
+  - - 35
+    - 1
+  - - 36
+    - 1
+  - - 37
+    - 1
+  - - 38
+    - 1
+  - - 39
+    - 1
+  - - 40
+    - 1
+  - - 41
+    - 1
+  - - 42
+    - 1
+  - - 43
+    - 1
+  - - 44
+    - 1
+  - - 45
+    - 1
+  - - 46
+    - 1
+  - - 47
+    - 1
+  - - 48
+    - 1
+  - - 49
+    - 1
+  candidates: lattice
+  safety: continuous
+  close_up: 'on'
+  mover_trails: 'on'
+- name: cuh_heldout_obst1_c1
+  arms:
+  - C1
+  set: prelim_test_v1
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  obstacles: 1
+  obstacle_series: heldout-v1
+  episodes:
+  - - 30
+    - 0
+  - - 30
+    - 1
+  - - 31
+    - 0
+  - - 31
+    - 1
+  - - 32
+    - 0
+  - - 32
+    - 1
+  - - 33
+    - 0
+  - - 33
+    - 1
+  - - 34
+    - 0
+  - - 34
+    - 1
+  - - 35
+    - 0
+  - - 35
+    - 1
+  - - 36
+    - 0
+  - - 36
+    - 1
+  - - 37
+    - 0
+  - - 37
+    - 1
+  - - 38
+    - 0
+  - - 38
+    - 1
+  - - 39
+    - 0
+  - - 39
+    - 1
+  - - 40
+    - 0
+  - - 40
+    - 1
+  - - 41
+    - 0
+  - - 41
+    - 1
+  - - 42
+    - 0
+  - - 42
+    - 1
+  - - 43
+    - 0
+  - - 43
+    - 1
+  - - 44
+    - 0
+  - - 44
+    - 1
+  - - 45
+    - 0
+  - - 45
+    - 1
+  - - 46
+    - 0
+  - - 46
+    - 1
+  - - 47
+    - 0
+  - - 47
+    - 1
+  - - 48
+    - 0
+  - - 48
+    - 1
+  - - 49
+    - 0
+  - - 49
+    - 1
+  candidates: lattice
+  safety: continuous
+  close_up: 'on'
+  mover_trails: 'on'
+- name: cuh_heldout_obst2_c1
+  arms:
+  - C1
+  set: prelim_test_v1
+  recovery: 'off'
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  map_decay: floor
+  deadlock_escape: 'on'
+  terminal_burst: 'on'
+  obstacle_prediction: 'on'
+  footprint_clearing: 'on'
+  obstacles: 2
+  obstacle_series: heldout-v1
+  episodes:
+  - - 30
+    - 0
+  - - 30
+    - 1
+  - - 31
+    - 0
+  - - 31
+    - 1
+  - - 32
+    - 0
+  - - 32
+    - 1
+  - - 33
+    - 0
+  - - 33
+    - 1
+  - - 34
+    - 0
+  - - 34
+    - 1
+  - - 35
+    - 0
+  - - 35
+    - 1
+  - - 36
+    - 0
+  - - 36
+    - 1
+  - - 37
+    - 0
+  - - 37
+    - 1
+  - - 38
+    - 0
+  - - 38
+    - 1
+  - - 39
+    - 0
+  - - 39
+    - 1
+  - - 40
+    - 0
+  - - 40
+    - 1
+  - - 41
+    - 0
+  - - 41
+    - 1
+  - - 42
+    - 0
+  - - 42
+    - 1
+  - - 43
+    - 0
+  - - 43
+    - 1
+  - - 44
+    - 0
+  - - 44
+    - 1
+  - - 45
+    - 0
+  - - 45
+    - 1
+  - - 46
+    - 0
+  - - 46
+    - 1
+  - - 47
+    - 0
+  - - 47
+    - 1
+  - - 48
+    - 0
+  - - 48
+    - 1
+  - - 49
+    - 0
+  - - 49
+    - 1
+  candidates: lattice
+  safety: continuous
+  close_up: 'on'
+  mover_trails: 'on'
