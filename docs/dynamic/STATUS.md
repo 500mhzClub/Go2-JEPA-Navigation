@@ -786,3 +786,34 @@ map-oracle missions as controls. Sealed means `OBSERVED_COMPONENT_HAS_NO_FRONTIE
   static), since a cut leaves only frontiers elsewhere.
 
 **Decision:** the close-up rule (PLAN P4g).
+
+## P4g: the close-up probe (31 October)
+
+`configs/experiments/close_up_probe.yaml`, cohorts `cu_obst*`, commit dc3b886, 80 validation missions with mover trails.
+**It meets the bar set before the run, exactly: no collisions and twice as many wins as losses, so the rule is adopted as
+the working configuration.** Losses reach half the wins, which the P2b freeze rule treats as trading failures.
+
+| Round trips | Mover trails | Close-up | Gained / lost |
+|---|---|---|---|
+| One walker | 31 / 40 | 32 / 40 | 3 / 2 |
+| Two walkers | 23 / 40 | 28 / 40 | 9 / 4 |
+| Both | 54 / 80 | 60 / 80 | 12 / 6 (p 0.24) |
+
+| Close-up against | Score | Gained / lost | p |
+|---|---|---|---|
+| Frozen lv2 | 60 against 49 | 17 / 6 | 0.035 |
+| Full map oracle | 60 against 59 | 10 / 9 | 1.0 |
+
+- **Sealed time** falls from 112 to 52 s a mission on the same missions, with 40 s walking to a cut: about 92 s against 112 s.
+- **The cut route makes progress when missions succeed:** of 20 s a mission, 14 s is followed by progress along the true
+  route within 10 s, against 40 of 105 s in failures, where 52 s is flat and 10 s backward.
+- **A wall blob switches the rule off and on.** The rule keeps its target 1 m from every track, including short-lived ones
+  that never showed motion. In failed missions, 74% of the switches from cut to sealed had only such tracks within 1 m of
+  the target (52% in successes), against 7% with a confirmed walker. The robot then scans, loses the blob after 1.2 s,
+  gets its target back and turns to it, about every 10 s. Within 0.4 m of one spot, this took 11 of 20 failures at least
+  60 s (4 of 60 successes) and 24% of failed-mission time. Half the tracks in these cycles were over 1 m from any walker
+  and half lay on or past a wall line; the three worst missions' blobs sit at the same wall lines. An early count of
+  target jumps pointed to an unstable target, but per minute of cut time they are rarer in failures (11 against 15), and
+  stalling is less likely just after a jump (34% against 69%). A steadier target is therefore not the fix.
+- **Remaining 20 failures:** 18 timed out, 1 lost its pose, 1 stopped at frame 0 (floor plane unavailable, as in the
+  baseline). None is a collision. Trapping a walker in a dead end was not separately measured.
