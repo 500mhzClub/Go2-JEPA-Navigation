@@ -2,7 +2,7 @@ name: Close-up rule with four walkers, validation mazes 10-29
 description: docs/dynamic/PLAN.md, P4g. For information only, paired with the frozen planner at four walkers (dn_obst4_c1,
   5 of 40). Nothing is tuned on it.
 cohorts:
-- name: cuf_obst4_c1
+- name: cu_obst4_c1
   arms:
   - C1
   set: validation

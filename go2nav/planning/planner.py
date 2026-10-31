@@ -49,8 +49,7 @@ them (`planning.prediction`); with `'oracle'`, `tracks` are every obstacle at it
 (`controllers.truth`), all of them checked.
 
 `close_up=True` (docs/dynamic/PLAN.md, P4g): when a moving obstacle cuts the only route, walk up to the cut
-(`routing.close_up`) instead of scanning where the route was lost. Only confirmed tracks hold the robot off: a brief
-track on a wall would take the target away until it is lost again, and the robot would turn between the two.
+(`routing.close_up`) instead of scanning where the route was lost.
 
 `give_way=True` (the give-way probe, docs/dynamic/PLAN.md, P4f) adds one rule for movers that wait for the robot: when
 a confirmed track (it has shown motion) stands still within `GIVE_WAY_NEAR_M` ahead, within `GIVE_WAY_HALF_WIDTH_M`
@@ -148,8 +147,8 @@ class Planner:
         route = routing.prefer_clearance(route, snapshot.floor, snapshot.occupied)
         route = routing.fine_goal_route(snapshot, q[:2], goal_map, route)
         if self.close_up and route['status'] == 'OBSERVED_COMPONENT_HAS_NO_FRONTIER':
-            route = routing.close_up(snapshot, q[:2], goal_map, route, excluded_frontiers=excluded,
-                                     avoid=[t.history[-1][1] for t in self.tracks if t.confirmed])
+            route = routing.close_up(snapshot, q[:2], goal_map, route, avoid=[t.history[-1][1] for t in self.tracks],
+                                     excluded_frontiers=excluded)
         return route
 
     def _veto_view(self, route, heading, generation):

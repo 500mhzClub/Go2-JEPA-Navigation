@@ -205,17 +205,6 @@ def test_only_a_planner_asked_to_close_up_walks_to_a_cut():
     assert planner._base_route(corridor_with_a_mover(9.), q, goal, 'OUTBOUND')['status'] == 'OBSERVED_FLOOR_ROUTE_TO_GOAL_CELL'
 
 
-def test_only_a_confirmed_track_holds_the_robot_off_a_cut():
-    snapshot, q, goal = corridor_with_a_mover(), np.array([2.9, 0., 0.]), np.array([5.5, 0.])
-    planner = Planner(arrival_radius_m=.02, close_up=True)
-    planner.tracks = [still_track((4., 0.))]                           # 1.1 m ahead: already at the stand-off
-    assert planner._base_route(snapshot, q, goal, 'OUTBOUND')['status'] == 'OBSERVED_COMPONENT_HAS_NO_FRONTIER'
-    planner.tracks = [still_track((4., 0.), confirmed=False)]          # a brief blob, as walls leave: the target stays
-    route = planner._base_route(snapshot, q, goal, 'OUTBOUND')
-    assert route['status'] == 'OBSERVED_FLOOR_ROUTE_TO_CUT'
-    assert 3.2 < grid.centre(tuple(route['route_cells'][-1]))[0] < 3.45  # the footprint still keeps it off the stored cells
-
-
 def test_give_way_ignores_unconfirmed_moving_or_sideways_tracks_and_advancing_selections():
     planner = Planner(arrival_radius_m=.02, give_way=True)
     moving = still_track((1., 0.), 1)

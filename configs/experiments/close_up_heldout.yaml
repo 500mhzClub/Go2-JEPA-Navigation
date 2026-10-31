@@ -1,5 +1,5 @@
 name: Close-up rule held-out evaluation, paired with lv2 (112 of 140)
-description: docs/dynamic/PLAN.md, P2b and P4g. Run once, on the version the fix check keeps, with the walkers of lattice_baseline_eval
+description: docs/dynamic/PLAN.md, P2b and P4g. Run once, on the first close-up rule (the fix check missed its bar), with the walkers of lattice_baseline_eval
   (cohorts lb_*).
 cohorts:
 - name: cuh_r4_c1

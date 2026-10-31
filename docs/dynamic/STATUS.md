@@ -817,3 +817,30 @@ the working configuration.** Losses reach half the wins, which the P2b freeze ru
   stalling is less likely just after a jump (34% against 69%). A steadier target is therefore not the fix.
 - **Remaining 20 failures:** 18 timed out, 1 lost its pose, 1 stopped at frame 0 (floor plane unavailable, as in the
   baseline). None is a collision. Trapping a walker in a dead end was not separately measured.
+
+## P4g: the fix check (31 October)
+
+`configs/experiments/close_up_fix.yaml`, cohorts `cuf_obst*`, commit db59928: only confirmed tracks hold the robot off a cut.
+**It misses the bar set before the run, so the rule goes back to its first version.** It wins 8 missions and loses 5 where
+the bar asked for twice as many wins as losses. The other two parts pass: no collisions, and 5 missions of 80 in the
+turning loop for 60 s or more, against 15.
+
+| Same 80 missions | First rule | With the fix | Gained / lost |
+|---|---|---|---|
+| One walker | 32 / 40 | 33 / 40 | 4 / 3 |
+| Two walkers | 28 / 40 | 30 / 40 | 4 / 2 |
+| Both | 60 / 80 | 63 / 80 | 8 / 5 (p 0.58) |
+
+| The fix against | Score | Gained / lost | p |
+|---|---|---|---|
+| Mover trails | 63 against 54 | 15 / 6 | 0.08 |
+| Frozen lv2 | 63 against 49 | 19 / 5 | 0.007 |
+| Full map oracle | 63 against 59 | 13 / 9 | 0.52 |
+
+- **The diagnosis holds:** switches from cut to sealed with only unconfirmed tracks near the target fall from 552 to 128,
+  seconds in the loop from 36 to 12 a mission, and stuck seconds from 83 to 54.
+- **Failures:** 17 (20 before): 14 timeouts, 2 pose losses (1 before), 1 frame-0 floor-plane stop. The closest walker centre
+  is 0.47 m (0.45 m).
+- **Trapping, first rule against mover trails:** a walker stayed within 2 m of the robot and inside a 1-m span for 60 s or
+  more in 5 of 79 missions, against 1 of 79 (6 against 2 s a mission). Closest walker centre 0.45 m against 0.55 m.
+- **Throughput:** non-learned missions use the GPU only to render, and 14 at once ran at the same 0.54x real time as 6.
