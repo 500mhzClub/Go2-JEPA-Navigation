@@ -412,6 +412,12 @@ only path, and without trails a mover that leaves still seals the passage with i
 the runs of the first rule with mover trails, stopped at 9 of 80 because the rule they tested changes the robot's motion
 by millimetres. The first rule's cohorts (`gw_*`) are at dc5e21a.
 
+**Outcome (31 October).** The committed rule does not beat mover trails, and the frozen-target model on the top-up fails
+the give-way gate with its rankings still inverted (STATUS). The step named above for that outcome, P4d's labels on
+rollouts, is deferred: a rule at AUC 0.80 gained nothing in missions, so a model that matches it has no clear route to a
+gain. Next, the mover-trails baseline's failures are sorted by what sealed the passage, and the fix is chosen from that.
+Mover prediction returns if failures remain that need a mover's reaction.
+
 ### P5. Planning over continuous commands
 
 1. **Command representation.** A command tape with a derived category replaces the action names, so the harness rules

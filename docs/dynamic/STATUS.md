@@ -679,3 +679,80 @@ a frame's 12 cells:
 
 **Decision pending:** a grid objective that keeps the cells distinct (no grid projector, or SIGReg on each cell's
 difference from the frame mean) would likely bring localisation to the mark, not velocity.
+
+## P4f: the give-way rule in missions (30 October)
+
+The committed rule (`give_way_commit.yaml`, cohorts `gwcf_*`, PLAN P4f) on 80 validation missions with mover trails, paired
+with the trail probe's lattice cohorts (`tp_lat_*`). **It does not beat them, so it stays off;** lv2 with mover trails is
+the baseline.
+
+| Round trips | Mover trails | Trails and committed rule | Gained / lost |
+|---|---|---|---|
+| One mover | 31 / 40 | 32 / 40 | 3 / 2 |
+| Two movers | 23 / 40 | 18 / 40 | 4 / 9 |
+| Both | 54 / 80 | 50 / 80 | 7 / 11 (sign test p = 0.48) |
+
+- **It now backs off:** 258 triggers in 65 missions, a median of 32 cm (the first rule 3 mm), 39% the full 40 cm. 151 ended
+  on a blocked reverse. No mission ended in a collision.
+- **It does not change the encounter.** Within 6 s of a back-off's end the mover had walked 0.3 m in 80% of full back-offs
+  and 87% of shorter ones, against 85% after the first rule's millimetres: polite walkers turn back on their own. With a
+  still walker ahead and the robot held up, the median time until the robot is 1 m away is 22 s with the rule and 21-24 s
+  without. After a full back-off the robot reached the walker's old spot within 15 s in 27% of cases.
+- **The two-mover losses are not explained.** Eight of the nine ran out the 480 s on missions mover trails finished in
+  130-310 s, a slowdown well beyond the 14-69 s spent backing off; one lost its pose. Pose loss overall: 4 missions with
+  the rule, 1 without (79 of 80 pairs compared; one pair has an empty trace).
+
+## P4d: grid LeWM with mover labels (31 October)
+
+`outputs/lewm/go2_v2_grid_movers`, 60k steps, probed on `eval.mover_probe` and `eval.grid_readout`. **It fails the give-way
+gate on all three readouts, and adds nothing to the frozen-target model's (P4c) forecasts.**
+
+| Retreat contrast: AUC [95%], pass above 0.5 | Validation 1.6 s | Validation 3.2 s | Transfer 1.6 s | Transfer 3.2 s |
+|---|---|---|---|---|
+| Labels, ridge | 0.47 [0.39, 0.56] | 0.49 [0.41, 0.57] | 0.55 [0.46, 0.64] | 0.55 [0.45, 0.64] |
+| Labels, MLP | 0.34 [0.27, 0.43] | 0.36 [0.30, 0.43] | 0.49 [0.41, 0.57] | 0.44 [0.38, 0.51] |
+| Labels, patch | 0.25 [0.20, 0.32] | 0.24 [0.19, 0.31] | 0.46 [0.35, 0.56] | 0.36 [0.31, 0.42] |
+| Frozen target, best readout | 0.41 [0.34, 0.49] | 0.39 [0.32, 0.47] | 0.60 [0.50, 0.68] | 0.57 [0.48, 0.65] |
+| Still-mover rule | 0.80 | | 0.77 | |
+
+- The contrast's R2 is about 0 on every readout (at most 0.05). Models' rankings are still inverted on validation.
+- **Velocity skill at 0.8 s through the rollouts (mark 0.126):** 0.111 MLP, 0.108 patch on validation (frozen target 0.100,
+  0.103); 0.135 patch on transfer (0.130). On the true state 0.214 (0.230): the encoder holds the motion and the
+  predictor loses about half of it.
+- **Response R2 stays below 0:** -0.09 to -1.5 for the patch readout, -1.1 to -10 for ridge and MLP.
+- **Localisation** 0.093 m validation, 0.150 m transfer (frozen target 0.096, 0.128). The labels supervise this, so it is
+  reported and is not evidence; the transfer split does not gain.
+
+## Machine faults (30-31 October)
+
+**System drive, 30 October 01:43.** The Samsung 990 PRO stopped answering, its reset failed, the kernel disabled it and
+PID 1 died. Models, corpus and repository are on the other drive; training resumed from step 32,000. NVMe health is clean.
+
+**R9700 ring timeouts, 31 October 02:18-02:43.** 46 `gfx_0.0.0` timeouts, the first 56 s after the mover probe finished
+extracting features on the GPU beside ten collection renderers, each aborting one give-way unit (`exit -6`). Every ring
+reset succeeded and the bus stayed up. The cause is not confirmed; rendering beside training ran three hours without
+one. The 46 units were collected again with the GPU otherwise idle, without a timeout: 1,200 of 1,200, and 31.5% of the
+139,087 waiting windows precede a retreat (data gate 25%; corpus v2 4.3%).
+
+## P4f: the frozen-target model on the give-way top-up (31 October)
+
+`outputs/lewm/go2_v2_frozen_giveway`: P4c's seed, frozen encoder and schedule (the predictor trained from scratch, 60k steps,
+6.4 h) on corpus v2 plus the 1,200 give-way units, about 20% of the training windows. **The data do not help: it fails the
+give-way gate on all three readouts, and the rankings P4c had inverted are more inverted, or at chance.**
+
+| Retreat contrast: AUC [95%], pass above 0.5 | Validation 1.6 s | Validation 3.2 s | Transfer 1.6 s | Transfer 3.2 s |
+|---|---|---|---|---|
+| Top-up, ridge | 0.41 [0.36, 0.47] | 0.53 [0.46, 0.59] | 0.47 [0.40, 0.54] | 0.52 [0.46, 0.58] |
+| P4c, ridge | 0.41 [0.34, 0.49] | 0.39 [0.32, 0.47] | 0.60 [0.50, 0.68] | 0.57 [0.48, 0.65] |
+| Top-up, MLP | 0.25 [0.20, 0.31] | 0.25 [0.20, 0.32] | 0.36 [0.28, 0.43] | 0.39 [0.33, 0.47] |
+| P4c, MLP | 0.32 [0.27, 0.39] | 0.30 [0.26, 0.36] | 0.50 [0.41, 0.57] | 0.40 [0.34, 0.48] |
+| Top-up, patch | 0.19 [0.15, 0.25] | 0.28 [0.24, 0.34] | 0.30 [0.22, 0.38] | 0.34 [0.27, 0.40] |
+| P4c, patch | 0.25 [0.20, 0.32] | 0.31 [0.25, 0.37] | 0.34 [0.28, 0.39] | 0.39 [0.33, 0.45] |
+
+- The contrast's R2 is at most 0.05 on every readout.
+- **Velocity skill at 0.8 s through the rollouts (mark 0.126):** patch 0.077 validation, 0.089 transfer (P4c 0.103, 0.130); MLP
+  0.110, 0.104 (P4c 0.100, 0.118). On the true state 0.210 (0.230): the encoder is unchanged by construction.
+- The plan's reading of an inverted ranking: the predictor's prior of carrying motion on wins even with the data.
+
+**Where the give-way path stands.** Three models fail the gate, and a rule scoring AUC 0.80 / 0.77 on it gains nothing in
+missions (above). The gate measures the ranking of responses, not whether acting on that ranking helps a mission.
