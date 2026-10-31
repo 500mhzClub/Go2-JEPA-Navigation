@@ -418,6 +418,21 @@ rollouts, is deferred: a rule at AUC 0.80 gained nothing in missions, so a model
 gain. Next, the mover-trails baseline's failures are sorted by what sealed the passage, and the fix is chosen from that.
 Mover prediction returns if failures remain that need a mover's reaction.
 
+### P4g. The close-up rule (31 October)
+
+**Why.** The sorted failures (STATUS) show the map right and the response wrong: a walker anywhere on the only route
+leaves no goal or frontier, and the robot scans where it stopped, with more than 2 m clear for about half of that time.
+
+**Rule** (`close_up`, `routing.close_up`, off by default so lv2 is unchanged). When the route is cut, search again with a
+0.10-m footprint, which passes beside the walker, and follow that route to its furthest cell the 0.45-m footprint reaches
+and at least 1 m from every track. A walk under 0.25 m keeps the cut, so the robot scans there as before. It uses only the
+robot's own map and tracks; the forecasts and contact checks still apply to every step.
+
+**Test** (`configs/experiments/close_up_probe.yaml`, cohorts `cu_obst*`): 80 validation missions with mover trails, paired
+with `tp_lat_obst*` (54 of 80), about 3 h on the GPU. Set before it runs: the rule is adopted if it has no collisions and
+wins at least twice as many missions as it loses, with the sign test reported. Also read: sealed seconds per mission, and
+whether the robot closes up on walkers that then clear, or stands off and waits as long as before.
+
 ### P5. Planning over continuous commands
 
 1. **Command representation.** A command tape with a derived category replaces the action names, so the harness rules

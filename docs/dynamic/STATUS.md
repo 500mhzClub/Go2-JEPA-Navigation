@@ -756,3 +756,33 @@ give-way gate on all three readouts, and the rankings P4c had inverted are more 
 
 **Where the give-way path stands.** Three models fail the gate, and a rule scoring AUC 0.80 / 0.77 on it gains nothing in
 missions (above). The gate measures the ranking of responses, not whether acting on that ranking helps a mission.
+
+## What seals a route: the mover-trails failures sorted (31 October)
+
+The mazes are trees (16 cells, 15 corridors), so one route joins any two places, and a walker in a corridor cuts it. Each
+plan of the 80 mover-trails missions (79 with traces) is compared with the true walkers on that route, with static and
+map-oracle missions as controls. Sealed means `OBSERVED_COMPONENT_HAS_NO_FRONTIER`.
+
+| Sealed time, s per mission | All | Failed | Succeeded |
+|---|---|---|---|
+| Static, mover trails | 0 | 0 | 0 |
+| Walkers, mover trails | 114 | 244 | 53 |
+| Walkers, obstacles oracle (true walkers, perceived walls) | 85 | 172 | 49 |
+| Walkers, full oracle (true walkers, true walls) | 118 | 262 | 69 |
+
+- **The map is not the fault.** Static missions never seal, so noise and thick walls do not do it, and a perfect map seals
+  as long as the perceived one. This corrects the trail probe's reading above: what remains is not only a mover in view,
+  and a perfect map would not clear it.
+- **Failures are many short stops:** a median of 22 sealed stretches of about 10 s each in the 24 failures that timed out,
+  moving in about 6% of sealed time. The robot scans where the route was lost.
+- **The walker is often not near:** in failed missions' sealed time the nearest walker on the route was within 2 m for 46%,
+  2-5 m for 32%, further for 9%, and not on it for 13%. With the route open the shares within 2 m are 29% in failed missions
+  and 20% over all missions, so nearness is raised, not universal. The cells behind the not-on-route share are not
+  recorded: stored cells of unconfirmed tracks are a candidate, and no map snapshots exist to tell.
+- **It could account for many failures, by an optimistic estimate.** Of 25 failures, 1 lost its pose and 24 timed out (14
+  outbound, 10 returning). Those 24 stood sealed with more than 2 m clear for a median of 127 s and needed about 141 s to
+  finish at the successful missions' pace; in 11 of 24 the first covers the second. Walkers could still have blocked them.
+- **Wrong-way walking:** with the route open, failed missions go backward along the route for 54 s (18 s in successes, 2 s
+  static), since a cut leaves only frontiers elsewhere.
+
+**Decision:** the close-up rule (PLAN P4g).

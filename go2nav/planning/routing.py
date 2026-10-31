@@ -8,6 +8,12 @@ length. The path is then re-planned as a clearance-weighted A* (`grid.clearance_
 when the goal cell is observed floor but not reachable this way, by an A* whose edges are checked directly against
 the 1-cm cells (`fine_goal_route`).
 
+**Closing up** (`close_up`, for moving obstacles). The mazes have one route between any two places, so an obstacle in a
+corridor cuts it, wherever the obstacle stands, and the reachable floor then has no goal and no frontier. Instead of
+scanning where it stopped, the robot searches again with a small footprint (`CLOSE_UP_RADIUS_M`), which passes beside
+the obstacle, and follows that route to its furthest cell the real footprint can reach and at least `CLOSE_UP_STANDOFF_M`
+from every track. A walk under `CLOSE_UP_MIN_M` leaves the route cut, so the robot scans there as before.
+
 **Look-ahead target** (`clear_route_target`): the furthest route point, up to 0.35 m away, whose straight connector
 keeps the clearance the robot has now (at most 0.48 m).
 
@@ -30,20 +36,17 @@ CONNECT_RADIUS_M = 1.25
 LOOKAHEAD_M, LOOKAHEAD_CLEARANCE_M = .35, .48
 VIEW_ALIGNMENT_RAD = .10
 VIEWPOINT_RADIUS_M = .10
+CLOSE_UP_RADIUS_M, CLOSE_UP_STANDOFF_M, CLOSE_UP_MIN_M = .10, 1., .25
 
 
 def wrap(value):
     return math.atan2(math.sin(value), math.cos(value))
 
 
-def propose(floor, occupied, fine_occupied, position, goal, *, excluded_frontiers=(), radius_m=grid.FOOTPRINT_RADIUS_M):
-    """The base route from a position to a goal (map frame): connector and breadth-first search (see the module
-    docstring); `prefer_clearance` then re-plans its cells."""
+def _reachable(floor, occupied, fine_occupied, p, radius_m):
+    """The floor a footprint reaches from `p`: (parent, distance, seed, connector), all None when no connector clears."""
     clearance = grid.fine_clearance(fine_occupied)
-    floor, occupied = set(floor), set(occupied)
-    p, g = np.asarray(position, float), np.asarray(goal, float)
-    blocked = grid.inflated_cells(occupied, radius_m)
-    available = floor-blocked
+    available = floor-grid.inflated_cells(occupied, radius_m)
     candidates = sorted((c for c in available if np.linalg.norm(centre(c)-p) <= CONNECT_RADIUS_M),
                         key=lambda c: (float(np.linalg.norm(centre(c)-p)), c))
     if not clearance.clear(p, p, radius_m):
@@ -53,10 +56,8 @@ def propose(floor, occupied, fine_occupied, position, goal, *, excluded_frontier
         if clearance.clear(p, centre(c), radius_m):
             seed, connector = c, segment_cells(p, centre(c))
             break
-    common = dict(nominal_radius_m=radius_m, goal_map_xy_m=g.tolist())
     if seed is None:
-        return common | dict(status='ADDITIONAL_VIEW_REQUIRED', route_cells=[], unknown_connector_cells=[],
-                             complete_route_floor_coverage=False)
+        return None, None, None, None
     parent, queue, distance = {seed: None}, deque([seed]), {seed: 0}
     while queue:
         cell = queue.popleft()
@@ -65,6 +66,19 @@ def propose(floor, occupied, fine_occupied, position, goal, *, excluded_frontier
             if nxt in available and nxt not in parent:
                 parent[nxt], distance[nxt] = cell, distance[cell]+1
                 queue.append(nxt)
+    return parent, distance, seed, connector
+
+
+def propose(floor, occupied, fine_occupied, position, goal, *, excluded_frontiers=(), radius_m=grid.FOOTPRINT_RADIUS_M):
+    """The base route from a position to a goal (map frame): connector and breadth-first search (see the module
+    docstring); `prefer_clearance` then re-plans its cells."""
+    floor, occupied = set(floor), set(occupied)
+    p, g = np.asarray(position, float), np.asarray(goal, float)
+    parent, distance, seed, connector = _reachable(floor, occupied, fine_occupied, p, radius_m)
+    common = dict(nominal_radius_m=radius_m, goal_map_xy_m=g.tolist())
+    if seed is None:
+        return common | dict(status='ADDITIONAL_VIEW_REQUIRED', route_cells=[], unknown_connector_cells=[],
+                             complete_route_floor_coverage=False)
     goal_cell = grid.cell_of(g)
     observed = floor|occupied
     frontier = [c for c in parent if c not in excluded_frontiers
@@ -101,6 +115,36 @@ def prefer_clearance(route, floor, occupied):
     if found is None:
         raise ValueError('original reachable target became unreachable')
     return route | dict(route_cells=[list(c) for c in found[0]])
+
+
+def close_up(snapshot, position, goal, route, *, avoid=(), excluded_frontiers=()):
+    """The route up to a cut (see the module docstring), or `route` unchanged when there is nowhere worth walking.
+    `avoid`: the tracks' positions."""
+    floor, occupied = set(snapshot.floor), set(snapshot.occupied)
+    p = np.asarray(position, float)
+    through = prefer_clearance(propose(floor, occupied, frozenset(), p, goal, excluded_frontiers=excluded_frontiers,
+                                       radius_m=CLOSE_UP_RADIUS_M), floor, occupied)  # down the corridor, not along a wall
+    parent, _, seed, connector = _reachable(floor, occupied, snapshot.fine_occupied, p, route['nominal_radius_m'])
+    if seed is None:
+        return route
+    avoid = [np.asarray(a, float) for a in avoid]
+    target = next((c for c in map(tuple, reversed(through['route_cells'])) if c in parent
+                   and all(np.linalg.norm(centre(c)-a) >= CLOSE_UP_STANDOFF_M for a in avoid)), None)
+    if target is None:
+        return route
+    path, here = [], target
+    while here is not None:
+        path.append(here)
+        here = parent[here]
+    path.reverse()
+    if (len(path)-1)*grid.CELL_M < CLOSE_UP_MIN_M:
+        return route
+    unknown = connector-floor
+    return prefer_clearance(route | dict(status='OBSERVED_FLOOR_ROUTE_TO_CUT', route_cells=[list(c) for c in path],
+                                         entry_map_xy_m=centre(seed).tolist(), target_map_xy_m=centre(target).tolist(),
+                                         unknown_connector_cells=[list(c) for c in sorted(unknown)],
+                                         complete_route_floor_coverage=not unknown,
+                                         initial_connector_requires_observation=bool(unknown)), floor, occupied)
 
 
 def fine_goal_route(snapshot, position, goal, route):

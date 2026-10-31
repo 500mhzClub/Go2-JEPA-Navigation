@@ -106,7 +106,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         models=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False, deadlock_escape=False,
         terminal_burst=False, obstacle_prediction=False, footprint_clearing=False, obstacle_series='v1', obstacle_speed=None,
         candidates='primitives', safety='primitive', pose_oracle=False, map_oracle=None, prediction_oracle=False,
-        mover_trails=False, give_way=False):
+        mover_trails=False, give_way=False, close_up=False):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
     (how many moving obstacles; `obstacle_series` their placement series, `obstacle_speed` their speed range). Experiment
@@ -162,6 +162,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  **(dict(footprint_clearing=True) if footprint_clearing else {}),
                                  **(dict(mover_trails=True) if mover_trails else {}),
                                  **(dict(give_way=True) if give_way else {}),
+                                 **(dict(close_up=True) if close_up else {}),
                                  **(dict(candidates=candidates, lattice_axes=actions.LATTICE_AXES)
                                     if candidates == 'lattice' else {}),
                                  **(dict(safety=safety) if safety != 'primitive' else {}),
@@ -204,7 +205,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                           candidates=actions.LATTICE if candidates == 'lattice' else actions.ACTIONS,
                                           truth=truth, pose_oracle=pose_oracle, map_oracle=map_oracle,
                                           prediction_oracle=prediction_oracle, mover_trails=mover_trails,
-                                          give_way=give_way)
+                                          give_way=give_way, close_up=close_up)
         history = deque(maxlen=4)
         for tick in range(STEP_BUDGET):
             now = session.sim_ns
@@ -326,6 +327,8 @@ def main():
                    help="a confirmed obstacle track's cells stay in the map only while seen occupied")
     p.add_argument('--give-way', choices=('on', 'off'), default='off',
                    help='back off from a still mover near and ahead (the give-way probe)')
+    p.add_argument('--close-up', choices=('on', 'off'), default='off',
+                   help='walk up to an obstacle that cuts the only route instead of scanning where the route was lost')
     p.add_argument('--pose-oracle', choices=('on', 'off'), default='off', help='the true pose (module oracle)')
     p.add_argument('--map-oracle', choices=('obstacles', 'full', 'static', 'off'), default='off',
                    help='obstacles: perceived walls, true obstacles; full: the true map; static: the true map, '
@@ -351,7 +354,7 @@ def main():
                  obstacle_speed=tuple(map(float, a.obstacle_speed.split(':'))) if a.obstacle_speed else None,
                  pose_oracle=a.pose_oracle == 'on', map_oracle=None if a.map_oracle == 'off' else a.map_oracle,
                  prediction_oracle=a.prediction_oracle == 'on', mover_trails=a.mover_trails == 'on',
-                 give_way=a.give_way == 'on')
+                 give_way=a.give_way == 'on', close_up=a.close_up == 'on')
     print(json.dumps(result))
 
 

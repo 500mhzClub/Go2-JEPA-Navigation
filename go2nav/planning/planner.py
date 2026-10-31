@@ -48,6 +48,9 @@ forecast paths against moving tracks (`tracks`, set by the controller each map u
 them (`planning.prediction`); with `'oracle'`, `tracks` are every obstacle at its true future positions
 (`controllers.truth`), all of them checked.
 
+`close_up=True` (docs/dynamic/PLAN.md, P4g): when a moving obstacle cuts the only route, walk up to the cut
+(`routing.close_up`) instead of scanning where the route was lost.
+
 `give_way=True` (the give-way probe, docs/dynamic/PLAN.md, P4f) adds one rule for movers that wait for the robot: when
 a confirmed track (it has shown motion) stands still within `GIVE_WAY_NEAR_M` ahead, within `GIVE_WAY_HALF_WIDTH_M`
 of the heading, and the selection does not advance, the robot commits to backing off at 0.10 m/s until it has moved
@@ -98,7 +101,7 @@ class Planner:
 
     def __init__(self, *, arrival_radius_m, recovery=False, margin_m=0., unknown=None, harness='reserve_exit_v2',
                  coverage_fix=True, deadlock_escape=False, terminal_burst=False, obstacle_prediction=False,
-                 candidates=ACTIONS, give_way=False):
+                 candidates=ACTIONS, give_way=False, close_up=False):
         if harness not in HARNESSES:
             raise ValueError(f'unknown harness {harness!r}')
         self.arrival_radius_m, self.recovery, self.harness = arrival_radius_m, recovery, harness
@@ -131,6 +134,7 @@ class Planner:
         self.backup, self.backup_request, self.backup_sites = None, None, []
         self.backup_plan = False            # this plan carries the reverse command
         self.give_way, self.give_way_state, self.give_way_cooldown, self.give_way_counts = give_way, None, 0, {}
+        self.close_up = close_up
         if recovery:
             self.frontier_visits.excluded = routing.StickyExclusions()
 
@@ -141,7 +145,11 @@ class Planner:
         route = routing.propose(snapshot.floor, snapshot.occupied, snapshot.fine_occupied, q[:2], goal_map,
                                 excluded_frontiers=excluded)
         route = routing.prefer_clearance(route, snapshot.floor, snapshot.occupied)
-        return routing.fine_goal_route(snapshot, q[:2], goal_map, route)
+        route = routing.fine_goal_route(snapshot, q[:2], goal_map, route)
+        if self.close_up and route['status'] == 'OBSERVED_COMPONENT_HAS_NO_FRONTIER':
+            route = routing.close_up(snapshot, q[:2], goal_map, route, avoid=[t.history[-1][1] for t in self.tracks],
+                                     excluded_frontiers=excluded)
+        return route
 
     def _veto_view(self, route, heading, generation):
         recovery = self.view_recovery
