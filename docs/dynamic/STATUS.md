@@ -894,7 +894,7 @@ scored plan by plan against the true walkers within 2 m in the primary camera's 
 30 of 40 with two; 107 of 120. So the live bar is at least 64 of 80. One two-walker mission hit a wall or walker
 (maze 14 ep1, `DISALLOWED_CONTACT`); three failures were pose losses and one a floor-plane start failure.
 
-**Why velocity is worse.** Most of it is young tracks. The model finds walkers the hand tracker never does and sooner, and a
+**Why velocity is worse.** Most of it is young tracks. The model finds walkers the hand tracker does not, and a
 track has no velocity for its first 0.7 s, so 24% of its plans on moving walkers read zero. Tracks with 3-7 detections
 err by 0.24 m/s, about a walker's whole speed (median 0.235 m/s); tracks past 20 detections err by 0.10 m/s, still half as
 much again as the hand tracker's 0.065. On the 5,587 walker-plans both found, the error is 0.146 against 0.065 m/s. The model calls 79%
@@ -909,4 +909,48 @@ falls from 0.180 to 0.157 m/s, so position noise from the head remains the limit
 and the model's own forecast is what should.
 
 **A leak closed.** In the live path the hand tracker's trails were still being marked on the map. Live, only the model's are.
+
+## P6: the combined model, offline (1 November)
+
+`go2_v2_walkers` trained for 30,000 steps from `go2_v2_grid_movers` with no faults. Validation rollout error at 0.8 s is 0.069,
+against 0.075 for its starting model and 0.092 for go2_v2 (0.044 against 0.053 on the grid tokens), and it did not collapse.
+
+**It drives the live test.** The rule was set before reading it. On the 93 validation units through the tuned tracker it found 92.7%
+against 91.6% with 0.36 false alarms per 100 plans against 0.47; velocity error 0.147 against 0.157 m/s.
+
+| 12,000 windows, walkers | go2_v2_grid_movers | go2_v2_walkers |
+| --- | --- | --- |
+| Now, validation: found, error | 80%, 0.107 m | 83%, 0.102 m |
+| Now, transfer | 69%, 0.129 m | 78%, 0.115 m |
+| Rolled out 0.8 s, validation | 71%, 0.181 m | 88%, 0.126 m |
+| Rolled out 0.8 s, transfer | 57%, 0.190 m | 75%, 0.150 m |
+
+**The forecast carries where a walker is, not where it is going.** On the same 93 units, on walkers moving when the forecast
+starts (median 0.18 m walked in 0.8 s; both methods within 0.75 m of the truth):
+
+| Median error at 0.8 s | Rollout | Tracker's straight line | Tracker's position held |
+| --- | --- | --- | --- |
+| Moving, go2_v2_grid_movers | 0.268 m | 0.212 m | 0.212 m |
+| Moving, go2_v2_walkers | 0.236 m | 0.221 m | 0.221 m |
+| Standing, go2_v2_walkers | 0.052 m | 0.086 m | 0.071 m |
+
+Training took 0.03 m off the moving walkers' error and halved the standing walkers', but no method beats holding the last
+position on a moving walker, so the model's tracker gets nothing from its straight line at this range, and the rollout is
+0.015 m worse than it (95% interval 0.002 to 0.028 m). Walkers that leave the view are the rollout's worst case: within 0.5 m
+19% of the time against the tracker's 75%. So the tracker's straight line stays and the rollout does not replace it. The
+model takes 0.3 s of frames, over which a walker moves about 7 cm, near its 0.10 m reading error, so the motion is
+hard for it to see. This is a limit of its input.
+
+**Free space: good in view, a guess out of it.** Over all rays the free-space head misses by 0.18 m and reads 65% of near
+rays as more than 0.15 m clearer than they are, which sounds unusable and is mostly the rays no camera sees:
+
+| Bearing from straight ahead | Median error | Near rays read too clear | Correlation with the truth |
+| --- | --- | --- | --- |
+| 0 degrees | 0.034 m | 7% | 0.98 |
+| 22 degrees (inside the 39-degree half view) | 0.04 m | 11-25% | 0.94-0.95 |
+| 45 degrees | 0.11 m | 44-55% | 0.75-0.78 |
+| 90 degrees and behind | 0.26-0.28 m | 90-98% | 0.42-0.48 |
+
+Rollouts barely degrade it (0.185 against 0.181 m over all rays), so the forecast keeps what the state holds. Both limits, the
+walkers' motion and the unseen rays, come from the same thing: the model has no memory. That is what steps 4 to 6 need too.
 
