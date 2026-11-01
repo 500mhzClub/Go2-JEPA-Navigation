@@ -192,9 +192,14 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     mover_weight = objective.get('mover_weight', 0.)
     if bool(mover_weight) != mconfig.mover_head:
         raise ValueError('objective.mover_weight > 0 and model.mover_head go together')
+    rollout_mover_weight, free_weight = objective.get('rollout_mover_weight', 0.), objective.get('free_weight', 0.)
+    if rollout_mover_weight and not mover_weight:
+        raise ValueError('objective.rollout_mover_weight needs objective.mover_weight')
+    if bool(free_weight) != mconfig.free_head:
+        raise ValueError('objective.free_weight > 0 and model.free_head go together')
     corpus = Corpus(corpus_root, length=length, roles=tuple(data.get('train_roles', ('lewm_train',))),
                     kinds=tuple(data.get('train_kinds', TRAIN_KINDS)), poses=bool(motion_weight), command_dim=dim,
-                    movers=bool(mover_weight))
+                    movers=bool(mover_weight), free=bool(free_weight))
     val_length = mconfig.history+EVAL_STEPS
     validation = Corpus(corpus_root, length=val_length, roles=('lewm_val',), kinds=('explore', 'mission', 'free'),
                         command_dim=dim)
@@ -215,6 +220,14 @@ def train(config, corpus_root, out, *, device='cuda:0'):
         if unexpected or any(k.split('.')[0] in ('encoder', 'projector') for k in missing):
             raise ValueError(f'{source} does not match the encoder and projector: {unexpected or missing}')
         parents.append(dict(file=str(config['init_encoder']), sha256=sha256_file(source)))
+    if config.get('init_model'):  # P6: another world model's weights, every head but the ones this config adds
+        source = Path(config['init_model'])
+        source = source if source.is_absolute() else REPO/source
+        weights = torch.load(source, map_location='cpu', weights_only=False)['model_state_dict']
+        missing, unexpected = model.load_state_dict(weights, strict=False)
+        if unexpected or any(k.split('.')[0] != 'free' for k in missing):
+            raise ValueError(f'{source} does not match the model: {unexpected or missing}')
+        parents.append(dict(file=str(config['init_model']), sha256=sha256_file(source)))
     model.predictor.checkpoint = bool(runtime.get('checkpoint_predictor'))
     model.encoder.checkpoint_blocks = runtime.get('checkpoint_blocks', 0)
     sigreg = SIGReg(knots=objective.get('sigreg_knots', 17), num_proj=objective['sigreg_projections']).to(device)
@@ -257,6 +270,7 @@ def train(config, corpus_root, out, *, device='cuda:0'):
         extra = [e.to(device, non_blocking=True) for e in extra]
         poses = extra.pop(0) if corpus.with_poses else None
         movers = extra.pop(0) if corpus.with_movers else None
+        free = extra.pop(0) if corpus.with_free else None
         if action_blind:
             actions = torch.zeros_like(actions)
         generator.manual_seed(keyed_seed(seed, 'sigreg', step))
@@ -264,7 +278,8 @@ def train(config, corpus_root, out, *, device='cuda:0'):
             terms = loss_fn(model, normalise_frames(frames), actions, rollout_steps=objective['rollout_steps'],
                             sigreg=sigreg, lam=objective['sigreg_weight'], inverse_weight=inverse_weight, generator=generator,
                             poses=poses, motion_weight=motion_weight, grid_weight=objective.get('grid_weight', 1.),
-                            movers=movers, mover_weight=mover_weight)
+                            movers=movers, mover_weight=mover_weight, rollout_mover_weight=rollout_mover_weight,
+                            free=free, free_weight=free_weight)
         optimiser.zero_grad(set_to_none=True)
         if not torch.isfinite(terms['loss']):
             nonfinite += 1

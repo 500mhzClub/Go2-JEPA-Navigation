@@ -1,0 +1,6 @@
+# P6's live test (docs/dynamic/PLAN.md): as the shadow run, with the model chosen to drive the walkers.
+go2_locomotion_policy: outputs/locomotion/continuous_seed11/model_1499.pt
+t6_c1_command_model: outputs/locomotion/c1_lattice_model/command_only.npz
+lewm_world_model: outputs/lewm/go2_v2/lewm.pt
+lewm_c5_decoder_and_c6: outputs/lewm/go2_v2_heads/heads.pt
+walker_world_model: outputs/lewm/go2_v2_walkers/lewm.pt

@@ -33,6 +33,7 @@ from dataclasses import dataclass, replace
 import numpy as np
 
 from go2nav.controllers import truth as truth_oracles
+from go2nav.controllers.walkers import ModelTracker
 from go2nav.perception.mapping import RoutingMap
 from go2nav.perception.obstacles import DepthObstacleObserver
 from go2nav.perception.registration import FloorRegistration
@@ -92,7 +93,7 @@ class NavigationController:
                  margin_m=0., unknown=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False,
                  deadlock_escape=False, terminal_burst=False, obstacle_prediction=False, footprint_clearing=False,
                  candidates=ACTIONS, truth=None, pose_oracle=False, map_oracle=None, prediction_oracle=False,
-                 mover_trails=False, give_way=False, close_up=False):
+                 mover_trails=False, give_way=False, close_up=False, walker_finder=None, walker_mode='shadow'):
         self.forecaster = forecaster
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
         self.routing_map = RoutingMap(clear_seen_free=bool(map_decay), clear_footprint=footprint_clearing,
@@ -105,6 +106,8 @@ class NavigationController:
                                obstacle_prediction='oracle' if prediction_oracle else obstacle_prediction,
                                candidates=candidates, give_way=give_way, close_up=close_up)
         self.tracker = ObstacleTracker() if obstacle_prediction and not prediction_oracle else None
+        self.walker_finder, self.walker_mode = walker_finder, walker_mode
+        self.model_tracker, self.walker_shadow = ModelTracker(held=walker_mode == 'held') if walker_finder is not None else None, []
         if mover_trails and self.tracker is None:
             raise ValueError('mover trails need the obstacle tracker (obstacle_prediction)')
         if give_way and self.tracker is None:
@@ -172,17 +175,35 @@ class NavigationController:
                 self.latest_map = self.map_oracle.apply(self.latest_map, registered.position, registered.rotation)
             if self.tracker is not None:
                 self.planner.tracks = self.tracker.update(self.latest_map)
-                if self.routing_map.mover_trails:
+                if self.routing_map.mover_trails and self.walker_mode not in ('live', 'held'):
                     self.routing_map.mark_mover(set().union(*(t.trail for t in self.planner.tracks if t.confirmed)))
             if self.prediction_oracle:
                 self.planner.tracks = truth_oracles.oracle_tracks(self.truth, self.latest_map, registered.position,
                                                                   registered.rotation)
+            if self.walker_finder is not None:
+                self._model_walkers(frame)
             if self.latest_map.cleared and self.planning and self.planning[-1].get('reason') == 'VIEW_BUDGET_EXHAUSTED':
                 self.planner.scan_target, self.planner.scan_index = None, 0  # freed cells: look around again
             if frame.frame >= MAP_PERIOD_FRAMES:
                 self._plan(frame, registered)
         self.latest_obstacles = self.obstacles.observe(frame.depth, frame.auxiliary_depth, frame.gyro_rates,
                                                        frame.specific_force, frame.measured_ns)
+
+    def _model_walkers(self, frame):
+        """Advance the world model's tracks with this frame's history; live, the planner takes them for its own."""
+        packets, first = frame.history, frame.frame-len(frame.history)+1
+        registered = [self.registered_poses.get(first+k) for k in range(len(packets))]
+        detected = self.walker_finder.detect(packets)
+        tracks = self.model_tracker.update(detected, [p['image']['measured_ns'] for p in packets],
+                                           [r and (r.position, r.rotation) for r in registered],
+                                           self.latest_map.map_from_initial)
+        self.walker_shadow.append(dict(frame=frame.frame, measured_ns=frame.measured_ns, detections=detected[-1].round(3).tolist(),
+                                       tracks=[t.summary(frame.measured_ns)|dict(confirmed=t.confirmed, fitted=np.round(t.fitted, 3).tolist())
+                                               for t in tracks]))
+        if self.walker_mode in ('live', 'held'):
+            self.planner.tracks = tracks
+            if self.routing_map.mover_trails:
+                self.routing_map.mark_mover(set().union(*(t.trail for t in tracks if t.confirmed)))
 
     def _visual_support(self, visual, registered, now_ns):
         """Advance the view recovery with this frame; when one starts, veto every plan made before it."""

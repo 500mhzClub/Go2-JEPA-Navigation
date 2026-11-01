@@ -106,7 +106,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         models=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False, deadlock_escape=False,
         terminal_burst=False, obstacle_prediction=False, footprint_clearing=False, obstacle_series='v1', obstacle_speed=None,
         candidates='primitives', safety='primitive', pose_oracle=False, map_oracle=None, prediction_oracle=False,
-        mover_trails=False, give_way=False, close_up=False):
+        mover_trails=False, give_way=False, close_up=False, walker_mode='off'):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
     (how many moving obstacles; `obstacle_series` their placement series, `obstacle_speed` their speed range). Experiment
@@ -129,7 +129,9 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     (`go2nav.locomotion.safety`). Module oracles (the failure analysis; `go2nav.controllers.truth`): `pose_oracle` (the
     true pose), `map_oracle` ('obstacles': perceived walls with the moving obstacles where they truly are; 'full': the
     true map; 'static': the true map, obstacles kept out of the route grid), `prediction_oracle` (true obstacle futures
-    in the clearance check)."""
+    in the clearance check). `walker_mode`: the world model's walkers (`models['walker_world_model']`,
+    `go2nav.controllers.walkers`), logged beside the hand tracker ('shadow'), driving the planner
+    ('live') or driving it with positions only ('held')."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -163,6 +165,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  **(dict(mover_trails=True) if mover_trails else {}),
                                  **(dict(give_way=True) if give_way else {}),
                                  **(dict(close_up=True) if close_up else {}),
+                                 **(dict(walker_mode=walker_mode) if walker_mode != 'off' else {}),
                                  **(dict(candidates=candidates, lattice_axes=actions.LATTICE_AXES)
                                     if candidates == 'lattice' else {}),
                                  **(dict(safety=safety) if safety != 'primitive' else {}),
@@ -195,6 +198,11 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         if pose_oracle or map_oracle or prediction_oracle:
             from go2nav.controllers.truth import GroundTruth
             truth = GroundTruth(session)
+        finder = None
+        if walker_mode != 'off':
+            from go2nav.controllers.walkers import WalkerFinder
+            from go2nav.models.lewm import load_world_model
+            finder = WalkerFinder(load_world_model(models['walker_world_model']))
         controller = NavigationController(forecaster, goal_xy=cues['goal_initial_body_xy_m'],
                                           home_xy=cues['return_initial_body_xy_m'], arrival_radius_m=.02,
                                           navigation_frames=4800, recovery=recovery, margin_m=margin_m,
@@ -205,7 +213,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                           candidates=actions.LATTICE if candidates == 'lattice' else actions.ACTIONS,
                                           truth=truth, pose_oracle=pose_oracle, map_oracle=map_oracle,
                                           prediction_oracle=prediction_oracle, mover_trails=mover_trails,
-                                          give_way=give_way, close_up=close_up)
+                                          give_way=give_way, close_up=close_up, walker_finder=finder,
+                                          walker_mode=walker_mode)
         history = deque(maxlen=4)
         for tick in range(STEP_BUDGET):
             now = session.sim_ns
@@ -245,6 +254,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
             save(out/'mission.json', controller.mission_rows)
             save(out/'poses.json', [dict(frame=p['frame'], visual_pose=p['visual'], registered_pose=p['registered'])
                                     for p in controller.poses])
+            if walker_mode != 'off':
+                save(out/'walker_shadow.json', controller.walker_shadow)
         save(out/'requests.json', requests)
         save(out/'acquisitions.json', acquisitions)
         save(out/'stage_timings.json', timings)
@@ -327,6 +338,8 @@ def main():
                    help="a confirmed obstacle track's cells stay in the map only while seen occupied")
     p.add_argument('--give-way', choices=('on', 'off'), default='off',
                    help='back off from a still mover near and ahead (the give-way probe)')
+    p.add_argument('--walker-mode', choices=('off', 'shadow', 'live', 'held'), default='off',
+                   help="the world model's walkers: logged beside the hand tracker, or driving the planner")
     p.add_argument('--close-up', choices=('on', 'off'), default='off',
                    help='walk up to an obstacle that cuts the only route instead of scanning where the route was lost')
     p.add_argument('--pose-oracle', choices=('on', 'off'), default='off', help='the true pose (module oracle)')
@@ -354,7 +367,7 @@ def main():
                  obstacle_speed=tuple(map(float, a.obstacle_speed.split(':'))) if a.obstacle_speed else None,
                  pose_oracle=a.pose_oracle == 'on', map_oracle=None if a.map_oracle == 'off' else a.map_oracle,
                  prediction_oracle=a.prediction_oracle == 'on', mover_trails=a.mover_trails == 'on',
-                 give_way=a.give_way == 'on', close_up=a.close_up == 'on')
+                 give_way=a.give_way == 'on', close_up=a.close_up == 'on', walker_mode=a.walker_mode)
     print(json.dumps(result))
 
 

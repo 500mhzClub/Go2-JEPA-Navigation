@@ -876,3 +876,182 @@ of C6's contact, not a walk to a cut.
 - **The mazes have now been used for this rule:** a further hand rule cannot be judged on them without a fresh set.
 
 Close-up with the fix and mover trails is the working planner and the reference for handing parts to the world model.
+
+## P6: the walkers in shadow (1 November)
+
+The world model's walkers beat the hand tracker's on what the bar measures, and fall behind on velocity, which the bar does
+not measure. 120 validation missions, the hand tracker driving, the existing mover head (go2_v2_grid_movers) logged beside it,
+scored plan by plan against the true walkers within 2 m in the primary camera's view (8,232 walker-plans):
+
+| | Hand tracker | World model | Bar |
+| --- | --- | --- | --- |
+| Walkers found | 69% (95% interval 67-72%) | 86% (85-88%) | at least 90% of hand's: passed |
+| False alarms per 100 plans | 0.68 | 0.63 | no more than hand's: passed |
+| Median position error | 0.151 m | 0.090 m | at most 1.25 times hand's: passed |
+| Median velocity error | 0.066 m/s | 0.158 m/s | not in the bar |
+
+**Reference for the live test.** The same missions are C5 with the close-up rule: 40 of 40 with no walkers, 37 of 40 with one,
+30 of 40 with two; 107 of 120. So the live bar is at least 64 of 80. One two-walker mission hit a wall or walker
+(maze 14 ep1, `DISALLOWED_CONTACT`); three failures were pose losses and one a floor-plane start failure.
+
+**Why velocity is worse.** Most of it is young tracks. The model finds walkers the hand tracker does not, and a
+track has no velocity for its first 0.7 s, so 24% of its plans on moving walkers read zero. Tracks with 3-7 detections
+err by 0.24 m/s, about a walker's whole speed (median 0.235 m/s); tracks past 20 detections err by 0.10 m/s, still half as
+much again as the hand tracker's 0.065. On the 5,587 walker-plans both found, the error is 0.146 against 0.065 m/s. The model calls 79%
+of moving walkers moving where hand calls 91%.
+
+**The tracker's settings, tuned before the live test.** The missions log every fourth frame, so the head was replayed at 10 Hz
+on 93 validation walker units (true poses, scored at every frame). The best setting (a 0.25 m gate, one walker seen by two columns
+merged within 0.3 m, a 0.5 s minimum span, a 1.6 s window) leaves found (91.6% against 91.4%) and false alarms
+(0.47 against 0.45 per 100 plans) about where they were, and it cuts tracks per unit from 18.2 to 13.2 and zero-velocity
+plans on moving walkers from 28% to 11%, and raises moving walkers called moving from 69% to 85%. The velocity error only
+falls from 0.180 to 0.157 m/s, so position noise from the head remains the limit: tuning a straight-line fit will not close it,
+and the model's own forecast is what should.
+
+**A leak closed.** In the live path the hand tracker's trails were still being marked on the map. Live, only the model's are.
+
+## P6: the combined model, offline (1 November)
+
+`go2_v2_walkers` trained for 30,000 steps from `go2_v2_grid_movers` with no faults. Validation rollout error at 0.8 s is 0.069,
+against 0.075 for its starting model and 0.092 for go2_v2 (0.044 against 0.053 on the grid tokens), and it did not collapse.
+
+**It drives the live test.** The rule was set before reading it. On the 93 validation units through the tuned tracker it found 92.7%
+against 91.6% with 0.36 false alarms per 100 plans against 0.47; velocity error 0.147 against 0.157 m/s.
+
+| 12,000 windows, walkers | go2_v2_grid_movers | go2_v2_walkers |
+| --- | --- | --- |
+| Now, validation: found, error | 80%, 0.107 m | 83%, 0.102 m |
+| Now, transfer | 69%, 0.129 m | 78%, 0.115 m |
+| Rolled out 0.8 s, validation | 71%, 0.181 m | 88%, 0.126 m |
+| Rolled out 0.8 s, transfer | 57%, 0.190 m | 75%, 0.150 m |
+
+**The forecast carries where a walker is, not where it is going.** On the same 93 units, on walkers moving when the forecast
+starts (median 0.18 m walked in 0.8 s; both methods within 0.75 m of the truth):
+
+| Median error at 0.8 s | Rollout | Tracker's straight line | Tracker's position held |
+| --- | --- | --- | --- |
+| Moving, go2_v2_grid_movers | 0.268 m | 0.212 m | 0.212 m |
+| Moving, go2_v2_walkers | 0.236 m | 0.221 m | 0.221 m |
+| Standing, go2_v2_walkers | 0.052 m | 0.086 m | 0.071 m |
+
+Training took 0.03 m off the moving walkers' error and halved the standing walkers', but no method beats holding the last
+position on a moving walker, so the model's tracker gets nothing from its straight line at this range, and the rollout is
+0.015 m worse than it (95% interval 0.002 to 0.028 m). Walkers that leave the view are the rollout's worst case: within 0.5 m
+19% of the time against the tracker's 75%. So the tracker's straight line stays and the rollout does not replace it. The
+model takes 0.3 s of frames, over which a walker moves about 7 cm, near its 0.10 m reading error, so the motion is
+hard for it to see. This is a limit of its input.
+
+**Free space: good in view, a guess out of it.** Over all rays the free-space head misses by 0.18 m and reads 65% of near
+rays as more than 0.15 m clearer than they are, which sounds unusable and is mostly the rays no camera sees:
+
+| Bearing from straight ahead | Median error | Near rays read too clear | Correlation with the truth |
+| --- | --- | --- | --- |
+| 0 degrees | 0.034 m | 7% | 0.98 |
+| 22 degrees (inside the 39-degree half view) | 0.04 m | 11-25% | 0.94-0.95 |
+| 45 degrees | 0.11 m | 44-55% | 0.75-0.78 |
+| 90 degrees and behind | 0.26-0.28 m | 90-98% | 0.42-0.48 |
+
+Rollouts barely degrade it (0.185 against 0.181 m over all rays), so the forecast keeps what the state holds. Both limits, the
+walkers' motion and the unseen rays, come from the same thing: the model has no memory. That is what steps 4 to 6 need too.
+
+## P6: the live test failed, and why (1 November)
+
+The model's tracks drove the planner on the 80 walker missions: **56 of 80 round trips against the reference's 67 and the bar's 64,
+3 gained and 14 lost, with hard contact in 15 missions against 1.** One walker 33 of 40 (reference 37), two walkers 23 of 40
+(reference 30). The bar failed on both counts, so the hand tracker stays in charge of this version. Failures: 12 contact stops, 8
+timeouts, 3 `UnportedBranch`, 1 pose loss.
+
+**The contacts are walls, not walkers.** All 12 stopped missions' first contact was a rear calf on a wall, usually while
+reversing (43-100% of the last 3 s in 11 of 12; 18 ep0 of one walker, 29%). The reference's one contact was a walker. A walker stands
+about 0.8 m ahead at the time, because walkers stop for the robot at that range.
+
+**The cause is a false speed on a standing walker while the robot turns.** In two missions read plan by plan, the true walker stood
+still and its track read 0.19-0.33 m/s, and the planner chose to reverse where `unpredicted_check_action` shows it would have held
+or turned. On the 93 replayed units, a standing walker's fitted speed is above 0.15 m/s on 36% of readings while the robot turns
+faster than 0.2 rad/s and 4% otherwise. The head's position drifts with the turn and the fit reads the drift as walking. The shadow's bar
+measured none of this: found, false alarms and position error all passed. **Lesson: a bar on a part must cover every value the
+planner uses from it.**
+
+**Ruled out.** Mover trails were suspected of erasing walls, because a model track's trail is a drawn disk rather than perceived
+cells and marked cells leave the map when unseen. The tracks stayed 0.4-1.0 m from every contact point and under 0.2% of trail
+cells were inside walls, so nothing was changed there. Fitting only non-turning frames removes the false speed (3% of
+readings) but also the real one (moving walkers called moving 85% to 8%).
+
+**The rerun.** The straight line gave no gain over a held position at 0.8 s, so `walker_mode: held` keeps the fit for the logs and gives the
+planner positions only (`configs/experiments/walker_held.yaml`, cohorts `wh_*`): the same 80 missions and the same bar. The missions have
+now been looked at, so a pass here is weaker evidence than a first pass.
+
+**The decoder.** `go2_v2_walkers_heads` forecasts the robot a little better than `go2_v2_heads`: at 0.8 s 8.7 against 9.0 mm on validation and
+14.4 against 15.2 mm on transfer. Whether one model can do both jobs in missions waits on the rerun.
+
+## P6: the positions-only rerun passed (1 November)
+
+The model's tracks drove the planner with their speeds withheld, on the same 80 missions: **68 of 80 round trips against the
+reference's 67 and the bar's 64, 6 gained and 5 lost (sign test p = 1.0), with no contact of any kind in any mission** (reference: 1
+hard contact, with a walker; the failed live test: 15). One walker 36 of 40 (reference 37), two walkers 32 of 40 (reference 30). Against
+the failed live test it gained 15 missions and lost 3, so the speeds were the fault. **The bar passed: the model now tells the
+planner where walkers are, and the planner gets no speeds from it.** The missions had been looked at before this run, so this pass
+is weaker evidence than a first pass, and the held-out mazes have not been used.
+
+| | Round trips | Hard contact | Tightest clearance, median of missions |
+|---|---|---|---|
+| Reference (hand tracker) | 67 of 80 | 1 mission | 0.091 m |
+| Live test (model, positions and speeds) | 56 of 80 | 15 missions | |
+| Rerun (model, positions only) | 68 of 80 | 0 missions | 0.090 m |
+
+The 12 failed missions: 8 timeouts, most with no route on the map; 3 pose failures; 1 technical failure. None was a contact.
+
+**Walkers while driving.** `eval.walker_compare` on the rerun: the model's tracks found 85% of walkers in reach (95% interval 83-87%),
+0.65 false alarms per 100 plans, 0.098 m position error, close to their figures in shadow (86%, 0.63, 0.090 m, the earlier model).
+The report's `hand` column reads the planner's tracks, which here are the model's, so its verdict compares the model with itself and
+is not evidence. Velocity errors are not read: the rows hold zero speed.
+
+**Still with the hand rules:** the speed fit and straight-line forecast of a walker are no longer used from the model, so a walker in the
+planner stands still at its last position. The hand depth stop stays in place.
+
+## P6: one model for both jobs (1 November)
+
+go2_v2_walkers forecast the robot through `go2_v2_walkers_heads` and found the walkers, positions only, on the same 80 missions
+(`configs/experiments/walker_one.yaml`, cohorts `wo_*`): **68 of 80 round trips against the rerun's 68 and the bar's 65, 5 gained and 5
+lost (sign test p = 1.0), with no contact in any mission.** One walker 35 of 40 (rerun 36), two walkers 33 of 40 (rerun 32). The 12 failed
+missions: 9 timeouts, 2 pose failures, 1 technical failure. Tightest clearance, median of missions: 0.092 m against 0.090 m.
+
+**The bar passed, so one model can do both jobs at parity.** This is a measurement: the merged configuration still names the two
+models, and a switch is its own piece of work. These missions had been looked at too, though nothing was tuned on this run. Two
+copies of the model run in each mission, so nothing is shared yet, and the two jobs are not read from one pass.
+
+## P6: where this handover stands (1 November)
+
+**Handed to the model:** finding walkers and where they are (`walker_mode: held`), 68 of 80 round trips against the hand tracker's 67,
+with no contacts. **Not handed over:** walker speed and forecasting. The model's fitted speed caused the failed live test, and neither
+its rollout nor a straight line beats a held position on a moving walker at 0.8 s. The clearance checks were measured only. One model
+for both jobs is shown at parity and not yet adopted.
+
+**Next, one piece at a time:** adopt the single model, with its own before-and-after. Memory for the model is deferred until then.
+
+## P6: four walkers (1 November)
+
+`configs/experiments/walker_four.yaml`, cohorts `wf_*`, 40 missions paired, for information only. **The model's positions make 21 of 40
+round trips against the hand tracker's 20, 6 gained and 5 lost (sign test p = 1.0).**
+
+| Four walkers, 40 missions | Round trips | Stopped on contact | Failures |
+|---|---|---|---|
+| Frozen planner (`dn_obst4_c1`) | 5 | | |
+| Close-up rule, first version (`cu_obst4_c1`) | 18 | | |
+| Current planner, hand tracker (`wf_ref_c5`) | 20 | 1 | 14 timeouts, 4 pose, 1 contact, 1 other |
+| Current planner, model's positions (`wf_held_c5`) | 21 | 2 | 10 timeouts, 6 pose, 2 contacts, 1 other |
+
+The hand tracker also had one mission at 0.002 m from a walker without contact (maze 27 episode 1). The planner's forecaster differs
+between the earlier rows and these, as does the fix, so the gain over the first version is not one change.
+
+**Finding, with the hand tracker driving and the model watching:** the model found 77% of walkers in reach (95% interval 73-80%)
+against 57% (53-61%), with 1.38 false alarms per 100 plans against 2.0 and position error 0.10 m against 0.15 m. Both find fewer than at
+two walkers, and the model's lead holds.
+
+**The contacts are the robot's blind rear, not the withheld speeds.** All three missions stopped by a contact (two with the model, one
+with the hand tracker) were a rear calf on a walker outside the camera's view for at least 3 s, with no track on that walker at
+contact. The model's two were maze 25 episode 0, reversing at 0.10 m/s while turning into a walker that had walked out of view, and
+maze 13 episode 1, turning with a walker that had stood still for 2 s at about 0.45 m on its side. The taxonomy labels the second
+"obstacle moving into the other"; the trace shows the walker standing, so the label is wrong. The hand tracker's was maze 13 episode 0, reversing
+while turning. A speed would not have helped: there was no track to carry one. This is the same class as `cu_obst4_c1`'s collision
+and C6's contact, and a walker's position behind the robot needs either memory or a limit on blind reversing, both outside this handover.

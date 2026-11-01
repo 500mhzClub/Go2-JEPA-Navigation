@@ -1,0 +1,17 @@
+# The combined walker model (docs/dynamic/PLAN.md, P6): go2_v2_grid_movers warm-started and trained on, with its labels
+# also on the rolled-out states, so the predictor carries the walkers, and a free-space head on encoded and rolled-out
+# states (go2nav.data.free_labels). Corpus v2 plus its give-way units, where walkers fill more of the frames. The labels
+# are never an input.
+name: go2_v2_walkers
+seed: 2026110101
+init_model: outputs/lewm/go2_v2_grid_movers/lewm.pt
+model: {size: tiny, history: 4, command_dim: 3, inverse_dynamics: true, inverse_spans: [1, 8],
+        inverse_span_weights: [1, 3], grid: [3, 4], mover_head: true, free_head: true}
+data: {length: 12, mazes_per_batch: 16, windows_per_maze: 8, batch_size: 128,
+       train_kinds: [explore, mission, free, giveway]}
+objective: {rollout_steps: 8, sigreg_weight: 0.08, sigreg_projections: 1024, sigreg_knots: 17, action_blind: false,
+            inverse_weight: 100., grid_weight: 1., mover_weight: 1., rollout_mover_weight: 1., free_weight: 1.}
+optimiser: {lr: 5.0e-5, weight_decay: 1.0e-3, warmup_steps: 1000, steps: 30000, grad_clip: 1.0}
+runtime: {compile: max-autotune-no-cudagraphs, compile_scope: encoder, workers: 10, prefetch: 2, log_every: 100,
+          validate_every: 5000, checkpoint_every: 1000, milestone_every: 10000, checkpoint_predictor: true,
+          checkpoint_blocks: 8}
