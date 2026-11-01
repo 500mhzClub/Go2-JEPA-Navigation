@@ -451,6 +451,9 @@ stays. The user overrode it after seeing the result: the mission-by-mission comp
 loop going away, and 13 changed missions are too few to settle a 2-to-1 bar. The held-out mazes have seen neither version,
 so the choice does not bias that result, provided one version runs once. Step 2 ran on the first version.
 
+**Outcome (1 November).** Step 3 scored 125 of 140 against lv2's 112 (17 gained, 4 lost, p 0.007) with no collisions (STATUS).
+The rule stays on: it is the working planner and the end of hand-rule rounds on this branch.
+
 ### P5. Planning over continuous commands
 
 1. **Command representation.** A command tape with a derived category replaces the action names, so the harness rules

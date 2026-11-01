@@ -848,3 +848,31 @@ turning loop for 60 s or more, against 15.
 **The fix is kept after all, by decision (PLAN P4g).** Mission by mission, 4 of the 8 gains are missions whose loop went
 away (0 s against 98-353 s) and that then finished, while 1 of the 5 losses is an early pose loss and 1 of the gains is
 the reverse. The other 4 losses are timeouts, one with 143 s in the loop.
+
+**Four walkers, first rule** (`configs/experiments/close_up_four_walkers.yaml`, cohort `cu_obst4_c1`, for information): 18 of
+40 against the frozen planner's 5 (14 gained, 1 lost, p 0.001). One collision, the frozen planner also having one: a rear
+calf hit a walker while reversing at 0.10 m/s on a route to a frontier (maze 11 episode 0, 110 s), the blind-side reverse
+of C6's contact, not a walk to a cut.
+
+## P4g: the held-out evaluation (1 November)
+
+`configs/experiments/close_up_fix_heldout.yaml`, cohorts `cufh_*`, run once on the rule with the fix, paired with lv2 (cohorts
+`lb_*`, the same walkers). **125 of 140 against lv2's 112: 17 gained, 4 lost (sign test p 0.007), no collisions.**
+
+| Round trips | lv2 | Close-up with the fix | Gained / lost |
+|---|---|---|---|
+| R4 reference, 20 | 20 | 20 | 0 / 0 |
+| R6 reference, 20 | 20 | 20 | 0 / 0 |
+| Held-out, static, 20 | 19 | 18 | 0 / 1 |
+| Held-out, one walker, 40 | 32 | 35 | 4 / 1 |
+| Held-out, two walkers, 40 | 21 | 32 | 13 / 2 |
+| All, 140 | 112 | 125 | 17 / 4 |
+
+- **The gain is where the rule acts:** two walkers, 11 of the 13 net. The references are unchanged.
+- **The static loss** is maze 43 episode 1, a pose loss; maze 42 episode 1 lost its pose in both. Nothing here says the rule
+  caused it, and I have not looked further.
+- **Failures:** 15, of which 12 timed out and 2 lost their pose. One stopped on a code path never ported to this planner
+  (`UnportedBranch`, a view recovery across a mission phase change, maze 46 episode 1 with two walkers; lv2 failed it too).
+- **The mazes have now been used for this rule:** a further hand rule cannot be judged on them without a fresh set.
+
+Close-up with the fix and mover trails is the working planner and the reference for handing parts to the world model.
