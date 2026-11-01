@@ -176,6 +176,283 @@ a paper draft, as an upper bound.
   - Probe obstacle position relative to the robot from level-1 rollouts and from upper-level predictions, against
     obstacle persistence.
   - This is the first place H-JEPA's 1.6-12.8 s horizon can matter: whether a corridor will be free in 3 s.
+- **Mover gate (set 27 October, before the final models were scored).** Probe: `go2nav.eval.mover_probe`;
+  supervised ceiling: `go2nav.eval.mover_ceiling`, a CNN trained on the frames themselves (the ceiling below is
+  the better of its plain and regularised runs, per measure).
+  - What the ceiling showed: the frames localise a mover to 0.156 m (median; the world models' latents read about
+    0.24 m), but even supervised, nothing forecasts the walkers' turns and pauses beyond persistence; they are random
+    by construction. Event skill is therefore reported, not gated.
+  - **Response (the gate):** on the validation mazes, through the rollouts under the hold and advance tapes, the
+    ridge head's response gain above 0.12 at 1.6 s and 3.2 s, with its 95% interval above 0.12 and response R2 above
+    0 (the predicted responses carry more signal than noise). This is the give-way decision the failure analysis
+    found to be the limit, and only a command-conditioned model can supply it.
+  - **Localisation:** the h = 0 readout within 1.25 x the ceiling's median error.
+  - **Velocity:** velocity skill (1 - error / persistence's error on windows where the mover walks straight, so
+    constant velocity is exact) at 0.8 s at least half the ceiling's.
+  - Reported for LeWM's encoder and rollouts, and for H-JEPA's level 1 and its 1.6 s level.
+  - **If no model passes the response gate:** propose a representation change (patch-level prediction, or the mover
+    positions as an auxiliary training target, never an input) and its compute, and meanwhile build P5's hybrid
+    (tracked movers for mover state, the world model for the robot's own motion, give-way kept as a rule).
+
+### P4b. Patch-grid LeWM (proposed 27 October, after the mover gate failed)
+
+**Why.** LeWM v2 failed the mover gate on all three measures. Its encoder's patch tokens localise movers within 16%
+of the supervised ceiling, but the [CLS] latent the predictor works on is 65% worse (STATUS, P4). The information is
+in the encoder and lost at the bottleneck. So the state keeps a coarse grid of patch tokens, and the predictor
+forecasts the grid as well as [CLS]: predicting where each region's content goes next is also a direct training
+signal for motion, which the velocity measure needs.
+
+**Model** (`grid` in the config; everything not listed is go2_v2's):
+- **State per frame:** [CLS]'s z (192) as now, plus G = 12 grid tokens. The 12 x 16 patch tokens are average-pooled
+  over 4 x 4 blocks to 3 x 4, and each goes through a shared BatchNorm projector to 192 (the [CLS] projector's shape,
+  its own weights).
+- **Predictor:** the same transformer (6 blocks, width 192) over the history's 4 x 13 tokens, with a spatial position
+  embedding (13) added to the temporal one. Attention is block-causal: a token sees every token of its own frame
+  and of earlier frames. Every token of a frame is conditioned on that frame's action (AdaLN, as now). Each position
+  predicts the matching token of the next frame; rollouts are autoregressive as now.
+- **Loss:** the teacher-forced and 8-step rollout MSE on [CLS] plus the same on the grid (mean over tokens), weight
+  1 each. SIGReg on [CLS] and on each grid position (the batch as samples), averaged. Inverse dynamics on [CLS] only,
+  as go2_v2 (spans 1 and 8, weight 100), so the robot's own motion stays where C5-C8 read it.
+- **Not chosen first:** the movers' positions as an auxiliary target. It uses privileged labels, and it would teach
+  [CLS] where movers are without giving the predictor a reason to move them. It stays the fallback if the grid
+  model localises but its response test fails.
+
+**Compute.**
+- Per sample, go2_v2's encoder does about 30 times the predictor's work (12 frames x 193 tokens through 5.5M
+  parameters, against about 36 predicted [CLS] tokens through 10.8M).
+- Thirteen tokens per frame raise the predictor to about 40% of the encoder. That gives about 1.4 x go2_v2's
+  0.49 s/step: about 0.7 s/step, **about 12 h** for 60k steps.
+- A 6 x 8 grid would be about 2.5 x (about 20 h).
+- A 30-minute smoke run first measures throughput and memory under the 85% cap; encoder block checkpointing is
+  available if memory runs short.
+- The R9700 cannot hold it beside H-JEPA v2 (25 GB), so it starts when H-JEPA v2 finishes.
+
+**Probe and gates.**
+- `mover_probe` reads grid models from [CLS] and the 12 grid tokens: the ridge and MLP heads on the flattened
+  tokens, and the patch head on the 3 x 4 grid, at h = 0 and through the rollouts.
+- The mover gate is unchanged. L1-L4 are scored on [CLS] and must not fall below go2_v2's, so the robot's own motion
+  does not regress.
+- If 3 x 4 misses localisation, 6 x 8 is next (the patch tokens passed at 12 x 16).
+
+**Planning cost.** A rollout pushes 13 tokens per frame through the predictor instead of one, about 10 times
+go2_v2's cost per candidate (the encoder runs once per decision). This is measured before P5 sets candidate counts.
+
+**H-JEPA** stays on [CLS] until the grid model passes; then its upper levels can read the pooled grid.
+
+### P4c. Frozen-target grid LeWM (approved 29 October, after the grid model failed the mover gate)
+
+**Why.** The grid LeWM fails the gate as go2_v2 does (STATUS, P4b). Its encoder still holds the mover (its patch
+tokens pooled to 3 x 4 localise at 0.156 m), but its grid projector writes one frame-wide signal into every cell
+(spread across cells 0.37 before it, 0.12 after), and the cells lose the mover (0.228 m). This is the failure
+Sobal et al. (2022, arXiv 2211.10831) predicted for JEPAs with variance-style regularisers: features that differ
+between episodes and are predictable over time (layout, texture, the robot's own motion) fill SIGReg's quota at no
+prediction cost, so a small, partly random walker only costs error and is dropped. SIGReg is per cell, so nothing
+stops the cells sharing that code. Any loss on a learned target can be met by removing the information; the remedies
+that worked in the literature use a target the model cannot change (pixels or depth in object masks, frozen
+features as in DINO-WM, arXiv 2411.04983), a discriminative constraint, or object slots.
+
+**Model** (`configs/lewm/go2_v2_frozen_grid.yaml`; everything not listed is go2_v2_grid's):
+- **Encoder:** go2_v2's ViT and [CLS] projector, loaded from its checkpoint and frozen (eval mode, no gradients):
+  the state's [CLS] is go2_v2's z exactly.
+- **Grid:** go2_v2's patch tokens average-pooled to 3 x 4, with no grid projector (`grid_projector: false`). Frozen,
+  they localise the mover at 0.132 m with the patch head (STATUS, P4b), so the target holds it by construction.
+- **Loss:** the teacher-forced and 8-step rollout MSE on [CLS] and on the grid, weight 1 each. No SIGReg and no
+  inverse dynamics: nothing upstream of the predictor trains, so neither can act. Only the predictor, the action
+  encoder and the two output projectors learn.
+- Same seed, data stream and schedule as go2_v2_grid.
+
+**Compute.** No encoder backward pass and no encoder checkpointing: a 30-minute smoke run measures throughput and
+memory first; expected about 0.4-0.5 s/step, **6-8 h** for 60k steps.
+
+**Probe and gates** (set before the model is scored):
+- The mover gate and its pass marks are unchanged. The ridge and MLP heads on the flattened state stay as they are.
+- **Grid readout (new, alongside):** the patch head (`mover_ceiling`'s convolutional head and training) on the 3 x 4
+  grid tokens of frames t-3..t plus the state at t+h, true or rolled out under the executed, hold and advance tapes,
+  predicting the mover's position at t (h = 0) and its displacement to t+h. It is scored as the probe's heads,
+  including the response test. A grid model passes a measure if either readout passes it; both are reported.
+- The same readout is scored on go2_v2_grid (final) for comparison.
+- L1-L4 on [CLS] cannot regress: [CLS] is go2_v2's encoder; the rollouts are scored as usual.
+
+**What this does not fix.** Velocity: no frozen per-frame representation reaches the mark (go2_v2's raw 12 x 16
+patch tokens 0.079 against 0.126). If the rollouts still miss velocity and the response test, the next steps are,
+in order:
+1. The movers' positions as a training-only auxiliary target per grid cell, from corpus v2's `dynamic.npz` (the
+   probe then partly measures that supervision; the transfer split and the response test carry the evidence).
+2. Motion in the encoder's input (two-frame tubelets or a frame-difference channel).
+
+Depth supervision (arXiv 2607.16314, on LeWM) would need depth images re-rendered for corpus v2, which stored RGB only.
+
+### P4d. Grid LeWM with training-only mover supervision (approved 29 October)
+
+**Why.** The frozen target (P4c) keeps the mover in the state but caps it at go2_v2's encoder: from four frames its
+pooled tokens reach velocity skill 0.100 against 0.126, and the encoder cannot improve. Training jointly lets the
+encoder sharpen its mover features; a fixed label target closes the trap P4c describes, since no latent can meet it
+by dropping the walker. Precedent: object or position supervision on JEPA world models' latents (arXiv 2609.30214,
+which reports SIGReg alone losing pose information that the supervision keeps, against LeWM; 2609.04264; and the
+theory of 2509.12249: when the dynamics and auxiliary losses reach zero, frames that differ in the auxiliary target
+cannot share a latent); privileged training-only information in world models (Scaffolder, arXiv 2405.14853; informed
+POMDPs, 2306.11488; MILE's BEV supervision, 2210.07729).
+
+**Labels** (`go2nav.data.mover_labels`, from corpus v2's records; never a model input): per frame and per image column
+of the 3 x 4 grid, whether a walker is in view there (the mover probe's view test: within 5 m, inside the field of
+view, centre not hidden by the walls) and the nearest such walker's position in the body frame. A column is the
+walker centre's bearing projected through the primary camera (78.3 degrees across, four equal image columns). Frames
+with fewer than 200 obstacle depth pixels have none.
+
+**Model** (`configs/lewm/go2_v2_grid_movers.yaml`): go2_v2_grid (trainable encoder, grid projector, SIGReg, inverse
+dynamics) plus a mover head, an MLP shared by the four columns that reads a column's three grid tokens of the
+encoder's state (and the column's index): a presence logit and the position (scaled by 3 m). Loss `mover`: binary
+cross-entropy on presence plus the squared position error where a walker is present, weight 1, on every frame of the
+window. **Only the encoder's state is supervised:** the predictor and its rollouts see no labels.
+
+**Evidence** (set before training):
+- Localisation at h = 0 is now partly supervised: reported, not evidence.
+- Evidence: the forecasts through the rollouts (velocity skill at 0.8 s, displacements to 3.2 s), the response test,
+  and the transfer split, read by both the probe's heads and the grid readout, against the same pass marks.
+- The final verdict is P5's missions against lv2.
+- L1-L4 on [CLS] must not fall below go2_v2's.
+
+**Compute:** labels on the CPU (all 4,000 units, in a process pool); training as go2_v2_grid, about 15 h.
+
+### P4e. The give-way gate (declared 29 October, before P4c's and P4d's models are scored)
+
+**Why.** The mover gate checks that a representation holds the movers; it is not a navigation requirement. Its marks
+are relative to the supervised ceiling (velocity skill 0.126 is a median gain of under 2 cm over persistence at
+0.8 s), it pools medians over every distance to 5 m, and its baselines are not what lv2 already has. The module
+oracles (STATUS, failure analysis) found that true futures of every mover change nothing for lv2 (49 against 49,
+4 / 4), since lv2 already predicts tracks at constant velocity; the limit is the give-way decision (hold, back off,
+or take another way) with a mover near and ahead. A world model can add only what constant velocity cannot: how a
+mover responds to the robot's choice.
+
+**Test** (`mover_probe.give_way`, both readouts' rollout heads, the probe's evaluation windows):
+- **Windows:** the mover at t within 1.5 m, ahead (x > 0) and within 0.75 m of the path (|y|), with a
+  counterfactual.
+- **Tapes:** hold, advance (0.3 m/s) and a new retreat tape (-0.10 m/s, the lattice's reverse), through the same
+  rate limits; the truth from `branch` (the walkers against a kinematic robot), as the response test.
+- **Contrasts:** retreat minus hold, and advance minus hold, of the mover's position at 1.6 s and 3.2 s; the model's
+  from its rollouts under each tape, read by the rollout heads.
+- **Scores:** the AUC of the predicted contrast's size for whether the true one exceeds 5 cm (the mover responds to
+  the choice), with a 95% interval over units; and the contrast's R2. lv2's constant velocity has no contrast: AUC
+  0.5, R2 0.
+
+**Pass** (beats lv2's assumption where the decision is made): for the retreat contrast at 1.6 s and at 3.2 s, the
+AUC's 95% interval above 0.5 and R2 above 0, on the validation and the transfer windows, by either readout. The
+advance contrast is reported. Missions stay the final verdict; this gate chooses which models earn them.
+
+The validation labels are regenerated with the retreat tape (the windows and every other label unchanged); models
+already probed are re-scored on their evaluation latents with the new tape.
+
+**Ceiling** (added 29 October, before P4c's MLP and patch rollout readouts were read; its ridge readout had been).
+Walkers look alike, and whether one responds depends on state the camera shows only through its motion (stopped for
+the robot or pausing at a cell, its heading while stopped, its politeness), so the gate's attainable score depends on
+the history a predictor sees. `eval.give_way_ceiling` fits supervised heads on the give-way windows from privileged
+inputs: the mover's and the robot's true tracks over 0.3 s (a world model's 4 frames), over 3 s, and the 3-s tracks
+plus the walker's internal state (an oracle). The pass mark above is unchanged. A model scores also as a share of
+the 0.3-s ceiling. If the 0.3-s ceiling itself fails the pass mark, a 4-frame model's failure is uninformative about
+its predictor, and the next model change is the history (a longer context or a recurrent state), not the objective;
+if the 3-s ceiling passes and the 0.3-s one does not, that is the measured case for it.
+
+**Ceiling result and the bar** (29 October). The 0.3-s ceiling passes (retreat AUC 0.87 [0.81, 0.92] validation,
+0.85 transfer at 1.6 s; R2 0.61 / 0.32), and 3 s adds little: history is not the limit. A mover stopped for the robot
+responds to a retreat in 85-97% of windows, a moving one in 15-42%, so a one-line rule (the mover near and ahead is
+still) scores AUC 0.80 / 0.77. Raising the bar to the rule was considered and not adopted (approved 29 October): a
+lower bound above 0.80 is about the privileged ceiling's own, and the rule has no magnitude or timing. The bar stays
+at 0.5; each model's gate report carries the rule's AUC beside it, and the rule is tested where it matters, in
+missions (P4f): if lv2 with a give-way rule beats lv2, it becomes the baseline a world model must beat there.
+
+### P4f. The give-way rule in missions, and a give-way top-up of the corpus (approved 29 October)
+
+**Why.** P4c (the frozen-target grid LeWM) keeps the mover (localisation 0.096 m) but fails the give-way gate with
+an inverted ranking (retreat AUC 0.25-0.40 on validation): its rollouts carry movers' current motion on and leave
+still ones still. In corpus v2, when a mover waits for the robot near and ahead (24.6k training windows), the robot
+holds or turns in place in 93% of the next 1.6 s, backs off in 4.3% and advances in 2.3%: the predictor has rarely
+seen a waiting mover answer a retreat. Two follow-ups, one per side of the comparison:
+
+1. **lv2 with a give-way rule** (`configs/experiments/give_way_probe.yaml`, `planner.give_way`). A confirmed track
+   standing still within 1.5 m ahead (within 0.75 m of the heading) while the selection does not advance makes the
+   robot back off at 0.10 m/s, with the scripted backup's checks (observed floor, 0.40 m of stored clearance), until
+   it is 1.3 m away, moves or is lost (at most 8 steps; then 10 plans without the rule; 3 back-offs per track).
+   Validation mazes 10-29, episodes 0 and 1: static and one and two movers, paired with lv2; and with mover trails on,
+   one and two movers, paired with the trail probe's lattice cohorts (their residual is the mover in view on the only
+   path). 200 missions. One probe round, like the trail probe: it asks whether the decision the module oracles named
+   yields to a hand rule. If it wins, lv2 with the rule is frozen as the mission baseline (held-out run as P2b) before
+   any world model is compared in missions.
+2. **A give-way top-up of corpus v2** (`lewm_corpus_v2`, kind `giveway`): one free unit per training maze (1,200,
+   600 frames each), with two to four movers (half the units non-polite), driven by `GiveWayDriver`: encounters
+   weighted to 65%, each two to four decisions while the mover stays in sight (approach to 0.6-1.1 m, wait 0.3-1.2 s,
+   then retreat at -0.10 m/s 50%, advance 20%, hold 20%, turn away 10%), under the free driver's stand-off rule. A
+   six-unit pilot at a first setting (wait to 2 s, retreat 40%, a fifth non-polite) put 14% of one unit's waiting
+   windows before a retreat; at this one, 25.7% (advance 12.4%) over 638 waiting windows (pilot units discarded). Then P4c retrained on corpus v2
+   plus the top-up (`go2_v2_frozen_giveway`: the same seed, frozen encoder, model and schedule; only
+   `data.train_kinds` differs), probed and read out as P4c, and scored on the mover and give-way gates.
+   - **Gate on the data first:** among the top-up's give-way windows with a mover waiting, the share followed by a
+     retreat within 1.6 s at least 25% (against 4.3%).
+   - **Compute:** collection about 5 h on the CPU (rendering on the R9700, after P4d's training), training about 6 h
+     on the GPU, probe and readout about 4 h on the CPU.
+
+**What the outcomes mean.** If the retrained model passes the give-way gate, the predictor learns the reaction once
+the data contain it: the path is data that exercises the decision, not a new objective. If it still fails with an
+inverted ranking, the predictor's prior (carry motion on) wins even with the data, and the next step is supervising
+the predicted states (P4d's labels on rollouts). If the rule wins in missions and the model passes too, the model must
+beat lv2 with the rule there.
+
+**The first rule did not back off (30 October).** It scored 38/40, 31/40 and 15/40 against lv2's 38, 31 and 18, which
+says little about backing off: of its 255 triggers, 109 took no reverse step, six moved the robot 10 cm or more, none 30
+cm, and the median was 3 mm. 97 ended on the scripted backup's rule against passing more than 1 cm closer to a wall than
+the robot stands (94 of them had the 0.40 m of clearance), and 130 when the track moved or was lost. Against the true
+positions, the mover was standing still at 40% of the triggers, and 216 of the 255 had walked 0.3 m within 6 s, polite
+walkers turning back on their own; the robot had then moved 0.3 m in 14% of those.
+
+So the rule now commits (`configs/experiments/give_way_commit.yaml`): once triggered the robot backs off 0.40 m whatever
+the track does, at most 25 steps, and a step needs only observed floor and the footprint's 0.45 m of clearance. (At the
+scripted backup's 0.40 m, inside the planner's footprint, a rear calf hit a wall in 2 of the first 7 missions, ending
+both, 4 and 17 frames after a back-off stopped at that floor; those runs are `gwct_*`.) Mover trails on, one and
+two movers, paired with the trail probe's lattice cohorts (`tp_lat_obst*`): their residual is the mover in view on the
+only path, and without trails a mover that leaves still seals the passage with its ghost trail. 80 missions, replacing
+the runs of the first rule with mover trails, stopped at 9 of 80 because the rule they tested changes the robot's motion
+by millimetres. The first rule's cohorts (`gw_*`) are at dc5e21a.
+
+**Outcome (31 October).** The committed rule does not beat mover trails, and the frozen-target model on the top-up fails
+the give-way gate with its rankings still inverted (STATUS). The step named above for that outcome, P4d's labels on
+rollouts, is deferred: a rule at AUC 0.80 gained nothing in missions, so a model that matches it has no clear route to a
+gain. Next, the mover-trails baseline's failures are sorted by what sealed the passage, and the fix is chosen from that.
+Mover prediction returns if failures remain that need a mover's reaction.
+
+### P4g. The close-up rule (31 October)
+
+**Why.** The sorted failures (STATUS) show the map right and the response wrong: a walker anywhere on the only route
+leaves no goal or frontier, and the robot scans where it stopped, with more than 2 m clear for about half of that time.
+
+**Rule** (`close_up`, `routing.close_up`, off by default so lv2 is unchanged). When the route is cut, search again with a
+0.10-m footprint, which passes beside the walker, and follow that route to its furthest cell the 0.45-m footprint reaches
+and at least 1 m from every track. A walk under 0.25 m keeps the cut, so the robot scans there as before. It uses only the
+robot's own map and tracks; the forecasts and contact checks still apply to every step.
+
+**Test** (`configs/experiments/close_up_probe.yaml`, cohorts `cu_obst*`): 80 validation missions with mover trails, paired
+with `tp_lat_obst*` (54 of 80), about 3 h on the GPU. Set before it runs: the rule is adopted if it has no collisions and
+wins at least twice as many missions as it loses, with the sign test reported. Also read: sealed seconds per mission, and
+whether the robot closes up on walkers that then clear, or stands off and waits as long as before.
+
+**Outcome and last round (approved 31 October).** The rule scored 60 of 80 (STATUS), and losses reached half the wins, so
+this round goes past P2b's stop, by decision, and is the last one. The stand-off counted every track, so a brief track on
+a wall took the target away until it was lost again; only confirmed tracks hold the robot off now.
+
+1. **Fix check** (`configs/experiments/close_up_fix.yaml`, cohorts `cuf_obst*`): the same 80 missions, paired with
+   `cu_obst*`. Set before it runs: the fix is kept if it has no collisions, wins at least twice as many missions as it
+   loses, and fewer than 15 of the 80 missions spend 60 s or more turning between the cut and scanning within 0.4 m of one
+   spot. Otherwise the rule goes back to its first version. Also read: the closest approach to a true walker.
+2. **Four walkers** (`configs/experiments/close_up_four_walkers.yaml`): 40 missions paired with `dn_obst4_c1` (5 of 40),
+   for information only.
+3. **Held-out evaluation** (`configs/experiments/close_up_fix_heldout.yaml`, cohorts `cufh_*`): once, on the rule with the
+   fix, paired with lv2's 112 of 140 (cohorts `lb_*`).
+
+**The fix is kept by decision (31 October).** It missed step 1's bar (STATUS), and that rule said the first version
+stays. The user overrode it after seeing the result: the mission-by-mission comparison shows the gains coming from the
+loop going away, and 13 changed missions are too few to settle a 2-to-1 bar. The held-out mazes have seen neither version,
+so the choice does not bias that result, provided one version runs once. Step 2 ran on the first version.
+
+**Outcome (1 November).** Step 3 scored 125 of 140 against lv2's 112 (17 gained, 4 lost, p 0.007) with no collisions (STATUS).
+The rule stays on: it is the working planner and the end of hand-rule rounds on this branch.
 
 ### P5. Planning over continuous commands
 
@@ -208,6 +485,7 @@ Each step runs on R4 (static), R6 reference and R7, so a gain in dynamic scenes 
 | P2 | Development, plus about 240 R7 missions (about 5 h) |
 | P3 | About 10 h on the CPU |
 | P4 | About 14 h per model on the GPU |
+| P4b | About 12 h on the GPU (the 3 x 4 grid), after H-JEPA v2 |
 | P5 | Mostly missions; CEM costs scale with candidates times rollout |
 
 - P1 and P2 run in parallel. P3 waits for both, and P4 waits for P3.

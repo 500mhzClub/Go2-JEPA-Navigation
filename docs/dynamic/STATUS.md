@@ -535,3 +535,344 @@ passages, sealed by the true mover where it stands.
 **Decision:** the baselines stay frozen at dv3 and lv2. The probe is the hand-rule ceiling on the map's headroom:
 the best deployable trail rule matches the oracle for trails (+5 of 80 on the lattice, not significant). The
 remaining headroom is the decision a mover in view forces, which is where learning goes next.
+
+## P3: corpus v2 (26 October)
+
+Branch `feature/dynamic-world-models`. Collected on the continuous policy with 0-4 movers (674 units with a
+non-polite fifth), lateral commands kept in the blocks.
+
+- **Size:** 4,000 units, 3.23 M action blocks, 2.93 M frames (about 340 GB). Units by mover count: 589 / 1,259 /
+  1,144 / 615 / 393 for 0-4.
+- **Stops:** 3,847 clean, 121 pose loss, 25 disallowed contacts (contact stops under 5% in every kind).
+- **Command statistics:** `data/training/control_norm_stats_corpus_v2.json`; yaw command to rate correlation 0.99 at
+  lag 0.
+
+Three of the audit's gates missed. I accepted each with its reason (`gates_accepted.json` beside the audit) rather
+than collect again:
+
+| Gate | Result | Why accepted |
+|---|---|---|
+| Each movement type at least 20k windows | Starts from rest 17.4k (87%) | The v1 primitive classifier undercounts starts from rest under continuous commands; every other type passes |
+| Lateral at least 10% of blocks | 8.9% (289k blocks) | Mission units carry none by design (the lattice harness has no lateral) and are 39% of blocks; free 19.9%, explore 10.9% |
+| Mover in view at least 20% of frames | 17.4% (478k frames) | 3-4 mover units reach 23-29%; a top-up of free units would move it under one point |
+
+## P4: LeWM v2 and the mover gate (27 October)
+
+**LeWM v2** (`outputs/lewm/go2_v2`): span8w's settings on corpus v2 (ViT-Tiny, inverse dynamics on spans 1 and 8,
+15-value action blocks), 60k steps at 0.49 s/step.
+- Validation rollout error 0.032 at the first step to 0.092 at the eighth, against shuffled actions 0.83, zero
+  command 0.61 and persistence 0.68; transfer 0.050 to about 0.13. L2 action sensitivity holds; effective rank 20.3.
+- Gates L1-L4 (the LeWM acceptance gates) still to run on it: the GPU is busy with H-JEPA v2.
+
+**Two fixes on the way** (both committed):
+- The trainer held 30.4 GB of the R9700's 34 GB; GPU jobs are now capped at 85% (f434a1d), since that card also
+  drives the desktop.
+- Validation crashed at step 4,999: the zero-command baseline assumed two command components (bda8b42).
+
+**R9700 bus drop** (27 October, 05:17): "device lost from bus" in plain training, with no warning before it. Resumed
+from the step-11,999 checkpoint with matching losses. A telemetry service now logs temperatures, power, clocks and
+fan every 15 s (memory runs at 92-94 °C against a critical 108; power at the 300 W cap with spikes to 420 W).
+
+### The mover gate
+
+The gate (PLAN P4) was set before the final model was scored. "Ceiling" is the better per measure of two supervised
+CNNs trained on the four history frames themselves (`go2nav.eval.mover_ceiling`, plain and regularised: mirror and
+photometric augmentation, dropout, weight decay, epoch selection on held-out training units).
+
+| Measure | Pass mark | LeWM v2 | Patch tokens | Ceiling |
+|---|---|---|---|---|
+| Localisation, h = 0 (median error) | 1.25 x ceiling = 0.164 m | 0.216 m ✗ | 0.152 m ✓ | 0.131 m |
+| Velocity skill at 0.8 s | half the ceiling = 0.126 | 0.08 (0.02 through rollouts) ✗ | 0.08 ✗ | 0.251 |
+| Response at 1.6 / 3.2 s | gain and 95% CI above 0.12, R2 above 0 | gain 0.16 / 0.17, CI from 0.121 / 0.141, R2 -0.48 / -0.24 ✗ | | |
+
+- **Patch tokens:** the same frozen LeWM v2 encoder, but its 12 x 16 final-layer patch tokens instead of the [CLS]
+  summary, read by a small convolutional head trained exactly as the ceiling (`mover_ceiling --patches`, abea321).
+- **The response is not real.** The rollouts' predicted displacement is as large where no response should happen
+  (spurious 0.04 / 0.09 m against predicted 0.045 / 0.095 m), so R2 stays negative.
+- **Event skill** (reported, not gated): LeWM 0.02-0.07, the ceiling 0.07-0.17. The plain ceiling's 0 or below
+  was overfitting; the regularised one does see some of the walkers' turns and pauses.
+- **The patch head** selected epoch 2 (it overfits fast and has no augmentation), so its velocity is weaker
+  evidence than its localisation.
+
+**Reading.** The encoder holds the movers: its patch tokens localise within 16% of a CNN trained for the job. The
+[CLS] bottleneck the world model predicts in loses most of it (65% worse). H-JEPA's upper levels are built from the
+same [CLS] latent, so they cannot recover it; they are still probed when H-JEPA v2 finishes, as planned.
+
+**Decision (per the gate):** a representation change is proposed (PLAN P4b, a patch-grid LeWM) and P5's hybrid
+is built meanwhile.
+
+## H-JEPA v2, the C5/C6 heads and the hybrid (28 October)
+
+**H-JEPA v2** (`outputs/hjepa/go2_3level_v2`, three levels trained jointly on corpus v2) fails the mover gate as LeWM
+v2 does. Mover probe, validation:
+
+| | Localisation | Velocity skill at 0.8 s | Response R2 at 1.6 / 3.2 s |
+|---|---|---|---|
+| Level 1, step 40k | 0.199 m | 0.074 | |
+| Level 1, final | 0.193 m | 0.087 | -0.78 / -0.45 |
+| Level 2, final | 0.245 m | | about -1.0 |
+| Pass mark | 0.164 m | 0.126 | above 0 |
+
+The response gains rise (0.20-0.28) but the spurious response is as large as the predicted one: the robot's own
+motion is still read as the mover's.
+
+**C5/C6 heads v2** (`training.lewm_heads_v2 --rescore`, de4fed3): the overall medians are flattered by rests and turns in
+place, so the evaluation now also reports the moving and translating windows. On translating windows at 0.8 s, C6
+(the direct head) is off by a median 4 mm (validation) and 6 mm (transfer); C5 (the decoder on rollouts) 21 and 47 mm.
+For comparison, span8w's C5 and C6 were 5.8 and 2.4 mm, H-JEPA v1's 3.8 mm. C5's gap is the rollout, not the decoder.
+
+**P5 hybrid** (`hybrid_development`, lv2's harness with C5 or C6 as the forecaster over the 25-tape lattice;
+validation mazes 10-29, two episodes each), round trips of 40, paired with lv2:
+
+| Setting | lv2 | C5 | C6 |
+|---|---|---|---|
+| Static | 38 | 40 | 38 |
+| One mover | 31 | 31 | 31 |
+| Two movers | 18 | 20 | 13 |
+| Wins / losses against lv2 | | 13 / 9 (sign test p = 0.52) | 7 / 12 (p = 0.36) |
+
+Neither differs from lv2. One contact: C6, maze 15 episode 1, reversing (forward -0.10 m/s, yaw -0.45 rad/s) into a
+walker on its blind right side about 0.58 m away (the rear-right calf).
+
+## Two PyTorch faults on the R9700 (28 October)
+
+- **LayerNorm gradients** (torch 2.12.0+rocm7.2, gfx1201): the fused LayerNorm and RMSNorm backward never writes the
+  odd-indexed weight and bias gradient elements from 128 rows (pytorch/pytorch#199265, fixed in 2.13). Inductor's
+  kernels are right, so the compiled LeWM and H-JEPA runs were unaffected (no odd/even difference in their
+  checkpoints); the eagerly trained T1-T4 predictors' final norm was (odd gains four times as far from 1). `models.norm`
+  computes the gradients itself; checkpoints load unchanged (cd67933, ee377ec). LeWM v2 is not retrained.
+- **Compiled grid backward:** compiling the whole grid loss corrupts gradients from batch 64 (the projectors' 1e5-1e6
+  against about 1 eagerly; the first grid run diverged and was discarded). The compiled grid predictor blocks alone
+  reproduce it; not the LayerNorm, masked attention, dropout or checkpointing. `runtime.compile_scope: encoder`
+  compiles only the ViT blocks (532aa33): eager gradients, 0.89 s/step against 0.71 compiled.
+
+## P4b: the patch-grid LeWM (29 October)
+
+**Training** (`outputs/lewm/go2_v2_grid`, 60k steps, 14:05-05:05): as a world model it is slightly better than LeWM v2.
+Validation rollout error 0.030 at the first step to 0.080 at the eighth (v2 0.032 to 0.092), transfer 0.046 to about
+0.12 (v2 0.050 to 0.13); the grid tokens beat persistence at every step on both splits. Effective rank 17.7 (v2 20.3).
+
+**Mover gate: fails, as LeWM v2.**
+
+| Validation | Pass mark | Grid | LeWM v2 |
+|---|---|---|---|
+| Localisation (MLP head) | 0.164 m | 0.215 m | 0.216 m |
+| Velocity skill at 0.8 s | 0.126 | 0.083 | 0.080 |
+| Response R2 at 1.6 / 3.2 s | above 0 | -0.75 / -0.54 | -0.48 / -0.24 |
+
+**Where the mover is lost.** The patch-token probe's convolutional head (`mover_ceiling --patches` settings: 20 epochs,
+dropout 0.3, weight decay 0.05, epoch selection) on 3 x 4 token stacks; "cell spread" is the standard deviation across
+a frame's 12 cells:
+
+| Frozen input, validation | Localisation | Velocity skill at 0.8 s | Cell spread |
+|---|---|---|---|
+| LeWM v2 encoder, 12 x 16 patch tokens | 0.152 m | 0.079 | |
+| LeWM v2 encoder, pooled to 3 x 4 | 0.132 m | 0.100 | 0.47 |
+| Grid encoder, pooled to 3 x 4 (before the grid projector), final | 0.156 m | 0.082 | 0.37 |
+| Grid tokens (after the grid projector), final | 0.228 m | 0.042 | 0.12 |
+
+- Pooling to 3 x 4 keeps the mover; the grid model's own encoder still holds it (step 20k: 0.161 m).
+- The grid projector loses it: its cells collapse towards one frame-wide signal. SIGReg is already applied to every
+  grid cell (per cell and time step, across the batch), but it does not stop the cells carrying the same content.
+- Velocity is short of the mark in every row, even v2's raw patch tokens: the frozen per-frame encoder does not hold
+  the walkers' motion well enough for this head (the pixel ceiling reaches 0.251).
+
+**Decision pending:** a grid objective that keeps the cells distinct (no grid projector, or SIGReg on each cell's
+difference from the frame mean) would likely bring localisation to the mark, not velocity.
+
+## P4f: the give-way rule in missions (30 October)
+
+The committed rule (`give_way_commit.yaml`, cohorts `gwcf_*`, PLAN P4f) on 80 validation missions with mover trails, paired
+with the trail probe's lattice cohorts (`tp_lat_*`). **It does not beat them, so it stays off;** lv2 with mover trails is
+the baseline.
+
+| Round trips | Mover trails | Trails and committed rule | Gained / lost |
+|---|---|---|---|
+| One mover | 31 / 40 | 32 / 40 | 3 / 2 |
+| Two movers | 23 / 40 | 18 / 40 | 4 / 9 |
+| Both | 54 / 80 | 50 / 80 | 7 / 11 (sign test p = 0.48) |
+
+- **It now backs off:** 258 triggers in 65 missions, a median of 32 cm (the first rule 3 mm), 39% the full 40 cm. 151 ended
+  on a blocked reverse. No mission ended in a collision.
+- **It does not change the encounter.** Within 6 s of a back-off's end the mover had walked 0.3 m in 80% of full back-offs
+  and 87% of shorter ones, against 85% after the first rule's millimetres: polite walkers turn back on their own. With a
+  still walker ahead and the robot held up, the median time until the robot is 1 m away is 22 s with the rule and 21-24 s
+  without. After a full back-off the robot reached the walker's old spot within 15 s in 27% of cases.
+- **The two-mover losses are not explained.** Eight of the nine ran out the 480 s on missions mover trails finished in
+  130-310 s, a slowdown well beyond the 14-69 s spent backing off; one lost its pose. Pose loss overall: 4 missions with
+  the rule, 1 without (79 of 80 pairs compared; one pair has an empty trace).
+
+## P4d: grid LeWM with mover labels (31 October)
+
+`outputs/lewm/go2_v2_grid_movers`, 60k steps, probed on `eval.mover_probe` and `eval.grid_readout`. **It fails the give-way
+gate on all three readouts, and adds nothing to the frozen-target model's (P4c) forecasts.**
+
+| Retreat contrast: AUC [95%], pass above 0.5 | Validation 1.6 s | Validation 3.2 s | Transfer 1.6 s | Transfer 3.2 s |
+|---|---|---|---|---|
+| Labels, ridge | 0.47 [0.39, 0.56] | 0.49 [0.41, 0.57] | 0.55 [0.46, 0.64] | 0.55 [0.45, 0.64] |
+| Labels, MLP | 0.34 [0.27, 0.43] | 0.36 [0.30, 0.43] | 0.49 [0.41, 0.57] | 0.44 [0.38, 0.51] |
+| Labels, patch | 0.25 [0.20, 0.32] | 0.24 [0.19, 0.31] | 0.46 [0.35, 0.56] | 0.36 [0.31, 0.42] |
+| Frozen target, best readout | 0.41 [0.34, 0.49] | 0.39 [0.32, 0.47] | 0.60 [0.50, 0.68] | 0.57 [0.48, 0.65] |
+| Still-mover rule | 0.80 | | 0.77 | |
+
+- The contrast's R2 is about 0 on every readout (at most 0.05). Models' rankings are still inverted on validation.
+- **Velocity skill at 0.8 s through the rollouts (mark 0.126):** 0.111 MLP, 0.108 patch on validation (frozen target 0.100,
+  0.103); 0.135 patch on transfer (0.130). On the true state 0.214 (0.230): the encoder holds the motion and the
+  predictor loses about half of it.
+- **Response R2 stays below 0:** -0.09 to -1.5 for the patch readout, -1.1 to -10 for ridge and MLP.
+- **Localisation** 0.093 m validation, 0.150 m transfer (frozen target 0.096, 0.128). The labels supervise this, so it is
+  reported and is not evidence; the transfer split does not gain.
+
+## Machine faults (30-31 October)
+
+**System drive, 30 October 01:43.** The Samsung 990 PRO stopped answering, its reset failed, the kernel disabled it and
+PID 1 died. Models, corpus and repository are on the other drive; training resumed from step 32,000. NVMe health is clean.
+
+**R9700 ring timeouts, 31 October 02:18-02:43.** 46 `gfx_0.0.0` timeouts, the first 56 s after the mover probe finished
+extracting features on the GPU beside ten collection renderers, each aborting one give-way unit (`exit -6`). Every ring
+reset succeeded and the bus stayed up. The cause is not confirmed; rendering beside training ran three hours without
+one. The 46 units were collected again with the GPU otherwise idle, without a timeout: 1,200 of 1,200, and 31.5% of the
+139,087 waiting windows precede a retreat (data gate 25%; corpus v2 4.3%).
+
+## P4f: the frozen-target model on the give-way top-up (31 October)
+
+`outputs/lewm/go2_v2_frozen_giveway`: P4c's seed, frozen encoder and schedule (the predictor trained from scratch, 60k steps,
+6.4 h) on corpus v2 plus the 1,200 give-way units, about 20% of the training windows. **The data do not help: it fails the
+give-way gate on all three readouts, and the rankings P4c had inverted are more inverted, or at chance.**
+
+| Retreat contrast: AUC [95%], pass above 0.5 | Validation 1.6 s | Validation 3.2 s | Transfer 1.6 s | Transfer 3.2 s |
+|---|---|---|---|---|
+| Top-up, ridge | 0.41 [0.36, 0.47] | 0.53 [0.46, 0.59] | 0.47 [0.40, 0.54] | 0.52 [0.46, 0.58] |
+| P4c, ridge | 0.41 [0.34, 0.49] | 0.39 [0.32, 0.47] | 0.60 [0.50, 0.68] | 0.57 [0.48, 0.65] |
+| Top-up, MLP | 0.25 [0.20, 0.31] | 0.25 [0.20, 0.32] | 0.36 [0.28, 0.43] | 0.39 [0.33, 0.47] |
+| P4c, MLP | 0.32 [0.27, 0.39] | 0.30 [0.26, 0.36] | 0.50 [0.41, 0.57] | 0.40 [0.34, 0.48] |
+| Top-up, patch | 0.19 [0.15, 0.25] | 0.28 [0.24, 0.34] | 0.30 [0.22, 0.38] | 0.34 [0.27, 0.40] |
+| P4c, patch | 0.25 [0.20, 0.32] | 0.31 [0.25, 0.37] | 0.34 [0.28, 0.39] | 0.39 [0.33, 0.45] |
+
+- The contrast's R2 is at most 0.05 on every readout.
+- **Velocity skill at 0.8 s through the rollouts (mark 0.126):** patch 0.077 validation, 0.089 transfer (P4c 0.103, 0.130); MLP
+  0.110, 0.104 (P4c 0.100, 0.118). On the true state 0.210 (0.230): the encoder is unchanged by construction.
+- The plan's reading of an inverted ranking: the predictor's prior of carrying motion on wins even with the data.
+
+**Where the give-way path stands.** Three models fail the gate, and a rule scoring AUC 0.80 / 0.77 on it gains nothing in
+missions (above). The gate measures the ranking of responses, not whether acting on that ranking helps a mission.
+
+## What seals a route: the mover-trails failures sorted (31 October)
+
+The mazes are trees (16 cells, 15 corridors), so one route joins any two places, and a walker in a corridor cuts it. Each
+plan of the 80 mover-trails missions (79 with traces) is compared with the true walkers on that route, with static and
+map-oracle missions as controls. Sealed means `OBSERVED_COMPONENT_HAS_NO_FRONTIER`.
+
+| Sealed time, s per mission | All | Failed | Succeeded |
+|---|---|---|---|
+| Static, mover trails | 0 | 0 | 0 |
+| Walkers, mover trails | 114 | 244 | 53 |
+| Walkers, obstacles oracle (true walkers, perceived walls) | 85 | 172 | 49 |
+| Walkers, full oracle (true walkers, true walls) | 118 | 262 | 69 |
+
+- **The map is not the fault.** Static missions never seal, so noise and thick walls do not do it, and a perfect map seals
+  as long as the perceived one. This corrects the trail probe's reading above: what remains is not only a mover in view,
+  and a perfect map would not clear it.
+- **Failures are many short stops:** a median of 22 sealed stretches of about 10 s each in the 24 failures that timed out,
+  moving in about 6% of sealed time. The robot scans where the route was lost.
+- **The walker is often not near:** in failed missions' sealed time the nearest walker on the route was within 2 m for 46%,
+  2-5 m for 32%, further for 9%, and not on it for 13%. With the route open the shares within 2 m are 29% in failed missions
+  and 20% over all missions, so nearness is raised, not universal. The cells behind the not-on-route share are not
+  recorded: stored cells of unconfirmed tracks are a candidate, and no map snapshots exist to tell.
+- **It could account for many failures, by an optimistic estimate.** Of 25 failures, 1 lost its pose and 24 timed out (14
+  outbound, 10 returning). Those 24 stood sealed with more than 2 m clear for a median of 127 s and needed about 141 s to
+  finish at the successful missions' pace; in 11 of 24 the first covers the second. Walkers could still have blocked them.
+- **Wrong-way walking:** with the route open, failed missions go backward along the route for 54 s (18 s in successes, 2 s
+  static), since a cut leaves only frontiers elsewhere.
+
+**Decision:** the close-up rule (PLAN P4g).
+
+## P4g: the close-up probe (31 October)
+
+`configs/experiments/close_up_probe.yaml`, cohorts `cu_obst*`, commit dc3b886, 80 validation missions with mover trails.
+**It meets the bar set before the run, exactly: no collisions and twice as many wins as losses, so the rule is adopted as
+the working configuration.** Losses reach half the wins, which the P2b freeze rule treats as trading failures.
+
+| Round trips | Mover trails | Close-up | Gained / lost |
+|---|---|---|---|
+| One walker | 31 / 40 | 32 / 40 | 3 / 2 |
+| Two walkers | 23 / 40 | 28 / 40 | 9 / 4 |
+| Both | 54 / 80 | 60 / 80 | 12 / 6 (p 0.24) |
+
+| Close-up against | Score | Gained / lost | p |
+|---|---|---|---|
+| Frozen lv2 | 60 against 49 | 17 / 6 | 0.035 |
+| Full map oracle | 60 against 59 | 10 / 9 | 1.0 |
+
+- **Sealed time** falls from 112 to 52 s a mission on the same missions, with 40 s walking to a cut: about 92 s against 112 s.
+- **The cut route makes progress when missions succeed:** of 20 s a mission, 14 s is followed by progress along the true
+  route within 10 s, against 40 of 105 s in failures, where 52 s is flat and 10 s backward.
+- **A wall blob switches the rule off and on.** The rule keeps its target 1 m from every track, including short-lived ones
+  that never showed motion. In failed missions, 74% of the switches from cut to sealed had only such tracks within 1 m of
+  the target (52% in successes), against 7% with a confirmed walker. The robot then scans, loses the blob after 1.2 s,
+  gets its target back and turns to it, about every 10 s. Within 0.4 m of one spot, this took 11 of 20 failures at least
+  60 s (4 of 60 successes) and 24% of failed-mission time. Half the tracks in these cycles were over 1 m from any walker
+  and half lay on or past a wall line; the three worst missions' blobs sit at the same wall lines. An early count of
+  target jumps pointed to an unstable target, but per minute of cut time they are rarer in failures (11 against 15), and
+  stalling is less likely just after a jump (34% against 69%). A steadier target is therefore not the fix.
+- **Remaining 20 failures:** 18 timed out, 1 lost its pose, 1 stopped at frame 0 (floor plane unavailable, as in the
+  baseline). None is a collision. Trapping a walker in a dead end was not separately measured.
+
+## P4g: the fix check (31 October)
+
+`configs/experiments/close_up_fix.yaml`, cohorts `cuf_obst*`, commit db59928: only confirmed tracks hold the robot off a cut.
+**It misses the bar set before the run, so the rule goes back to its first version.** It wins 8 missions and loses 5 where
+the bar asked for twice as many wins as losses. The other two parts pass: no collisions, and 5 missions of 80 in the
+turning loop for 60 s or more, against 15.
+
+| Same 80 missions | First rule | With the fix | Gained / lost |
+|---|---|---|---|
+| One walker | 32 / 40 | 33 / 40 | 4 / 3 |
+| Two walkers | 28 / 40 | 30 / 40 | 4 / 2 |
+| Both | 60 / 80 | 63 / 80 | 8 / 5 (p 0.58) |
+
+| The fix against | Score | Gained / lost | p |
+|---|---|---|---|
+| Mover trails | 63 against 54 | 15 / 6 | 0.08 |
+| Frozen lv2 | 63 against 49 | 19 / 5 | 0.007 |
+| Full map oracle | 63 against 59 | 13 / 9 | 0.52 |
+
+- **The diagnosis holds:** switches from cut to sealed with only unconfirmed tracks near the target fall from 552 to 128,
+  seconds in the loop from 36 to 12 a mission, and stuck seconds from 83 to 54.
+- **Failures:** 17 (20 before): 14 timeouts, 2 pose losses (1 before), 1 frame-0 floor-plane stop. The closest walker centre
+  is 0.47 m (0.45 m).
+- **Trapping, first rule against mover trails:** a walker stayed within 2 m of the robot and inside a 1-m span for 60 s or
+  more in 5 of 79 missions, against 1 of 79 (6 against 2 s a mission). Closest walker centre 0.45 m against 0.55 m.
+- **Throughput:** non-learned missions use the GPU only to render, and 14 at once ran at the same 0.54x real time as 6.
+
+**The fix is kept after all, by decision (PLAN P4g).** Mission by mission, 4 of the 8 gains are missions whose loop went
+away (0 s against 98-353 s) and that then finished, while 1 of the 5 losses is an early pose loss and 1 of the gains is
+the reverse. The other 4 losses are timeouts, one with 143 s in the loop.
+
+**Four walkers, first rule** (`configs/experiments/close_up_four_walkers.yaml`, cohort `cu_obst4_c1`, for information): 18 of
+40 against the frozen planner's 5 (14 gained, 1 lost, p 0.001). One collision, the frozen planner also having one: a rear
+calf hit a walker while reversing at 0.10 m/s on a route to a frontier (maze 11 episode 0, 110 s), the blind-side reverse
+of C6's contact, not a walk to a cut.
+
+## P4g: the held-out evaluation (1 November)
+
+`configs/experiments/close_up_fix_heldout.yaml`, cohorts `cufh_*`, run once on the rule with the fix, paired with lv2 (cohorts
+`lb_*`, the same walkers). **125 of 140 against lv2's 112: 17 gained, 4 lost (sign test p 0.007), no collisions.**
+
+| Round trips | lv2 | Close-up with the fix | Gained / lost |
+|---|---|---|---|
+| R4 reference, 20 | 20 | 20 | 0 / 0 |
+| R6 reference, 20 | 20 | 20 | 0 / 0 |
+| Held-out, static, 20 | 19 | 18 | 0 / 1 |
+| Held-out, one walker, 40 | 32 | 35 | 4 / 1 |
+| Held-out, two walkers, 40 | 21 | 32 | 13 / 2 |
+| All, 140 | 112 | 125 | 17 / 4 |
+
+- **The gain is where the rule acts:** two walkers, 11 of the 13 net. The references are unchanged.
+- **The static loss** is maze 43 episode 1, a pose loss; maze 42 episode 1 lost its pose in both. Nothing here says the rule
+  caused it, and I have not looked further.
+- **Failures:** 15, of which 12 timed out and 2 lost their pose. One stopped on a code path never ported to this planner
+  (`UnportedBranch`, a view recovery across a mission phase change, maze 46 episode 1 with two walkers; lv2 failed it too).
+- **The mazes have now been used for this rule:** a further hand rule cannot be judged on them without a fresh set.
+
+Close-up with the fix and mover trails is the working planner and the reference for handing parts to the world model.

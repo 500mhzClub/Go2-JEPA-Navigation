@@ -1,0 +1,15 @@
+{
+ "description": "Mean and standard deviation of executed commands [forward m/s, lateral m/s, yaw rad/s] on the corpus v2 training units (valid blocks); normalise the action blocks of world models with command_dim 3.",
+ "control_mean": [
+  0.05515224727662716,
+  0.0005561081998545075,
+  0.031087206160132316
+ ],
+ "control_std": [
+  0.1340343293800352,
+  0.04183215213398548,
+  0.37312791010939594
+ ],
+ "commands": 14639220,
+ "source": "go2nav.data.lewm_corpus_v2 stats (go2nav_lewm_v2)"
+}

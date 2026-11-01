@@ -29,6 +29,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from go2nav.models.norm import LayerNorm
 from go2nav.models.vjepa import TOKEN_DIM, TOKENS
 
 CONTEXT_FRAMES = 3
@@ -81,7 +82,7 @@ class DensePredictor(nn.Module):
         self.control_modality = nn.Parameter(torch.zeros(1, 1, width))
         nn.init.trunc_normal_(self.control_modality, std=0.02)
         self.blocks = nn.ModuleList([PredictorBlock(width, heads) for _ in range(depth)])
-        self.norm = nn.LayerNorm(width)
+        self.norm = LayerNorm(width)
 
     @classmethod
     def seeded(cls, seed, **kwargs):

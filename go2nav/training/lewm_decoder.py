@@ -37,7 +37,7 @@ import numpy as np
 from PIL import Image
 import torch
 
-from go2nav.models.lewm import (LatentDirectPredictor, LatentMotionDecoder, control_stats, load_world_model,
+from go2nav.models.lewm import (COMMAND_AXES, LatentDirectPredictor, LatentMotionDecoder, control_stats, load_world_model,
                                 normalise_frames, resize_frame)
 from go2nav.training.common import sha256_file, write_lineage
 from go2nav.training.decoder import (BATCH, CATEGORIES, EDGE_BINS, EVAL_SETS, GRAD_CLIP, LR, RECIPES, UPDATES,
@@ -75,7 +75,8 @@ class _Frames(torch.utils.data.Dataset):
 
 
 class LatentCache:
-    """frames.f16 (frames, D), rollout.f16 (contexts, 8, D), frames.json, meta.json."""
+    """frames.f16 (frames, D), rollout.f16 (contexts, 8, D), frames.json, meta.json. With a grid world model (P4b)
+    these hold [CLS]'s z, and frames_state.f16 (frames, 1+G, D) the whole states the rollouts start from."""
 
     def __init__(self, folder, contexts):
         self.folder, self.contexts = Path(folder), contexts
@@ -85,7 +86,9 @@ class LatentCache:
         self.row = {n: i for i, n in enumerate(names)}
         self.z = np.memmap(self.folder/'frames.f16', dtype=np.float16, mode='r', shape=(len(names), self.latent))
         self.rollout = np.memmap(self.folder/'rollout.f16', dtype=np.float16, mode='r', shape=(len(contexts), 8, self.latent))
-        self.mean, self.std = control_stats()
+        self.command_dim = meta.get('command_dim', 2)
+        self.axes = COMMAND_AXES[self.command_dim]
+        self.mean, self.std = control_stats(self.command_dim)
 
     def tensors(self, idx, horizons, device):
         rows = [self.row[f] for i in idx for f in neighbours(self.contexts[i]['frames'][2])]
@@ -93,8 +96,8 @@ class LatentCache:
         future = torch.from_numpy(np.stack([self.rollout[i, int(h)-1] for i, h in zip(idx, horizons)]).astype(np.float32)).to(device)
         true_rows = [self.row[neighbours(self.contexts[i]['frames'][2], future=8)[int(h)-1]] for i, h in zip(idx, horizons)]
         true = torch.from_numpy(np.asarray(self.z[true_rows], np.float32)).to(device)
-        past = np.stack([(np.asarray(self.contexts[i]['past'], np.float32)[:, [0, 2]]-self.mean)/self.std for i in idx])
-        tape = np.stack([(np.asarray(self.contexts[i]['tape'], np.float32)[:, [0, 2]]-self.mean)/self.std for i in idx])
+        past = np.stack([(np.asarray(self.contexts[i]['past'], np.float32)[:, self.axes]-self.mean)/self.std for i in idx])
+        tape = np.stack([(np.asarray(self.contexts[i]['tape'], np.float32)[:, self.axes]-self.mean)/self.std for i in idx])
         y = np.stack([np.asarray(self.contexts[i]['targets'], np.float32)[int(h)-1] for i, h in zip(idx, horizons)])
         return (z, future, torch.from_numpy(past).to(device), torch.from_numpy(tape).to(device), torch.from_numpy(y).to(device),
                 true)
@@ -105,41 +108,51 @@ class LatentCache:
         out = Path(out)
         out.mkdir(parents=True, exist_ok=True)
         model = load_world_model(world_model, device)
-        latent = model.config.latent
+        latent, dim = model.config.latent, model.config.command_dim
+        state = (model.config.tokens, latent) if model.config.grid else (latent,)
+        axes = COMMAND_AXES[dim]
         names = sorted({f for c in contexts for f in neighbours(c['frames'][2])+neighbours(c['frames'][2], future=8)})
         row = {n: i for i, n in enumerate(names)}
         started = time.time()
         if not (out/'frames.done').exists():
             store = np.memmap(out/'frames.f16', dtype=np.float16, mode='w+', shape=(len(names), latent))
+            full = np.memmap(out/'frames_state.f16', dtype=np.float16, mode='w+', shape=(len(names), *state)) \
+                if model.config.grid else None
             loader = torch.utils.data.DataLoader(_Frames(names, roots), batch_size=batch, num_workers=workers, pin_memory=True,
                                                  prefetch_factor=4)
             done = 0
             for frames in loader:
                 with torch.autocast(torch.device(device).type, dtype=torch.bfloat16):
                     z = model.encode(normalise_frames(frames.to(device, non_blocking=True))[:, None])[:, 0]
-                store[done:done+len(frames)] = z.float().cpu().numpy()
+                store[done:done+len(frames)] = model.cls(z).float().cpu().numpy()
+                if full is not None:
+                    full[done:done+len(frames)] = z.float().cpu().numpy()
                 done += len(frames)
             store.flush()
+            if full is not None:
+                full.flush()
             (out/'frames.json').write_text(json.dumps(names)+'\n')
             (out/'frames.done').touch()
             print(json.dumps(dict(frames=len(names), wall_s=round(time.time()-started))), flush=True)
         if not (out/'rollout.done').exists():
-            z_all = torch.from_numpy(np.asarray(np.memmap(out/'frames.f16', dtype=np.float16, mode='r', shape=(len(names), latent)),
-                                                np.float32)).to(device)
-            mean, std = (torch.as_tensor(v, device=device) for v in control_stats())
+            source = out/('frames_state.f16' if model.config.grid else 'frames.f16')
+            z_all = np.memmap(source, dtype=np.float16, mode='r', shape=(len(names), *state))
+            z_all = torch.from_numpy(np.asarray(z_all, np.float32)).to(device)
+            mean, std = (torch.as_tensor(v, device=device) for v in control_stats(dim))
             store = np.memmap(out/'rollout.f16', dtype=np.float16, mode='w+', shape=(len(contexts), 8, latent))
             for start in range(0, len(contexts), batch):
                 part = contexts[start:start+batch]
                 z = z_all[torch.tensor([[row[f] for f in neighbours(c['frames'][2])] for c in part], device=device)]
-                past = torch.tensor(np.stack([np.asarray(c['past'], np.float32)[-3:, [0, 2]] for c in part]), device=device)
-                tape = torch.tensor(np.stack([np.asarray(c['tape'], np.float32)[:, [0, 2]] for c in part]), device=device)
-                commands = (torch.cat((past, tape), 1)-mean)/std                       # (B, 11, 2)
+                past = torch.tensor(np.stack([np.asarray(c['past'], np.float32)[-3:, axes] for c in part]), device=device)
+                tape = torch.tensor(np.stack([np.asarray(c['tape'], np.float32)[:, axes] for c in part]), device=device)
+                commands = (torch.cat((past, tape), 1)-mean)/std                       # (B, 11, command_dim)
                 actions = commands[:, :, None].expand(-1, -1, 5, -1).flatten(2)       # each tick's command, five times
                 with torch.autocast(torch.device(device).type, dtype=torch.bfloat16):
-                    store[start:start+len(part)] = model.rollout(z, actions, 8).float().cpu().numpy()
+                    store[start:start+len(part)] = model.cls(model.rollout(z, actions, 8)).float().cpu().numpy()
             store.flush()
             (out/'meta.json').write_text(json.dumps(dict(world_model=str(world_model), world_model_sha256=sha256_file(world_model),
-                                                         latent=latent, contexts=len(contexts), frames=len(names)))+'\n')
+                                                         latent=latent, command_dim=dim, contexts=len(contexts),
+                                                         frames=len(names)))+'\n')
             (out/'rollout.done').touch()
         return LatentCache(out, contexts)
 
@@ -174,7 +187,7 @@ def fit(cache, out, *, seed, recipe='decoder_fix', updates=UPDATES, device='cuda
     mean, scale = target_normalisation(cache.contexts, recipe)
     torch.manual_seed(seed)
     c5 = LatentMotionDecoder(cache.latent, mean, scale).to(device).train()
-    c6 = LatentDirectPredictor(cache.latent, mean, scale).to(device).train()
+    c6 = LatentDirectPredictor(cache.latent, mean, scale, command_dim=cache.command_dim).to(device).train()
     probe = LatentMotionDecoder(cache.latent, mean, scale).to(device).train()
     if base_readout is not None:  # grown from the base readout (go2nav.training.lewm_readout), as C3's from T5b
         from go2nav.training.lewm_readout import load_base
@@ -194,7 +207,7 @@ def fit(cache, out, *, seed, recipe='decoder_fix', updates=UPDATES, device='cuda
             history.append(dict(step=n+1, c5_loss=loss5, c6_loss=loss6))
     report = evaluate(cache, c5, c6, device, probe=probe)
     torch.save(dict(c5=c5.state_dict(), c6=c6.state_dict(), latent=cache.latent, target_mean=mean, target_scale=scale,
-                    recipe=recipe, mix=RECIPES[recipe], base_readout=str(base_readout) if base_readout else None, world_model_sha256=json.loads((cache.folder/'meta.json').read_text())['world_model_sha256']),
+                    command_dim=cache.command_dim, recipe=recipe, mix=RECIPES[recipe], base_readout=str(base_readout) if base_readout else None, world_model_sha256=json.loads((cache.folder/'meta.json').read_text())['world_model_sha256']),
                partial/checkpoint.name)
     (partial/'evaluation.json').write_text(json.dumps(dict(seed=seed, recipe=recipe, score_mm=score(report, 'C5'),
                                                            score_c6_mm=score(report, 'C6'), probe=probe_gate(report),

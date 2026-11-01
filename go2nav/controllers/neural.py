@@ -13,16 +13,16 @@ from torch.nn import functional as F
 
 from go2nav.locomotion.safety import apply_limits
 from go2nav.models.vjepa import VJepaEncoder, normalise, pool_tokens, preprocess
-from go2nav.planning.actions import COMMAND_SCALE, command_sequences
+from go2nav.planning.actions import ACTIONS, COMMAND_SCALE, command_sequences
 
 CONTEXT_OFFSETS_NS = (1_000_000_000, 500_000_000, 0)
 
 
-def planned_commands(prefix, pulse):
-    """(6, 8, 3) planned tapes as the original model interface rounded them: float32 commands scaled and unscaled in
-    float64 (`apply_limits` then returns float32)."""
+def planned_commands(prefix, pulse, candidates=ACTIONS):
+    """(N, 8, 3) planned tapes of the candidates (the six actions by default) as the original model interface rounded
+    them: float32 commands scaled and unscaled in float64 (`apply_limits` then returns float32)."""
     scale = torch.tensor(COMMAND_SCALE)
-    scaled = torch.as_tensor(command_sequences(prefix, pulse=pulse), dtype=torch.float32)/scale
+    scaled = torch.as_tensor(command_sequences(prefix, pulse=pulse, candidates=candidates), dtype=torch.float32)/scale
     return (scaled*scale).numpy()
 
 

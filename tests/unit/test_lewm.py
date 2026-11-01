@@ -36,7 +36,7 @@ def test_predictor_is_causal():
         torch.nn.init.normal_(block.adaLN_modulation[-1].weight, std=.1)
     z, actions = torch.randn(2, 4, 32), torch.randn(2, 4, 10)
     later = z.clone()
-    later[:, 3] += 1.
+    later[:, 3] += torch.randn(2, 32)  # not a constant: the LayerNorms remove a uniform shift
     a, b = model.predict(z, actions), model.predict(later, actions)
     assert torch.allclose(a[:, :3], b[:, :3]) and not torch.allclose(a[:, 3], b[:, 3])
 
@@ -155,3 +155,135 @@ def test_body_motion_and_the_motion_term():
                    generator=torch.Generator().manual_seed(0))
     terms['motion'].backward()
     assert model.motion['4'].net[0].weight.grad.abs().sum() > 0 and model.encoder.patch_embed.weight.grad.abs().sum() > 0
+
+
+def test_action_blocks_take_lateral_only_with_three_component_statistics():
+    from go2nav.models.lewm import action_blocks
+    commands = torch.tensor([[[.2, .1, .3]]*5])
+    two = action_blocks(commands, np.zeros(2, np.float32), np.ones(2, np.float32))
+    three = action_blocks(commands, np.zeros(3, np.float32), np.ones(3, np.float32))
+    assert two.shape[-1] == 10 and torch.allclose(two[0, :2], torch.tensor([.2, .3]))
+    assert three.shape[-1] == 15 and torch.allclose(three[0, :3], torch.tensor([.2, .1, .3]))
+
+
+
+@pytest.mark.parametrize('command_dim', [2, 3])
+def test_zero_command_baseline_matches_the_action_blocks(command_dim):
+    from types import SimpleNamespace
+    from go2nav.models.lewm import action_blocks
+    from go2nav.training.lewm import zero_command_actions
+    mean, std = np.arange(1, command_dim+1, dtype=np.float32)/10, np.full(command_dim, .5, np.float32)
+    zero = action_blocks(torch.zeros(4, 8, 5, 3), mean, std)
+    assert torch.equal(zero_command_actions(torch.ones_like(zero), SimpleNamespace(mean=mean, std=std)), zero)
+
+
+@pytest.mark.parametrize('command_dim', [2, 3])
+def test_c6_takes_the_world_models_command_components_and_round_trips(tmp_path, command_dim):
+    from go2nav.models.lewm import LatentDirectPredictor, LatentMotionDecoder, load_heads
+    c6 = LatentDirectPredictor(8, torch.zeros(3), torch.ones(3), command_dim=command_dim)
+    out = c6(torch.zeros(2, 4, 8), torch.zeros(2, 15, command_dim), torch.zeros(2, 8, command_dim), torch.tensor([1, 8]))
+    assert out.shape == (2, 3)
+    c5 = LatentMotionDecoder(8, torch.zeros(3), torch.ones(3))
+    torch.save(dict(c5=c5.state_dict(), c6=c6.state_dict(), latent=8, target_mean=torch.zeros(3),
+                    target_scale=torch.ones(3), **({'command_dim': 3} if command_dim == 3 else {})), tmp_path/'fit.pt')
+    assert load_heads(tmp_path/'fit.pt')[1].command_dim == command_dim
+
+
+def test_the_grid_state_pools_the_patches_and_its_predictor_is_block_causal(tmp_path):
+    model = LeWorldModel.seeded(4, small(grid=(3, 4), inverse_dynamics=True)).eval()
+    assert model.config.tokens == 13 and not hasattr(LeWorldModel.seeded(4, small()).predictor, 'space_embedding')
+    pixels = normalise_frames(torch.randint(0, 255, (2, 4, 168, 224, 3), dtype=torch.uint8))
+    z = model.encode(pixels)
+    assert z.shape == (2, 4, 13, 32) and model.cls(z).shape == (2, 4, 32)
+    tokens = model.encoder.tokens(pixels[:, 0])
+    pooled = tokens[:, 1:].reshape(2, 3, 4, 4, 4, 48).mean((2, 4)).reshape(2, 12, 48)  # 4 x 4 blocks of patches
+    assert torch.allclose(z[:, 0, 1:], model.grid_projector(pooled.flatten(0, 1)).unflatten(0, (2, 12)), atol=1e-5)
+    assert torch.allclose(z[:, 0, 0], model.projector(tokens[:, 0]), atol=1e-5)
+    for block in model.predictor.layers:
+        torch.nn.init.normal_(block.adaLN_modulation[-1].weight, std=.1)
+    actions = torch.randn(2, 4, 10)
+    later = z.clone()
+    later[:, 3, 5] += torch.randn(2, 32)                                  # one grid token of the last frame
+    a, b = model.predict(z, actions), model.predict(later, actions)
+    assert a.shape == (2, 4, 13, 32)
+    assert torch.allclose(a[:, :3], b[:, :3]) and not torch.allclose(a[:, 3], b[:, 3])
+    assert not torch.allclose(a[:, 3, 0], b[:, 3, 0])                       # [CLS] sees its own frame's grid
+    rolled = model.rollout(z, torch.randn(2, 4-1+3, 10), 3)
+    assert rolled.shape == (2, 3, 13, 32)
+    assert model.infer_actions(z).shape == (2, 3, 10)                      # inverse dynamics on [CLS]
+    save_world_model(tmp_path/'g.pt', model)
+    loaded = load_world_model(tmp_path/'g.pt')
+    assert loaded.config.grid == (3, 4) and torch.allclose(loaded.encode(pixels), z, atol=1e-5)
+
+
+def test_grid_losses_train_both_parts_and_keep_the_cls_terms():
+    model = LeWorldModel.seeded(5, small(grid=(3, 4))).train()
+    pixels = normalise_frames(torch.randint(0, 255, (4, 6, 168, 224, 3), dtype=torch.uint8))
+    actions = torch.randn(4, 5, 10)
+    terms = losses(model, pixels, actions, rollout_steps=2, sigreg=SIGReg(num_proj=32), lam=.09,
+                   generator=torch.Generator().manual_seed(0), grid_weight=.5)
+    assert {'pred', 'rollout', 'grid_pred', 'grid_rollout', 'sigreg'} <= set(terms) and torch.isfinite(terms['loss'])
+    expected = terms['pred']+terms['rollout']+.09*terms['sigreg']+.5*(terms['grid_pred']+terms['grid_rollout'])
+    assert torch.allclose(terms['loss'], expected)
+    terms['grid_rollout'].backward()
+    assert model.grid_projector.net[0].weight.grad.abs().sum() > 0 and model.predictor.space_embedding.grad is not None
+    assert model.encoder.patch_embed.weight.grad.abs().sum() > 0
+
+
+def test_a_frozen_encoder_with_no_grid_projector_is_a_fixed_target(tmp_path):
+    config = small(width=32, grid=(3, 4), grid_projector=False, frozen_encoder=True)
+    model = LeWorldModel.seeded(6, config).train()
+    assert not hasattr(model, 'grid_projector') and not model.encoder.training and not model.projector.training
+    pixels = normalise_frames(torch.randint(0, 255, (4, 6, 168, 224, 3), dtype=torch.uint8))
+    z = model.encode(pixels)
+    tokens = model.encoder.tokens(pixels[:, 0])
+    assert torch.equal(z[:, 0, 1:], tokens[:, 1:].reshape(4, 3, 4, 4, 4, 32).mean((2, 4)).reshape(4, 12, 32))
+    assert not z.requires_grad                                               # no graph through the encoder
+    frozen = {k: v.clone() for k, v in model.state_dict().items() if k.split('.')[0] in ('encoder', 'projector')}
+    optimiser = torch.optim.AdamW(model.parameters(), lr=1e-2, weight_decay=.1)
+    terms = losses(model, pixels, torch.randn(4, 5, 10), rollout_steps=2, sigreg=SIGReg(num_proj=32), lam=0.,
+                   generator=torch.Generator().manual_seed(0))
+    terms['loss'].backward()
+    optimiser.step()
+    assert all(torch.equal(model.state_dict()[k], v) for k, v in frozen.items())  # weights and BatchNorm statistics
+    assert model.predictor.space_embedding.grad is not None
+    save_world_model(tmp_path/'f.pt', model)
+    loaded = load_world_model(tmp_path/'f.pt')
+    assert not loaded.config.grid_projector and torch.allclose(loaded.encode(pixels), model.encode(pixels), atol=1e-5)
+    with pytest.raises(ValueError):
+        LeWorldModel(small(grid=(3, 4), grid_projector=False))                 # width 48 against latent 32
+
+
+def test_the_mover_head_reads_each_column_and_its_loss_trains_the_encoder():
+    model = LeWorldModel.seeded(7, small(grid=(3, 4), mover_head=True)).train()
+    z = torch.randn(2, 5, 13, 32)
+    out = model.eval().movers(z)
+    assert out.shape == (2, 5, 4, 3)
+    changed = z.clone()
+    changed[:, :, 1+4*2+1] += 1.                                    # row 2, column 1
+    moved = model.movers(changed)
+    assert torch.allclose(out[:, :, [0, 2, 3]], moved[:, :, [0, 2, 3]]) and not torch.allclose(out[:, :, 1], moved[:, :, 1])
+    model.train()
+    pixels = normalise_frames(torch.randint(0, 255, (4, 6, 168, 224, 3), dtype=torch.uint8))
+    movers = torch.zeros(4, 6, 4, 3)
+    movers[:, :, 2] = torch.tensor([1., 2.4, -.3])                  # a walker in column 2, 2.4 m ahead
+    terms = losses(model, pixels, torch.randn(4, 5, 10), rollout_steps=2, sigreg=SIGReg(num_proj=32), lam=.09,
+                   generator=torch.Generator().manual_seed(0), movers=movers, mover_weight=.5)
+    without = terms['loss']-.5*terms['mover']
+    assert 'mover' in terms and torch.isfinite(terms['mover']) and terms['mover'] > 0
+    assert torch.allclose(without, terms['pred']+terms['rollout']+.09*terms['sigreg']+terms['grid_pred']
+                          +terms['grid_rollout'], atol=1e-5)
+    terms['mover'].backward()
+    assert model.encoder.patch_embed.weight.grad.abs().sum() > 0 and model.predictor.space_embedding.grad is None
+
+
+def test_predictor_checkpointing_keeps_the_gradients():
+    model = LeWorldModel.seeded(5, small(grid=(3, 4))).eval()
+    z, actions = torch.randn(2, 4, 13, model.config.latent), torch.randn(2, 4, 10)
+    grads = []
+    for checkpoint in (False, True):
+        model.zero_grad()
+        model.predictor.checkpoint = checkpoint
+        model.predict(z, actions).square().mean().backward()
+        grads.append([p.grad.clone() for p in model.predictor.parameters()])
+    assert all(torch.allclose(a, b, atol=1e-6) for a, b in zip(*grads))

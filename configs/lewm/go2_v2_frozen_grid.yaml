@@ -1,0 +1,15 @@
+# The frozen-target grid LeWM (docs/dynamic/PLAN.md, P4c): go2_v2's encoder and [CLS] projector, frozen, as a fixed
+# target; the grid is its patch tokens pooled to 3 x 4 with no projector. Only the predictor, the action encoder and
+# the output projectors train, on the teacher-forced and rollout errors of [CLS] and the grid (no SIGReg, no inverse
+# dynamics: nothing upstream of the predictor learns). Same seed, data and schedule as go2_v2_grid.
+name: go2_v2_frozen_grid
+seed: 2026102601
+init_encoder: outputs/lewm/go2_v2/lewm.pt
+model: {size: tiny, history: 4, command_dim: 3, inverse_dynamics: false, grid: [3, 4], grid_projector: false,
+        frozen_encoder: true}
+data: {length: 12, mazes_per_batch: 16, windows_per_maze: 8, batch_size: 128}
+objective: {rollout_steps: 8, sigreg_weight: 0., sigreg_projections: 1024, sigreg_knots: 17, action_blind: false,
+            inverse_weight: 0., grid_weight: 1.}
+optimiser: {lr: 5.0e-5, weight_decay: 1.0e-3, warmup_steps: 2000, steps: 60000, grad_clip: 1.0}
+runtime: {compile: max-autotune-no-cudagraphs, compile_scope: encoder, workers: 10, prefetch: 2, log_every: 100,
+          validate_every: 5000, checkpoint_every: 1000, milestone_every: 10000, checkpoint_predictor: false}

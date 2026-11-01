@@ -1,0 +1,13 @@
+# Corpus v2 (docs/dynamic/PLAN.md, P4): span8w's LeWM (configs/lewm/go2_idm_span8w.yaml: model, objective, optimiser
+# and runtime) trained on go2nav.data.lewm_corpus_v2, with (forward, lateral, yaw) action blocks (command_dim 3,
+# 15 values, normalised by data/training/control_norm_stats_corpus_v2.json).
+name: go2_v2
+seed: 2026102601
+model: {size: tiny, history: 4, command_dim: 3, inverse_dynamics: true, inverse_spans: [1, 8],
+        inverse_span_weights: [1, 3]}
+data: {length: 12, mazes_per_batch: 16, windows_per_maze: 8, batch_size: 128}
+objective: {rollout_steps: 8, sigreg_weight: 0.08, sigreg_projections: 1024, sigreg_knots: 17, action_blind: false,
+            inverse_weight: 100.}
+optimiser: {lr: 5.0e-5, weight_decay: 1.0e-3, warmup_steps: 2000, steps: 60000, grad_clip: 1.0}
+runtime: {compile: max-autotune-no-cudagraphs, workers: 10, prefetch: 2, log_every: 100, validate_every: 5000,
+          checkpoint_every: 1000, milestone_every: 10000}

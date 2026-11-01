@@ -47,6 +47,21 @@ turning for the rest of the mission (docs/dynamic/STATUS.md, C1 refit). `obstacl
 forecast paths against moving tracks (`tracks`, set by the controller each map update) where constant velocity puts
 them (`planning.prediction`); with `'oracle'`, `tracks` are every obstacle at its true future positions
 (`controllers.truth`), all of them checked.
+
+`close_up=True` (docs/dynamic/PLAN.md, P4g): when a moving obstacle cuts the only route, walk up to the cut
+(`routing.close_up`) instead of scanning where the route was lost. Only confirmed tracks hold the robot off: a brief
+track on a wall would take the target away until it is lost again, and the robot would turn between the two.
+
+`give_way=True` (the give-way probe, docs/dynamic/PLAN.md, P4f) adds one rule for movers that wait for the robot: when
+a confirmed track (it has shown motion) stands still within `GIVE_WAY_NEAR_M` ahead, within `GIVE_WAY_HALF_WIDTH_M`
+of the heading, and the selection does not advance, the robot commits to backing off at 0.10 m/s until it has moved
+`GIVE_WAY_BACK_M`, whatever the track then does, or for `GIVE_WAY_BACK_PLANS` steps. A step must stay on observed floor
+with the footprint's clearance (`GIVE_WAY_CLEARANCE_M`), and unlike the scripted backup it may pass closer to a wall than
+the robot stands. Then
+`GIVE_WAY_COOLDOWN_PLANS` plans without the rule, and at most `GIVE_WAY_REPEATS` back-offs per track. A polite walker
+stops while the robot is within 0.8 m ahead of it, and a non-polite one waits at the robot: backing off past that lets
+either walk on (the give-way ceiling: a still mover near and ahead responds to a retreat in 85-97% of the probe's
+windows).
 """
 import math
 
@@ -71,6 +86,9 @@ TERMINAL_SPIN_TURNS, TERMINAL_BURST_PLANS = 15, 3
 REACTIVE_ESCAPE_FLOOR_M, REACTIVE_ESCAPE_GAIN_M, REACTIVE_ESCAPE_S, ESCAPE_SLACK_M = .40, .005, .4, .003
 BACKUP_SPEED_M_S, BACKUP_PLANS, BACKUP_STEP_S = .10, 5, .4
 BACKUP_FLOOR_M, BACKUP_REPEAT_RADIUS_M = .40, .30
+GIVE_WAY_NEAR_M, GIVE_WAY_HALF_WIDTH_M, GIVE_WAY_BACK_M = 1.5, .75, .40   # centroids: the visible face, ~0.1 m nearer
+GIVE_WAY_BACK_PLANS, GIVE_WAY_COOLDOWN_PLANS, GIVE_WAY_REPEATS = 25, 10, 3
+GIVE_WAY_CLEARANCE_M = grid.FOOTPRINT_RADIUS_M     # 0.40 m put a rear calf into a wall in 2 of the first 7 missions
 ROUTES = ('OBSERVED_FLOOR_ROUTE_TO_FRONTIER', 'OBSERVED_FLOOR_ROUTE_TO_GOAL_CELL')
 HARNESSES = ('reserve_exit_v2', 'v4')
 
@@ -84,7 +102,7 @@ class Planner:
 
     def __init__(self, *, arrival_radius_m, recovery=False, margin_m=0., unknown=None, harness='reserve_exit_v2',
                  coverage_fix=True, deadlock_escape=False, terminal_burst=False, obstacle_prediction=False,
-                 candidates=ACTIONS):
+                 candidates=ACTIONS, give_way=False, close_up=False):
         if harness not in HARNESSES:
             raise ValueError(f'unknown harness {harness!r}')
         self.arrival_radius_m, self.recovery, self.harness = arrival_radius_m, recovery, harness
@@ -116,6 +134,8 @@ class Planner:
         self.terminal_spin = (None, 0)
         self.backup, self.backup_request, self.backup_sites = None, None, []
         self.backup_plan = False            # this plan carries the reverse command
+        self.give_way, self.give_way_state, self.give_way_cooldown, self.give_way_counts = give_way, None, 0, {}
+        self.close_up = close_up
         if recovery:
             self.frontier_visits.excluded = routing.StickyExclusions()
 
@@ -126,7 +146,11 @@ class Planner:
         route = routing.propose(snapshot.floor, snapshot.occupied, snapshot.fine_occupied, q[:2], goal_map,
                                 excluded_frontiers=excluded)
         route = routing.prefer_clearance(route, snapshot.floor, snapshot.occupied)
-        return routing.fine_goal_route(snapshot, q[:2], goal_map, route)
+        route = routing.fine_goal_route(snapshot, q[:2], goal_map, route)
+        if self.close_up and route['status'] == 'OBSERVED_COMPONENT_HAS_NO_FRONTIER':
+            route = routing.close_up(snapshot, q[:2], goal_map, route, excluded_frontiers=excluded,
+                                     avoid=[t.history[-1][1] for t in self.tracks if t.confirmed])
+        return route
 
     def _veto_view(self, route, heading, generation):
         recovery = self.view_recovery
@@ -350,6 +374,7 @@ class Planner:
 
     def select(self, prediction, goal_body, scan_error, snapshot, position, rotation, *, generation):
         """The action for a forecast (6, 8, 5), in the stages' fixed order (each may revise the previous choice)."""
+        self.backup_plan = False
         B = np.asarray(snapshot.map_from_initial)
         q, Q = B@position, B@rotation
         heading = math.atan2(Q[1, 0], Q[0, 0])
@@ -417,6 +442,8 @@ class Planner:
         elif self.deadlock_escape:
             result = self._latch_timeout(result, heading)
             result = self._deadlock_escape(result)
+        if self.give_way:
+            result = self._give_way(result, snapshot, q, Q)
         if self.obstacle_prediction:
             result = result | dict(obstacle_tracks=[t.summary(snapshot.measured_ns) for t in self.tracks],
                                    predicted_tracks=[t.id for t in moving])
@@ -585,34 +612,84 @@ class Planner:
         if self.backup is None and self.backup_request is None:
             self.backup_request = reason
 
-    def _scripted_backup(self, result, snapshot, q, Q):
-        """One step of the scripted backup (see the module docstring), or the selection unchanged. A step that would
-        leave observed floor, or lacks clearance (0.40 m, and no more than 1 cm below the current), ends the script."""
-        self.backup_plan = False
-        if self.backup is None and self.backup_request is None:
-            return result
-        if self.backup is None:
-            self.backup, self.backup_request = dict(reason=self.backup_request, step=0), None
+    @staticmethod
+    def _reverse_step(snapshot, q, Q, clearance_m=None):
+        """(whether one 400-ms reverse step at the backup speed stays on observed floor with clearance (0.40 m and no
+        more than 1 cm below the current, or just `clearance_m`), its detail)."""
         clearance = grid.fine_clearance(snapshot.fine_occupied)
         p, yaw = np.asarray(q, float)[:2], math.atan2(Q[1][0], Q[0][0])
         end = p-BACKUP_SPEED_M_S*BACKUP_STEP_S*np.array([math.cos(yaw), math.sin(yaw)])
         current, path = clearance.minimum(p, p), clearance.minimum(p, end)
         on_floor = all(tuple(c) in snapshot.floor for c in grid.segment_cells(p, end))
-        clear = path is None or (path >= BACKUP_FLOOR_M and (current is None or path >= current-.01))
-        detail = dict(reason=self.backup['reason'], step=self.backup['step']+1, current_clearance_m=current,
-                      path_clearance_m=path, on_observed_floor=on_floor)
-        if not (on_floor and clear):
+        clear = path is None or (path >= clearance_m if clearance_m is not None else path >= BACKUP_FLOOR_M
+                                 and (current is None or path >= current-.01))
+        return on_floor and clear, dict(current_clearance_m=current, path_clearance_m=path, on_observed_floor=on_floor)
+
+    @staticmethod
+    def _reverse(result, detail_key, detail):
+        """The selection as a hold carrying the reverse command (in place)."""
+        order = [r['action'] for r in result['candidates']] if 'candidates' in result else ACTIONS  # C2: no candidates
+        result.update(action='hold', action_index=order.index('hold'), requested_command=[-BACKUP_SPEED_M_S, 0., 0.])
+        result[detail_key] = detail
+        return result
+
+    def _scripted_backup(self, result, snapshot, q, Q):
+        """One step of the scripted backup (see the module docstring), or the selection unchanged. A step that would
+        leave observed floor, or lacks clearance (`_reverse_step`), ends the script."""
+        self.backup_plan = False
+        if self.backup is None and self.backup_request is None:
+            return result
+        if self.backup is None:
+            self.backup, self.backup_request = dict(reason=self.backup_request, step=0), None
+        ok, check = self._reverse_step(snapshot, q, Q)
+        detail = dict(reason=self.backup['reason'], step=self.backup['step']+1, **check)
+        if not ok:
             result['backup_aborted'] = detail
             self.backup = None
             return result
-        order = [r['action'] for r in result['candidates']] if 'candidates' in result else ACTIONS  # C2: no candidates
-        result.update(action='hold', action_index=order.index('hold'),
-                      requested_command=[-BACKUP_SPEED_M_S, 0., 0.],
-                      backup=detail)
+        self._reverse(result, 'backup', detail)
         self.backup_plan = True
         self.backup['step'] += 1
         if self.backup['step'] >= BACKUP_PLANS:
             self.backup = None
+        return result
+
+    def _give_way(self, result, snapshot, q, Q):
+        """The give-way rule (see the module docstring): one reverse step, or the selection unchanged."""
+        if self.backup_plan:           # a scripted backup has this plan
+            return result
+        p, yaw = np.asarray(q, float)[:2], math.atan2(Q[1][0], Q[0][0])
+        c, s = math.cos(yaw), math.sin(yaw)
+        still = {}
+        for t in self.tracks:
+            if t.confirmed and t.speed < tracks.MIN_SPEED_M_S:
+                d = np.asarray(t.history[-1][1], float)-p
+                still[t.id] = np.array([c*d[0]+s*d[1], -s*d[0]+c*d[1]])
+        state = self.give_way_state
+        if state is None:
+            if self.give_way_cooldown:
+                self.give_way_cooldown -= 1
+                return result
+            ahead = {i: xy for i, xy in still.items() if 0 < xy[0] < GIVE_WAY_NEAR_M and abs(xy[1]) < GIVE_WAY_HALF_WIDTH_M
+                     and self.give_way_counts.get(i, 0) < GIVE_WAY_REPEATS}
+            if not ahead or float(np.asarray(result['requested_command'], float)[0]) > 0:
+                return result
+            track = min(ahead, key=lambda i: float(np.linalg.norm(ahead[i])))
+            self.give_way_counts[track] = self.give_way_counts.get(track, 0)+1
+            state = self.give_way_state = dict(track=track, step=0, back_off=self.give_way_counts[track], start=p)
+        ok, check = self._reverse_step(snapshot, q, Q, clearance_m=GIVE_WAY_CLEARANCE_M)
+        moved = float(np.linalg.norm(p-state['start']))
+        detail = dict(track=state['track'], back_off=state['back_off'], step=state['step']+1, moved_m=round(moved, 3),
+                      **check)
+        end = ('distance' if moved >= GIVE_WAY_BACK_M else 'steps' if state['step'] >= GIVE_WAY_BACK_PLANS
+               else None if ok else 'reverse_blocked')
+        if end is not None:
+            self.give_way_state, self.give_way_cooldown = None, GIVE_WAY_COOLDOWN_PLANS
+            result['give_way_ended'] = dict(detail, reason=end)
+            return result
+        self._reverse(result, 'give_way', detail)
+        self.backup_plan = True
+        state['step'] += 1
         return result
 
     def veto(self, plan, now_ns, generation):

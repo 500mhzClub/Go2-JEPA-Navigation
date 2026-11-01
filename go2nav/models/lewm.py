@@ -10,7 +10,8 @@ Face layout that the official code instantiates (`vit_hf`), written out here.
 **Go2 configuration** (see docs/lewm/PLAN.md):
 - one model step is 100 ms: one camera frame and the five 50 Hz policy steps after it (the paper's frameskip 5);
 - the action of a step is its block of five executed (forward, yaw) commands, normalised by the control statistics
-  (data/training/control_norm_stats.json): 10 values;
+  (data/training/control_norm_stats.json): 10 values; with `command_dim=3` (corpus v2, `go2nav.data.lewm_corpus_v2`)
+  the block holds (forward, lateral, yaw), normalised by corpus v2's statistics (`CONTROL_STATS_3`): 15 values;
 - frames are the primary camera's 640 x 480 RGB resized to 224 x 168 (bicubic; `resize_frame`), the full field of
   view; with patch 14 the encoder sees 16 x 12 tokens;
 - the predictor attends over `history` = 4 frames (t-300 .. t ms) and rolls out autoregressively.
@@ -22,6 +23,10 @@ through a BatchNorm MLP projector (the final LayerNorm would otherwise keep SIGR
 **Predictor.** A causal transformer over the history's z (learned temporal embedding), each position conditioned on
 its own action by AdaLN-zero (scale, shift, gate; zero-initialised), then a BatchNorm MLP projector: 6 blocks,
 16 heads of 64, MLP 2048, dropout 0.1 (about 10.8M parameters at z 192). Position i predicts z of frame i+1.
+
+**Patch grid** (`grid`, docs/dynamic/PLAN.md P4b): the state also holds the final layer's patch tokens average-pooled
+to a coarse grid (3 x 4: 13 tokens a frame with [CLS]), each through its own projector; the predictor forecasts every
+token, block-causally over frames. `cls` takes [CLS]'s z from a state, so heads and gates read it as before.
 
 **Loss** (`losses`): the paper's teacher-forced next-embedding MSE over the history, plus (optionally, the Go2
 configuration) the MSE of a K-step autoregressive rollout, plus lambda x SIGReg of every frame's z, step by step.
@@ -35,13 +40,18 @@ import numpy as np
 from PIL import Image
 import torch
 from torch import nn
+import torch.utils.checkpoint
 from torch.nn import functional as F
+
+from go2nav.models.norm import LayerNorm
 
 FRAME_SIZE = (224, 168)  # (width, height) of the encoder input
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 REPO = Path(__file__).resolve().parents[2]
 CONTROL_STATS = REPO/'data/training/control_norm_stats.json'
+CONTROL_STATS_3 = REPO/'data/training/control_norm_stats_corpus_v2.json'
+COMMAND_AXES = {2: [0, 2], 3: [0, 1, 2]}   # the command components (forward, lateral, yaw) an action block holds
 
 
 @dataclass(frozen=True)
@@ -68,10 +78,19 @@ class LeWMConfig:
     inverse_spans: tuple = (1,)     # frame spans the inverse dynamics decodes over (1: consecutive frames)
     inverse_span_weights: tuple = ()  # relative weights of those spans in the inverse term (empty: equal)
     motion_dynamics: bool = False   # also decode the body-frame motion over each span (privileged poses; a variant)
+    grid: tuple = ()                # (rows, cols): the state also holds the patch tokens pooled to this grid (P4b)
+    grid_projector: bool = True     # False: the grid tokens are the pooled patch tokens themselves (P4c; width = latent)
+    frozen_encoder: bool = False    # the encoder and [CLS] projector never train and stay in eval mode (P4c)
+    mover_head: bool = False        # a training-only head reading walkers per grid column from the state (P4d)
 
     @property
     def action_dim(self):
         return self.block_steps*self.command_dim
+
+    @property
+    def tokens(self):
+        """Tokens per frame in the state: [CLS], then the grid's (1 without a grid)."""
+        return 1+math.prod(self.grid) if self.grid else 1
 
     @classmethod
     def named(cls, size, **overrides):
@@ -98,15 +117,17 @@ def normalise_frames(frames):
     return (x-mean)/std
 
 
-def control_stats():
-    stats = json.loads(CONTROL_STATS.read_text())
+def control_stats(command_dim=2):
+    """Mean and standard deviation of the command components a block holds (`COMMAND_AXES`)."""
+    stats = json.loads((CONTROL_STATS if command_dim == 2 else CONTROL_STATS_3).read_text())
     return np.asarray(stats['control_mean'], np.float32), np.asarray(stats['control_std'], np.float32)
 
 
 def action_blocks(commands, mean, std):
-    """Executed commands (..., 5, 3) [vx, vy, wz] (or (..., 5, 2) [vx, wz]) to normalised action blocks (..., 10)."""
+    """Executed commands (..., 5, 3) [vx, vy, wz] (or (..., 5, 2) [vx, wz]) to normalised action blocks (..., 10), or
+    (..., 15) with three-component statistics."""
     commands = torch.as_tensor(commands, dtype=torch.float32)
-    if commands.shape[-1] == 3:
+    if commands.shape[-1] == 3 and len(mean) == 2:
         commands = commands[..., [0, 2]]
     mean, std = (torch.as_tensor(v, dtype=torch.float32, device=commands.device) for v in (mean, std))
     return ((commands-mean)/std).flatten(-2)
@@ -120,10 +141,10 @@ class ViTBlock(nn.Module):
     def __init__(self, width, heads, mlp):
         super().__init__()
         self.heads = heads
-        self.norm1 = nn.LayerNorm(width, eps=1e-12)
+        self.norm1 = LayerNorm(width, eps=1e-12)
         self.qkv = nn.Linear(width, 3*width)
         self.proj = nn.Linear(width, width)
-        self.norm2 = nn.LayerNorm(width, eps=1e-12)
+        self.norm2 = LayerNorm(width, eps=1e-12)
         self.mlp = nn.Sequential(nn.Linear(width, mlp), nn.GELU(), nn.Linear(mlp, width))
 
     def forward(self, x):
@@ -155,7 +176,7 @@ class ViTEncoder(nn.Module):
         self.cls_token = nn.Parameter(torch.zeros(1, 1, config.width))
         self.position = nn.Parameter(torch.zeros(1, 1+(h//config.patch)*(w//config.patch), config.width))
         self.blocks = nn.ModuleList(ViTBlock(config.width, config.heads, config.mlp) for _ in range(config.depth))
-        self.norm = nn.LayerNorm(config.width, eps=1e-12)
+        self.norm = LayerNorm(config.width, eps=1e-12)
         self.apply(self._init)
         nn.init.trunc_normal_(self.cls_token, std=.02)
         nn.init.trunc_normal_(self.position, std=.02)
@@ -177,6 +198,11 @@ class ViTEncoder(nn.Module):
         return pixels.reshape(b, c, h//p, p, w//p, p).permute(0, 2, 4, 1, 3, 5).reshape(b, (h//p)*(w//p), c*p*p)
 
     def forward(self, pixels):
+        return self.tokens(pixels)[:, 0]
+
+    def tokens(self, pixels):
+        """(B, 3, H, W) to the final layer's normalised tokens (B, 1 + H/p * W/p, width): [CLS], then the patches in
+        row-major order (the world models use only [CLS]; the patches are for probes)."""
         x = self.patch_embed(self.patches(pixels))
         x = torch.cat((self.cls_token.expand(len(x), -1, -1), x), dim=1)+self.position
         recompute = self.training and torch.is_grad_enabled()
@@ -185,7 +211,7 @@ class ViTEncoder(nn.Module):
                 x = torch.utils.checkpoint.checkpoint(block, x, use_reentrant=False)
             else:
                 x = block(x)
-        return self.norm(x)[:, 0]
+        return self.norm(x)
 
 
 # -- the official modules ----------------------------------------------------------------------------------------------
@@ -223,7 +249,7 @@ class SIGReg(nn.Module):
 class FeedForward(nn.Module):
     def __init__(self, dim, hidden_dim, dropout=0.):
         super().__init__()
-        self.net = nn.Sequential(nn.LayerNorm(dim), nn.Linear(dim, hidden_dim), nn.GELU(), nn.Dropout(dropout),
+        self.net = nn.Sequential(LayerNorm(dim), nn.Linear(dim, hidden_dim), nn.GELU(), nn.Dropout(dropout),
                                  nn.Linear(hidden_dim, dim), nn.Dropout(dropout))
 
     def forward(self, x):
@@ -237,14 +263,16 @@ class Attention(nn.Module):
         super().__init__()
         inner = dim_head*heads
         self.heads, self.dropout = heads, dropout
-        self.norm = nn.LayerNorm(dim)
+        self.norm = LayerNorm(dim)
         self.to_qkv = nn.Linear(dim, inner*3, bias=False)
         self.to_out = nn.Sequential(nn.Linear(inner, dim), nn.Dropout(dropout))
 
-    def forward(self, x, causal=True):
+    def forward(self, x, causal=True, mask=None):
+        """`mask` (n, n) bool, True where a query may attend, replaces the causal mask (the grid's block-causal one)."""
         b, n, _ = x.shape
         q, k, v = (t.reshape(b, n, self.heads, -1).transpose(1, 2) for t in self.to_qkv(self.norm(x)).chunk(3, dim=-1))
-        out = F.scaled_dot_product_attention(q, k, v, dropout_p=self.dropout if self.training else 0., is_causal=causal)
+        out = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=self.dropout if self.training else 0.,
+                                             is_causal=causal and mask is None)
         return self.to_out(out.transpose(1, 2).reshape(b, n, -1))
 
 
@@ -261,26 +289,49 @@ class ConditionalBlock(nn.Module):
         nn.init.zeros_(self.adaLN_modulation[-1].weight)
         nn.init.zeros_(self.adaLN_modulation[-1].bias)
 
-    def forward(self, x, c):
+    def forward(self, x, c, mask=None):
         shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.adaLN_modulation(c).chunk(6, dim=-1)
-        x = x+gate_msa*self.attn(modulate(self.norm1(x), shift_msa, scale_msa))
+        x = x+gate_msa*self.attn(modulate(self.norm1(x), shift_msa, scale_msa), mask=mask)
         return x+gate_mlp*self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
 
 
 class ARPredictor(nn.Module):
-    """Autoregressive next-embedding predictor: z (B, T<=history, D) and action embeddings (B, T, D) to (B, T, D)."""
+    """Autoregressive next-embedding predictor: z (B, T<=history, D) and action embeddings (B, T, D) to (B, T, D).
 
-    def __init__(self, *, num_frames, depth, heads, dim_head, mlp_dim, dim, dropout=0.):
+    With `tokens` > 1 (the grid), z is (B, T, tokens, D): a spatial embedding is added to the temporal one, every token
+    of a frame is conditioned on that frame's action, and attention is block-causal (a token sees every token of its
+    own frame and of the earlier ones). Returns (B, T, tokens, D). `checkpoint` (set by the trainer) recomputes each
+    block's activations in the backward pass instead of keeping them: the grid's 13 tokens a frame over an 8-step
+    rollout do not fit at batch 128 otherwise."""
+
+    def __init__(self, *, num_frames, depth, heads, dim_head, mlp_dim, dim, dropout=0., tokens=1):
         super().__init__()
         self.pos_embedding = nn.Parameter(torch.randn(1, num_frames, dim))
+        if tokens > 1:  # absent from [CLS]-only models, so their checkpoints load unchanged
+            self.space_embedding = nn.Parameter(torch.randn(1, 1, tokens, dim))
         self.layers = nn.ModuleList(ConditionalBlock(dim, heads, dim_head, mlp_dim, dropout) for _ in range(depth))
-        self.norm = nn.LayerNorm(dim)
+        self.norm = LayerNorm(dim)
+        self.checkpoint = False
+
+    def run(self, block, *args):
+        if self.checkpoint and torch.is_grad_enabled():
+            return torch.utils.checkpoint.checkpoint(block, *args, use_reentrant=False)
+        return block(*args)
 
     def forward(self, x, c):
-        x = x+self.pos_embedding[:, :x.size(1)]
+        if x.dim() == 3:
+            x = x+self.pos_embedding[:, :x.size(1)]
+            for block in self.layers:
+                x = self.run(block, x, c)
+            return self.norm(x)
+        b, t, s, _ = x.shape
+        x = (x+self.pos_embedding[:, :t, None]+self.space_embedding).flatten(1, 2)
+        c = c[:, :, None].expand(-1, -1, s, -1).flatten(1, 2)
+        frame = torch.arange(t, device=x.device).repeat_interleave(s)
+        mask = frame[None] <= frame[:, None]
         for block in self.layers:
-            x = block(x, c)
-        return self.norm(x)
+            x = self.run(block, x, c, mask)
+        return self.norm(x).unflatten(1, (t, s))
 
 
 class Embedder(nn.Module):
@@ -318,8 +369,18 @@ class LeWorldModel(nn.Module):
         self.action_encoder = Embedder(config.action_dim, config.action_smoothed_dim, config.latent, config.action_mlp_scale)
         self.predictor = ARPredictor(num_frames=config.history, depth=config.predictor_depth,
                                      heads=config.predictor_heads, dim_head=config.predictor_head_dim,
-                                     mlp_dim=config.predictor_mlp, dim=config.latent, dropout=config.predictor_dropout)
+                                     mlp_dim=config.predictor_mlp, dim=config.latent, dropout=config.predictor_dropout,
+                                     tokens=config.tokens)
         self.pred_proj = MLP(config.latent, config.projector_hidden, config.latent)
+        if config.grid:
+            rows, cols = (size//config.patch for size in config.image_hw)
+            if rows % config.grid[0] or cols % config.grid[1]:
+                raise ValueError(f'the grid must divide the {rows} x {cols} patches')
+            if config.grid_projector:
+                self.grid_projector = MLP(config.width, config.projector_hidden, config.latent)
+            elif config.width != config.latent:
+                raise ValueError('without a grid projector the patch tokens are the grid state: width must equal latent')
+            self.grid_pred_proj = MLP(config.latent, config.projector_hidden, config.latent)
         self.inverse = MLP(2*config.latent, config.projector_hidden, config.action_dim) if config.inverse_dynamics else None
         longer = [int(k) for k in config.inverse_spans if int(k) > 1] if config.inverse_dynamics else []
         if longer:  # one head per longer span (absent from single-span models, so their checkpoints load unchanged)
@@ -328,6 +389,21 @@ class LeWorldModel(nn.Module):
         if config.motion_dynamics:
             self.motion = nn.ModuleDict({str(int(k)): MLP(2*config.latent, config.projector_hidden, 3)
                                          for k in config.inverse_spans})
+        if config.mover_head:
+            if not config.grid:
+                raise ValueError('the mover head reads the grid')
+            self.mover = MLP(config.grid[0]*config.latent+config.grid[1], config.projector_hidden, 3)
+        if config.frozen_encoder:
+            self.encoder.requires_grad_(False)
+            self.projector.requires_grad_(False)
+
+    def train(self, mode=True):
+        """As nn.Module.train; a frozen encoder and its [CLS] projector stay in eval mode (BatchNorm's statistics)."""
+        super().train(mode)
+        if self.config.frozen_encoder:
+            self.encoder.eval()
+            self.projector.eval()
+        return self
 
     @classmethod
     def seeded(cls, seed, config=LeWMConfig()):
@@ -335,20 +411,47 @@ class LeWorldModel(nn.Module):
         return cls(config)
 
     def encode(self, pixels):
-        """Normalised frames (B, T, 3, H, W) to z (B, T, D)."""
+        """Normalised frames (B, T, 3, H, W) to the state: z (B, T, D), or with a grid (B, T, 1+G, D), [CLS]'s z then
+        the grid tokens in row-major order (the patch tokens average-pooled to the grid, each through `grid_projector`,
+        or as they are without one). `cls` takes [CLS]'s z from either."""
         b = pixels.size(0)
-        return self.projector(self.encoder(pixels.flatten(0, 1))).unflatten(0, (b, -1))
+        if not self.config.grid:
+            return self.projector(self.encoder(pixels.flatten(0, 1))).unflatten(0, (b, -1))
+        tokens = self.encoder.tokens(pixels.flatten(0, 1))
+        (rows, cols), (gr, gc) = (size//self.config.patch for size in self.config.image_hw), self.config.grid
+        pooled = tokens[:, 1:].reshape(len(tokens), gr, rows//gr, gc, cols//gc, -1).mean((2, 4)).flatten(1, 2)
+        grid = self.grid_projector(pooled.flatten(0, 1)).unflatten(0, pooled.shape[:2]) if self.config.grid_projector \
+            else pooled
+        return torch.cat((self.projector(tokens[:, 0])[:, None], grid), 1).unflatten(0, (b, -1))
+
+    def cls(self, z):
+        """[CLS]'s z from a state (..., D) or (..., 1+G, D)."""
+        return z[..., 0, :] if self.config.grid else z
+
+    def movers(self, z):
+        """The mover head (P4d, training only) on states (..., 1+G, D): per grid column (..., columns, 3), a walker's
+        presence logit and its body-frame position over `MOVER_SCALE_M`, from the column's grid tokens and its index."""
+        rows, columns = self.config.grid
+        cells = z[..., 1:, :].unflatten(-2, (rows, columns)).transpose(-3, -2).flatten(-2)   # (..., columns, rows*D)
+        index = torch.eye(columns, device=z.device, dtype=cells.dtype).expand(*cells.shape[:-1], columns)
+        x = torch.cat((cells, index), -1)
+        return self.mover(x.flatten(0, -2)).unflatten(0, x.shape[:-1])
 
     def predict(self, z, actions):
-        """z (B, T, D) and action blocks (B, T, A) to the predicted next z at every position (B, T, D)."""
+        """z (B, T, D) and action blocks (B, T, A) to the predicted next z at every position (B, T, D); with a grid,
+        states (B, T, 1+G, D) to (B, T, 1+G, D)."""
         out = self.predictor(z, self.action_encoder(actions))
-        return self.pred_proj(out.flatten(0, 1)).unflatten(0, (z.size(0), -1))
+        if not self.config.grid:
+            return self.pred_proj(out.flatten(0, 1)).unflatten(0, (z.size(0), -1))
+        cls = self.pred_proj(out[:, :, 0].flatten(0, 1)).unflatten(0, out.shape[:2])
+        grid = self.grid_pred_proj(out[:, :, 1:].flatten(0, 2)).unflatten(0, (*out.shape[:2], -1))
+        return torch.cat((cls[:, :, None], grid), 2)
 
     def rollout(self, z, actions, steps):
         """Autoregressive prediction from the history: z (B, N, D) of the N history frames and action blocks
         (B, N-1+steps, A), the action after each history frame and then after each predicted frame. Step k attends over
         the last N frames (k..k+N-1, true then predicted) with their actions `actions[:, k:k+N]`. Returns the `steps`
-        predicted z (B, steps, D)."""
+        predicted z (B, steps, D) (states (B, steps, 1+G, D) with a grid)."""
         n = self.config.history
         if z.size(1) != n or actions.size(1) < n-1+steps:
             raise ValueError(f'{n} history frames and {n-1+steps} actions required')
@@ -362,12 +465,14 @@ class LeWorldModel(nn.Module):
     def infer_actions(self, z, span=1):
         """The inverse-dynamics variant: the action block between consecutive frames, from [z_t, z_(t+1) - z_t];
         z (B, T, D) to (B, T-1, A). With `span` k > 1, the mean action block over frames t..t+k, from
-        [z_t, z_(t+k) - z_t] (B, T-k, A)."""
+        [z_t, z_(t+k) - z_t] (B, T-k, A). With a grid, from [CLS]'s z."""
+        z = self.cls(z)
         head = self.inverse if span == 1 else self.inverse_long[str(span)]
         pairs = torch.cat((z[:, :-span], z[:, span:]-z[:, :-span]), dim=-1)
         return head(pairs.flatten(0, 1)).unflatten(0, (z.size(0), -1))
 
 
+MOVER_SCALE_M = 3.  # the mover head's positions are in units of 3 m
 MOTION_SCALE_PER_STEP = (.008, .008, .034)  # m, m, rad: the corpus's 100-ms body-frame motion spread (forward, yaw)
 
 
@@ -380,7 +485,7 @@ def body_motion(poses, span):
 
 
 def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight=0., generator=None, poses=None,
-           motion_weight=0., z=None):
+           motion_weight=0., z=None, grid_weight=1., movers=None, mover_weight=0.):
     """The training objective on windows of `history + rollout_steps` frames (rollout_steps >= 1).
 
     pixels (B, T, 3, H, W) normalised, actions (B, T-1, A); or, with `pixels` None, the frames' z (B, T, D) already
@@ -395,16 +500,31 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight
       against the mean action block across it;
     - `motion` (motion_weight > 0, with `poses` (B, T, 3)): the same weighted mean of the MSE of the body-frame motion
       over each span, decoded from [z_t, z_(t+k) - z_t] and scaled by k x `MOTION_SCALE_PER_STEP`.
+    - `mover` (mover_weight > 0, with `movers` (B, T, columns, 3) from `go2nav.data.mover_labels`): the mover head
+      on every frame's encoded state (never the predicted ones): binary cross-entropy on each column's presence plus
+      the squared error of the position (over `MOVER_SCALE_M`) where a walker is present.
+
+    With a grid (P4b), `pred`, `rollout` and the inverse and motion terms are [CLS]'s; `grid_pred` and `grid_rollout`
+    are the same MSE over the grid tokens, weighted by `grid_weight`; `sigreg` is the mean of [CLS]'s and the grid's
+    (each grid position at each time step a separate set of samples).
     """
-    n = model.config.history
+    n, grid, cls = model.config.history, bool(model.config.grid), model.cls
     z = model.encode(pixels) if z is None else z
     pred = model.predict(z[:, :n], actions[:, :n])
-    terms = dict(pred=(pred-z[:, 1:n+1]).pow(2).mean())
+    terms = dict(pred=(cls(pred)-cls(z[:, 1:n+1])).pow(2).mean())
+    if grid:
+        terms['grid_pred'] = (pred[:, :, 1:]-z[:, 1:n+1, 1:]).pow(2).mean()
     if rollout_steps > 1:
         rolled = model.rollout(z[:, :n], actions, rollout_steps)
-        terms['rollout'] = (rolled-z[:, n:n+rollout_steps]).pow(2).mean()
-    terms['sigreg'] = sigreg(z.float().transpose(0, 1), generator)
+        terms['rollout'] = (cls(rolled)-cls(z[:, n:n+rollout_steps])).pow(2).mean()
+        if grid:
+            terms['grid_rollout'] = (rolled[:, :, 1:]-z[:, n:n+rollout_steps, 1:]).pow(2).mean()
+    terms['sigreg'] = sigreg(cls(z).float().transpose(0, 1), generator)
+    if grid:
+        terms['sigreg'] = (terms['sigreg']+sigreg(z[:, :, 1:].float().flatten(1, 2).transpose(0, 1), generator))/2
     terms['loss'] = terms['pred']+terms.get('rollout', 0.)+lam*terms['sigreg']
+    if grid:
+        terms['loss'] = terms['loss']+grid_weight*(terms['grid_pred']+terms.get('grid_rollout', 0.))
     if inverse_weight:
         sums = torch.cat((torch.zeros_like(actions[:, :1]), actions.cumsum(1)), dim=1)
         spans = [int(k) for k in model.config.inverse_spans]
@@ -416,12 +536,20 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight
         spans = [int(k) for k in model.config.inverse_spans]
         weights = [float(w) for w in model.config.inverse_span_weights] or [1.]*len(spans)
         scale = torch.tensor(MOTION_SCALE_PER_STEP, device=z.device)
+        zc = cls(z)
         def term(k):
-            pairs = torch.cat((z[:, :-k], z[:, k:]-z[:, :-k]), dim=-1)
-            decoded = model.motion[str(k)](pairs.flatten(0, 1)).unflatten(0, (z.size(0), -1))
+            pairs = torch.cat((zc[:, :-k], zc[:, k:]-zc[:, :-k]), dim=-1)
+            decoded = model.motion[str(k)](pairs.flatten(0, 1)).unflatten(0, (zc.size(0), -1))
             return (decoded-body_motion(poses.float(), k)/(k*scale)).pow(2).mean()
         terms['motion'] = sum(w*term(k) for k, w in zip(spans, weights))/sum(weights)
         terms['loss'] = terms['loss']+motion_weight*terms['motion']
+    if mover_weight:
+        out, movers = model.movers(z).float(), movers.float()
+        present = movers[..., 0]
+        bce = F.binary_cross_entropy_with_logits(out[..., 0], present)
+        position = ((out[..., 1:]-movers[..., 1:]/MOVER_SCALE_M).square().sum(-1)*present).sum()/present.sum().clamp_min(1.)
+        terms['mover'] = bce+position
+        terms['loss'] = terms['loss']+mover_weight*terms['mover']
     return terms
 
 
@@ -433,6 +561,7 @@ def load_world_model(path, device='cpu'):
     state = torch.load(path, map_location='cpu', weights_only=False)
     config = dict(state['config'])
     config['image_hw'] = tuple(config['image_hw'])
+    config['grid'] = tuple(config.get('grid', ()))
     model = LeWorldModel(LeWMConfig(**config))
     model.load_state_dict(state['model_state_dict'])
     return model.to(device).eval().requires_grad_(False)
@@ -463,18 +592,19 @@ class LatentMotionDecoder(nn.Module):
 
 class LatentDirectPredictor(nn.Module):
     """C6, C4's counterpart on LeWM's own encoder: motion at a horizon from the four frames' z, the normalised 1.5-s
-    applied-command history (15 x (forward, yaw)) and the candidate's commands up to the horizon (later ones zeroed),
-    with no predicted future."""
+    applied-command history (15 x the world model's command components, `COMMAND_AXES[command_dim]`) and the
+    candidate's commands up to the horizon (later ones zeroed), with no predicted future."""
 
-    def __init__(self, latent, mean, scale, hidden=896):
+    def __init__(self, latent, mean, scale, hidden=896, command_dim=2):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(4*latent+30+16+1, hidden), nn.GELU(), nn.Linear(hidden, hidden), nn.GELU(),
-                                 nn.Linear(hidden, 3))
+        self.command_dim = command_dim
+        self.net = nn.Sequential(nn.Linear(4*latent+(15+8)*command_dim+1, hidden), nn.GELU(), nn.Linear(hidden, hidden),
+                                 nn.GELU(), nn.Linear(hidden, 3))
         self.register_buffer('target_mean', torch.as_tensor(mean, dtype=torch.float32).clone())
         self.register_buffer('target_scale', torch.as_tensor(scale, dtype=torch.float32).clone())
 
     def normalized(self, z, past, tape, horizon):
-        """z (B, 4, D); past (B, 15, 2) normalised; tape (B, 8, 2) normalised commands; horizon (B,) in 1-8."""
+        """z (B, 4, D); past (B, 15, C) normalised; tape (B, 8, C) normalised commands; horizon (B,) in 1-8."""
         steps = torch.arange(8, device=z.device)[None]
         future = tape*(steps < horizon[:, None])[:, :, None]
         return self.net(torch.cat((z.flatten(1), past.flatten(1), future.flatten(1), horizon[:, None].float()/8), dim=1))
@@ -484,10 +614,12 @@ class LatentDirectPredictor(nn.Module):
 
 
 def load_heads(path, device='cpu'):
-    """The C5 decoder and C6 of a fit file ({'c5', 'c6', 'latent', 'target_mean', 'target_scale'})."""
+    """The C5 decoder and C6 of a fit file ({'c5', 'c6', 'latent', 'target_mean', 'target_scale'}, and
+    'command_dim' when it is not 2)."""
     state = torch.load(path, map_location='cpu', weights_only=False)
     c5 = LatentMotionDecoder(state['latent'], state['target_mean'], state['target_scale'])
     c5.load_state_dict(state['c5'])
-    c6 = LatentDirectPredictor(state['latent'], state['target_mean'], state['target_scale'])
+    c6 = LatentDirectPredictor(state['latent'], state['target_mean'], state['target_scale'],
+                               command_dim=state.get('command_dim', 2))
     c6.load_state_dict(state['c6'])
     return c5.to(device).eval().requires_grad_(False), c6.to(device).eval().requires_grad_(False)

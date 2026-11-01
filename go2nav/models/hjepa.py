@@ -26,6 +26,7 @@ import torch
 from torch import nn
 
 from go2nav.models.lewm import MLP, ARPredictor, LeWMConfig, LeWorldModel, losses as level1_losses
+from go2nav.models.norm import LayerNorm
 
 
 @dataclass(frozen=True)
@@ -88,7 +89,7 @@ class UpperLevel(nn.Module):
         c = config
         self.encoder = MLP(lower_latent, c.encoder_hidden, c.latent)
         self.action_encoder = nn.Sequential(nn.Linear(c.stride*lower_action, c.macro_hidden), nn.GELU(),
-                                            nn.Linear(c.macro_hidden, c.macro), nn.LayerNorm(c.macro))
+                                            nn.Linear(c.macro_hidden, c.macro), LayerNorm(c.macro))
         self.action_embed = nn.Sequential(nn.Linear(c.macro, 4*c.latent), nn.SiLU(), nn.Linear(4*c.latent, c.latent))
         self.predictor = ARPredictor(num_frames=c.context, depth=c.predictor_depth, heads=c.predictor_heads,
                                      dim_head=c.predictor_head_dim, mlp_dim=c.predictor_mlp, dim=c.latent,

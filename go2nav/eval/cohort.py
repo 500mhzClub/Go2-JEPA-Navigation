@@ -69,6 +69,7 @@ def mission_command(cohort, arm, set_name, maze, episode, destination):
                       ('map_decay', '--map-decay'), ('deadlock_escape', '--deadlock-escape'),
                       ('terminal_burst', '--terminal-burst'), ('obstacle_prediction', '--obstacle-prediction'),
                       ('footprint_clearing', '--footprint-clearing'), ('mover_trails', '--mover-trails'),
+                      ('give_way', '--give-way'), ('close_up', '--close-up'),
                       ('candidates', '--candidates'),
                       ('safety', '--safety'), ('pose_oracle', '--pose-oracle'), ('map_oracle', '--map-oracle'),
                       ('prediction_oracle', '--prediction-oracle')):
@@ -93,8 +94,11 @@ def interventions(run):
         counts['latch_cooldown_suppressions'] += event == 'DEV_LATCH_SUPPRESSED_COOLDOWN'
         counts['reactive_escapes'] += bool(s.get('reactive_escape'))
         counts['terminal_spin_breaks'] += bool(s.get('terminal_spin_break'))
+        counts['give_way_steps'] += bool(s.get('give_way'))
+        counts['give_way_back_offs'] += (s.get('give_way') or {}).get('step') == 1
     return dict(decisions=len(rows), **{k: counts[k] for k in ('latch_timeouts', 'latch_cooldown_suppressions',
-                                                              'reactive_escapes', 'terminal_spin_breaks')})
+                                                              'reactive_escapes', 'terminal_spin_breaks',
+                                                              'give_way_steps', 'give_way_back_offs')})
 
 
 def pose_corrections(run):

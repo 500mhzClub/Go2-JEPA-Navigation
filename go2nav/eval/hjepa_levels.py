@@ -46,6 +46,7 @@ from torch import nn
 from go2nav.data.lewm_corpus import SET, mazes_root, planar_yaw
 from go2nav.models.hjepa import load_hjepa
 from go2nav.models.lewm import control_stats, normalise_frames
+from go2nav.models.norm import LayerNorm
 
 KINDS = ('explore', 'mission', 'free')
 ENTITIES = dict(position=(0, 2), heading=(2, 4), body=(4, 8), motion=(8, 10))
@@ -97,7 +98,7 @@ def encode_units(model, root, units, device, batch=1024):
 class Probe(nn.Module):
     def __init__(self, d_in, d_out, hidden=512):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(d_in, hidden), nn.LayerNorm(hidden), nn.GELU(), nn.Linear(hidden, d_out))
+        self.net = nn.Sequential(nn.Linear(d_in, hidden), LayerNorm(hidden), nn.GELU(), nn.Linear(hidden, d_out))
 
     def forward(self, x):
         return self.net(x)

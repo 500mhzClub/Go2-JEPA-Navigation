@@ -10,8 +10,10 @@ identity alone: within a batch, the Gaussian spread has to come from views and p
 `WindowBatches` is a map-style dataset over steps for a `torch.utils.data.DataLoader` with `batch_size=None` and
 several workers (frames are memory-mapped .npy, so workers share the page cache). Each item: frames uint8
 (B, length, 168, 224, 3), actions float32 (B, length-1, 10) (normalised blocks of five (forward, yaw) commands), and
-the window keys (unit, start); with `Corpus(poses=True)` also the frames' planar poses float32 (B, length, 3)
-(x, y, yaw in the world frame), for the motion-supervised variant.
+the window keys (unit, start); with `Corpus(command_dim=3)` the blocks are (forward, lateral, yaw), 15 values; with
+`Corpus(poses=True)` also the frames' planar poses float32 (B, length, 3)
+(x, y, yaw in the world frame), for the motion-supervised variant; with `Corpus(movers=True)` then the frames' mover
+labels float32 (B, length, columns, 3) (`go2nav.data.mover_labels`, the training-only supervision of P4d).
 """
 import hashlib
 import json
@@ -22,7 +24,7 @@ import numpy as np
 import torch
 
 from go2nav.data.lewm_corpus import planar_yaw
-from go2nav.models.lewm import control_stats
+from go2nav.models.lewm import COMMAND_AXES, control_stats
 
 
 def keyed_rng(*keys):
@@ -40,8 +42,9 @@ def raise_open_file_limit():
 class Corpus:
     """The window index of a corpus root (built by `lewm_corpus index`), filtered by role and unit kind."""
 
-    def __init__(self, root, *, length=12, roles=('lewm_train',), kinds=None, poses=False):
-        self.root, self.length, self.with_poses = Path(root), length, poses
+    def __init__(self, root, *, length=12, roles=('lewm_train',), kinds=None, poses=False, command_dim=2, movers=False):
+        self.root, self.length, self.with_poses, self.axes = Path(root), length, poses, COMMAND_AXES[command_dim]
+        self.with_movers = movers
         meta = json.loads((self.root/f'index_{length}.json').read_text())
         index = np.load(self.root/f'index_{length}.npz')
         self.units = meta['units']
@@ -53,9 +56,9 @@ class Corpus:
         self.by_maze = {int(m): np.flatnonzero(mazes == m) for m in self.mazes}
         if not len(self.unit):
             raise ValueError(f'no windows of length {length} for roles {roles} and kinds {kinds}')
-        self._frames, self._actions, self._poses = {}, {}, {}
+        self._frames, self._actions, self._poses, self._movers = {}, {}, {}, {}
         raise_open_file_limit()
-        self.mean, self.std = control_stats()
+        self.mean, self.std = control_stats(command_dim)
 
     def __len__(self):
         return len(self.unit)
@@ -66,10 +69,10 @@ class Corpus:
         return self._frames[unit]
 
     def actions(self, unit):
-        """Normalised action blocks (n, 10) of a unit."""
+        """Normalised action blocks (n, 10) of a unit ((n, 15) with three components)."""
         if unit not in self._actions:
             with np.load(self.root/self.units[unit]['path']/'steps.npz') as steps:
-                executed = steps['executed'][:, :, [0, 2]].astype(np.float32)
+                executed = steps['executed'][:, :, self.axes].astype(np.float32)
             self._actions[unit] = ((executed-self.mean)/self.std).reshape(len(executed), -1)
         return self._actions[unit]
 
@@ -82,6 +85,13 @@ class Corpus:
             self._poses[unit] = np.stack([pose[:, 0], pose[:, 1], yaw], 1).astype(np.float32)
         return self._poses[unit]
 
+    def movers(self, unit):
+        """A unit's mover labels (n, columns, 3) (`go2nav.data.mover_labels`)."""
+        if unit not in self._movers:
+            from go2nav.data.mover_labels import FILE
+            self._movers[unit] = np.load(self.root/self.units[unit]['path']/FILE, mmap_mode='r')
+        return self._movers[unit]
+
     def window(self, i):
         u, s = int(self.unit[i]), int(self.start[i])
         return np.asarray(self.frames(u)[s:s+self.length]), self.actions(u)[s:s+self.length-1]
@@ -92,6 +102,8 @@ class Corpus:
         out = torch.from_numpy(np.stack(frames)), torch.from_numpy(np.stack(actions)), torch.from_numpy(keys)
         if self.with_poses:
             out += (torch.from_numpy(np.stack([self.poses(int(u))[s:s+self.length] for u, s in keys])),)
+        if self.with_movers:
+            out += (torch.from_numpy(np.stack([self.movers(int(u))[s:s+self.length] for u, s in keys]).astype(np.float32)),)
         return out
 
     def sample(self, seed, step, *, mazes_per_batch, windows_per_maze, batch_size=None):

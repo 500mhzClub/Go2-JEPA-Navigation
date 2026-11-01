@@ -7,7 +7,7 @@ import numpy as np
 
 from go2nav.perception import floor
 from go2nav.perception.visual_support import SupportedView
-from go2nav.planning import routing
+from go2nav.planning import grid, routing
 from go2nav.planning.actions import ACTIONS
 from go2nav.planning.mission import RoundTripMission
 from go2nav.planning.planner import Planner
@@ -117,3 +117,112 @@ def test_a_backup_step_off_observed_floor_ends_the_script():
     planner._request_backup('deadlock_no_clear_turn')
     step = planner._scripted_backup(hold(), open_floor(), np.array([-.99, 0., 0.]), np.eye(3))
     assert 'backup_aborted' in step and step['requested_command'] == [0., 0., 0.] and planner.backup is None
+
+
+def still_track(xy, track_id=0, confirmed=True):
+    from go2nav.perception.tracks import Track
+    track = Track(track_id, frozenset(), 0, history=[(0, np.asarray(xy, float))], motion_updates=2 if confirmed else 0)
+    return track
+
+
+def test_give_way_commits_to_the_distance_whatever_the_mover_then_does():
+    planner = Planner(arrival_radius_m=.02, give_way=True)
+    planner.tracks = [still_track((1., .2))]
+    steps = []
+    for k in range(3):
+        planner.backup_plan = False
+        steps.append(planner._give_way(hold(), open_floor(), np.array([-.1*k, 0., 0.]), np.eye(3)))
+        planner.tracks = []                                           # the mover walks off or is lost: still backing off
+    assert all(s['requested_command'] == [-.10, 0., 0.] and s['give_way']['step'] == k+1 for k, s in enumerate(steps))
+    planner.backup_plan = False
+    done = planner._give_way(hold(), open_floor(), np.array([-.4, 0., 0.]), np.eye(3))
+    assert done['give_way_ended']['reason'] == 'distance' and done['requested_command'] == [0., 0., 0.]
+    assert done['give_way_ended']['moved_m'] == .4 and planner.give_way_cooldown == 10
+
+
+def test_give_way_ends_when_it_cannot_cover_the_distance():
+    planner = Planner(arrival_radius_m=.02, give_way=True)
+    planner.tracks = [still_track((1., 0.))]
+    for _ in range(26):
+        planner.backup_plan = False
+        step = planner._give_way(hold(), open_floor(), np.zeros(3), np.eye(3))                    # no reverse under it
+    assert step['give_way_ended']['reason'] == 'steps' and step['give_way_ended']['step'] == 26
+    planner = Planner(arrival_radius_m=.02, give_way=True)
+    planner.tracks = [still_track((0., 0.))]
+    step = planner._give_way(hold(), open_floor(), np.array([-.99, 0., 0.]), np.eye(3))           # off observed floor
+    assert step['give_way_ended']['reason'] == 'reverse_blocked' and step['requested_command'] == [0., 0., 0.]
+
+
+def test_only_give_way_may_reverse_closer_to_a_wall_than_the_robot_stands():
+    wall = open_floor()
+    wall.fine_occupied = frozenset((i, -50) for i in range(-200, 200))            # along y = -0.50 m, in 1-cm cells
+    yaw = math.pi/4                                                               # reversing towards it, 2.8 cm a step
+    Q = np.array([[math.cos(yaw), -math.sin(yaw), 0.], [math.sin(yaw), math.cos(yaw), 0.], [0., 0., 1.]])
+    kept, detail = Planner._reverse_step(wall, np.zeros(3), Q)
+    relaxed, _ = Planner._reverse_step(wall, np.zeros(3), Q, clearance_m=.45)
+    assert detail['path_clearance_m'] >= .45 and detail['path_clearance_m'] < detail['current_clearance_m']-.01
+    assert relaxed and not kept
+    assert not Planner._reverse_step(wall, np.zeros(3), Q, clearance_m=.50)[0]
+
+
+def corridor_with_a_mover(mover_x=4.):
+    """A closed corridor along x from 0 to 6 m and 1.2 m wide, fully observed, with a mover of radius 0.175 m on its axis."""
+    floor = {(i, j) for i in range(0, 120) for j in range(-12, 12)}
+    walls = {(i, j) for i in range(-2, 122) for j in (-14, -13, 12, 13)} | {(i, j) for i in (-2, -1, 120, 121) for j in range(-14, 14)}
+    mover = {c for c in floor if math.hypot(grid.centre(c)[0]-mover_x, grid.centre(c)[1]) <= .175}
+    fine = {(5*i+a, 5*j+b) for i, j in mover for a in range(5) for b in range(5)}
+    return SimpleNamespace(floor=frozenset(floor), occupied=frozenset(walls | mover), fine_occupied=frozenset(fine))
+
+
+def test_a_cut_route_walks_up_to_the_mover_and_stops_short_of_its_track():
+    snapshot, start, goal = corridor_with_a_mover(), np.array([.5, 0.]), np.array([5.5, 0.])
+    route = routing.propose(snapshot.floor, snapshot.occupied, snapshot.fine_occupied, start, goal)
+    assert route['status'] == 'OBSERVED_COMPONENT_HAS_NO_FRONTIER'
+    tracked = routing.close_up(snapshot, start, goal, route, avoid=[(4., 0.)])
+    assert tracked['status'] == 'OBSERVED_FLOOR_ROUTE_TO_CUT'
+    end = grid.centre(tuple(tracked['route_cells'][-1]))
+    assert 2.9 < end[0] < 3.01 and np.linalg.norm(end-(4., 0.)) >= 1.
+    untracked = routing.close_up(snapshot, start, goal, route)         # stored cells: as far as the footprint fits
+    assert 3.2 < grid.centre(tuple(untracked['route_cells'][-1]))[0] < 3.45
+
+
+def test_a_robot_already_at_the_cut_keeps_the_cut_route_and_scans():
+    snapshot, start, goal = corridor_with_a_mover(), np.array([2.9, 0.]), np.array([5.5, 0.])
+    route = routing.propose(snapshot.floor, snapshot.occupied, snapshot.fine_occupied, start, goal)
+    assert routing.close_up(snapshot, start, goal, route, avoid=[(4., 0.)]) is route
+    start = np.array([3.2, 0.])                                        # inside the stand-off: not backwards either
+    route = routing.propose(snapshot.floor, snapshot.occupied, snapshot.fine_occupied, start, goal)
+    assert routing.close_up(snapshot, start, goal, route, avoid=[(4., 0.)]) is route
+
+
+def test_only_a_planner_asked_to_close_up_walks_to_a_cut():
+    snapshot, q, goal = corridor_with_a_mover(), np.array([.5, 0., 0.]), np.array([5.5, 0.])
+    assert Planner(arrival_radius_m=.02)._base_route(snapshot, q, goal, 'OUTBOUND')['status'] == 'OBSERVED_COMPONENT_HAS_NO_FRONTIER'
+    planner = Planner(arrival_radius_m=.02, close_up=True)
+    planner.tracks = [still_track((4., 0.))]
+    route = planner._base_route(snapshot, q, goal, 'OUTBOUND')
+    assert route['status'] == 'OBSERVED_FLOOR_ROUTE_TO_CUT' and route['route_cells']
+    assert planner._base_route(corridor_with_a_mover(9.), q, goal, 'OUTBOUND')['status'] == 'OBSERVED_FLOOR_ROUTE_TO_GOAL_CELL'
+
+
+def test_only_a_confirmed_track_holds_the_robot_off_a_cut():
+    snapshot, q, goal = corridor_with_a_mover(), np.array([2.9, 0., 0.]), np.array([5.5, 0.])
+    planner = Planner(arrival_radius_m=.02, close_up=True)
+    planner.tracks = [still_track((4., 0.))]                           # 1.1 m ahead: already at the stand-off
+    assert planner._base_route(snapshot, q, goal, 'OUTBOUND')['status'] == 'OBSERVED_COMPONENT_HAS_NO_FRONTIER'
+    planner.tracks = [still_track((4., 0.), confirmed=False)]          # a brief blob, as walls leave: the target stays
+    route = planner._base_route(snapshot, q, goal, 'OUTBOUND')
+    assert route['status'] == 'OBSERVED_FLOOR_ROUTE_TO_CUT'
+    assert 3.2 < grid.centre(tuple(route['route_cells'][-1]))[0] < 3.45  # the footprint still keeps it off the stored cells
+
+
+def test_give_way_ignores_unconfirmed_moving_or_sideways_tracks_and_advancing_selections():
+    planner = Planner(arrival_radius_m=.02, give_way=True)
+    moving = still_track((1., 0.), 1)
+    moving.velocity = np.array([-.2, 0.])
+    for tracks in ([still_track((1., 0.), confirmed=False)], [moving], [still_track((1., 1.))], [still_track((-.5, 0.))]):
+        planner.tracks = tracks
+        assert 'give_way' not in planner._give_way(hold(), open_floor(), np.zeros(3), np.eye(3))
+    planner.tracks = [still_track((1., 0.))]
+    advancing = dict(hold(), requested_command=[.15, 0., 0.])
+    assert 'give_way' not in planner._give_way(advancing, open_floor(), np.zeros(3), np.eye(3))

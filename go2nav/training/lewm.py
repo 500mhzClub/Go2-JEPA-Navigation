@@ -22,6 +22,18 @@ whole loss compiled (`torch.compile`, autotuned GEMMs; 453 ms per step on the R9
 the last checkpoint with the same data stream, and metrics.jsonl is cut back to it. A non-finite loss skips its update
 (recorded); 20 in a row stop the run.
 
+`runtime.memory_fraction` (default 0.85) caps this process's share of GPU memory: on the development machine the
+training GPU also drives the display, and running it out of memory crashed the desktop session.
+`runtime.checkpoint_blocks` (the first n ViT blocks) and `runtime.checkpoint_predictor` recompute activations in the
+backward pass instead of storing them: the same gradients for more compute (the grid model needs both at batch 128).
+`runtime.compile_scope: encoder` compiles only the ViT blocks: compiled, the grid predictor's backward corrupts other
+gradients from batch 64 on this machine (the projectors' gradients reach 1e5-1e6 against about 1 eagerly).
+`init_encoder` (a checkpoint, repository-relative) loads another world model's encoder and [CLS] projector before
+training; with `model.frozen_encoder` they never train (P4c: `go2_v2_frozen_grid.yaml`, go2_v2's encoder as a fixed
+target, with `model.grid_projector: false`, `sigreg_weight: 0` and no inverse dynamics).
+`objective.mover_weight` with `model.mover_head` adds the training-only mover supervision of P4d on the encoded states
+(`go2_v2_grid_movers.yaml`; labels from `go2nav.data.mover_labels`, which must have run on the corpus).
+
 **Validation** (every `validate_every` steps, at the end, and `evaluate`), on fixed windows of the validation mazes
 (explore, mission and free units) and, separately, the transfer units (the held-out look):
 - teacher-forced prediction loss and SIGReg;
@@ -53,7 +65,9 @@ from go2nav.training.common import sha256_file, write_lineage
 REPO = Path(__file__).resolve().parents[2]
 VALIDATION_WINDOWS, TRANSFER_WINDOWS, VALIDATION_SEED = 2048, 1024, 2026101702
 EVAL_STEPS = 8  # validation always rolls out the forecaster's 8 steps
+TRAIN_KINDS = ('explore', 'mission', 'free')  # data.train_kinds: corpus v2's give-way units only where named
 MAX_NONFINITE = 20
+MEMORY_FRACTION = .85
 
 
 def load_config(path, overrides=()):
@@ -71,7 +85,8 @@ def load_config(path, overrides=()):
 def model_config(config):
     m = config['model']
     return LeWMConfig.named(m.get('size', 'tiny'), history=m['history'],
-                            **{k: tuple(v) if k == 'image_hw' else v for k, v in m.items() if k not in ('size', 'history')})
+                            **{k: tuple(v) if k in ('image_hw', 'grid') else v for k, v in m.items()
+                               if k not in ('size', 'history')})
 
 
 def keyed_seed(*keys):
@@ -95,17 +110,19 @@ def atomic_save(value, path):
 def zero_command_actions(actions, corpus):
     """Action blocks of zero commands, normalised like the corpus's."""
     zero = torch.as_tensor(-corpus.mean/corpus.std, dtype=actions.dtype, device=actions.device)
-    return zero.repeat(actions.shape[-1]//2).expand_as(actions)
+    return zero.repeat(actions.shape[-1]//len(zero)).expand_as(actions)
 
 
 @torch.no_grad()
 def validate(model, corpus, indices, *, rollout_steps, device, seed=VALIDATION_SEED, batch=128):
-    """Validation metrics on the windows `indices` of `corpus` (see the module docstring)."""
+    """Validation metrics on the windows `indices` of `corpus` (see the module docstring). With a grid, every metric
+    is [CLS]'s, plus the grid tokens' rollout and persistence errors by step."""
     was_training = model.training
     model.eval()
-    n, k = model.config.history, rollout_steps
+    n, k, grid, cls = model.config.history, rollout_steps, bool(model.config.grid), model.cls
     sums, count, zs = defaultdict(float), 0, []
-    per_step = {name: np.zeros(k) for name in ('rollout', 'shuffled', 'zero', 'persistence')}
+    per_step = {name: np.zeros(k) for name in ('rollout', 'shuffled', 'zero', 'persistence')
+                + (('grid_rollout', 'grid_persistence') if grid else ())}
     sigreg = SIGReg().to(device)
     generator = torch.Generator(device=device).manual_seed(seed)
     shuffle = torch.Generator().manual_seed(seed)
@@ -125,12 +142,16 @@ def validate(model, corpus, indices, *, rollout_steps, device, seed=VALIDATION_S
             variants['zero'] = zeroed
             for name, acts in variants.items():
                 rolled = model.rollout(z[:, :n], acts, k).float()
-                per_step[name] += (rolled-target).pow(2).mean(-1).sum(0).cpu().numpy()
-        per_step['persistence'] += (z[:, n-1:n]-target).pow(2).mean(-1).sum(0).cpu().numpy()
+                per_step[name] += (cls(rolled)-cls(target)).pow(2).mean(-1).sum(0).cpu().numpy()
+                if grid and name == 'rollout':
+                    per_step['grid_rollout'] += (rolled-target)[:, :, 1:].pow(2).mean((-2, -1)).sum(0).cpu().numpy()
+        per_step['persistence'] += (cls(z[:, n-1:n])-cls(target)).pow(2).mean(-1).sum(0).cpu().numpy()
+        if grid:
+            per_step['grid_persistence'] += (z[:, n-1:n]-target)[:, :, 1:].pow(2).mean((-2, -1)).sum(0).cpu().numpy()
         b = len(frames)
-        sums['pred'] += float((pred-z[:, 1:n+1]).pow(2).mean())*b
-        sums['sigreg'] += float(sigreg(z.transpose(0, 1), generator))*b
-        zs.append(z[:, n-1].cpu())
+        sums['pred'] += float((cls(pred)-cls(z[:, 1:n+1])).pow(2).mean())*b
+        sums['sigreg'] += float(sigreg(cls(z).transpose(0, 1), generator))*b
+        zs.append(cls(z[:, n-1]).cpu())
         count += b
     z = torch.cat(zs).double()
     eig = torch.linalg.eigvalsh(torch.cov(z.T)).clamp(min=0)
@@ -158,6 +179,8 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     device = torch.device(device)
     torch.backends.cuda.matmul.allow_tf32 = True
     seed, data, objective, optim, runtime = (config[k] for k in ('seed', 'data', 'objective', 'optimiser', 'runtime'))
+    if device.type == 'cuda':  # the R9700 also drives the desktop: an overrun must fail here, not starve the compositor
+        torch.cuda.set_per_process_memory_fraction(runtime.get('memory_fraction', MEMORY_FRACTION), device)
     mconfig = model_config(config)
     length = mconfig.history+objective['rollout_steps']
     if data['length'] != length:
@@ -165,16 +188,35 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     motion_weight = objective.get('motion_weight', 0.)
     if bool(motion_weight) != mconfig.motion_dynamics:
         raise ValueError('objective.motion_weight > 0 and model.motion_dynamics go together')
-    corpus = Corpus(corpus_root, length=length, roles=tuple(data.get('train_roles', ('lewm_train',))), poses=bool(motion_weight))
+    dim = mconfig.command_dim
+    mover_weight = objective.get('mover_weight', 0.)
+    if bool(mover_weight) != mconfig.mover_head:
+        raise ValueError('objective.mover_weight > 0 and model.mover_head go together')
+    corpus = Corpus(corpus_root, length=length, roles=tuple(data.get('train_roles', ('lewm_train',))),
+                    kinds=tuple(data.get('train_kinds', TRAIN_KINDS)), poses=bool(motion_weight), command_dim=dim,
+                    movers=bool(mover_weight))
     val_length = mconfig.history+EVAL_STEPS
-    validation = Corpus(corpus_root, length=val_length, roles=('lewm_val',), kinds=('explore', 'mission', 'free'))
-    transfer = Corpus(corpus_root, length=val_length, roles=('lewm_val',), kinds=('transfer',))
+    validation = Corpus(corpus_root, length=val_length, roles=('lewm_val',), kinds=('explore', 'mission', 'free'),
+                        command_dim=dim)
+    transfer = Corpus(corpus_root, length=val_length, roles=('lewm_val',), kinds=('transfer',), command_dim=dim)
     val_indices, transfer_indices = validation.fixed(VALIDATION_WINDOWS, VALIDATION_SEED), transfer.fixed(TRANSFER_WINDOWS, VALIDATION_SEED)
 
     inverse_weight = objective.get('inverse_weight', 0.)
     if bool(inverse_weight) != mconfig.inverse_dynamics:
         raise ValueError('objective.inverse_weight > 0 and model.inverse_dynamics go together')
     model = LeWorldModel.seeded(seed, mconfig).to(device).train()
+    parents = []
+    if config.get('init_encoder'):  # P4c: another world model's encoder and [CLS] projector (frozen with model.frozen_encoder)
+        source = Path(config['init_encoder'])
+        source = source if source.is_absolute() else REPO/source
+        weights = torch.load(source, map_location='cpu', weights_only=False)['model_state_dict']
+        weights = {k: v for k, v in weights.items() if k.split('.')[0] in ('encoder', 'projector')}
+        missing, unexpected = model.load_state_dict(weights, strict=False)
+        if unexpected or any(k.split('.')[0] in ('encoder', 'projector') for k in missing):
+            raise ValueError(f'{source} does not match the encoder and projector: {unexpected or missing}')
+        parents.append(dict(file=str(config['init_encoder']), sha256=sha256_file(source)))
+    model.predictor.checkpoint = bool(runtime.get('checkpoint_predictor'))
+    model.encoder.checkpoint_blocks = runtime.get('checkpoint_blocks', 0)
     sigreg = SIGReg(knots=objective.get('sigreg_knots', 17), num_proj=objective['sigreg_projections']).to(device)
     optimiser = torch.optim.AdamW(model.parameters(), lr=optim['lr'], weight_decay=optim['weight_decay'], fused=True)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(optim['warmup_steps'], optim['steps']))
@@ -195,7 +237,12 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     if first >= optim['steps'] and (out/'lewm.pt').exists():
         return out/'lewm.pt'
 
-    loss_fn = torch.compile(losses, mode=runtime['compile']) if runtime.get('compile') else losses
+    if runtime.get('compile_scope') == 'encoder':  # only the ViT blocks compiled; the rest runs eagerly
+        for block in model.encoder.blocks:
+            block.compile(mode=runtime['compile'])
+        loss_fn = losses
+    else:
+        loss_fn = torch.compile(losses, mode=runtime['compile']) if runtime.get('compile') else losses
     action_blind = objective.get('action_blind', False)
     loader = torch.utils.data.DataLoader(
         WindowBatches(corpus, seed=seed, first=first, last=optim['steps'], mazes_per_batch=data['mazes_per_batch'],
@@ -205,16 +252,19 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     generator = torch.Generator(device=device)
     log, started, window = open(out/'metrics.jsonl', 'a'), time.time(), defaultdict(float)
     step = first-1
-    for step, (frames, actions, _, *poses) in enumerate(loader, start=first):
+    for step, (frames, actions, _, *extra) in enumerate(loader, start=first):
         frames, actions = frames.to(device, non_blocking=True), actions.to(device, non_blocking=True)
-        poses = poses[0].to(device, non_blocking=True) if poses else None
+        extra = [e.to(device, non_blocking=True) for e in extra]
+        poses = extra.pop(0) if corpus.with_poses else None
+        movers = extra.pop(0) if corpus.with_movers else None
         if action_blind:
             actions = torch.zeros_like(actions)
         generator.manual_seed(keyed_seed(seed, 'sigreg', step))
         with torch.autocast(device.type, dtype=torch.bfloat16):
             terms = loss_fn(model, normalise_frames(frames), actions, rollout_steps=objective['rollout_steps'],
                             sigreg=sigreg, lam=objective['sigreg_weight'], inverse_weight=inverse_weight, generator=generator,
-                            poses=poses, motion_weight=motion_weight)
+                            poses=poses, motion_weight=motion_weight, grid_weight=objective.get('grid_weight', 1.),
+                            movers=movers, mover_weight=mover_weight)
         optimiser.zero_grad(set_to_none=True)
         if not torch.isfinite(terms['loss']):
             nonfinite += 1
@@ -265,7 +315,7 @@ def train(config, corpus_root, out, *, device='cuda:0'):
                       transfer=validate(model, transfer, transfer_indices, rollout_steps=EVAL_STEPS, device=device))
     (out/'evaluation.json').write_text(json.dumps(evaluation, indent=1)+'\n')
     index = Path(corpus_root)/f'index_{length}.npz'
-    write_lineage(out, component='lewm_world_model', seed=seed, config=config, parents=[],
+    write_lineage(out, component='lewm_world_model', seed=seed, config=config, parents=parents,
                   data=dict(corpus=str(corpus_root), index=index.name, index_sha256=sha256_file(index), windows=len(corpus),
                             mazes=int(len(corpus.mazes)), skipped_steps=skipped),
                   checkpoint=final, metrics=evaluation)
@@ -276,9 +326,10 @@ def evaluate(checkpoint, corpus_root, *, rollout_steps=EVAL_STEPS, device='cuda:
     from go2nav.models.lewm import load_world_model
     device = torch.device(device)
     model = load_world_model(checkpoint, device)
-    length = model.config.history+rollout_steps
-    validation = Corpus(corpus_root, length=length, roles=('lewm_val',), kinds=('explore', 'mission', 'free'))
-    transfer = Corpus(corpus_root, length=length, roles=('lewm_val',), kinds=('transfer',))
+    length, dim = model.config.history+rollout_steps, model.config.command_dim
+    validation = Corpus(corpus_root, length=length, roles=('lewm_val',), kinds=('explore', 'mission', 'free'),
+                        command_dim=dim)
+    transfer = Corpus(corpus_root, length=length, roles=('lewm_val',), kinds=('transfer',), command_dim=dim)
     return dict(validation=validate(model, validation, validation.fixed(VALIDATION_WINDOWS, VALIDATION_SEED),
                                     rollout_steps=rollout_steps, device=device),
                 transfer=validate(model, transfer, transfer.fixed(TRANSFER_WINDOWS, VALIDATION_SEED),
