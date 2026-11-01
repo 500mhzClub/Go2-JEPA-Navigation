@@ -477,6 +477,52 @@ The rule stays on: it is the working planner and the end of hand-rule rounds on 
 
 Each step runs on R4 (static), R6 reference and R7, so a gain in dynamic scenes cannot hide a loss in static ones.
 
+### P6. Handing the walkers to the world model (approved 1 November)
+
+**Why.** The aim is to absorb the hand-built planner into the world model, one part at a time, judging each handover by
+parity with the part it replaces. The robot's own motion is already handed over (C5: 91 of 120 against lv2's 87). The walkers
+are next: the hand tracker finds them from the depth map and assumes constant velocity. Predicting how a walker reacts stays
+parked: three models failed that gate and a rule that scored well on it gained nothing in missions. True walker futures also
+changed nothing for lv2 (the module oracles), so this round expects parity, not a gain.
+
+**The order of handover** (each by parity, in missions):
+1. The robot's motion forecast. Done.
+2. Finding and forecasting walkers. This round.
+3. The short-range clearance checks: measured this round, the hand checks keeping authority.
+4. The occupancy map.
+5. Responses to walkers.
+6. Routing and exploration, including the close-up rule.
+
+Steps 4 to 6 need memory the model does not have: it sees 0.3 s. The planner's hard limits, such as the depth stop and a limit
+on blind reversing, stay outside the model until a handover shows them unnecessary.
+
+**Finder and tracker** (`go2nav.controllers.walkers`). The model's mover head reads each image column of the four latest
+frames. The hand tracker's association and velocity fit stay on top of the detections, so this is a partial handover.
+
+**Shadow run** (`configs/experiments/walker_shadow.yaml`, cohorts `ws_*`): 120 validation missions, C5 with the close-up rule and
+mover trails, the hand tracker driving and go2_v2_grid_movers logging its walkers beside it. Scored by `eval.walker_compare`
+plan by plan against the true walkers, on walkers within 2 m in the primary camera's view.
+- **Bar, set before scoring:** the model finds at least 90% of the share the hand tracker finds, with no more false alarms
+  per 100 plans, and a median position error at most 1.25 times the hand tracker's.
+- **The hand tracker on the 80 `cuf_*` missions, for scale:** found 68% (95% interval 65-72%), 0.59 false alarms per 100 plans,
+  position error 0.148 m, velocity error 0.067 m/s. The bar itself is read from the shadow run's own hand tracks.
+- The shadow's walker cohorts are the live test's reference: they change the forecaster from C1 to C5 and nothing else.
+
+**Combined model** (`configs/lewm/go2_v2_walkers.yaml`, `outputs/lewm/go2_v2_walkers`): go2_v2_grid_movers warm-started, 30k steps,
+about 7.5 h, corpus v2 plus the give-way units. Its mover labels also apply to the rolled-out states, so the predictor is
+taught to carry the walkers (P4f's deferred step), and a free-space head reads 16 rays to 1.5 m (`data.free_labels`) from
+encoded and rolled-out states. Labels are never an input. Read offline on validation and transfer: the walker
+forecast through rollouts against constant velocity on true positions, the free rays' error, and L1-L4's rollout error against
+go2_v2's. C5's decoder needs a refit on this model; until then go2_v2 keeps forecasting the robot.
+
+**Live test:** the 80 walker missions with the model's tracks driving the planner, the hand depth stop left in place.
+- **Bar, set before scoring:** at most 3 fewer round trips than the shadow's reference, no collisions. Eighty missions check
+  parity loosely, and the sign test is reported beside it.
+
+**If a step fails.** The shadow failing does not stop training, which targets that weakness: the new model repeats the shadow
+run instead of driving. Training failing leaves the live test to the existing model, if it passed. The live test failing
+leaves the hand tracker in charge, with the reason recorded. No held-out mazes are used in this round.
+
 ## Compute and order
 
 | Phase | Compute |

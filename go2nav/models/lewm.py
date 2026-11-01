@@ -82,6 +82,7 @@ class LeWMConfig:
     grid_projector: bool = True     # False: the grid tokens are the pooled patch tokens themselves (P4c; width = latent)
     frozen_encoder: bool = False    # the encoder and [CLS] projector never train and stay in eval mode (P4c)
     mover_head: bool = False        # a training-only head reading walkers per grid column from the state (P4d)
+    free_head: bool = False         # a head reading the free distance round the robot from the state (P6)
 
     @property
     def action_dim(self):
@@ -393,6 +394,8 @@ class LeWorldModel(nn.Module):
             if not config.grid:
                 raise ValueError('the mover head reads the grid')
             self.mover = MLP(config.grid[0]*config.latent+config.grid[1], config.projector_hidden, 3)
+        if config.free_head:
+            self.free = MLP(config.tokens*config.latent, config.projector_hidden, FREE_RAYS)
         if config.frozen_encoder:
             self.encoder.requires_grad_(False)
             self.projector.requires_grad_(False)
@@ -437,6 +440,12 @@ class LeWorldModel(nn.Module):
         x = torch.cat((cells, index), -1)
         return self.mover(x.flatten(0, -2)).unflatten(0, x.shape[:-1])
 
+    def free_rays(self, z):
+        """The free-space head (P6) on states (..., 1+G, D): the free distance along each ray (..., rays) over
+        `FREE_SCALE_M`."""
+        x = z.flatten(-2)
+        return self.free(x.flatten(0, -2)).unflatten(0, x.shape[:-1])
+
     def predict(self, z, actions):
         """z (B, T, D) and action blocks (B, T, A) to the predicted next z at every position (B, T, D); with a grid,
         states (B, T, 1+G, D) to (B, T, 1+G, D)."""
@@ -473,6 +482,7 @@ class LeWorldModel(nn.Module):
 
 
 MOVER_SCALE_M = 3.  # the mover head's positions are in units of 3 m
+FREE_RAYS, FREE_SCALE_M = 16, 1.5  # go2nav.data.free_labels: the free-space head's rays, in units of the labels' cap
 MOTION_SCALE_PER_STEP = (.008, .008, .034)  # m, m, rad: the corpus's 100-ms body-frame motion spread (forward, yaw)
 
 
@@ -485,7 +495,8 @@ def body_motion(poses, span):
 
 
 def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight=0., generator=None, poses=None,
-           motion_weight=0., z=None, grid_weight=1., movers=None, mover_weight=0.):
+           motion_weight=0., z=None, grid_weight=1., movers=None, mover_weight=0., rollout_mover_weight=0., free=None,
+           free_weight=0.):
     """The training objective on windows of `history + rollout_steps` frames (rollout_steps >= 1).
 
     pixels (B, T, 3, H, W) normalised, actions (B, T-1, A); or, with `pixels` None, the frames' z (B, T, D) already
@@ -502,7 +513,11 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight
       over each span, decoded from [z_t, z_(t+k) - z_t] and scaled by k x `MOTION_SCALE_PER_STEP`.
     - `mover` (mover_weight > 0, with `movers` (B, T, columns, 3) from `go2nav.data.mover_labels`): the mover head
       on every frame's encoded state (never the predicted ones): binary cross-entropy on each column's presence plus
-      the squared error of the position (over `MOVER_SCALE_M`) where a walker is present.
+      the squared error of the position (over `MOVER_SCALE_M`) where a walker is present;
+    - `rollout_mover` (rollout_mover_weight > 0, P6): the same on the rolled-out states against those frames' labels, so
+      the predictor is taught to carry the walkers;
+    - `free` (free_weight > 0, with `free` (B, T, rays) from `go2nav.data.free_labels`): the MSE of the free-space head
+      (over `FREE_SCALE_M`) on every encoded state and every rolled-out one.
 
     With a grid (P4b), `pred`, `rollout` and the inverse and motion terms are [CLS]'s; `grid_pred` and `grid_rollout`
     are the same MSE over the grid tokens, weighted by `grid_weight`; `sigreg` is the mean of [CLS]'s and the grid's
@@ -543,13 +558,23 @@ def losses(model, pixels, actions, *, rollout_steps, sigreg, lam, inverse_weight
             return (decoded-body_motion(poses.float(), k)/(k*scale)).pow(2).mean()
         terms['motion'] = sum(w*term(k) for k, w in zip(spans, weights))/sum(weights)
         terms['loss'] = terms['loss']+motion_weight*terms['motion']
-    if mover_weight:
-        out, movers = model.movers(z).float(), movers.float()
-        present = movers[..., 0]
+    def mover_term(state, labels):
+        out, labels = model.movers(state).float(), labels.float()
+        present = labels[..., 0]
         bce = F.binary_cross_entropy_with_logits(out[..., 0], present)
-        position = ((out[..., 1:]-movers[..., 1:]/MOVER_SCALE_M).square().sum(-1)*present).sum()/present.sum().clamp_min(1.)
-        terms['mover'] = bce+position
+        position = ((out[..., 1:]-labels[..., 1:]/MOVER_SCALE_M).square().sum(-1)*present).sum()/present.sum().clamp_min(1.)
+        return bce+position
+    if mover_weight:
+        terms['mover'] = mover_term(z, movers)
         terms['loss'] = terms['loss']+mover_weight*terms['mover']
+    if rollout_mover_weight:
+        terms['rollout_mover'] = mover_term(rolled, movers[:, n:n+rollout_steps])
+        terms['loss'] = terms['loss']+rollout_mover_weight*terms['rollout_mover']
+    if free_weight:
+        target = free.float()/FREE_SCALE_M
+        terms['free'] = ((model.free_rays(z).float()-target).square().mean()
+                         +(model.free_rays(rolled).float()-target[:, n:n+rollout_steps]).square().mean())/2
+        terms['loss'] = terms['loss']+free_weight*terms['free']
     return terms
 
 

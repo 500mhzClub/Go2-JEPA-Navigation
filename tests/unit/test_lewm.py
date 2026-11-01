@@ -277,6 +277,25 @@ def test_the_mover_head_reads_each_column_and_its_loss_trains_the_encoder():
     assert model.encoder.patch_embed.weight.grad.abs().sum() > 0 and model.predictor.space_embedding.grad is None
 
 
+def test_the_walker_labels_on_rollouts_and_the_free_head_train_the_predictor():
+    model = LeWorldModel.seeded(7, small(grid=(3, 4), mover_head=True, free_head=True)).train()
+    assert model.eval().free_rays(torch.randn(2, 5, 13, 32)).shape == (2, 5, 16)
+    model.train()
+    pixels = normalise_frames(torch.randint(0, 255, (4, 6, 168, 224, 3), dtype=torch.uint8))
+    movers = torch.zeros(4, 6, 4, 3)
+    movers[:, 4:, 2] = torch.tensor([1., 2.4, -.3])                 # a walker only in the rolled-out frames
+    free = torch.full((4, 6, 16), 1.5)
+    terms = losses(model, pixels, torch.randn(4, 5, 10), rollout_steps=2, sigreg=SIGReg(num_proj=32), lam=.09,
+                   generator=torch.Generator().manual_seed(0), movers=movers, mover_weight=.5, rollout_mover_weight=.25,
+                   free=free, free_weight=.1)
+    assert torch.isfinite(terms['rollout_mover']) and terms['rollout_mover'] > 0 and terms['free'] > 0
+    without = terms['loss']-.5*terms['mover']-.25*terms['rollout_mover']-.1*terms['free']
+    assert torch.allclose(without, terms['pred']+terms['rollout']+.09*terms['sigreg']+terms['grid_pred']
+                          +terms['grid_rollout'], atol=1e-5)
+    terms['rollout_mover'].backward()
+    assert model.predictor.space_embedding.grad.abs().sum() > 0
+
+
 def test_predictor_checkpointing_keeps_the_gradients():
     model = LeWorldModel.seeded(5, small(grid=(3, 4))).eval()
     z, actions = torch.randn(2, 4, 13, model.config.latent), torch.randn(2, 4, 10)

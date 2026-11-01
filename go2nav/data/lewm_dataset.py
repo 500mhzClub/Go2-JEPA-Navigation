@@ -13,7 +13,8 @@ several workers (frames are memory-mapped .npy, so workers share the page cache)
 the window keys (unit, start); with `Corpus(command_dim=3)` the blocks are (forward, lateral, yaw), 15 values; with
 `Corpus(poses=True)` also the frames' planar poses float32 (B, length, 3)
 (x, y, yaw in the world frame), for the motion-supervised variant; with `Corpus(movers=True)` then the frames' mover
-labels float32 (B, length, columns, 3) (`go2nav.data.mover_labels`, the training-only supervision of P4d).
+labels float32 (B, length, columns, 3) (`go2nav.data.mover_labels`, the training-only supervision of P4d); with
+`Corpus(free=True)` then the frames' free rays float32 (B, length, rays) (`go2nav.data.free_labels`, P6).
 """
 import hashlib
 import json
@@ -42,9 +43,10 @@ def raise_open_file_limit():
 class Corpus:
     """The window index of a corpus root (built by `lewm_corpus index`), filtered by role and unit kind."""
 
-    def __init__(self, root, *, length=12, roles=('lewm_train',), kinds=None, poses=False, command_dim=2, movers=False):
+    def __init__(self, root, *, length=12, roles=('lewm_train',), kinds=None, poses=False, command_dim=2, movers=False,
+                 free=False):
         self.root, self.length, self.with_poses, self.axes = Path(root), length, poses, COMMAND_AXES[command_dim]
-        self.with_movers = movers
+        self.with_movers, self.with_free = movers, free
         meta = json.loads((self.root/f'index_{length}.json').read_text())
         index = np.load(self.root/f'index_{length}.npz')
         self.units = meta['units']
@@ -56,7 +58,7 @@ class Corpus:
         self.by_maze = {int(m): np.flatnonzero(mazes == m) for m in self.mazes}
         if not len(self.unit):
             raise ValueError(f'no windows of length {length} for roles {roles} and kinds {kinds}')
-        self._frames, self._actions, self._poses, self._movers = {}, {}, {}, {}
+        self._frames, self._actions, self._poses, self._movers, self._free = {}, {}, {}, {}, {}
         raise_open_file_limit()
         self.mean, self.std = control_stats(command_dim)
 
@@ -92,6 +94,13 @@ class Corpus:
             self._movers[unit] = np.load(self.root/self.units[unit]['path']/FILE, mmap_mode='r')
         return self._movers[unit]
 
+    def free(self, unit):
+        """A unit's free rays (n, rays) (`go2nav.data.free_labels`)."""
+        if unit not in self._free:
+            from go2nav.data.free_labels import FILE
+            self._free[unit] = np.load(self.root/self.units[unit]['path']/FILE, mmap_mode='r')
+        return self._free[unit]
+
     def window(self, i):
         u, s = int(self.unit[i]), int(self.start[i])
         return np.asarray(self.frames(u)[s:s+self.length]), self.actions(u)[s:s+self.length-1]
@@ -104,6 +113,8 @@ class Corpus:
             out += (torch.from_numpy(np.stack([self.poses(int(u))[s:s+self.length] for u, s in keys])),)
         if self.with_movers:
             out += (torch.from_numpy(np.stack([self.movers(int(u))[s:s+self.length] for u, s in keys]).astype(np.float32)),)
+        if self.with_free:
+            out += (torch.from_numpy(np.stack([self.free(int(u))[s:s+self.length] for u, s in keys]).astype(np.float32)),)
         return out
 
     def sample(self, seed, step, *, mazes_per_batch, windows_per_maze, batch_size=None):
