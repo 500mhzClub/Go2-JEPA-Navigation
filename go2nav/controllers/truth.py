@@ -18,6 +18,8 @@ where the robot's own frame would put it if the cameras saw it perfectly. With t
     (docs/dynamic/STATUS.md, failure analysis).
 - **Obstacle prediction** (`OracleTrack`): the clearance check sees every obstacle at its true future positions, from a
   copy of the walkers stepped ahead with the robot held where it is (their yield rule sees it there).
+- **Walker positions** (`walkers_in_body`): every walker where it is now, in the form of the mover head's detections, so
+  the planner's tracks are what a perfect head would give.
 """
 import copy
 from dataclasses import dataclass, field, replace
@@ -68,6 +70,11 @@ class GroundTruth:
         if self.session.obstacles is None:
             return []
         return [w.xy.copy() for w in self.session.obstacles.walkers]
+
+    def walkers_in_body(self):
+        """The moving obstacles as a frame of the mover head's detections: rows (presence, x, y), body frame of the true pose."""
+        p, R = self.world_pose()
+        return [[1., *(R.T@(np.r_[xy, p[2]]-p))[:2]] for xy in self.obstacles()]
 
     def futures(self):
         """(times_s, xy (times, obstacles, 2)): the walkers stepped ahead from now with the robot held in place."""

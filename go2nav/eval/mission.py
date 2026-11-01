@@ -72,11 +72,12 @@ def episode_spec(set_name, maze, episode_index, root=None):
 
 
 def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=None, strips=None, stall_stop_s=None,
-                     obstacles=None, obstacle_series='v1', obstacle_speed=None):
+                     obstacles=None, obstacle_series='v1', obstacle_speed=None, obstacle_polite=True):
     """The `Dynamics` of a mission and its record. `strips` is (mu, marked); strip placement is seeded by the set's
     original name (the role, or `prelim_test`), the maze and the episode. `obstacles`: how many moving obstacles
     (`go2nav.sim.obstacles`), placed with a seed of the set, maze, episode and count in `obstacle_series` (v1: the
-    development series), at speeds drawn from `obstacle_speed` (low, high; default `SPEED_M_S`)."""
+    development series), at speeds drawn from `obstacle_speed` (low, high; default `SPEED_M_S`); `obstacle_polite=False`
+    gives the walkers that do not yield (`sim.obstacles`)."""
     from go2nav.sim.dynamics import Dynamics, place_strips, placement_seed
     from go2nav.sim import obstacles as moving
     if friction is None and strips is None and not stall_stop_s and not obstacles:
@@ -94,7 +95,8 @@ def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=N
         record.update(recording_stall_stop_s=stall_stop_s)
     if obstacles:
         seed = moving.placement_seed(set_name, maze, episode_index, obstacles, obstacle_series)
-        dynamics.obstacles = moving.place_obstacles(spec, episode, obstacles, seed, obstacle_speed or moving.SPEED_M_S)
+        dynamics.obstacles = moving.place_obstacles(spec, episode, obstacles, seed, obstacle_speed or moving.SPEED_M_S,
+                                                    polite=obstacle_polite)
         record.update(moving_obstacles=dict(count=obstacles, placement=dynamics.obstacles,
                                             **(dict(series=obstacle_series) if obstacle_series != 'v1' else {}),
                                             **(dict(speed_m_s=list(obstacle_speed)) if obstacle_speed else {})))
@@ -106,10 +108,11 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         models=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False, deadlock_escape=False,
         terminal_burst=False, obstacle_prediction=False, footprint_clearing=False, obstacle_series='v1', obstacle_speed=None,
         candidates='primitives', safety='primitive', pose_oracle=False, map_oracle=None, prediction_oracle=False,
-        mover_trails=False, give_way=False, close_up=False, walker_mode='off'):
+        mover_trails=False, give_way=False, close_up=False, walker_mode='off', obstacle_polite=True):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
-    (how many moving obstacles; `obstacle_series` their placement series, `obstacle_speed` their speed range). Experiment
+    (how many moving obstacles; `obstacle_series` their placement series, `obstacle_speed` their speed range,
+    `obstacle_polite=False` walkers that do not yield). Experiment
     hooks: `degrade` (a forecast degradation, `controllers.degraded`), `margin` (p95/p99 calibrated clearance margin),
     `pessimistic` (never-observed cells block: revised, seeded or lookaround; bound at `unknown_level`, else the
     margin level, else p99; `planning.caution`). `demo_textures`: demonstration surfaces (`go2nav.sim.demo_appearance`;
@@ -131,7 +134,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     true map; 'static': the true map, obstacles kept out of the route grid), `prediction_oracle` (true obstacle futures
     in the clearance check). `walker_mode`: the world model's walkers (`models['walker_world_model']`,
     `go2nav.controllers.walkers`), logged beside the hand tracker ('shadow'), driving the planner
-    ('live') or driving it with positions only ('held')."""
+    ('live') or driving it with positions only ('held'); 'truth': every walker's true position in place of the tracks,
+    positions only (a module oracle)."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -143,7 +147,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     spec, episode = episode_spec(set_name, maze, episode_index)
     dynamics, dynamics_record = mission_dynamics(set_name, maze, episode_index, spec, episode, friction=friction,
                                                  strips=strips, stall_stop_s=stall_stop_s, obstacles=obstacles,
-                                                 obstacle_series=obstacle_series, obstacle_speed=obstacle_speed)
+                                                 obstacle_series=obstacle_series, obstacle_speed=obstacle_speed,
+                                                 obstacle_polite=obstacle_polite)
     from go2nav.planning import actions, caution
     margin_m = caution.calibrated_bound(arm, margin) if margin else 0.
     unknown_bound = caution.calibrated_bound(arm, unknown_level or margin or 'p99') if pessimistic else None
@@ -195,11 +200,11 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
             forecaster = DegradedForecaster(forecaster, degrade)
         save(out/'public_task_cues.json', cues)
         truth = None
-        if pose_oracle or map_oracle or prediction_oracle:
+        if pose_oracle or map_oracle or prediction_oracle or walker_mode == 'truth':
             from go2nav.controllers.truth import GroundTruth
             truth = GroundTruth(session)
         finder = None
-        if walker_mode != 'off':
+        if walker_mode in ('shadow', 'live', 'held'):
             from go2nav.controllers.walkers import WalkerFinder
             from go2nav.models.lewm import load_world_model
             if arm in ('C5', 'C6') and not degrade and models['walker_world_model'] == models.get('lewm_world_model'):
@@ -341,8 +346,9 @@ def main():
                    help="a confirmed obstacle track's cells stay in the map only while seen occupied")
     p.add_argument('--give-way', choices=('on', 'off'), default='off',
                    help='back off from a still mover near and ahead (the give-way probe)')
-    p.add_argument('--walker-mode', choices=('off', 'shadow', 'live', 'held'), default='off',
-                   help="the world model's walkers: logged beside the hand tracker, or driving the planner")
+    p.add_argument('--walker-mode', choices=('off', 'shadow', 'live', 'held', 'truth'), default='off',
+                   help="the world model's walkers: logged beside the hand tracker, or driving the planner; truth: the true positions")
+    p.add_argument('--obstacle-polite', choices=('on', 'off'), default='on', help='off: walkers that do not yield')
     p.add_argument('--close-up', choices=('on', 'off'), default='off',
                    help='walk up to an obstacle that cuts the only route instead of scanning where the route was lost')
     p.add_argument('--pose-oracle', choices=('on', 'off'), default='off', help='the true pose (module oracle)')
@@ -370,7 +376,8 @@ def main():
                  obstacle_speed=tuple(map(float, a.obstacle_speed.split(':'))) if a.obstacle_speed else None,
                  pose_oracle=a.pose_oracle == 'on', map_oracle=None if a.map_oracle == 'off' else a.map_oracle,
                  prediction_oracle=a.prediction_oracle == 'on', mover_trails=a.mover_trails == 'on',
-                 give_way=a.give_way == 'on', close_up=a.close_up == 'on', walker_mode=a.walker_mode)
+                 give_way=a.give_way == 'on', close_up=a.close_up == 'on', walker_mode=a.walker_mode,
+                 obstacle_polite=a.obstacle_polite == 'on')
     print(json.dumps(result))
 
 

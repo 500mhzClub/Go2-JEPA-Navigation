@@ -573,6 +573,39 @@ the first unexamined evidence for the walker handover. No hand rule changes here
 missions worse 61% of the time, so small losses can add up unseen. From this piece, each handover is measured against the same
 record, this piece's 80 missions, with a running total, and the 3-mission allowance applies to that total.
 
+### P8. What the working planner owes to each part (approved 1 November)
+
+**Why.** An audit of the records and code found the evidence for what comes next is thin:
+- In `held` mode the model's positions reach two places only, the close-up stand-off and mover-trail marking. The clearance check never
+  sees them, and walkers on the map and the depth stop still come from depth. No run shows what these are worth.
+- The module oracles that set the handover order were measured on lv2, before close-up and mover trails.
+- Every mission so far had polite walkers, which stop for the robot. "No collisions" and "prediction changes nothing" are shown only for those.
+
+This piece adds no capability and changes nothing in the working setup, so it can run before P7 merges. Its results choose the next handover.
+
+**Runs** (`configs/experiments/working_measures.yaml`, cohorts `wm_*`, 80 missions a group unless noted, on the validation mazes):
+- **No tracks** (`wm_none_*`): the working setup with the planner given no tracks and no trails, one and two walkers, paired with the
+  fixed record (`wo_*` with P7's crash fixes). The same missions are used so that it pairs with that record directly.
+- **Module oracles on the current planner**, two and four walkers (40 each), on C1 with the hand tracker so that they run at 14 missions at
+  once; C1 and C5 are level on this planner and these modules do not depend on the forecaster. C1 references: `cuf_obst2_c1` and
+  `wm_ref_obst4_c1` (40 new missions, the fix included, which `cu_obst4_c1` lacks).
+  - `wm_pose_*`: the true pose.
+  - `wm_map_*`: the true map (`map_oracle: full`).
+  - `wm_true_*`: every walker's true position in place of the tracks, no speeds (`walker_mode: truth`): the ceiling for what P6 handed over.
+- **Walkers that do not yield** (`wm_rude_*`, `obstacle_polite: off`), one and two walkers: the hand tracker driving with its speeds and
+  straight-line forecast (`walker_mode: shadow`) against the model's positions (`held`), paired.
+
+**Reading, set before anything is scored.**
+1. **No tracks.** At most 3 fewer than the fixed record means the walker handover is not shown to change missions at this resolution, and the
+   record says so. No bar; nothing is switched off on this result alone.
+2. **Next handover.** The oracles are read pooled over the 80 missions, against the C1 references. The pose goes next if the pose oracle has
+   the largest net gain, at least 4 missions, with wins at least twice the losses. Otherwise memory goes next, as planned. A map gain
+   points to memory too, since the map needs it.
+3. **Speed.** It stays parked unless, without yielding, the hand tracker beats the model by more than 3 of 80 or has at least 3 fewer contact stops.
+
+**Compute.** About 7.5 hours on the GPU (the three 80-mission C5 groups) and about 3 hours of C1 missions, one after the other behind P7's
+held-out run. C1 is not run beside C5: it is untested, and the machine runs unattended overnight.
+
 ## Compute and order
 
 | Phase | Compute |
