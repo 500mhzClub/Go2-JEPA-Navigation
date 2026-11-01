@@ -954,3 +954,33 @@ rays as more than 0.15 m clearer than they are, which sounds unusable and is mos
 Rollouts barely degrade it (0.185 against 0.181 m over all rays), so the forecast keeps what the state holds. Both limits, the
 walkers' motion and the unseen rays, come from the same thing: the model has no memory. That is what steps 4 to 6 need too.
 
+## P6: the live test failed, and why (1 November)
+
+The model's tracks drove the planner on the 80 walker missions: **56 of 80 round trips against the reference's 67 and the bar's 64,
+3 gained and 14 lost, with hard contact in 15 missions against 1.** One walker 33 of 40 (reference 37), two walkers 23 of 40
+(reference 30). The bar failed on both counts, so the hand tracker stays in charge of this version. Failures: 12 contact stops, 8
+timeouts, 3 `UnportedBranch`, 1 pose loss.
+
+**The contacts are walls, not walkers.** All 12 stopped missions' first contact was a rear calf on a wall, usually while
+reversing (43-100% of the last 3 s in 11 of 12; 18 ep0 of one walker, 29%). The reference's one contact was a walker. A walker stands
+about 0.8 m ahead at the time, because walkers stop for the robot at that range.
+
+**The cause is a false speed on a standing walker while the robot turns.** In two missions read plan by plan, the true walker stood
+still and its track read 0.19-0.33 m/s, and the planner chose to reverse where `unpredicted_check_action` shows it would have held
+or turned. On the 93 replayed units, a standing walker's fitted speed is above 0.15 m/s on 36% of readings while the robot turns
+faster than 0.2 rad/s and 4% otherwise. The head's position drifts with the turn and the fit reads the drift as walking. The shadow's bar
+measured none of this: found, false alarms and position error all passed. **Lesson: a bar on a part must cover every value the
+planner uses from it.**
+
+**Ruled out.** Mover trails were suspected of erasing walls, because a model track's trail is a drawn disk rather than perceived
+cells and marked cells leave the map when unseen. The tracks stayed 0.4-1.0 m from every contact point and under 0.2% of trail
+cells were inside walls, so nothing was changed there. Fitting only non-turning frames removes the false speed (3% of
+readings) but also the real one (moving walkers called moving 85% to 8%).
+
+**The rerun.** The straight line gave no gain over a held position at 0.8 s, so `walker_mode: held` keeps the fit for the logs and gives the
+planner positions only (`configs/experiments/walker_held.yaml`, cohorts `wh_*`): the same 80 missions and the same bar. The missions have
+now been looked at, so a pass here is weaker evidence than a first pass.
+
+**The decoder.** `go2_v2_walkers_heads` forecasts the robot a little better than `go2_v2_heads`: at 0.8 s 8.7 against 9.0 mm on validation and
+14.4 against 15.2 mm on transfer. Whether one model can do both jobs in missions waits on the rerun.
+
