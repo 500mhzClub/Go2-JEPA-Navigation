@@ -1019,3 +1019,15 @@ missions: 9 timeouts, 2 pose failures, 1 technical failure. Tightest clearance, 
 **The bar passed, so one model can do both jobs at parity.** This is a measurement: the merged configuration still names the two
 models, and a switch is its own piece of work. These missions had been looked at too, though nothing was tuned on this run. Two
 copies of the model run in each mission, so nothing is shared yet, and the two jobs are not read from one pass.
+
+## P6: where this handover stands (1 November)
+
+**Handed to the model:** finding walkers and where they are (`walker_mode: held`), 68 of 80 round trips against the hand tracker's 67,
+with no contacts. **Not handed over:** walker speed and forecasting. The model's fitted speed caused the failed live test, and neither
+its rollout nor a straight line beats a held position on a moving walker at 0.8 s. The clearance checks were measured only. One model
+for both jobs is shown at parity and not yet adopted.
+
+**Open:** the four-walker pairs (`configs/experiments/walker_four.yaml`, cohorts `wf_*`, for information only) are still running. They do
+not affect this handover, and their result follows here.
+
+**Next, one piece at a time:** adopt the single model, with its own before-and-after. Memory for the model is deferred until then.
