@@ -1009,3 +1009,13 @@ is not evidence. Velocity errors are not read: the rows hold zero speed.
 **Still with the hand rules:** the speed fit and straight-line forecast of a walker are no longer used from the model, so a walker in the
 planner stands still at its last position. The hand depth stop stays in place.
 
+## P6: one model for both jobs (1 November)
+
+go2_v2_walkers forecast the robot through `go2_v2_walkers_heads` and found the walkers, positions only, on the same 80 missions
+(`configs/experiments/walker_one.yaml`, cohorts `wo_*`): **68 of 80 round trips against the rerun's 68 and the bar's 65, 5 gained and 5
+lost (sign test p = 1.0), with no contact in any mission.** One walker 35 of 40 (rerun 36), two walkers 33 of 40 (rerun 32). The 12 failed
+missions: 9 timeouts, 2 pose failures, 1 technical failure. Tightest clearance, median of missions: 0.092 m against 0.090 m.
+
+**The bar passed, so one model can do both jobs at parity.** This is a measurement: the merged configuration still names the two
+models, and a switch is its own piece of work. These missions had been looked at too, though nothing was tuned on this run. Two
+copies of the model run in each mission, so nothing is shared yet, and the two jobs are not read from one pass.
