@@ -107,7 +107,7 @@ class NavigationController:
                                candidates=candidates, give_way=give_way, close_up=close_up)
         self.tracker = ObstacleTracker() if obstacle_prediction and not prediction_oracle else None
         self.walker_finder, self.walker_mode = walker_finder, walker_mode
-        self.model_tracker, self.walker_shadow = ModelTracker() if walker_finder is not None else None, []
+        self.model_tracker, self.walker_shadow = ModelTracker(held=walker_mode == 'held') if walker_finder is not None else None, []
         if mover_trails and self.tracker is None:
             raise ValueError('mover trails need the obstacle tracker (obstacle_prediction)')
         if give_way and self.tracker is None:
@@ -175,7 +175,7 @@ class NavigationController:
                 self.latest_map = self.map_oracle.apply(self.latest_map, registered.position, registered.rotation)
             if self.tracker is not None:
                 self.planner.tracks = self.tracker.update(self.latest_map)
-                if self.routing_map.mover_trails and self.walker_mode != 'live':
+                if self.routing_map.mover_trails and self.walker_mode not in ('live', 'held'):
                     self.routing_map.mark_mover(set().union(*(t.trail for t in self.planner.tracks if t.confirmed)))
             if self.prediction_oracle:
                 self.planner.tracks = truth_oracles.oracle_tracks(self.truth, self.latest_map, registered.position,
@@ -198,8 +198,9 @@ class NavigationController:
                                            [r and (r.position, r.rotation) for r in registered],
                                            self.latest_map.map_from_initial)
         self.walker_shadow.append(dict(frame=frame.frame, measured_ns=frame.measured_ns, detections=detected[-1].round(3).tolist(),
-                                       tracks=[t.summary(frame.measured_ns)|dict(confirmed=t.confirmed) for t in tracks]))
-        if self.walker_mode == 'live':
+                                       tracks=[t.summary(frame.measured_ns)|dict(confirmed=t.confirmed, fitted=np.round(t.fitted, 3).tolist())
+                                               for t in tracks]))
+        if self.walker_mode in ('live', 'held'):
             self.planner.tracks = tracks
             if self.routing_map.mover_trails:
                 self.routing_map.mark_mover(set().union(*(t.trail for t in tracks if t.confirmed)))

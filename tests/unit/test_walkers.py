@@ -98,3 +98,13 @@ def test_a_jump_inside_the_gate_keeps_the_track_and_its_detections():
     pose = (np.zeros(3), yaw(0.))
     tracks = tracker.update([seen((1., 0.)), seen((1.2, 0.))], [0, STEP_NS], [pose]*2, yaw(0.))
     assert len(tracks) == 1 and tracks[0].detections == 2
+
+
+def test_a_held_track_keeps_its_fit_for_the_logs_and_gives_the_planner_no_velocity():
+    tracker = walkers.ModelTracker(held=True)
+    pose = (np.zeros(3), yaw(0.))
+    frames = 12
+    detected = [seen((1.+.3*k*.1, 0.)) for k in range(frames)]
+    tracks = tracker.update(detected, [k*STEP_NS for k in range(frames)], [pose]*frames, yaw(0.))
+    assert np.allclose(tracks[0].fitted, [.3, 0.], atol=1e-6)
+    assert np.all(tracks[0].velocity == 0) and tracks[0].confirmed and not moving(tracks)

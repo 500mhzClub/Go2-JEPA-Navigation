@@ -130,7 +130,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     true pose), `map_oracle` ('obstacles': perceived walls with the moving obstacles where they truly are; 'full': the
     true map; 'static': the true map, obstacles kept out of the route grid), `prediction_oracle` (true obstacle futures
     in the clearance check). `walker_mode`: the world model's walkers (`models['walker_world_model']`,
-    `go2nav.controllers.walkers`), logged beside the hand tracker ('shadow') or driving the planner ('live')."""
+    `go2nav.controllers.walkers`), logged beside the hand tracker ('shadow'), driving the planner
+    ('live') or driving it with positions only ('held')."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -337,7 +338,7 @@ def main():
                    help="a confirmed obstacle track's cells stay in the map only while seen occupied")
     p.add_argument('--give-way', choices=('on', 'off'), default='off',
                    help='back off from a still mover near and ahead (the give-way probe)')
-    p.add_argument('--walker-mode', choices=('off', 'shadow', 'live'), default='off',
+    p.add_argument('--walker-mode', choices=('off', 'shadow', 'live', 'held'), default='off',
                    help="the world model's walkers: logged beside the hand tracker, or driving the planner")
     p.add_argument('--close-up', choices=('on', 'off'), default='off',
                    help='walk up to an obstacle that cuts the only route instead of scanning where the route was lost')

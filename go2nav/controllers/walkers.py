@@ -11,6 +11,10 @@ is the least-squares slope over `WINDOW_S`. What changes is the evidence. The he
 than the depth map's centroid and a new track has no velocity for `MIN_SPAN_S`, so the gate is wider and the span and window
 differ from the hand tracker's (tuned on the head's 10-Hz detections of the validation mazes, PLAN P6).
 
+**Held tracks** (`held`). While the robot turns, a standing walker's fitted speed is often false (above 0.15 m/s on 36% of
+readings, 4% otherwise), and the planner backs away from what it predicts. With `held`, `velocity` stays zero and the fit is
+kept as `fitted` for the logs: a track then says where a walker is, and the map's depth cells keep the clearance checks.
+
 A track is the head's centre, so its `cells` are a walker's disk, `stored_cells` the disk grown by `STORED_MARGIN_M` (what
 the map perceived of it, give or take pose error) and `trail` the 5-cm cells it has crossed: the planner's track interface.
 """
@@ -46,6 +50,7 @@ class ModelTrack(Track):
     """A track from the head's detections: see the module docstring."""
     stored_cells: frozenset = frozenset()
     detections: int = 0
+    fitted: np.ndarray = field(default_factory=lambda: np.zeros(2))
 
     @property
     def confirmed(self):
@@ -83,8 +88,8 @@ class WalkerFinder:
 class ModelTracker:
     """See the module docstring."""
 
-    def __init__(self):
-        self.tracks, self.next_id = [], 0
+    def __init__(self, held=False):
+        self.tracks, self.next_id, self.held = [], 0, held
 
     def update(self, detected, times_ns, poses, map_from_initial):
         """Advance the tracks with `detect`'s frames. `times_ns` and `poses` are per frame, a pose (position, rotation) in
@@ -115,8 +120,7 @@ class ModelTracker:
                 self._observe(track, c, now)
                 self.tracks.append(track)
 
-    @staticmethod
-    def _observe(track, centre, now):
+    def _observe(self, track, centre, now):
         track.cells, track.stored_cells = disk(centre, RADIUS_M), disk(centre, RADIUS_M+STORED_MARGIN_M)
         track.footprint = frozenset((i//RATIO, j//RATIO) for i, j in track.cells)
         track.trail = track.trail|track.footprint
@@ -126,10 +130,11 @@ class ModelTracker:
         track.history = [h for h in track.history if now-h[0] <= WINDOW_S*1e9]+[(now, np.asarray(centre, float))]
         times = np.array([(h[0]-now)/1e9 for h in track.history])
         if len(times) < 3 or times[-1]-times[0] < MIN_SPAN_S:
-            track.velocity = np.zeros(2)
+            track.fitted = track.velocity = np.zeros(2)
             return
         xy = np.array([h[1] for h in track.history])
         dt = times-times.mean()
         velocity = (dt[:, None]*(xy-xy.mean(0))).sum(0)/float((dt*dt).sum())
         speed = float(np.linalg.norm(velocity))
-        track.velocity = velocity*min(1., MAX_SPEED_M_S/speed) if speed > 0 else velocity
+        track.fitted = velocity*min(1., MAX_SPEED_M_S/speed) if speed > 0 else velocity
+        track.velocity = np.zeros(2) if self.held else track.fitted
