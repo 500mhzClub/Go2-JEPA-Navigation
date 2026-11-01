@@ -984,3 +984,28 @@ now been looked at, so a pass here is weaker evidence than a first pass.
 **The decoder.** `go2_v2_walkers_heads` forecasts the robot a little better than `go2_v2_heads`: at 0.8 s 8.7 against 9.0 mm on validation and
 14.4 against 15.2 mm on transfer. Whether one model can do both jobs in missions waits on the rerun.
 
+## P6: the positions-only rerun passed (1 November)
+
+The model's tracks drove the planner with their speeds withheld, on the same 80 missions: **68 of 80 round trips against the
+reference's 67 and the bar's 64, 6 gained and 5 lost (sign test p = 1.0), with no contact of any kind in any mission** (reference: 1
+hard contact, with a walker; the failed live test: 15). One walker 36 of 40 (reference 37), two walkers 32 of 40 (reference 30). Against
+the failed live test it gained 15 missions and lost 3, so the speeds were the fault. **The bar passed: the model now tells the
+planner where walkers are, and the planner gets no speeds from it.** The missions had been looked at before this run, so this pass
+is weaker evidence than a first pass, and the held-out mazes have not been used.
+
+| | Round trips | Hard contact | Tightest clearance, median of missions |
+|---|---|---|---|
+| Reference (hand tracker) | 67 of 80 | 1 mission | 0.091 m |
+| Live test (model, positions and speeds) | 56 of 80 | 15 missions | |
+| Rerun (model, positions only) | 68 of 80 | 0 missions | 0.090 m |
+
+The 12 failed missions: 8 timeouts, most with no route on the map; 3 pose failures; 1 technical failure. None was a contact.
+
+**Walkers while driving.** `eval.walker_compare` on the rerun: the model's tracks found 85% of walkers in reach (95% interval 83-87%),
+0.65 false alarms per 100 plans, 0.098 m position error, close to their figures in shadow (86%, 0.63, 0.090 m, the earlier model).
+The report's `hand` column reads the planner's tracks, which here are the model's, so its verdict compares the model with itself and
+is not evidence. Velocity errors are not read: the rows hold zero speed.
+
+**Still with the hand rules:** the speed fit and straight-line forecast of a walker are no longer used from the model, so a walker in the
+planner stands still at its last position. The hand depth stop stays in place.
+

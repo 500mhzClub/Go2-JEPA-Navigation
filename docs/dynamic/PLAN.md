@@ -523,9 +523,23 @@ the planner and the mover trails, the hand depth stop left in place.
 - **Bar, set before scoring:** at most 3 fewer round trips than the shadow's reference, no collisions. Eighty missions check
   parity loosely, and the sign test is reported beside it.
 
+**Rerun, positions only** (`configs/experiments/walker_held.yaml`, cohorts `wh_*`): the same missions and the same bar, after the
+live test failed on false speeds. It passed, so the model gives the planner its walker positions and the planner gets no speeds.
+
+**One model for both jobs** (`configs/experiments/walker_one.yaml`, cohorts `wo_*`): the same 80 missions with go2_v2_walkers also
+forecasting the robot, through `go2_v2_walkers_heads`.
+- **Bar, set before scoring:** at most 3 fewer round trips than the rerun's 68, no collisions.
+- This is a measurement. A switch to one model would be its own piece of work, merged on its own.
+
+**Four walkers** (`configs/experiments/walker_four.yaml`, cohorts `wf_*`): 40 missions paired, the hand tracker against the model's
+positions. For information only: no bar and nothing tuned on it.
+
 **If a step fails.** The shadow failing does not stop training, which targets that weakness: the new model repeats the shadow
 run instead of driving. Training failing leaves the live test to the existing model, if it passed. The live test failing
 leaves the hand tracker in charge, with the reason recorded. No held-out mazes are used in this round.
+
+**One piece at a time.** Each handover is one branch, merged to main before the next starts, so each change has its own
+before-and-after in missions. Memory for the model is deferred until this handover is merged.
 
 ## Compute and order
 

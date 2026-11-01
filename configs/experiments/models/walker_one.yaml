@@ -1,0 +1,6 @@
+# P6's one-model test (docs/dynamic/PLAN.md): go2_v2_walkers forecasts the robot and finds the walkers.
+go2_locomotion_policy: outputs/locomotion/continuous_seed11/model_1499.pt
+t6_c1_command_model: outputs/locomotion/c1_lattice_model/command_only.npz
+lewm_world_model: outputs/lewm/go2_v2_walkers/lewm.pt
+lewm_c5_decoder_and_c6: outputs/lewm/go2_v2_walkers_heads/heads.pt
+walker_world_model: outputs/lewm/go2_v2_walkers/lewm.pt
