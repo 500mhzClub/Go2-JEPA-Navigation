@@ -515,7 +515,11 @@ encoded and rolled-out states. Labels are never an input. Read offline on valida
 forecast through rollouts against constant velocity on true positions, the free rays' error, and L1-L4's rollout error against
 go2_v2's. C5's decoder needs a refit on this model; until then go2_v2 keeps forecasting the robot.
 
-**Live test:** the 80 walker missions with the model's tracks driving the planner, the hand depth stop left in place.
+**Which model drives** (set before the new model is read): go2_v2_walkers, if on the same validation units through the same
+tracker it finds at least as many walkers as go2_v2_grid_movers with no more false alarms; otherwise go2_v2_grid_movers.
+
+**Live test** (`configs/experiments/walker_live.yaml`, cohorts `wl_*`): the 80 walker missions with the model's tracks driving
+the planner and the mover trails, the hand depth stop left in place.
 - **Bar, set before scoring:** at most 3 fewer round trips than the shadow's reference, no collisions. Eighty missions check
   parity loosely, and the sign test is reported beside it.
 

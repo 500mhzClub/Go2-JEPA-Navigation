@@ -175,7 +175,7 @@ class NavigationController:
                 self.latest_map = self.map_oracle.apply(self.latest_map, registered.position, registered.rotation)
             if self.tracker is not None:
                 self.planner.tracks = self.tracker.update(self.latest_map)
-                if self.routing_map.mover_trails:
+                if self.routing_map.mover_trails and self.walker_mode != 'live':
                     self.routing_map.mark_mover(set().union(*(t.trail for t in self.planner.tracks if t.confirmed)))
             if self.prediction_oracle:
                 self.planner.tracks = truth_oracles.oracle_tracks(self.truth, self.latest_map, registered.position,

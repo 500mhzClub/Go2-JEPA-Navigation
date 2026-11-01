@@ -876,3 +876,37 @@ of C6's contact, not a walk to a cut.
 - **The mazes have now been used for this rule:** a further hand rule cannot be judged on them without a fresh set.
 
 Close-up with the fix and mover trails is the working planner and the reference for handing parts to the world model.
+
+## P6: the walkers in shadow (1 November)
+
+The world model's walkers beat the hand tracker's on what the bar measures, and fall behind on velocity, which the bar does
+not measure. 120 validation missions, the hand tracker driving, the existing mover head (go2_v2_grid_movers) logged beside it,
+scored plan by plan against the true walkers within 2 m in the primary camera's view (8,232 walker-plans):
+
+| | Hand tracker | World model | Bar |
+| --- | --- | --- | --- |
+| Walkers found | 69% (95% interval 67-72%) | 86% (85-88%) | at least 90% of hand's: passed |
+| False alarms per 100 plans | 0.68 | 0.63 | no more than hand's: passed |
+| Median position error | 0.151 m | 0.090 m | at most 1.25 times hand's: passed |
+| Median velocity error | 0.066 m/s | 0.158 m/s | not in the bar |
+
+**Reference for the live test.** The same missions are C5 with the close-up rule: 40 of 40 with no walkers, 37 of 40 with one,
+30 of 40 with two; 107 of 120. So the live bar is at least 64 of 80. One two-walker mission hit a wall or walker
+(maze 14 ep1, `DISALLOWED_CONTACT`); three failures were pose losses and one a floor-plane start failure.
+
+**Why velocity is worse.** Most of it is young tracks. The model finds walkers the hand tracker never does and sooner, and a
+track has no velocity for its first 0.7 s, so 24% of its plans on moving walkers read zero. Tracks with 3-7 detections
+err by 0.24 m/s, about a walker's whole speed (median 0.235 m/s); tracks past 20 detections err by 0.10 m/s, still half as
+much again as the hand tracker's 0.065. On the 5,587 walker-plans both found, the error is 0.146 against 0.065 m/s. The model calls 79%
+of moving walkers moving where hand calls 91%.
+
+**The tracker's settings, tuned before the live test.** The missions log every fourth frame, so the head was replayed at 10 Hz
+on 93 validation walker units (true poses, scored at every frame). The best setting (a 0.25 m gate, one walker seen by two columns
+merged within 0.3 m, a 0.5 s minimum span, a 1.6 s window) leaves found (91.6% against 91.4%) and false alarms
+(0.47 against 0.45 per 100 plans) about where they were, and it cuts tracks per unit from 18.2 to 13.2 and zero-velocity
+plans on moving walkers from 28% to 11%, and raises moving walkers called moving from 69% to 85%. The velocity error only
+falls from 0.180 to 0.157 m/s, so position noise from the head remains the limit: tuning a straight-line fit will not close it,
+and the model's own forecast is what should.
+
+**A leak closed.** In the live path the hand tracker's trails were still being marked on the map. Live, only the model's are.
+

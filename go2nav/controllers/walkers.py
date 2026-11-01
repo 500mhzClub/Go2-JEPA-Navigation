@@ -4,9 +4,12 @@
 column of the state: a presence probability and the walker's body-frame position. A column above `PRESENCE` is a detection.
 
 **Tracking** (`ModelTracker`). The hand tracker's association and velocity fit stay (`perception.tracks`), in the map frame
-through the estimated pose: a detection joins the nearest track within `GATE_M` plus `MAX_SPEED_M_S` times the time since,
-else starts one, and the velocity is the least-squares slope over `WINDOW_S`. What changes is the evidence. The head names
-walkers, so a track needs `CONFIRM_DETECTIONS` detections, not motion in the map, and a standing walker is a track too.
+through the estimated pose: detections within `MERGE_M` of each other in one frame are one walker seen by two columns, a
+detection joins the nearest track within `GATE_M` plus `MAX_SPEED_M_S` times the time since, else starts one, and the velocity
+is the least-squares slope over `WINDOW_S`. What changes is the evidence. The head names walkers, so a track needs
+`CONFIRM_DETECTIONS` detections, not motion in the map, and a standing walker is a track too. A head's detections jump more
+than the depth map's centroid and a new track has no velocity for `MIN_SPAN_S`, so the gate is wider and the span and window
+differ from the hand tracker's (tuned on the head's 10-Hz detections of the validation mazes, PLAN P6).
 
 A track is the head's centre, so its `cells` are a walker's disk, `stored_cells` the disk grown by `STORED_MARGIN_M` (what
 the map perceived of it, give or take pose error) and `trail` the 5-cm cells it has crossed: the planner's track interface.
@@ -18,12 +21,14 @@ import torch
 
 from go2nav.models.lewm import MOVER_SCALE_M, normalise_frames, resize_frame
 from go2nav.perception.mapping import FINE_CELL_M
-from go2nav.perception.tracks import GATE_M, KEEP_UNSEEN_S, MAX_SPEED_M_S, MIN_SPAN_S, RATIO, WINDOW_S, Track
+from go2nav.perception.tracks import KEEP_UNSEEN_S, MAX_SPEED_M_S, RATIO, Track
 from go2nav.sim.obstacles import RADIUS_M
 
 PRESENCE = .5
 CONFIRM_DETECTIONS = 3
 STORED_MARGIN_M = .08
+GATE_M, MERGE_M = .25, .3
+WINDOW_S, MIN_SPAN_S = 1.6, .5
 
 
 def disk(centre, radius_m):
@@ -45,6 +50,17 @@ class ModelTrack(Track):
     @property
     def confirmed(self):
         return self.detections >= CONFIRM_DETECTIONS
+
+
+def merged(points):
+    """One point (the mean) for each group of a frame's detections within `MERGE_M` of the group's first."""
+    out, used = [], set()
+    for i, point in enumerate(points):
+        if i not in used:
+            group = [j for j in range(i, len(points)) if j not in used and np.linalg.norm(points[j]-point) <= MERGE_M]
+            used.update(group)
+            out.append(np.mean([points[j] for j in group], axis=0))
+    return out
 
 
 class WalkerFinder:
@@ -79,7 +95,7 @@ class ModelTracker:
                 continue
             position, rotation = pose
             points = [(B@(position+rotation@np.array([x, y, 0.])))[:2] for p, x, y in rows if p > PRESENCE]
-            self._step(points, int(now))
+            self._step(merged(points), int(now))
         return list(self.tracks)
 
     def _step(self, points, now):

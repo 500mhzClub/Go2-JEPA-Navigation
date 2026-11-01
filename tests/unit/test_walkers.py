@@ -84,3 +84,17 @@ def test_the_finder_needs_the_mover_head():
         assert 'mover head' in str(error)
     else:
         raise AssertionError('a model without the mover head was accepted')
+
+
+def test_one_walker_in_two_columns_is_one_track_at_their_mean():
+    tracker = walkers.ModelTracker()
+    tracks = tracker.update([seen((1., 0.), (1.2, 0.))], [0], [(np.zeros(3), yaw(0.))], yaw(0.))
+    assert len(tracks) == 1
+    assert np.allclose(tracks[0].history[-1][1], [1.1, 0.])
+
+
+def test_a_jump_inside_the_gate_keeps_the_track_and_its_detections():
+    tracker = walkers.ModelTracker()
+    pose = (np.zeros(3), yaw(0.))
+    tracks = tracker.update([seen((1., 0.)), seen((1.2, 0.))], [0, STEP_NS], [pose]*2, yaw(0.))
+    assert len(tracks) == 1 and tracks[0].detections == 2
