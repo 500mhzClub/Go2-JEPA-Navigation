@@ -224,9 +224,12 @@ class VisualOdometry:
             return self.pending[2]
         seed_up = np.asarray(G).T@self.initial_up
         up = self.last_R.T@self.initial_up
-        clouds, pool = floor.paired_floor_points((current['primary'].depth_m, current['primary'].valid),
-                                                 (current['auxiliary'].depth_m, current['auxiliary'].valid), seed_up)
+        images = (current['primary'].depth_m, current['primary'].valid), (current['auxiliary'].depth_m, current['auxiliary'].valid)
+        clouds, pool = floor.paired_floor_points(*images, seed_up)
         plane = floor.joint_plane(*clouds, up)
+        if not plane['available'] and self.frame == 0:
+            clouds, pool = floor.paired_floor_points(*images, seed_up, rounds=floor.START_REFINEMENTS)
+            plane = floor.joint_plane(*clouds, up)
         if not plane['available'] and (self.frame == 0 or plane['reason'] not in (
                 'insufficient_combined_measured_candidates', 'insufficient_combined_two_axis_extent')):
             raise UnportedBranch(f"floor plane unavailable at frame {self.frame}: {plane['reason']}")

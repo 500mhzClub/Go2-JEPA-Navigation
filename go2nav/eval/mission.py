@@ -202,7 +202,10 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         if walker_mode != 'off':
             from go2nav.controllers.walkers import WalkerFinder
             from go2nav.models.lewm import load_world_model
-            finder = WalkerFinder(load_world_model(models['walker_world_model']))
+            if arm in ('C5', 'C6') and not degrade and models['walker_world_model'] == models.get('lewm_world_model'):
+                finder = WalkerFinder(forecaster.model, encoder=forecaster.encoder)  # one model for both jobs
+            else:
+                finder = WalkerFinder(load_world_model(models['walker_world_model']))
         controller = NavigationController(forecaster, goal_xy=cues['goal_initial_body_xy_m'],
                                           home_xy=cues['return_initial_body_xy_m'], arrival_radius_m=.02,
                                           navigation_frames=4800, recovery=recovery, margin_m=margin_m,

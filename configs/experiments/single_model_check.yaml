@@ -1,0 +1,33 @@
+name: 'One model in the working setup: reproduction of wo_* and the crash fixes'
+base: configs/working.yaml
+description: docs/dynamic/PLAN.md, P7. smc_repro_* must equal their wo_* records exactly;
+  smc_fix_* are the two wo_* missions that crashed.
+cohorts:
+- name: smc_repro_obst1
+  set: validation
+  obstacles: 1
+  episodes:
+  - - 13
+    - 0
+  - - 28
+    - 0
+- name: smc_repro_obst2
+  set: validation
+  obstacles: 2
+  episodes:
+  - - 12
+    - 1
+  - - 17
+    - 1
+  - - 22
+    - 0
+  - - 25
+    - 1
+- name: smc_fix_obst1
+  set: validation
+  obstacles: 1
+  episodes:
+  - - 18
+    - 1
+  - - 26
+    - 0

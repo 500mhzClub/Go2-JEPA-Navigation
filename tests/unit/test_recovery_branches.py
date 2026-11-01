@@ -226,3 +226,20 @@ def test_give_way_ignores_unconfirmed_moving_or_sideways_tracks_and_advancing_se
     planner.tracks = [still_track((1., 0.))]
     advancing = dict(hold(), requested_command=[.15, 0., 0.])
     assert 'give_way' not in planner._give_way(advancing, open_floor(), np.zeros(3), np.eye(3))
+
+
+def test_a_veto_view_from_the_last_mission_leg_is_dropped():
+    planner = Planner(arrival_radius_m=.02)
+    planner.view_recovery = dict(trigger_ns=0, mission_generation=0, target_heading_rad=None, view_angle_rad=.8)
+    route = dict(status='OBSERVED_FLOOR_ROUTE_TO_GOAL_CELL', route_cells=[[0, 0]])
+    assert planner._veto_view(route, 0., 1) is route
+    assert planner.view_recovery is None
+
+
+def test_longer_refinement_keeps_a_floor_the_short_one_would_drop_whole():
+    x, y = np.meshgrid(np.linspace(-.5, .5, 60), np.linspace(-.5, .5, 60))
+    flat = np.stack((x.ravel(), y.ravel(), np.full(x.size, -.3)), 1)
+    stray = flat[:6]+[0., 0., .0035]         # inside the slab, outside the 3-mm fit: one round to prune them, one to confirm
+    points, up = np.concatenate((flat, stray)), np.array([0., 0., 1.])
+    assert not floor.dominant_height_cluster((points[:0], points), up, rounds=1)[1].any()
+    assert floor.dominant_height_cluster((points[:0], points), up, rounds=floor.START_REFINEMENTS)[1].sum() == len(flat)

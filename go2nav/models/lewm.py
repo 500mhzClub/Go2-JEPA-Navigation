@@ -582,6 +582,25 @@ def save_world_model(path, model, *, extra=None):
     torch.save(dict(config=asdict(model.config), model_state_dict=model.state_dict(), **(extra or {})), path)
 
 
+class PacketEncoder:
+    """The state of the four latest policy packets, kept until the frames change, so that with one model the walkers and
+    the forecast read the same pass. bfloat16 as encoded under autocast; callers that need float32 convert it."""
+
+    def __init__(self, world_model, device):
+        self.model, self.device = world_model, torch.device(device)
+        self.frames, self.state = None, None
+
+    @torch.inference_mode()
+    def __call__(self, packets):
+        frames = tuple(p['image']['measured_ns'] for p in packets)
+        if frames != self.frames:
+            pixels = torch.from_numpy(np.stack([resize_frame(p['image']['rgb']) for p in packets])).to(self.device)
+            with torch.autocast(self.device.type, dtype=torch.bfloat16, enabled=self.device.type == 'cuda'):
+                self.state = self.model.encode(normalise_frames(pixels)[None])
+            self.frames = frames
+        return self.state
+
+
 def load_world_model(path, device='cpu'):
     state = torch.load(path, map_location='cpu', weights_only=False)
     config = dict(state['config'])

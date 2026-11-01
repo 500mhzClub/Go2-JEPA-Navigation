@@ -1,7 +1,8 @@
 """The world model's walkers (docs/dynamic/PLAN.md, P6): finding them from the model's state instead of the depth map.
 
-**Finding** (`WalkerFinder`). The four latest frames are encoded as C5's are, and the model's mover head reads each image
-column of the state: a presence probability and the walker's body-frame position. A column above `PRESENCE` is a detection.
+**Finding** (`WalkerFinder`). The four latest frames are encoded as C5's are (with one model, the same pass as the forecast:
+`encoder`), and the model's mover head reads each image column of the state: a presence probability and the walker's
+body-frame position. A column above `PRESENCE` is a detection.
 
 **Tracking** (`ModelTracker`). The hand tracker's association and velocity fit stay (`perception.tracks`), in the map frame
 through the estimated pose: detections within `MERGE_M` of each other in one frame are one walker seen by two columns, a
@@ -23,7 +24,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import torch
 
-from go2nav.models.lewm import MOVER_SCALE_M, normalise_frames, resize_frame
+from go2nav.models.lewm import MOVER_SCALE_M, PacketEncoder
 from go2nav.perception.mapping import FINE_CELL_M
 from go2nav.perception.tracks import KEEP_UNSEEN_S, MAX_SPEED_M_S, RATIO, Track
 from go2nav.sim.obstacles import RADIUS_M
@@ -71,17 +72,17 @@ def merged(points):
 class WalkerFinder:
     """See the module docstring. `detect` returns (frames, columns, 3): presence probability, x and y (m)."""
 
-    def __init__(self, world_model, *, device='cuda:0'):
+    def __init__(self, world_model, *, device='cuda:0', encoder=None):
         if not world_model.config.mover_head:
             raise ValueError('the walker finder needs a world model with the mover head')
         self.device = torch.device(device)
         self.model = world_model.to(self.device).eval()
+        self.encoder = encoder or PacketEncoder(self.model, self.device)
 
     @torch.inference_mode()
     def detect(self, packets):
-        frames = torch.from_numpy(np.stack([resize_frame(p['image']['rgb']) for p in packets])).to(self.device)
         with torch.autocast(self.device.type, dtype=torch.bfloat16, enabled=self.device.type == 'cuda'):
-            out = self.model.movers(self.model.encode(normalise_frames(frames)[None])[0]).float()
+            out = self.model.movers(self.encoder(packets)[0]).float()
         return torch.cat((out[..., :1].sigmoid(), out[..., 1:]*MOVER_SCALE_M), -1).cpu().numpy()
 
 

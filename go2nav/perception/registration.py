@@ -89,6 +89,10 @@ class FloorRegistration:
         carried = None if self.anchor is None else self._carried_rotation(R).T@self.reference_plane['normal_body']
         clouds, _ = floor.paired_floor_points(depth, auxiliary_depth, up, narrow_normal=carried, per_camera_mean=True)
         plane = floor.joint_plane(*clouds, up)
+        if not plane['available'] and self.anchor is None:
+            clouds, _ = floor.paired_floor_points(depth, auxiliary_depth, up, narrow_normal=carried, per_camera_mean=True,
+                                                  rounds=floor.START_REFINEMENTS)
+            plane = floor.joint_plane(*clouds, up)
         if not plane['available']:
             if plane['reason'] in (floor.TOO_FEW_POINTS, floor.TOO_NARROW) and self.anchor is not None:
                 return self._transport(visual, p, R, plane, clouds)

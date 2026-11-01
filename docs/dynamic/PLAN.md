@@ -541,6 +541,38 @@ leaves the hand tracker in charge, with the reason recorded. No held-out mazes a
 **One piece at a time.** Each handover is one branch, merged to main before the next starts, so each change has its own
 before-and-after in missions. Memory for the model is deferred until this handover is merged.
 
+### P7. One model in the working setup (approved 1 November)
+
+**Why.** The one-model test (`wo_*`) showed go2_v2_walkers can forecast the robot and find the walkers at parity, but missions still
+named two models and ran two copies. This piece adopts it and clears two crashes that have ended missions in every round since P2.
+
+**What changes.**
+- **One model, one pass.** The forecaster's model also finds the walkers, and both read one encoding of the frames
+  (`models.lewm.PacketEncoder`). The hand tracker no longer runs when the model's tracks drive: they replaced its output.
+- **The working setup is one file,** `configs/working.yaml`. A cohort takes it with `base:`. Code defaults stay off, so old records reproduce.
+- **Crash: a view recovery across a mission phase change.** The port raised where the original drops the recovery
+  (`veto_view_round_trip_development.py`). It now drops it.
+- **Crash: no floor plane at frame 0** (maze 26 episode 0, one walker). Not a marginal floor as recorded earlier: about 5,770 points
+  (53% of the pool) were found, and `dominant_height_cluster` dropped them whole because pruning had not converged in 8 rounds. The
+  first frame now retries with `floor.START_REFINEMENTS`, only where the mission would otherwise have ended, so no other
+  mission changes. A later frame keeps the 8 rounds: the pose is carried over such a frame.
+
+**Checks, set before anything runs** (`configs/experiments/single_model_check.yaml`, cohorts `smc_*`):
+1. **Reproduction.** Six `wo_*` missions, from 104 s to a 480-s timeout, must equal their records exactly: `planning.json`,
+   `requests.json`, `walker_shadow.json` and the physics trace. Loading once and encoding once cannot change a number, so this
+   replaces the 80-mission rerun proposed earlier. If they differ, the 80 missions run, against 68 with at most 3 fewer and no collisions.
+2. **Crash fixes.** The two crashed `wo_*` missions rerun and must pass their crash points. Their results update the record for
+   these 80 missions; no other mission can change.
+
+**Held-out evaluation** (`configs/experiments/single_model_heldout.yaml`, cohorts `smh_*`): once, the same 140 missions as `cufh_*`,
+the first unexamined evidence for the walker handover. No hand rule changes here, so spent mazes 30-49 are still fair for a model version.
+- **Bar, set before scoring:** at most 5 fewer round trips than `cufh_*`'s 125 (the 3-of-80 allowance scaled to 140), no collisions.
+  The sign test is reported beside it, against `cufh_*` and against lv2's 112.
+
+**One reference from here on.** The bar's reference moved each round (67, then 68), and an 80-mission bar passes a change truly 3
+missions worse 61% of the time, so small losses can add up unseen. From this piece, each handover is measured against the same
+record, this piece's 80 missions, with a running total, and the 3-mission allowance applies to that total.
+
 ## Compute and order
 
 | Phase | Compute |

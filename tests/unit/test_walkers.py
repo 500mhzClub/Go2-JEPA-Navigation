@@ -1,10 +1,13 @@
 """The world model's walker tracker: placing detections in the map, association, confirmation and velocity."""
 import math
+from types import SimpleNamespace
 
 import numpy as np
+import torch
 
 from go2nav.controllers import walkers
-from go2nav.models.lewm import LeWMConfig, LeWorldModel
+from go2nav.controllers.controller import NavigationController
+from go2nav.models.lewm import LeWMConfig, LeWorldModel, PacketEncoder
 from go2nav.perception.mapping import FINE_CELL_M
 from go2nav.perception.tracks import KEEP_UNSEEN_S, moving
 from go2nav.sim.obstacles import RADIUS_M
@@ -108,3 +111,49 @@ def test_a_held_track_keeps_its_fit_for_the_logs_and_gives_the_planner_no_veloci
     tracks = tracker.update(detected, [k*STEP_NS for k in range(frames)], [pose]*frames, yaw(0.))
     assert np.allclose(tracks[0].fitted, [.3, 0.], atol=1e-6)
     assert np.all(tracks[0].velocity == 0) and tracks[0].confirmed and not moving(tracks)
+
+
+class CountingModel:
+    """Stands in for a world model: counts encodings."""
+    config = SimpleNamespace(mover_head=True)
+
+    def __init__(self):
+        self.encodings = 0
+
+    def to(self, device):
+        return self
+
+    def eval(self):
+        return self
+
+    def encode(self, pixels):
+        self.encodings += 1
+        return torch.zeros(1, 4, 13, 8)
+
+    def movers(self, state):
+        return torch.zeros(4, 4, 3)
+
+
+def packets(start_ns):
+    frame = np.zeros((480, 640, 3), np.uint8)
+    return tuple(dict(image=dict(rgb=frame, measured_ns=start_ns+k*STEP_NS)) for k in range(4))
+
+
+def test_the_walkers_and_the_forecast_read_one_encoding_per_set_of_frames():
+    model = CountingModel()
+    encoder = PacketEncoder(model, 'cpu')
+    finder = walkers.WalkerFinder(model, device='cpu', encoder=encoder)
+    finder.detect(packets(0))
+    encoder(packets(0))
+    assert model.encodings == 1
+    finder.detect(packets(400_000_000))
+    assert model.encodings == 2
+
+
+def test_the_hand_tracker_stops_when_the_model_drives():
+    def controller(mode):
+        return NavigationController(None, goal_xy=(1., 0.), home_xy=(0., 0.), obstacle_prediction=True, mover_trails=True,
+                                    walker_finder=object(), walker_mode=mode)
+    assert controller('held').tracker is None
+    assert controller('live').tracker is None
+    assert controller('shadow').tracker is not None
