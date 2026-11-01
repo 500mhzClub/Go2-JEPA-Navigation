@@ -1027,7 +1027,31 @@ with no contacts. **Not handed over:** walker speed and forecasting. The model's
 its rollout nor a straight line beats a held position on a moving walker at 0.8 s. The clearance checks were measured only. One model
 for both jobs is shown at parity and not yet adopted.
 
-**Open:** the four-walker pairs (`configs/experiments/walker_four.yaml`, cohorts `wf_*`, for information only) are still running. They do
-not affect this handover, and their result follows here.
-
 **Next, one piece at a time:** adopt the single model, with its own before-and-after. Memory for the model is deferred until then.
+
+## P6: four walkers (1 November)
+
+`configs/experiments/walker_four.yaml`, cohorts `wf_*`, 40 missions paired, for information only. **The model's positions make 21 of 40
+round trips against the hand tracker's 20, 6 gained and 5 lost (sign test p = 1.0).**
+
+| Four walkers, 40 missions | Round trips | Stopped on contact | Failures |
+|---|---|---|---|
+| Frozen planner (`dn_obst4_c1`) | 5 | | |
+| Close-up rule, first version (`cu_obst4_c1`) | 18 | | |
+| Current planner, hand tracker (`wf_ref_c5`) | 20 | 1 | 14 timeouts, 4 pose, 1 contact, 1 other |
+| Current planner, model's positions (`wf_held_c5`) | 21 | 2 | 10 timeouts, 6 pose, 2 contacts, 1 other |
+
+The hand tracker also had one mission at 0.002 m from a walker without contact (maze 27 episode 1). The planner's forecaster differs
+between the earlier rows and these, as does the fix, so the gain over the first version is not one change.
+
+**Finding, with the hand tracker driving and the model watching:** the model found 77% of walkers in reach (95% interval 73-80%)
+against 57% (53-61%), with 1.38 false alarms per 100 plans against 2.0 and position error 0.10 m against 0.15 m. Both find fewer than at
+two walkers, and the model's lead holds.
+
+**The contacts are the robot's blind rear, not the withheld speeds.** All three missions stopped by a contact (two with the model, one
+with the hand tracker) were a rear calf on a walker outside the camera's view for at least 3 s, with no track on that walker at
+contact. The model's two were maze 25 episode 0, reversing at 0.10 m/s while turning into a walker that had walked out of view, and
+maze 13 episode 1, turning with a walker that had stood still for 2 s at about 0.45 m on its side. The taxonomy labels the second
+"obstacle moving into the other"; the trace shows the walker standing, so the label is wrong. The hand tracker's was maze 13 episode 0, reversing
+while turning. A speed would not have helped: there was no track to carry one. This is the same class as `cu_obst4_c1`'s collision
+and C6's contact, and a walker's position behind the robot needs either memory or a limit on blind reversing, both outside this handover.
