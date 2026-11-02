@@ -105,12 +105,13 @@ class NavigationController:
                                terminal_burst=terminal_burst,
                                obstacle_prediction='oracle' if prediction_oracle else obstacle_prediction,
                                candidates=candidates, give_way=give_way, close_up=close_up)
-        self.tracker = ObstacleTracker() if obstacle_prediction and not prediction_oracle else None
         self.walker_finder, self.walker_mode = walker_finder, walker_mode
         self.model_tracker, self.walker_shadow = ModelTracker(held=walker_mode == 'held') if walker_finder is not None else None, []
-        if mover_trails and self.tracker is None:
+        driving = walker_finder is not None and walker_mode in ('live', 'held')   # the model's tracks replace the hand tracker's
+        self.tracker = ObstacleTracker() if obstacle_prediction and not prediction_oracle and not driving else None
+        if mover_trails and self.tracker is None and not driving:
             raise ValueError('mover trails need the obstacle tracker (obstacle_prediction)')
-        if give_way and self.tracker is None:
+        if give_way and self.tracker is None and not driving:
             raise ValueError('the give-way rule needs the obstacle tracker (obstacle_prediction)')
         if (pose_oracle or map_oracle or prediction_oracle) and truth is None:
             raise ValueError('module oracles need the ground truth')

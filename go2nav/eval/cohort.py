@@ -45,7 +45,12 @@ POSE_JUMP_M, POSE_JUMP_RAD = .05, .15   # the Go2 moves at most 3 cm and 0.05 ra
 
 
 def load_experiment(path):
-    return yaml.safe_load(Path(path).read_text())
+    """An experiment config; a top-level `base` file holds options every cohort starts from (`configs/working.yaml`)."""
+    experiment = yaml.safe_load(Path(path).read_text())
+    if 'base' in experiment:
+        base = yaml.safe_load(Path(experiment['base']).read_text())
+        experiment['cohorts'] = [base | cohort for cohort in experiment['cohorts']]
+    return experiment
 
 
 def jobs(cohort):

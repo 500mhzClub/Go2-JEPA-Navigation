@@ -3,7 +3,10 @@
 **Candidates.** Each depth image is sampled every 4 px. A sample is a candidate if its 3 x 3 neighbourhood is valid and
 it lies more than 15 cm below the body (along the given up direction). The candidates of both cameras are pooled
 and the floor is taken as the dominant height cluster: the densest 6-mm height slab, refined by plane fits until
-every point is within 3 mm (at most 8 rounds; at least a quarter of the pool must remain).
+every point is within 3 mm (at most 8 rounds; at least a quarter of the pool must remain). A selection still refining
+after its rounds is dropped whole, however large. That is harmless later in a mission, where the pose is carried over
+such a frame, but the first frame has nothing to carry: there, and only where the plane would otherwise be missing,
+the callers allow `START_REFINEMENTS` rounds.
 
 **Joint plane.** One plane through the selected points of both cameras (counts-weighted moments): available if it has
 at least 100 points, a second covariance eigenvalue of at least (2 cm)², a normal within acos(0.97) of up, and every
@@ -29,7 +32,7 @@ SAMPLE_ROWS, SAMPLE_COLUMNS = np.arange(2, 480, 4), np.arange(2, 640, 4)
 BELOW_BODY_M = -.15
 SLAB_RESIDUAL_M = .003
 MIN_CLUSTER_FRACTION = .25
-MAX_REFINEMENTS = 8
+MAX_REFINEMENTS, START_REFINEMENTS = 8, 64
 MIN_PLANE_POINTS = 100
 # 2 cm second extent: the original configures this at start-up (two_cm_floor_extent_development.configure).
 MIN_SECOND_EXTENT_M = .02
@@ -51,7 +54,7 @@ def candidates(depth_m, valid, mount, up):
     return xyz[good]
 
 
-def dominant_height_cluster(clouds, up):
+def dominant_height_cluster(clouds, up, rounds=MAX_REFINEMENTS):
     """Masks (one per cloud) selecting the pooled floor cluster; empty masks if there is none."""
     points = np.concatenate([np.asarray(p, float) for p in clouds])
     keep = np.zeros(len(points), bool)
@@ -64,7 +67,7 @@ def dominant_height_cluster(clouds, up):
         keep[order[left:right[left]]] = True
     initial = int(keep.sum())
     if initial >= 3 and initial >= MIN_CLUSTER_FRACTION*len(points):
-        for _ in range(MAX_REFINEMENTS):
+        for _ in range(rounds):
             selected = points[keep]
             center = selected.mean(0)
             delta = selected-center
@@ -118,11 +121,11 @@ def condition_narrow_patch(clouds, masks, up, normal, *, per_camera_mean):
     return masks
 
 
-def paired_floor_points(primary, auxiliary, up, *, narrow_normal=None, per_camera_mean=False):
+def paired_floor_points(primary, auxiliary, up, *, narrow_normal=None, per_camera_mean=False, rounds=MAX_REFINEMENTS):
     """Selected floor points of both cameras' depth ((depth_m, valid) pairs) and the size of the pooled candidates.
     With `narrow_normal`, a selection too narrow for a normal is pruned along it (`condition_narrow_patch`)."""
     clouds = [candidates(depth_m, valid, mount, up) for (depth_m, valid), (_, mount) in zip((primary, auxiliary), CAMERAS)]
-    masks = dominant_height_cluster(clouds, up)
+    masks = dominant_height_cluster(clouds, up, rounds)
     if narrow_normal is not None:
         masks = condition_narrow_patch(clouds, masks, up, np.asarray(narrow_normal, float), per_camera_mean=per_camera_mean)
     return [cloud[keep] for cloud, keep in zip(clouds, masks)], sum(map(len, clouds))

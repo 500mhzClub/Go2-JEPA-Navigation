@@ -71,7 +71,6 @@ from go2nav.planning import caution, grid, prediction as predicted, reactive, ro
 from go2nav.planning.actions import ACTIONS, TRANSLATIONS, TURNS, command, turn_direction
 from go2nav.planning.grid import centre
 from go2nav.perception import tracks
-from go2nav.perception.rigid import UnportedBranch
 from go2nav.perception.visual_support import MAX_VIEW_DISTANCE_M
 
 TERMINAL_APPROACH_RADIUS_M = .10
@@ -156,8 +155,9 @@ class Planner:
         recovery = self.view_recovery
         if recovery is None:
             return route
-        if recovery['mission_generation'] != generation:
-            raise UnportedBranch('veto view recovery across a mission phase change')
+        if recovery['mission_generation'] != generation:  # asked for on the last leg: the new one starts without it
+            self.view_recovery = None
+            return route
         if recovery['target_heading_rad'] is None:
             recovery['target_heading_rad'] = wrap(heading+recovery['view_angle_rad'])
         target = recovery['target_heading_rad']

@@ -1,0 +1,16 @@
+# The working setup (docs/dynamic/PLAN.md, P7): C5 on one world model, go2_v2_walkers, which forecasts the robot and gives the
+# planner walker positions with no speeds, on the planner with close-up and mover trails. A cohort starts from these options
+# with a top-level `base: configs/working.yaml`, so a change to the working setup is a change to this file alone.
+arms: [C5]
+recovery: 'off'
+models: configs/experiments/models/walker_one.yaml
+map_decay: floor
+deadlock_escape: 'on'
+terminal_burst: 'on'
+obstacle_prediction: 'on'
+footprint_clearing: 'on'
+candidates: lattice
+safety: continuous
+close_up: 'on'
+mover_trails: 'on'
+walker_mode: held

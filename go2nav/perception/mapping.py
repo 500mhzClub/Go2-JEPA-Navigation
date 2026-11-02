@@ -307,6 +307,9 @@ class RoutingMap:
             up_body /= np.linalg.norm(up_body)
             plane = floor.joint_plane(*floor.paired_floor_points(depth, auxiliary_depth, up_body)[0], up_body)
             if not plane['available']:
+                plane = floor.joint_plane(*floor.paired_floor_points(depth, auxiliary_depth, up_body,
+                                                                     rounds=floor.START_REFINEMENTS)[0], up_body)
+            if not plane['available']:
                 raise UnportedBranch('no floor plane at the first map update (start-up recovery)')
             self.floor_height = measured_floor_height(plane, self.B@R, self.B@p)
         current_up = R.T@self.B[2]

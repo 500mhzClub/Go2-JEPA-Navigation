@@ -19,7 +19,7 @@ import torch
 
 from go2nav.controllers.neural import applied_history, planned_commands
 from go2nav.locomotion.safety import apply_limits
-from go2nav.models.lewm import COMMAND_AXES, control_stats, normalise_frames, resize_frame
+from go2nav.models.lewm import COMMAND_AXES, PacketEncoder, control_stats
 from go2nav.planning.actions import ACTIONS
 
 FRAME_SPACING_NS = 100_000_000
@@ -35,6 +35,7 @@ class _LeWMInputs:
     def __init__(self, world_model, device):
         self.device = torch.device(device)
         self.model = world_model.to(self.device).eval()
+        self.encoder = PacketEncoder(self.model, self.device)
         dim = self.model.config.command_dim
         self.axes = COMMAND_AXES[dim]
         self.mean, self.std = (torch.as_tensor(v, device=self.device) for v in control_stats(dim))
@@ -49,10 +50,7 @@ class _LeWMInputs:
         history = applied_history(packets[-1])
         executed = apply_limits(planned_commands(prefix, pulse, candidates),
                                 np.broadcast_to(history[-1], (len(candidates), 3)))
-        frames = torch.from_numpy(np.stack([resize_frame(p['image']['rgb']) for p in packets])).to(self.device)
-        with torch.autocast(self.device.type, dtype=torch.bfloat16, enabled=self.device.type == 'cuda'):
-            z = self.model.encode(normalise_frames(frames)[None]).float()
-        return z, history, executed
+        return self.encoder(packets).float(), history, executed
 
     def normalised(self, commands):
         """Commands (..., 3) to the normalised components the model takes: (forward, yaw) (..., 2), or all three."""
