@@ -1055,3 +1055,24 @@ maze 13 episode 1, turning with a walker that had stood still for 2 s at about 0
 "obstacle moving into the other"; the trace shows the walker standing, so the label is wrong. The hand tracker's was maze 13 episode 0, reversing
 while turning. A speed would not have helped: there was no track to carry one. This is the same class as `cu_obst4_c1`'s collision
 and C6's contact, and a walker's position behind the robot needs either memory or a limit on blind reversing, both outside this handover.
+
+## P7: one model in the working setup (2 November)
+
+**Reproduction: passed.** Six `wo_*` missions, from 104 s to a 480-s timeout, rerun with one model loaded once, one encoding and no hand tracker
+(`configs/working.yaml`, cohorts `smc_repro_*`, commit ed143a7): `planning.json`, `requests.json`, `walker_shadow.json`, `mission.json`, `poses.json`,
+`acquisitions.json`, the physics trace and the obstacle trace all equal their records exactly. So `wo_*` stands as the measure of this setup and the 80 missions
+were not rerun. A plan frame takes 248 ms against 273 ms (medians of the same six missions, six running at once).
+
+**Crash fixes: both missions now finish.** Rerun alone, because a fix changes nothing but the path that crashed (`smc_fix_obst1`):
+
+| Mission, one walker | `wo_*` | With the fix |
+|---|---|---|
+| Maze 18 episode 1, a view recovery across a phase change | Crashed at 130 s | Round trip |
+| Maze 26 episode 0, no floor plane at frame 0 | Crashed at frame 0 | Round trip |
+
+**The fixed record: 70 of 80, no contacts** (68 before; 2 gained, none lost). The 10 failures are 9 timeouts and 1 pose loss. Every later handover is measured
+against this record, with a running total (PLAN P7).
+
+**A correction.** The earlier note on maze 26 calls its first-frame floor marginal. It is not: 5,770 of 10,920 candidates were good floor, and
+`dominant_height_cluster` dropped them all because pruning was still removing points just over 3 mm at its eighth round. Any small numerical change could
+tip this, which is why it came and went with the number of walkers.
