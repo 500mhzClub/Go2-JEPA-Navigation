@@ -1076,3 +1076,27 @@ against this record, with a running total (PLAN P7).
 **A correction.** The earlier note on maze 26 calls its first-frame floor marginal. It is not: 5,770 of 10,920 candidates were good floor, and
 `dominant_height_cluster` dropped them all because pruning was still removing points just over 3 mm at its eighth round. Any small numerical change could
 tip this, which is why it came and went with the number of walkers.
+
+**Held-out: 126 of 140 round trips and one contact stop, so this piece misses its bar.** The bar, set before scoring, was at most 5 fewer
+round trips than `cufh_*`'s 125, and no collisions (PLAN P7). The round trips pass; the collisions do not. The bar stands as written.
+
+| Missions | lv2 | `cufh_*` (hand tracker, C1) | `smh_*` (one model, C5) |
+|---|---|---|---|
+| R4, static, 20 | 20 | 20 | 20 |
+| R6 reference, static, 20 | 20 | 20 | 20 |
+| Held-out, static, 20 | 19 | 18 | 20 |
+| Held-out, one walker, 40 | 32 | 35 | 36 |
+| Held-out, two walkers, 40 | 21 | 32 | 30 |
+| All, 140 | 112 | 125 | 126 |
+
+Against `cufh_*`: 7 gained, 6 lost, p 1.0, so no difference is shown. Against lv2: 21 gained, 7 lost, p 0.013. The 14 failures are 10 timeouts, 3 pose
+losses and the contact; `cufh_*`'s 15 are 12 timeouts, 2 pose losses and 1 crash. The two arms differ in the forecast as well as the tracker: there is no
+held-out run of the hand tracker on C5.
+
+**The contact is the blind rear again.** Maze 33 episode 1, two walkers, at 338.6 s: the rear right calf hit a walker with 83 N. The walker had stood still
+for 2 s at about 0.64 m, behind and to the right, had last been in the forward camera's view 43.5 s earlier, and had no track. The robot had been turning on
+the spot, then reversed at 0.10 m/s while turning into it. This is the class of all three contact stops in P6's four-walker runs. The same mission
+on `cufh_*` is a round trip, but it says nothing about the tracker here: the two paths are 0.5 m apart by 27.5 s, and up to 4.4 m apart after that.
+
+At one and two walkers the count is now 1 mission in 240 with the model's positions (`wh_*`, `wo_*`, `smh_*`) and 1 in 240 with the hand tracker (`ws_*`, `cuf_*`, `cufh_*`), too few
+to separate them. Neither tracker holds a walker that has been out of view this long, so memory (piece 4) remains the fix to test, not a change here.
