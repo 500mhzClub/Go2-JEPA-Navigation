@@ -3,6 +3,7 @@ import math
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 import torch
 
 from go2nav.controllers import walkers
@@ -157,3 +158,11 @@ def test_the_hand_tracker_stops_when_the_model_drives():
     assert controller('held').tracker is None
     assert controller('live').tracker is None
     assert controller('shadow').tracker is not None
+
+
+def test_true_positions_replace_the_hand_tracker_and_need_the_ground_truth():
+    options = dict(goal_xy=(1., 0.), home_xy=(0., 0.), obstacle_prediction=True, mover_trails=True, walker_mode='truth')
+    controller = NavigationController(None, truth=object(), **options)
+    assert controller.tracker is None and controller.model_tracker.held
+    with pytest.raises(ValueError):
+        NavigationController(None, **options)

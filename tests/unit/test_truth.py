@@ -102,3 +102,9 @@ def test_the_static_oracle_keeps_obstacles_out_of_the_route_grid():
     # the obstacle stands 1.3 - 0.5 = 0.8 m ahead of the robot
     assert (int(np.floor(.8/FINE_CELL_M)), 0) in out.fine_occupied
     assert (int(np.floor(.8/CELL_M)), 0) not in out.occupied and (int(np.floor(.8/CELL_M)), 0) in out.floor
+
+
+def test_true_walkers_read_as_the_mover_heads_detections_in_the_body_frame():
+    s = session(start=pose(1., 2., np.pi/2), walkers=[Walker({(0, 0): [(0, 1)], (0, 1): [(0, 0)]}, (0, 0), .2, np.random.default_rng(0))])
+    s.obstacles.walkers[0].xy = np.array([1., 3.5])     # 1.5 m straight ahead of a robot facing +y
+    np.testing.assert_allclose(truth.GroundTruth(s).walkers_in_body(), [[1., 1.5, 0.]], atol=1e-9)

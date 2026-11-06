@@ -1,0 +1,179 @@
+name: 'What the working planner owes to each part: no tracks, module oracles, walkers
+  that do not yield'
+base: configs/working.yaml
+description: docs/dynamic/PLAN.md, P8. wm_none_* pair with wo_* (the fixed record);
+  wm_{pose,map,true}_obst2_c1 with cuf_obst2_c1 and _obst4_c1 with wm_ref_obst4_c1;
+  wm_rude_hand_* with wm_rude_model_*.
+cohorts:
+- name: wm_none_obst1_c5
+  set: validation
+  obstacles: 1
+  walker_mode: 'off'
+  obstacle_prediction: 'off'
+  mover_trails: 'off'
+  episodes: &id001
+  - - 10
+    - 0
+  - - 10
+    - 1
+  - - 11
+    - 0
+  - - 11
+    - 1
+  - - 12
+    - 0
+  - - 12
+    - 1
+  - - 13
+    - 0
+  - - 13
+    - 1
+  - - 14
+    - 0
+  - - 14
+    - 1
+  - - 15
+    - 0
+  - - 15
+    - 1
+  - - 16
+    - 0
+  - - 16
+    - 1
+  - - 17
+    - 0
+  - - 17
+    - 1
+  - - 18
+    - 0
+  - - 18
+    - 1
+  - - 19
+    - 0
+  - - 19
+    - 1
+  - - 20
+    - 0
+  - - 20
+    - 1
+  - - 21
+    - 0
+  - - 21
+    - 1
+  - - 22
+    - 0
+  - - 22
+    - 1
+  - - 23
+    - 0
+  - - 23
+    - 1
+  - - 24
+    - 0
+  - - 24
+    - 1
+  - - 25
+    - 0
+  - - 25
+    - 1
+  - - 26
+    - 0
+  - - 26
+    - 1
+  - - 27
+    - 0
+  - - 27
+    - 1
+  - - 28
+    - 0
+  - - 28
+    - 1
+  - - 29
+    - 0
+  - - 29
+    - 1
+- name: wm_none_obst2_c5
+  set: validation
+  obstacles: 2
+  walker_mode: 'off'
+  obstacle_prediction: 'off'
+  mover_trails: 'off'
+  episodes: *id001
+- name: wm_ref_obst4_c1
+  set: validation
+  obstacles: 4
+  arms: &id002
+  - C1
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  walker_mode: 'off'
+  episodes: *id001
+- name: wm_pose_obst2_c1
+  set: validation
+  obstacles: 2
+  arms: *id002
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  walker_mode: 'off'
+  pose_oracle: 'on'
+  episodes: *id001
+- name: wm_pose_obst4_c1
+  set: validation
+  obstacles: 4
+  arms: *id002
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  walker_mode: 'off'
+  pose_oracle: 'on'
+  episodes: *id001
+- name: wm_map_obst2_c1
+  set: validation
+  obstacles: 2
+  arms: *id002
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  walker_mode: 'off'
+  map_oracle: full
+  episodes: *id001
+- name: wm_map_obst4_c1
+  set: validation
+  obstacles: 4
+  arms: *id002
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  walker_mode: 'off'
+  map_oracle: full
+  episodes: *id001
+- name: wm_true_obst2_c1
+  set: validation
+  obstacles: 2
+  arms: *id002
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  walker_mode: truth
+  episodes: *id001
+- name: wm_true_obst4_c1
+  set: validation
+  obstacles: 4
+  arms: *id002
+  models: outputs/locomotion/continuous_policy_c1_lattice.yaml
+  walker_mode: truth
+  episodes: *id001
+- name: wm_rude_hand_obst1_c5
+  set: validation
+  obstacles: 1
+  walker_mode: shadow
+  obstacle_polite: 'off'
+  episodes: *id001
+- name: wm_rude_hand_obst2_c5
+  set: validation
+  obstacles: 2
+  walker_mode: shadow
+  obstacle_polite: 'off'
+  episodes: *id001
+- name: wm_rude_model_obst1_c5
+  set: validation
+  obstacles: 1
+  walker_mode: held
+  obstacle_polite: 'off'
+  episodes: *id001
+- name: wm_rude_model_obst2_c5
+  set: validation
+  obstacles: 2
+  walker_mode: held
+  obstacle_polite: 'off'
+  episodes: *id001

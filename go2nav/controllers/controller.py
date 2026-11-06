@@ -20,7 +20,7 @@ it passes the dispatch check, the mission and the committed-prefix check; otherw
 **Module oracles** (the failure analysis; `controllers.truth`, given the mission's `GroundTruth` as `truth`):
 `pose_oracle` replaces step 1 with the true pose; `map_oracle` ('obstacles', 'full' or 'static') masks the depth
 images the map is built from and replaces the map's cells; `prediction_oracle` gives the planner every obstacle's true
-future positions in place of the tracker's.
+future positions in place of the tracker's; `walker_mode='truth'` gives it every walker's true position, no speeds.
 
 With no forecaster the controller is the model-free C2: the planner's reactive selection replaces forecasting and
 scoring (`Planner.select_reactive`).
@@ -48,6 +48,7 @@ from go2nav.planning.planner import Planner
 
 MAP_PERIOD_FRAMES = 4
 FIRST_PLAN_FRAME = 10
+FRAME_NS = 100_000_000
 CONTEXT_WINDOW_NS = 1_500_000_000
 ESCAPE_DISK_M = dict(turn=.42, reactive=.40)  # by the armed escape (`Planner.escape_armed`)
 BACKUP_DISK_M, BACKUP_SLACK_M = .40, .005
@@ -107,13 +108,16 @@ class NavigationController:
                                candidates=candidates, give_way=give_way, close_up=close_up)
         self.walker_finder, self.walker_mode = walker_finder, walker_mode
         self.model_tracker, self.walker_shadow = ModelTracker(held=walker_mode == 'held') if walker_finder is not None else None, []
-        driving = walker_finder is not None and walker_mode in ('live', 'held')   # the model's tracks replace the hand tracker's
+        truth_tracks = walker_mode == 'truth'
+        if truth_tracks:
+            self.model_tracker = ModelTracker(held=True)
+        driving = truth_tracks or (walker_finder is not None and walker_mode in ('live', 'held'))  # these replace the hand tracker's
         self.tracker = ObstacleTracker() if obstacle_prediction and not prediction_oracle and not driving else None
         if mover_trails and self.tracker is None and not driving:
             raise ValueError('mover trails need the obstacle tracker (obstacle_prediction)')
         if give_way and self.tracker is None and not driving:
             raise ValueError('the give-way rule needs the obstacle tracker (obstacle_prediction)')
-        if (pose_oracle or map_oracle or prediction_oracle) and truth is None:
+        if (pose_oracle or map_oracle or prediction_oracle or truth_tracks) and truth is None:
             raise ValueError('module oracles need the ground truth')
         self.truth, self.pose_oracle, self.prediction_oracle = truth, pose_oracle, prediction_oracle
         self.map_oracle = truth_oracles.MapOracle(truth, map_oracle) if map_oracle else None
@@ -183,6 +187,8 @@ class NavigationController:
                                                                   registered.rotation)
             if self.walker_finder is not None:
                 self._model_walkers(frame)
+            elif self.walker_mode == 'truth':
+                self._true_walkers(frame, registered)
             if self.latest_map.cleared and self.planning and self.planning[-1].get('reason') == 'VIEW_BUDGET_EXHAUSTED':
                 self.planner.scan_target, self.planner.scan_index = None, 0  # freed cells: look around again
             if frame.frame >= MAP_PERIOD_FRAMES:
@@ -205,6 +211,16 @@ class NavigationController:
             self.planner.tracks = tracks
             if self.routing_map.mover_trails:
                 self.routing_map.mark_mover(set().union(*(t.trail for t in tracks if t.confirmed)))
+
+    def _true_walkers(self, frame, registered):
+        """The tracks of every walker where it truly is, whether or not it can be seen, as the model's would be with
+        perfect detections: taken relative to the true pose, placed through the estimated one (`controllers.truth`)."""
+        rows = self.truth.walkers_in_body()
+        pose = (registered.position, registered.rotation)
+        times = [frame.measured_ns-k*FRAME_NS for k in (3, 2, 1, 0)]  # the model's update: four frames, all detected
+        self.planner.tracks = self.model_tracker.update([rows]*4, times, [pose]*4, self.latest_map.map_from_initial)
+        if self.routing_map.mover_trails:
+            self.routing_map.mark_mover(set().union(*(t.trail for t in self.planner.tracks if t.confirmed)))
 
     def _visual_support(self, visual, registered, now_ns):
         """Advance the view recovery with this frame; when one starts, veto every plan made before it."""
