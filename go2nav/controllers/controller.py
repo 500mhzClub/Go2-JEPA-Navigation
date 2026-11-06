@@ -19,7 +19,8 @@ it passes the dispatch check, the mission and the committed-prefix check; otherw
 
 **Module oracles** (the failure analysis; `controllers.truth`, given the mission's `GroundTruth` as `truth`):
 `pose_oracle` replaces step 1 with the true pose, visual odometry running beside it in shadow to log its outages
-(`controllers.pose_shadow`); `map_oracle` ('obstacles', 'full' or 'static') masks the depth
+(`controllers.pose_shadow`). `pose_carry` ('model' or 'c1') carries the frames visual odometry cannot measure
+(`perception.carried`) instead of ending the mission; carried frames skip the visual support. `map_oracle` ('obstacles', 'full' or 'static') masks the depth
 images the map is built from and replaces the map's cells; `prediction_oracle` gives the planner every obstacle's true
 future positions in place of the tracker's; `walker_mode='truth'` gives it every walker's true position, no speeds.
 
@@ -36,6 +37,7 @@ import numpy as np
 from go2nav.controllers import truth as truth_oracles
 from go2nav.controllers.pose_shadow import VisualShadow
 from go2nav.controllers.walkers import ModelTracker
+from go2nav.perception.carried import MAX_CARRIED_PATH_M, CarriedOdometry, Carrier
 from go2nav.perception.mapping import RoutingMap
 from go2nav.perception.obstacles import DepthObstacleObserver
 from go2nav.perception.registration import FloorRegistration
@@ -97,9 +99,12 @@ class NavigationController:
                  deadlock_escape=False, terminal_burst=False, obstacle_prediction=False, footprint_clearing=False,
                  candidates=ACTIONS, truth=None, pose_oracle=False, map_oracle=None, prediction_oracle=False,
                  mover_trails=False, give_way=False, close_up=False, walker_finder=None, walker_mode='shadow',
-                 walker_memory=None):
+                 walker_memory=None, pose_carry=None):
         self.forecaster = forecaster
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
+        if pose_carry is not None:  # 'model' or 'c1' (`perception.carried`)
+            self.odometry = CarriedOdometry(Carrier(pose_carry, forecaster), max_path_m=MAX_CARRIED_PATH_M)
+        self.pose_carry = pose_carry
         self.routing_map = RoutingMap(clear_seen_free=bool(map_decay), clear_footprint=footprint_clearing,
                                       mover_trails=mover_trails)
         self.obstacles = DepthObstacleObserver()
@@ -148,8 +153,9 @@ class NavigationController:
             visual, registered = None, self.truth.registered(frame.frame, frame.measured_ns)
             self.pose_shadow.observe(frame)
         else:
-            visual = self.odometry.observe(frame.rgb, frame.depth, frame.auxiliary_rgb, frame.auxiliary_depth,
-                                           frame.gyro_rates, frame.specific_force, frame.measured_ns)
+            visual = self.odometry.observe(frame) if self.pose_carry else \
+                self.odometry.observe(frame.rgb, frame.depth, frame.auxiliary_rgb, frame.auxiliary_depth,
+                                      frame.gyro_rates, frame.specific_force, frame.measured_ns)
             registered = self.registration.observe(frame.depth, frame.auxiliary_depth, visual, frame.specific_force)
         if registered is None:
             state = self.mission.unavailable(frame=frame.frame)
@@ -158,7 +164,7 @@ class NavigationController:
         else:
             self.registered_poses[frame.frame] = registered
             self.registered_poses = {f: p for f, p in self.registered_poses.items() if f > frame.frame-POSE_WINDOW_FRAMES}
-            if visual is not None:
+            if visual is not None and visual.camera != 'carried':
                 self._visual_support(visual, registered, frame.measured_ns)
             state = self.mission.advance(registered.position, frame=frame.frame, requested=requested)
             if self.walker_memory is not None:
@@ -241,6 +247,11 @@ class NavigationController:
         self.planner.tracks = self.model_tracker.update([rows]*4, times, [pose]*4, self.latest_map.map_from_initial)
         if self.routing_map.mover_trails:
             self.routing_map.mark_mover(set().union(*(t.trail for t in self.planner.tracks if t.confirmed)))
+
+    def carried_outages(self):
+        """The carried outages of visual odometry (`pose_carry`), the one still open last."""
+        open_ = self.odometry.open_outage()
+        return self.odometry.outages+([open_] if open_ else [])
 
     def _visual_support(self, visual, registered, now_ns):
         """Advance the view recovery with this frame; when one starts, veto every plan made before it."""

@@ -40,4 +40,8 @@ class CommandHistoryForecaster:
 
     def forecast(self, context, prefix, *, pulse, candidates=ACTIONS):
         commands = command_sequences(prefix, pulse=pulse, candidates=candidates)
+        return self.forecast_tapes(context, commands)
+
+    def forecast_tapes(self, context, commands):
+        """The forecast (N, 8, 5) of explicit command tapes (N, 8, 3) (the pose carrier, `perception.carried`)."""
         return output(self.model.predict(commands, command_history(context.history)))

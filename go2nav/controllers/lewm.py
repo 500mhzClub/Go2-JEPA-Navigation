@@ -40,17 +40,26 @@ class _LeWMInputs:
         self.axes = COMMAND_AXES[dim]
         self.mean, self.std = (torch.as_tensor(v, device=self.device) for v in control_stats(dim))
 
-    def inputs(self, context, prefix, pulse, candidates=ACTIONS):
-        """The history frames' state (1, 4, D), or (1, 4, 1+G, D) for a grid model, the applied history (15, 3), and
-        the candidates' executed tapes (N, 8, 3)."""
+    def encoded(self, context):
+        """The history frames' state (1, 4, D), or (1, 4, 1+G, D) for a grid model, and the applied history (15, 3)."""
         packets = context.history
         times = [p['image']['measured_ns'] for p in packets]
         if len(packets) != self.model.config.history or np.any(np.diff(times) != FRAME_SPACING_NS):
             raise ValueError('four frames 100 ms apart (t-300 .. t ms) required')
-        history = applied_history(packets[-1])
+        return self.encoder(packets).float(), applied_history(packets[-1])
+
+    def inputs(self, context, prefix, pulse, candidates=ACTIONS):
+        """`encoded`, and the candidates' executed tapes (N, 8, 3)."""
+        z, history = self.encoded(context)
         executed = apply_limits(planned_commands(prefix, pulse, candidates),
                                 np.broadcast_to(history[-1], (len(candidates), 3)))
-        return self.encoder(packets).float(), history, executed
+        return z, history, executed
+
+    def forecast_tapes(self, context, executed):
+        """The forecast (N, 8, 5) of explicit executed tapes (N, 8, 3), read as `forecast` reads its candidates'
+        tapes after the limits (the pose carrier, `perception.carried`)."""
+        z, history = self.encoded(context)
+        return self.rolled(z, history, np.asarray(executed, np.float32))
 
     def normalised(self, commands):
         """Commands (..., 3) to the normalised components the model takes: (forward, yaw) (..., 2), or all three."""
@@ -67,7 +76,10 @@ class LeWMForecaster(_LeWMInputs):
 
     @torch.inference_mode()
     def forecast(self, context, prefix, *, pulse, candidates=ACTIONS):
-        z, history, executed = self.inputs(context, prefix, pulse, candidates)
+        return self.rolled(*self.inputs(context, prefix, pulse, candidates))
+
+    @torch.inference_mode()
+    def rolled(self, z, history, executed):
         n = len(executed)
         past = self.normalised(history[-3:])[None].expand(n, -1, -1)
         commands = torch.cat((past, self.normalised(executed)), dim=1)            # (N, 11, command_dim)
@@ -88,7 +100,10 @@ class LeWMDirectForecaster(_LeWMInputs):
 
     @torch.inference_mode()
     def forecast(self, context, prefix, *, pulse, candidates=ACTIONS):
-        z, history, executed = self.inputs(context, prefix, pulse, candidates)
+        return self.rolled(*self.inputs(context, prefix, pulse, candidates))
+
+    @torch.inference_mode()
+    def rolled(self, z, history, executed):
         n, z = len(executed), self.model.cls(z)
         past = self.normalised(history)[None].expand(n*8, -1, -1)
         tapes = self.normalised(executed)[:, None].expand(-1, 8, -1, -1).reshape(n*8, 8, len(self.axes))
