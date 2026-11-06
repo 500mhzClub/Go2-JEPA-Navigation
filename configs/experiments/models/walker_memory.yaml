@@ -1,0 +1,8 @@
+# P9's memory (docs/dynamic/PLAN.md): the world model trained with the memory (stage B) forecasts the robot through its own
+# heads, finds the walkers, and feeds the memory, which the planner's clearance checks read out of view.
+go2_locomotion_policy: outputs/locomotion/continuous_seed11/model_1499.pt
+t6_c1_command_model: outputs/locomotion/c1_lattice_model/command_only.npz
+lewm_world_model: outputs/memory/joint/lewm.pt
+lewm_c5_decoder_and_c6: outputs/memory/joint_heads/heads.pt
+walker_world_model: outputs/memory/joint/lewm.pt
+walker_memory: outputs/memory/joint/memory.pt

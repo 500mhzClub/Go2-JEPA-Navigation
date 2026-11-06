@@ -1,0 +1,100 @@
+name: The jointly trained world model without its memory
+base: configs/working.yaml
+description: 'docs/dynamic/PLAN.md, P9: mem_rude_* with the memory switched off, on
+  the same jointly trained world model and heads, to separate the memory from stage
+  B''s encoder (the walls the robot''s hind legs hit in mem_rude_*).'
+cohorts:
+- name: memoff_rude_obst1_c5
+  set: validation
+  obstacles: 1
+  obstacle_polite: 'off'
+  episodes: &id001
+  - - 10
+    - 0
+  - - 10
+    - 1
+  - - 11
+    - 0
+  - - 11
+    - 1
+  - - 12
+    - 0
+  - - 12
+    - 1
+  - - 13
+    - 0
+  - - 13
+    - 1
+  - - 14
+    - 0
+  - - 14
+    - 1
+  - - 15
+    - 0
+  - - 15
+    - 1
+  - - 16
+    - 0
+  - - 16
+    - 1
+  - - 17
+    - 0
+  - - 17
+    - 1
+  - - 18
+    - 0
+  - - 18
+    - 1
+  - - 19
+    - 0
+  - - 19
+    - 1
+  - - 20
+    - 0
+  - - 20
+    - 1
+  - - 21
+    - 0
+  - - 21
+    - 1
+  - - 22
+    - 0
+  - - 22
+    - 1
+  - - 23
+    - 0
+  - - 23
+    - 1
+  - - 24
+    - 0
+  - - 24
+    - 1
+  - - 25
+    - 0
+  - - 25
+    - 1
+  - - 26
+    - 0
+  - - 26
+    - 1
+  - - 27
+    - 0
+  - - 27
+    - 1
+  - - 28
+    - 0
+  - - 28
+    - 1
+  - - 29
+    - 0
+  - - 29
+    - 1
+  models: configs/experiments/models/walker_memory.yaml
+  walker_memory: 'off'
+- name: memoff_rude_obst2_c5
+  set: validation
+  obstacles: 2
+  obstacle_polite: 'off'
+  episodes: *id001
+  models: configs/experiments/models/walker_memory.yaml
+  walker_memory: 'off'

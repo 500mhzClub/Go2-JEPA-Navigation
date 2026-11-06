@@ -75,7 +75,7 @@ def mission_command(cohort, arm, set_name, maze, episode, destination):
                       ('terminal_burst', '--terminal-burst'), ('obstacle_prediction', '--obstacle-prediction'),
                       ('footprint_clearing', '--footprint-clearing'), ('mover_trails', '--mover-trails'),
                       ('give_way', '--give-way'), ('close_up', '--close-up'), ('walker_mode', '--walker-mode'),
-                      ('candidates', '--candidates'),
+                      ('walker_memory', '--walker-memory'), ('candidates', '--candidates'),
                       ('safety', '--safety'), ('pose_oracle', '--pose-oracle'), ('map_oracle', '--map-oracle'),
                       ('prediction_oracle', '--prediction-oracle')):
         if cohort.get(key) is not None:

@@ -94,7 +94,8 @@ class NavigationController:
                  margin_m=0., unknown=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False,
                  deadlock_escape=False, terminal_burst=False, obstacle_prediction=False, footprint_clearing=False,
                  candidates=ACTIONS, truth=None, pose_oracle=False, map_oracle=None, prediction_oracle=False,
-                 mover_trails=False, give_way=False, close_up=False, walker_finder=None, walker_mode='shadow'):
+                 mover_trails=False, give_way=False, close_up=False, walker_finder=None, walker_mode='shadow',
+                 walker_memory=None):
         self.forecaster = forecaster
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
         self.routing_map = RoutingMap(clear_seen_free=bool(map_decay), clear_footprint=footprint_clearing,
@@ -107,6 +108,7 @@ class NavigationController:
                                obstacle_prediction='oracle' if prediction_oracle else obstacle_prediction,
                                candidates=candidates, give_way=give_way, close_up=close_up)
         self.walker_finder, self.walker_mode = walker_finder, walker_mode
+        self.walker_memory, self.memory_log = walker_memory, []   # `controllers.memory.MemoryRunner`
         self.model_tracker, self.walker_shadow = ModelTracker(held=walker_mode == 'held') if walker_finder is not None else None, []
         truth_tracks = walker_mode == 'truth'
         if truth_tracks:
@@ -155,6 +157,8 @@ class NavigationController:
             if visual is not None:
                 self._visual_support(visual, registered, frame.measured_ns)
             state = self.mission.advance(registered.position, frame=frame.frame, requested=requested)
+            if self.walker_memory is not None:
+                self.walker_memory.step(frame.frame, frame.policy, registered.position, registered.rotation)
             self.poses.append(dict(frame=frame.frame, visual=visual, registered=registered))
             self.floor_streak += 1
             if self.floor_streak >= FLOOR_STREAK_FRAMES:
@@ -185,6 +189,8 @@ class NavigationController:
             if self.prediction_oracle:
                 self.planner.tracks = truth_oracles.oracle_tracks(self.truth, self.latest_map, registered.position,
                                                                   registered.rotation)
+            if self.walker_memory is not None:
+                self._remembered_walkers(frame, registered)
             if self.walker_finder is not None:
                 self._model_walkers(frame)
             elif self.walker_mode == 'truth':
@@ -211,6 +217,16 @@ class NavigationController:
             self.planner.tracks = tracks
             if self.routing_map.mover_trails:
                 self.routing_map.mark_mover(set().union(*(t.trail for t in tracks if t.confirmed)))
+
+    def _remembered_walkers(self, frame, registered):
+        """The walkers the memory remembers out of view, for the planner (`Planner.remembered` or `remembered_walkers`)."""
+        remembered = self.walker_memory.remembered(registered.position, registered.rotation, self.latest_map.map_from_initial)
+        if self.walker_memory.use == 'veto':
+            self.planner.remembered_walkers = tuple(tuple(c[:2]) for c, _ in remembered)
+        else:
+            self.planner.remembered = self.walker_memory.cells(remembered)
+        self.memory_log.append(dict(frame=frame.frame, measured_ns=frame.measured_ns,
+                                    walkers=[dict(map_xy_m=np.round(c, 3).tolist(), peak=round(p, 3)) for c, p in remembered]))
 
     def _true_walkers(self, frame, registered):
         """The tracks of every walker where it truly is, whether or not it can be seen, as the model's would be with

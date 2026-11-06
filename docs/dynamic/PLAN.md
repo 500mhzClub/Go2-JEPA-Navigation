@@ -49,6 +49,19 @@ As before, the aim is functional baselines for each arm, not 1:1 rigour. We meas
 
 ## Phases and gates
 
+**Stopping an evaluation once its answer is clear (decided 6 November).** Mission rounds are checked every 20 missions,
+and a cohort, or the rest of a round, stops as soon as one of these holds:
+- **Bar decided.** A bar set beforehand can no longer change: a count bar ("at most k") is already exceeded, or a floor
+  ("at least k") cannot be reached even if every remaining mission succeeds. Only a fail can be called early; a pass
+  needs every mission. Once one bar of a step fails, the step's other cohorts are not run unless they answer a different
+  question, said before they are skipped.
+- **Question answered.** A diagnostic or comparison run states its deciding count before it starts (for example, a
+  failure seen in one arm and never in the other); it stops when the count is met on matched missions, or when a one-sided
+  exact test on the matched pairs gives p < 0.01.
+- **Broken.** A failure mode the bars never anticipated (a new kind of contact, a crash path) in at least 5 of the first
+  20 missions: stop, diagnose, and report before running more.
+A stopped run is reported as stopped, with how many missions ran and which rule stopped it.
+
 ### P1. Locomotion policy on command ranges (about a day; independent of P2)
 
 - **Training:** command sampling becomes a mixture, which keeps the old points well tracked while covering the range:
@@ -605,6 +618,66 @@ This piece adds no capability and changes nothing in the working setup, so it ca
 
 **Compute.** About 7.5 hours on the GPU (the three 80-mission C5 groups) and about 3 hours of C1 missions, one after the other behind P7's
 held-out run. C1 is not run beside C5: it is untested, and the machine runs unattended overnight.
+
+### P9. Memory: the walkers the robot no longer sees (approved 6 November)
+
+**Why.** Nearly every walker contact stop on record has been the robot's blind rear: reversing or turning in place into a walker out
+of the camera's view. The map does not hold such a walker (`mover_trails`: a track's cells revert to floor out of view), the
+hand tracker forgets it after 1.2 s, and the deployed model sees 0.3 s. Of the 8 contact stops out of view with the model's
+positions and walkers that do not yield (P8), 6 were with a walker last seen 7.6-11.7 s before, 2 never seen; P6's and P7's
+four were seen 3.8-60 s before. A memory of about ten seconds could reach most of them; one that has never seen the walker cannot.
+
+**What is handed over.** What is behind the robot: out of the camera's view, the planner's clearance checks read where the
+model remembers walkers, in place of the rule that out of view there is nothing. The geometry (where a remembered place
+moves when the robot moves, from the visual odometry's pose) is given; what is there, how long it stays and where a walker
+goes are learned (`models.memory`).
+
+**Steps.**
+1. **Labels and baselines** (`data.memory_labels`, `eval.memory_baselines`): every corpus v2 unit with walkers, a
+   body-frame grid (0.2-m cells, ±1.6 m) of where walkers are, in view or not; scored on the cells out of view, by
+   average precision, against what the robot could know without learning (forget after 1.2 s, hold where last seen,
+   walk on at the last velocity, a per-cell prior), from true sightings and the true pose, so upper bounds.
+2. **Probe H-JEPA v2** (`eval.memory_probe`): its upper levels' snapshots (level 2: 1.6 s apart over 3.2 s, level 3:
+   12.8 s), read into the same grid. Stop here if they already remember.
+3. **Train the memory.** A body-frame grid (±3.2 m) of learned features, moved by the pose change each step and updated
+   at 5 Hz by a convolutional GRU from the world model's state (`training.memory`). Stage A on the deployed model's fixed
+   states, to show it learns; stage B jointly with the encoder and the world model's own objectives
+   (no frozen level 1 in what is deployed).
+4. **Missions.** The planner's clearance checks (forecast paths, turns, the stopping projection and the dispatch depth
+   stop: the 1-cm cells) also see each remembered walker out of the camera's field of view, as a disc of the walker's
+   radius at the probability-weighted centre of each connected group of cells above `τ`. Routing does not see them. `τ`
+   is fixed before any mission: the lowest threshold whose out-of-view precision on 200 training units is at least 0.5.
+
+**Bars, set before anything is scored.**
+- **The memory (step 3):** average precision out of view above the best baseline's on the validation units, and in view no
+  worse than the deployed state read one frame at a time (the probe's `now`) on the same frames.
+- **Missions (step 4),** walkers that do not yield (80, `wm_rude_model_*`'s missions): contact stops with the walker in contact out
+  of the forward view at the stop at most 3 (8 in P8 by this count), round trips at least 11. Four walkers (40, `wf_held_c5`'s): contact stops at most 2, round trips at least 21.
+  The fixed record (80): within the running allowance of 3 below 70, no contacts. Walkers that do not yield are in every
+  acceptance test from here on (decided 6 November).
+
+### P9b. The planner reads the memory as a veto (approved 6 November, after P9's missions failed)
+
+**Why.** P9's memory passed its bar, but its walkers in the 1-cm cells turned a walker held beside the robot into a robot
+inside its own footprint, and the turn exits then measured against the walker instead of the walls: 20 contact stops with
+walls, none with the memory off (STATUS, "P9: memory, steps 3 and 4").
+
+**The change** (`--walker-memory veto`; P9's use stays as `on`): remembered walkers no longer enter the map's cells. A last
+selection stage (`selection.remembered_veto`) rules out any action whose forecast brings a point of the body nearer to a
+remembered walker than now, once within 0.45 m, and takes the best clear action left, else hold. The memory, its threshold
+and the jointly trained world model are P9's, unchanged.
+
+**Test and stopping** (PLAN "Phases and gates"). First the 80 missions with walkers that do not yield (`memv_rude_*`),
+against P9's bars there: out-of-view walker contacts at most 3, round trips at least 11. Stop and report if wall contact
+stops reach 5 (P9: 20, memory off: 0), or as soon as either bar is decided. Only if both pass, the four-walker (40) and
+fixed-record (80) cohorts against P9's bars.
+
+**Result and what is deferred (6 November).** The veto removed the wall contacts but failed the out-of-view walker bar after
+8 missions (STATUS, "P9b"). Piece 3 closes as a measured negative result: the memory exists, passes its offline bar, and is
+not yet good enough at the body to keep walkers off. **To revisit after the pose piece** (decided 6 November): the memory
+near the body (finer cells within about 0.8 m of the robot, more loss weight there, and the walker's motion rather than a
+still position, so the veto can be read against where the walker will be), then P9b's missions again with the same bars and
+stopping rule. Better poses from the next piece also sharpen the memory's warp.
 
 ## Compute and order
 

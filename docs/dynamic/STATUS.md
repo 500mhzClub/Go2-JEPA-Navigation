@@ -1146,3 +1146,127 @@ which is 21 of the 24 contact stops here and all four walker contact stops of P6
 P6's four-walker missions. The pose across frames visual odometry cannot measure (piece 3) is now the largest single failure when walkers do not
 yield, though the true pose barely helps when they do. And the timeouts, which no oracle removes, point at the decisions themselves: routing,
 give-way and when to go, the later pieces of the handover.
+
+## P9: memory, steps 1 and 2 (6 November)
+
+**Step 1, what the robot could know without learning** (`outputs/memory/baselines.json`; 347 validation units with walkers,
+cells out of the camera's view on the 0.2-m grid round the robot):
+
+| Average precision, out of view | All | Rear zone | Walkers that do not yield | Their rear zone |
+|---|---|---|---|---|
+| Forget after 1.2 s (the hand tracker) | 0.058 | 0.005 | 0.049 | 0.010 |
+| Hold where last seen | 0.079 | 0.046 | 0.074 | 0.053 |
+| Walk on at the last velocity | **0.130** | **0.053** | **0.120** | **0.061** |
+| Per-cell prior (no memory) | 0.013 | 0.008 | 0.040 | 0.013 |
+
+- **Most of what is out of view was seen seconds ago or never.** Of the occupied cells out of view, 38% hold a walker never in
+  view, 9% one in view now (its centre beside the field of view), 6% one seen in the last 1.2 s, 14% 1.2-5 s, 23% 5-20 s, 10% earlier.
+  In the rear zone (behind the body origin, within 0.8 m): 29% never seen, 19% 1.2-5 s, 36% 5-20 s, 17% earlier, almost none in the last
+  1.2 s, so the hand tracker's rule finds 0.03% of it. A memory of seconds reaches about half of the rear zone.
+- **The best baseline fades within seconds:** walking on at the last velocity finds 93% of cells seen up to 1.2 s before, 49% at
+  1.2-5 s, 9% at 5-20 s. These baselines use true sightings and the true pose, so they are upper bounds.
+- **The contacts sit where a memory could help.** Of the 8 contact stops with the walker in contact out of view in P8's runs with
+  the model's positions, 6 were with a walker last seen 7.6-11.7 s before (one 231 s), 2 never seen; P6's and P7's four, 3.8-60 s.
+
+**Step 2, H-JEPA v2 does not remember** (`outputs/memory/probe.json`; MLP heads trained on 4,257 training units, scored on the
+validation units' frames with 12.8 s of history). Its upper levels encode each frame on its own, so what a level holds of
+the past is its predictor's snapshots (level 2: 1.6 s apart over 3.2 s; level 3: 12.8 s):
+
+| Average precision | Out of view | Rear zone | Seen 1.2-5 s before | Seen 5-20 s before | In view |
+|---|---|---|---|---|---|
+| Level 1 now (t, t-3) | 0.119 | 0.027 | 0.013 | 0.011 | **0.854** |
+| Level 1 snapshots (t, -1.6, -3.2, -12.8 s) and poses | 0.141 | 0.046 | 0.045 | 0.018 | 0.839 |
+| Level 2 (t, -1.6, -3.2 s) and poses | 0.139 | 0.051 | 0.049 | 0.019 | 0.809 |
+| Level 3 (t, -12.8 s), level 2 now, poses | 0.105 | 0.044 | 0.014 | 0.017 | 0.796 |
+| Walk on at the last velocity | 0.142 | 0.054 | 0.315 | 0.010 | |
+
+No level beats walking on at the last velocity out of view, and all are far behind it for walkers seen 1-5 s before, so
+there was no early stop: step 3 trains a memory. The in-view bar for it is level 1 now, 0.854.
+
+## P9: memory, steps 3 and 4: the memory passes, the missions fail (6 November)
+
+**Step 3, the memory passes its bar** (`outputs/memory/fixed/evaluation.json`, stage A, the deployed model's states fixed;
+`outputs/memory/joint/evaluation_memory.json`, stage B, trained with the encoder; 347 validation units):
+
+| Average precision | Stage A | Stage B | Best baseline (walk on at the last velocity) | Bar |
+|---|---|---|---|---|
+| Out of view | 0.205 | **0.207** | 0.130 | above the baseline: passed |
+| Rear zone | 0.116 | | 0.053 | |
+| Walkers that do not yield, out of view | 0.392 | | 0.120 | |
+| In view (the probe's frames) | 0.917 | **0.919** | | at least 0.854: passed |
+
+- **By sighting age (stage A), it wins where the baseline has faded and loses where it has not:** 0.036 against 0.009 for
+  walkers seen 5-20 s before, 0.011 against 0.004 older; 0.27 against 0.90 up to 1.2 s, 0.12 against 0.32 at 1.2-5 s. The
+  baseline has each walker's true position and velocity at its last sighting.
+- **Stage B costs the world model little:** rollout error at 8 steps 0.0736 against 0.0687 before (in its own, changed
+  latent space); the retrained C5 [world-model rollout and decoder] heads are as accurate as before (median 8.42 mm at
+  800 ms on validation, against 8.73; transfer 13.9 against 14.4).
+- **The missions' threshold** `τ` = 0.248 (out-of-view precision 0.50 on 200 training units, recall 0.155).
+
+**Step 4, the missions fail** (`outputs/cohorts/mem_rude_obst{1,2}_c5`, walkers that do not yield, against P8's
+`wm_rude_model_*` on the same missions). Stopped at 77 of 80 matched missions, and the four-walker and fixed-record cohorts
+were not run: the contact bar had already failed, and the stopping rule written into PLAN.md the same evening ("Phases and
+gates") would have stopped the round sooner.
+
+| Walkers that do not yield (77 missions) | P8 | Memory | Bar |
+|---|---|---|---|
+| Contact stops | 9 | **32** | |
+| ...with a wall (hind legs) | 0 | **20** | |
+| ...with a walker | 9 | 12 | |
+| ...with the walker out of the forward view | 8 (of all 80) | **8** | at most 3: failed |
+| Round trips | 11 | 9 | at least 11 |
+
+**The memory's walker discs cause the wall contacts.** The control (`outputs/cohorts/memoff_rude_obst{1,2}_c5`,
+`configs/experiments/walker_memory_off.yaml`: the same jointly trained world model and heads, the memory off; stopped at 59
+matched missions once the answer was clear):
+
+| Same 59 missions | P8 | Memory on | Memory off |
+|---|---|---|---|
+| Round trips | 9 | 7 | 10 |
+| Contact stops with a wall | 0 | 13 | **0** |
+| Contact stops with a walker | 6 | 8 | 9 |
+| Visual pose lost | 27 | 20 | 29 |
+
+Stage B's encoder is not the cause of the wall contacts. Without the memory it has slightly more walker contacts than P8
+(9 against 6), within what these counts can tell apart.
+
+**How the discs lead to the walls.** A walker that does not yield spends long stretches pressed against the robot, and the
+memory holds it there (83% of the remembered walkers in these missions are within 0.5 m of a real one, most within 0.8 m of
+the robot). Its disc, out of view beside or behind the robot, keeps the robot's current clearance under the 0.45-m footprint
+the checks need, so every candidate is blocked and the planner falls back to the turn exits. Those require only that a turn
+not lose clearance against the current minimum, which is now the disc's: a turn that swings the hind legs toward an unseen
+wall passes. In 17 of the 20 wall contacts the current clearance was under 0.45 m for the last eight decisions (about 3 s),
+and a turn exit had been chosen in them.
+
+**Why the out-of-view walker contacts did not fall.** In the 3 s before the 8, the memory never had the walker in 2, had it
+about 1 m from where it was in 2 and 0.5-0.65 m in 1, held it within 0.3 m and then dropped it in the last 1.5 s in 2, and
+held it within 0.35 m throughout in 1: it loses or misplaces a walker that comes right up to the robot, the same weakness
+as the seconds just after a walker leaves view offline. The memory is accurate at the scale it was scored on (0.2-m cells, ±1.6 m), but a
+contact is decided at a few centimetres beside the body.
+
+**What this leaves.** The memory learns what the plan asked of it, and is the first part that remembers; the planner's use of
+it is wrong. Putting remembered walkers into the clearance field that the wall checks also read turns one walker beside the
+robot into a robot that cannot move safely. The next step is in how the planner reads the memory, not in the memory.
+
+## P9b: the memory as a veto: walls fixed, walker contacts not (6 November)
+
+`outputs/cohorts/memv_rude_obst1_c5` (`--walker-memory veto`, PLAN P9b). **Stopped by the stopping rule after 8 missions:**
+4 contact stops with the walker out of the forward view, against P9's bar of at most 3 in 80 (`outputs/memory/veto.log`).
+
+| Same 8 missions (one walker that does not yield) | P8 | Memory in the cells (P9) | Memory off | Veto |
+|---|---|---|---|---|
+| Round trips | 2 | 1 | 1 | 1 |
+| Contact stops with a wall | 0 | 3 | 0 | **0** |
+| Contact stops with a walker | 0 | 2 | 2 | **4** |
+
+- **The veto removes the wall contacts**, as the cause found in P9 predicted: the clearance checks measure walls again.
+- **It does not keep walkers off.** It changed the planner's choice in about a third of the decisions where it ran, almost
+  always to hold (637 of 667 changes in the finished missions). All four contacts are hind legs, with the walker remembered
+  0.3-0.55 m from the body in the last decisions or not at all: a walker that does not yield walks into a robot that holds
+  or reverses past a remembered position that is off by tens of centimetres. The veto treats each remembered walker as still.
+- **So the limit is the memory's accuracy at the body, not how the planner reads it.** Its cells are 0.2 m and its labels
+  are scored over ±1.6 m; a contact is decided within centimetres, by a walker moving toward the robot.
+
+**Piece 3 closes here** (decided 6 November): recorded as a negative result in missions, the memory kept for a revisit after
+the pose piece (PLAN P9b, "Result and what is deferred"). In every arm of these runs (P8, the memory in the cells, off, the
+veto), losing the visual pose ends about half the missions with walkers that do not yield, far more than contacts do.
