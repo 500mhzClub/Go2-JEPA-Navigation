@@ -606,6 +606,43 @@ This piece adds no capability and changes nothing in the working setup, so it ca
 **Compute.** About 7.5 hours on the GPU (the three 80-mission C5 groups) and about 3 hours of C1 missions, one after the other behind P7's
 held-out run. C1 is not run beside C5: it is untested, and the machine runs unattended overnight.
 
+### P9. Memory: the walkers the robot no longer sees (approved 6 November)
+
+**Why.** Nearly every walker contact stop on record has been the robot's blind rear: reversing or turning in place into a walker out
+of the camera's view. The map does not hold such a walker (`mover_trails`: a track's cells revert to floor out of view), the
+hand tracker forgets it after 1.2 s, and the deployed model sees 0.3 s. Of the 8 contact stops out of view with the model's
+positions and walkers that do not yield (P8), 6 were with a walker last seen 7.6-11.7 s before, 2 never seen; P6's and P7's
+four were seen 3.8-60 s before. A memory of about ten seconds could reach most of them; one that has never seen the walker cannot.
+
+**What is handed over.** What is behind the robot: out of the camera's view, the planner's clearance checks read where the
+model remembers walkers, in place of the rule that out of view there is nothing. The geometry (where a remembered place
+moves when the robot moves, from the visual odometry's pose) is given; what is there, how long it stays and where a walker
+goes are learned (`models.memory`).
+
+**Steps.**
+1. **Labels and baselines** (`data.memory_labels`, `eval.memory_baselines`): every corpus v2 unit with walkers, a
+   body-frame grid (0.2-m cells, ±1.6 m) of where walkers are, in view or not; scored on the cells out of view, by
+   average precision, against what the robot could know without learning (forget after 1.2 s, hold where last seen,
+   walk on at the last velocity, a per-cell prior), from true sightings and the true pose, so upper bounds.
+2. **Probe H-JEPA v2** (`eval.memory_probe`): its upper levels' snapshots (level 2: 1.6 s apart over 3.2 s, level 3:
+   12.8 s), read into the same grid. Stop here if they already remember.
+3. **Train the memory.** A body-frame grid (±3.2 m) of learned features, moved by the pose change each step and updated
+   at 5 Hz by a convolutional GRU from the world model's state (`training.memory`). Stage A on the deployed model's fixed
+   states, to show it learns; stage B jointly with the encoder and the world model's own objectives
+   (no frozen level 1 in what is deployed).
+4. **Missions.** The planner's clearance checks (forecast paths, turns, the stopping projection and the dispatch depth
+   stop: the 1-cm cells) also see each remembered walker out of the camera's field of view, as a disc of the walker's
+   radius at the probability-weighted centre of each connected group of cells above `τ`. Routing does not see them. `τ`
+   is fixed before any mission: the lowest threshold whose out-of-view precision on 200 training units is at least 0.5.
+
+**Bars, set before anything is scored.**
+- **The memory (step 3):** average precision out of view above the best baseline's on the validation units, and in view no
+  worse than the deployed state read one frame at a time (the probe's `now`) on the same frames.
+- **Missions (step 4),** walkers that do not yield (80, `wm_rude_model_*`'s missions): contact stops with the walker in contact out
+  of the forward view at the stop at most 3 (8 in P8 by this count), round trips at least 11. Four walkers (40, `wf_held_c5`'s): contact stops at most 2, round trips at least 21.
+  The fixed record (80): within the running allowance of 3 below 70, no contacts. Walkers that do not yield are in every
+  acceptance test from here on (decided 6 November).
+
 ## Compute and order
 
 | Phase | Compute |

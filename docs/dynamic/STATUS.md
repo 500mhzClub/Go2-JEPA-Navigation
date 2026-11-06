@@ -1146,3 +1146,38 @@ which is 21 of the 24 contact stops here and all four walker contact stops of P6
 P6's four-walker missions. The pose across frames visual odometry cannot measure (piece 3) is now the largest single failure when walkers do not
 yield, though the true pose barely helps when they do. And the timeouts, which no oracle removes, point at the decisions themselves: routing,
 give-way and when to go, the later pieces of the handover.
+
+## P9: memory, steps 1 and 2 (6 November)
+
+**Step 1, what the robot could know without learning** (`outputs/memory/baselines.json`; 347 validation units with walkers,
+cells out of the camera's view on the 0.2-m grid round the robot):
+
+| Average precision, out of view | All | Rear zone | Walkers that do not yield | Their rear zone |
+|---|---|---|---|---|
+| Forget after 1.2 s (the hand tracker) | 0.058 | 0.005 | 0.049 | 0.010 |
+| Hold where last seen | 0.079 | 0.046 | 0.074 | 0.053 |
+| Walk on at the last velocity | **0.130** | **0.053** | **0.120** | **0.061** |
+| Per-cell prior (no memory) | 0.013 | 0.008 | 0.040 | 0.013 |
+
+- **Most of what is out of view was seen long ago or never.** Of the occupied cells out of view, 38% hold a walker never in
+  view, 6% one seen in the last 1.2 s, 14% 1.2-5 s, 23% 5-20 s, 48% earlier. In the rear zone (behind the body origin, within 0.8 m)
+  almost none was seen in the last 1.2 s, so the hand tracker's rule finds 0.03% of it.
+- **The best baseline fades within seconds:** walking on at the last velocity finds 93% of cells seen up to 1.2 s before, 49% at
+  1.2-5 s, 9% at 5-20 s. These baselines use true sightings and the true pose, so they are upper bounds.
+- **The contacts sit where a memory could help.** Of the 8 contact stops with the walker in contact out of view in P8's runs with
+  the model's positions, 6 were with a walker last seen 7.6-11.7 s before (one 231 s), 2 never seen; P6's and P7's four, 3.8-60 s.
+
+**Step 2, H-JEPA v2 does not remember** (`outputs/memory/probe.json`; MLP heads trained on 4,257 training units, scored on the
+validation units' frames with 12.8 s of history). Its upper levels encode each frame on its own, so what a level holds of
+the past is its predictor's snapshots (level 2: 1.6 s apart over 3.2 s; level 3: 12.8 s):
+
+| Average precision | Out of view | Rear zone | Seen 1.2-5 s before | Seen 5-20 s before | In view |
+|---|---|---|---|---|---|
+| Level 1 now (t, t-3) | 0.119 | 0.027 | 0.013 | 0.011 | **0.854** |
+| Level 1 snapshots (t, -1.6, -3.2, -12.8 s) and poses | 0.141 | 0.046 | 0.045 | 0.018 | 0.839 |
+| Level 2 (t, -1.6, -3.2 s) and poses | 0.139 | 0.051 | 0.049 | 0.019 | 0.809 |
+| Level 3 (t, -12.8 s), level 2 now, poses | 0.105 | 0.044 | 0.014 | 0.017 | 0.796 |
+| Walk on at the last velocity | 0.142 | 0.054 | 0.315 | 0.010 | |
+
+No level beats walking on at the last velocity out of view, and all are far behind it for walkers seen 1-5 s before, so
+there was no early stop: step 3 trains a memory. The in-view bar for it is level 1 now, 0.854.
