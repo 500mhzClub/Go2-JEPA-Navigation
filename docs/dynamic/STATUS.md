@@ -1142,7 +1142,7 @@ model's positions only for the close-up stand-off and trail marking, and that us
   more. That is harsher than most people, but the corpus v2 has such units and "no collisions" holds only for walkers that stop.
 
 **What this means for the next pieces.** Memory goes next by the rule, and the results add a reason: it is aimed at the walker the robot cannot see,
-which is 21 of the 24 contact stops here and every contact stop on record. Walkers that do not yield should be in its acceptance test beside
+which is 21 of the 24 contact stops here and all four walker contact stops of P6 and P7. Walkers that do not yield should be in its acceptance test beside
 P6's four-walker missions. The pose across frames visual odometry cannot measure (piece 3) is now the largest single failure when walkers do not
 yield, though the true pose barely helps when they do. And the timeouts, which no oracle removes, point at the decisions themselves: routing,
 give-way and when to go, the later pieces of the handover.
