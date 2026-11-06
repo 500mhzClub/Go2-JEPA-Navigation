@@ -18,6 +18,11 @@ a latched turn toward a blocked waypoint direction, the terminal approach near t
 stopping projection at dispatch time, an arc toward a supported view during a view recovery, unseen-floor coverage,
 and memory of turns already tried here.
 
+**Remembered walkers** (`remembered_veto`, the last stage when the walker memory runs in its `veto` use, docs/dynamic/PLAN.md
+P9): a walker the memory holds out of the camera's view rules out any action whose forecast brings a point of the body
+(`BODY_POINTS`) nearer to it than now, once within `REMEMBERED_REACH_M`; the choice falls to the best clear action not
+ruled out, else hold. The walkers never enter the 1-cm cells, so the clearance checks and the exits measure walls as before.
+
 A selection is a dict passed through the stages; its main fields are `action`, `candidates` (score terms per action),
 `scan_utilities` (when a view heading is being searched), `memory_forecast_candidates` (clearance per action) and
 `clearance_turn` (the latched-turn state, when present).
@@ -38,6 +43,8 @@ TRANSLATION_RESERVE_M = TURN_RESERVE_M = .03
 EXIT_TOLERANCE_M = .001
 STOPPING_ALLOWANCE_S = .5
 COVERAGE_RADIUS_M = .48
+BODY_POINTS = np.array([[0., 0.], [.3, 0.], [-.3, 0.], [.25, .15], [.25, -.15], [-.25, .15], [-.25, -.15]])  # body frame
+REMEMBERED_REACH_M, REMEMBERED_SLACK_M = grid.FOOTPRINT_RADIUS_M, .005
 BACK_OFF_GAIN_M, BACK_OFF_REACH_M, BACK_OFF = .005, .10, 'BACKS_OFF_INSIDE_FOOTPRINT'
 
 
@@ -786,3 +793,34 @@ class RouteTurnMemory:
         elif self.active is None:
             self.attempt = None
         return result
+
+
+def remembered_distances(prediction, walkers_body):
+    """The nearest any body point comes to any of `walkers_body` (n, 2, current body frame): now, and along each
+    candidate's forecast (`prediction`, candidates x ticks x [x, y, sin yaw, cos yaw, ...])."""
+    walkers = np.asarray(walkers_body, float).reshape(-1, 2)
+    now = float(np.linalg.norm(BODY_POINTS[:, None]-walkers[None], axis=2).min())
+    p = np.asarray(prediction, float)
+    c, s = p[..., 3], p[..., 2]
+    points = p[..., None, :2]+np.stack((c[..., None]*BODY_POINTS[:, 0]-s[..., None]*BODY_POINTS[:, 1],
+                                        s[..., None]*BODY_POINTS[:, 0]+c[..., None]*BODY_POINTS[:, 1]), -1)
+    gaps = np.linalg.norm(points[..., None, :]-walkers, axis=-1)          # candidates, ticks, points, walkers
+    return now, gaps.min(axis=(1, 2, 3))
+
+
+def remembered_veto(selection, prediction, walkers_body):
+    """See the module docstring: the last stage, ruling out actions toward walkers remembered out of view."""
+    result = deepcopy(selection)
+    now, along = remembered_distances(prediction, walkers_body)
+    ruled_out = [a for a, d in zip(names(selection), along)
+                 if a != 'hold' and d < REMEMBERED_REACH_M and d < now-REMEMBERED_SLACK_M]
+    result['remembered_veto'] = dict(walkers_body_xy_m=np.round(np.asarray(walkers_body, float).reshape(-1, 2), 3).tolist(),
+                                     nearest_now_m=round(now, 3), ruled_out=ruled_out, before_action=selection['action'],
+                                     changed=False)
+    if selection['action'] not in ruled_out and selection['action'] in names(selection):
+        return result
+    allowed = tuple(a for a in names(selection) if a not in ruled_out)
+    index, _ = best_clear(selection, allowed=allowed)
+    choose(result, index)
+    result['remembered_veto'].update(changed=True, after_action=result['action'])
+    return result

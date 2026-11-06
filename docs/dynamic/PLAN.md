@@ -656,6 +656,22 @@ goes are learned (`models.memory`).
   The fixed record (80): within the running allowance of 3 below 70, no contacts. Walkers that do not yield are in every
   acceptance test from here on (decided 6 November).
 
+### P9b. The planner reads the memory as a veto (approved 6 November, after P9's missions failed)
+
+**Why.** P9's memory passed its bar, but its walkers in the 1-cm cells turned a walker held beside the robot into a robot
+inside its own footprint, and the turn exits then measured against the walker instead of the walls: 20 contact stops with
+walls, none with the memory off (STATUS, "P9: memory, steps 3 and 4").
+
+**The change** (`--walker-memory veto`; P9's use stays as `on`): remembered walkers no longer enter the map's cells. A last
+selection stage (`selection.remembered_veto`) rules out any action whose forecast brings a point of the body nearer to a
+remembered walker than now, once within 0.45 m, and takes the best clear action left, else hold. The memory, its threshold
+and the jointly trained world model are P9's, unchanged.
+
+**Test and stopping** (PLAN "Phases and gates"). First the 80 missions with walkers that do not yield (`memv_rude_*`),
+against P9's bars there: out-of-view walker contacts at most 3, round trips at least 11. Stop and report if wall contact
+stops reach 5 (P9: 20, memory off: 0), or as soon as either bar is decided. Only if both pass, the four-walker (40) and
+fixed-record (80) cohorts against P9's bars.
+
 ## Compute and order
 
 | Phase | Compute |

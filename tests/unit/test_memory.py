@@ -96,3 +96,49 @@ def test_the_planner_s_selection_reads_remembered_cells_without_changing_the_map
     planner.remembered = frozenset({(5, 5)})
     assert planner._remembering(snapshot).fine_occupied == {(1, 1), (5, 5)}
     assert snapshot.fine_occupied == {(1, 1)}                          # the map itself is untouched
+
+
+def _selection(actions):
+    from go2nav.planning.actions import command
+    rows = [dict(action=a, utility_m=u) for a, u in actions]
+    return dict(action=max(actions, key=lambda r: r[1])[0], candidates=rows, requested_command=None,
+                memory_forecast_candidates=[dict(action=a, nominal_predicted_path_clear=True, reserve_recovery_path_clear=False)
+                                            for a, _ in actions])
+
+
+def _forecast(moves):
+    """Per candidate (dx per tick, dyaw per tick): 8 ticks of [x, y, sin yaw, cos yaw]."""
+    out = []
+    for dx, dyaw in moves:
+        t = np.arange(1, 9)
+        yaw = dyaw*t
+        out.append(np.stack([dx*t, 0*t, np.sin(yaw), np.cos(yaw)], -1))
+    return np.stack(out)
+
+
+def test_a_walker_remembered_behind_rules_out_backing_into_it_but_not_walking_away():
+    from go2nav.planning import selection as sel
+    actions = [('hold', 0.), ('cmd-0.10+0.00+0.00', .3), ('cmd+0.15+0.00+0.00', .1)]
+    prediction = _forecast([(0., 0.), (-.01, 0.), (.015, 0.)])
+    result = sel.remembered_veto(_selection(actions), prediction, [[-.6, 0.]])   # 0.3 m behind the rear
+    assert result['remembered_veto']['ruled_out'] == ['cmd-0.10+0.00+0.00']
+    assert result['action'] == 'cmd+0.15+0.00+0.00'                             # the best action left
+    far = sel.remembered_veto(_selection(actions), prediction, [[-2., 0.]])     # out of reach: nothing ruled out
+    assert far['action'] == 'cmd-0.10+0.00+0.00' and not far['remembered_veto']['changed']
+
+
+def test_a_turn_that_swings_the_rear_toward_a_remembered_walker_is_ruled_out():
+    from go2nav.planning import selection as sel
+    actions = [('hold', 0.), ('cmd+0.00+0.00+0.30', .2), ('cmd+0.00+0.00-0.30', .1)]
+    prediction = _forecast([(0., 0.), (0., .03), (0., -.03)])
+    # a walker behind and to the right: turning left swings the rear to the right, toward it
+    result = sel.remembered_veto(_selection(actions), prediction, [[-.3, -.45]])
+    assert result['remembered_veto']['ruled_out'] == ['cmd+0.00+0.00+0.30']
+    assert result['action'] == 'cmd+0.00+0.00-0.30'
+
+
+def test_the_veto_reads_remembered_walkers_without_touching_the_map_cells():
+    from go2nav.planning.planner import Planner
+    planner = Planner(arrival_radius_m=.02)
+    planner.remembered_walkers = ((1., 1.),)
+    assert planner.remembered == frozenset()                            # the clearance checks see walls only

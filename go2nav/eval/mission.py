@@ -136,7 +136,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     `go2nav.controllers.walkers`), logged beside the hand tracker ('shadow'), driving the planner
     ('live') or driving it with positions only ('held'); 'truth': every walker's true position in place of the tracks,
     positions only (a module oracle). `walker_memory`: the planner's clearance checks also see the walkers the memory
-    (`models['walker_memory']`, `go2nav.controllers.memory`) remembers out of the camera's view."""
+    (`models['walker_memory']`, `go2nav.controllers.memory`) remembers out of the camera's view (True), or its last stage
+    rules out actions toward them ('veto')."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -172,7 +173,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  **(dict(give_way=True) if give_way else {}),
                                  **(dict(close_up=True) if close_up else {}),
                                  **(dict(walker_mode=walker_mode) if walker_mode != 'off' else {}),
-                                 **(dict(walker_memory=True) if walker_memory else {}),
+                                 **(dict(walker_memory=True) if walker_memory is True or walker_memory == 'on' else
+                                    dict(walker_memory=walker_memory) if walker_memory else {}),
                                  **(dict(candidates=candidates, lattice_axes=actions.LATTICE_AXES)
                                     if candidates == 'lattice' else {}),
                                  **(dict(safety=safety) if safety != 'primitive' else {}),
@@ -222,7 +224,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
             same = arm in ('C5', 'C6') and not degrade and models['walker_world_model'] == models.get('lewm_world_model')
             memory = MemoryRunner(load_memory(models['walker_memory']),
                                   forecaster.model if same else load_world_model(models['walker_world_model']),
-                                  threshold=state['threshold'])
+                                  threshold=state['threshold'], use='veto' if walker_memory == 'veto' else 'cells')
         controller = NavigationController(forecaster, goal_xy=cues['goal_initial_body_xy_m'],
                                           home_xy=cues['return_initial_body_xy_m'], arrival_radius_m=.02,
                                           navigation_frames=4800, recovery=recovery, margin_m=margin_m,
@@ -363,8 +365,9 @@ def main():
     p.add_argument('--walker-mode', choices=('off', 'shadow', 'live', 'held', 'truth'), default='off',
                    help="the world model's walkers: logged beside the hand tracker, or driving the planner; truth: the true positions")
     p.add_argument('--obstacle-polite', choices=('on', 'off'), default='on', help='off: walkers that do not yield')
-    p.add_argument('--walker-memory', choices=('on', 'off'), default='off',
-                   help="the planner's clearance checks also see the walkers the memory remembers out of view")
+    p.add_argument('--walker-memory', choices=('on', 'veto', 'off'), default='off',
+                   help="the walkers the memory remembers out of view: in the planner's clearance checks (on), or ruling out "
+                        "actions toward them (veto)")
     p.add_argument('--close-up', choices=('on', 'off'), default='off',
                    help='walk up to an obstacle that cuts the only route instead of scanning where the route was lost')
     p.add_argument('--pose-oracle', choices=('on', 'off'), default='off', help='the true pose (module oracle)')
@@ -393,7 +396,7 @@ def main():
                  pose_oracle=a.pose_oracle == 'on', map_oracle=None if a.map_oracle == 'off' else a.map_oracle,
                  prediction_oracle=a.prediction_oracle == 'on', mover_trails=a.mover_trails == 'on',
                  give_way=a.give_way == 'on', close_up=a.close_up == 'on', walker_mode=a.walker_mode,
-                 obstacle_polite=a.obstacle_polite == 'on', walker_memory=a.walker_memory == 'on')
+                 obstacle_polite=a.obstacle_polite == 'on', walker_memory={'on': True, 'veto': 'veto'}.get(a.walker_memory, False))
     print(json.dumps(result))
 
 

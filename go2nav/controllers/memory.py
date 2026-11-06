@@ -9,7 +9,8 @@ skipped; the next step's motion spans the gap.
 whose occupancy is above `threshold` is one walker, at the group's probability-weighted centre, if that centre is out
 of the primary camera's field of view (`eval.mover_probe`'s cone and range: what the depth map sees, it maps) and not
 within `BODY_M` of the body origin (no walker stands inside the robot). Each is a disc of the walker's radius in the
-1-cm cells (`walkers.disk`), which the planner's clearance checks add to the map's (`Planner.remembered`).
+1-cm cells (`walkers.disk`), which the planner's clearance checks add to the map's (`Planner.remembered`; use `cells`), or
+a centre the planner's last stage keeps the body from approaching (`Planner.remembered_walkers`; use `veto`).
 """
 import math
 
@@ -58,7 +59,10 @@ def groups(probability, threshold):
 
 
 class MemoryRunner:
-    def __init__(self, memory, world_model, *, threshold, device='cuda:0'):
+    def __init__(self, memory, world_model, *, threshold, use='cells', device='cuda:0'):
+        if use not in ('cells', 'veto'):
+            raise ValueError(f'unknown memory use {use!r}')
+        self.use = use
         self.device = torch.device(device)
         self.memory_model, self.world_model = memory.to(self.device).eval(), world_model.to(self.device).eval()
         self.threshold = threshold

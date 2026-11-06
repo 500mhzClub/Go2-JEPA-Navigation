@@ -219,9 +219,12 @@ class NavigationController:
                 self.routing_map.mark_mover(set().union(*(t.trail for t in tracks if t.confirmed)))
 
     def _remembered_walkers(self, frame, registered):
-        """The walkers the memory remembers out of view, for the planner's clearance checks (`Planner.remembered`)."""
+        """The walkers the memory remembers out of view, for the planner (`Planner.remembered` or `remembered_walkers`)."""
         remembered = self.walker_memory.remembered(registered.position, registered.rotation, self.latest_map.map_from_initial)
-        self.planner.remembered = self.walker_memory.cells(remembered)
+        if self.walker_memory.use == 'veto':
+            self.planner.remembered_walkers = tuple(tuple(c[:2]) for c, _ in remembered)
+        else:
+            self.planner.remembered = self.walker_memory.cells(remembered)
         self.memory_log.append(dict(frame=frame.frame, measured_ns=frame.measured_ns,
                                     walkers=[dict(map_xy_m=np.round(c, 3).tolist(), peak=round(p, 3)) for c, p in remembered]))
 

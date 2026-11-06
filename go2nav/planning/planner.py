@@ -63,10 +63,13 @@ stops while the robot is within 0.8 m ahead of it, and a non-polite one waits at
 either walk on (the give-way ceiling: a still mover near and ahead responds to a retreat in 85-97% of the probe's
 windows).
 
-`remembered` (docs/dynamic/PLAN.md, P9; set by the controller with the walker memory, `controllers.memory`): 1-cm cells of
-walkers the model remembers out of the camera's view. Every selection stage that reads the map's 1-cm cells (the
-forecast clearance check and turn re-checks, the stopping projection, the scripted backup, the give-way back-off) reads
-them too; routing and the route target do not.
+The walker memory (docs/dynamic/PLAN.md, P9; set by the controller, `controllers.memory`), in one of two uses.
+`remembered` (use `cells`, P9's first missions): 1-cm cells of walkers the model remembers out of the camera's view, which
+every selection stage that reads the map's 1-cm cells (the forecast clearance check and turn re-checks, the stopping
+projection, the scripted backup, the give-way back-off) reads too; routing and the route target do not. A walker held
+beside the robot keeps it inside the footprint, and the turn exits then measure against the walker, not the walls.
+`remembered_walkers` (use `veto`): map-frame centres, read only by the last stage (`selection.remembered_veto`), which
+rules out actions that bring the body nearer to one.
 """
 import dataclasses
 import math
@@ -113,7 +116,8 @@ class Planner:
         self.arrival_radius_m, self.recovery, self.harness = arrival_radius_m, recovery, harness
         self.deadlock_escape, self.terminal_burst_on = deadlock_escape, terminal_burst
         self.obstacle_prediction, self.tracks = obstacle_prediction, []  # set by the controller each map update
-        self.remembered = frozenset()                                     # likewise, with the walker memory
+        self.remembered = frozenset()                                     # likewise, with the walker memory (cells)
+        self.remembered_walkers = ()                                      # or its walkers' map-frame centres (veto)
         self.candidates = tuple(candidates)  # the forecast candidates (`planning.actions`)
         self.exits, self.coverage_fix = harness == 'reserve_exit_v2', coverage_fix
         self.margin_m, self.unknown = margin_m, unknown  # cautious clearance (planning.caution)
@@ -458,6 +462,11 @@ class Planner:
             result = self._deadlock_escape(result)
         if self.give_way:
             result = self._give_way(result, snapshot, q, Q)
+        if len(self.remembered_walkers):
+            body = (np.asarray(self.remembered_walkers, float).reshape(-1, 2)-q[:2])@Q[:2, :2]
+            result = sel.remembered_veto(result, prediction, body)
+            if result['remembered_veto']['changed']:
+                self.clearance_turn = None
         if self.obstacle_prediction:
             result = result | dict(obstacle_tracks=[t.summary(snapshot.measured_ns) for t in self.tracks],
                                    predicted_tracks=[t.id for t in moving])
