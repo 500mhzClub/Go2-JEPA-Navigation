@@ -18,7 +18,8 @@
 it passes the dispatch check, the mission and the committed-prefix check; otherwise zero, with the reason.
 
 **Module oracles** (the failure analysis; `controllers.truth`, given the mission's `GroundTruth` as `truth`):
-`pose_oracle` replaces step 1 with the true pose; `map_oracle` ('obstacles', 'full' or 'static') masks the depth
+`pose_oracle` replaces step 1 with the true pose, visual odometry running beside it in shadow to log its outages
+(`controllers.pose_shadow`); `map_oracle` ('obstacles', 'full' or 'static') masks the depth
 images the map is built from and replaces the map's cells; `prediction_oracle` gives the planner every obstacle's true
 future positions in place of the tracker's; `walker_mode='truth'` gives it every walker's true position, no speeds.
 
@@ -33,6 +34,7 @@ from dataclasses import dataclass, replace
 import numpy as np
 
 from go2nav.controllers import truth as truth_oracles
+from go2nav.controllers.pose_shadow import VisualShadow
 from go2nav.controllers.walkers import ModelTracker
 from go2nav.perception.mapping import RoutingMap
 from go2nav.perception.obstacles import DepthObstacleObserver
@@ -122,6 +124,7 @@ class NavigationController:
         if (pose_oracle or map_oracle or prediction_oracle or truth_tracks) and truth is None:
             raise ValueError('module oracles need the ground truth')
         self.truth, self.pose_oracle, self.prediction_oracle = truth, pose_oracle, prediction_oracle
+        self.pose_shadow = VisualShadow(truth) if pose_oracle else None  # visual odometry beside the true pose
         self.map_oracle = truth_oracles.MapOracle(truth, map_oracle) if map_oracle else None
         self.mission = RoundTripMission(goal_xy, home_xy, arrival_radius_m=arrival_radius_m, navigation_frames=navigation_frames)
         self.ledger = CommitmentLedger()
@@ -143,6 +146,7 @@ class NavigationController:
         requested = self.ledger.preceding_request(frame.frame, frame.measured_ns)
         if self.pose_oracle:
             visual, registered = None, self.truth.registered(frame.frame, frame.measured_ns)
+            self.pose_shadow.observe(frame)
         else:
             visual = self.odometry.observe(frame.rgb, frame.depth, frame.auxiliary_rgb, frame.auxiliary_depth,
                                            frame.gyro_rates, frame.specific_force, frame.measured_ns)

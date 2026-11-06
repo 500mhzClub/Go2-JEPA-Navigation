@@ -280,6 +280,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                 save(out/'walker_shadow.json', controller.walker_shadow)
             if walker_memory:
                 save(out/'walker_memory.json', controller.memory_log)
+            if controller.pose_shadow is not None:
+                save(out/'pose_shadow.json', controller.pose_shadow.log())
         save(out/'requests.json', requests)
         save(out/'acquisitions.json', acquisitions)
         save(out/'stage_timings.json', timings)

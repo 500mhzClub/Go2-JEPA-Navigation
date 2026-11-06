@@ -679,6 +679,57 @@ near the body (finer cells within about 0.8 m of the robot, more loss weight the
 still position, so the veto can be read against where the walker will be), then P9b's missions again with the same bars and
 stopping rule. Better poses from the next piece also sharpen the memory's warp.
 
+### P10. The world model carries the pose through frames visual odometry cannot measure (proposed 6 November)
+
+**Why.** With walkers that do not yield, pose loss ends more missions than anything else: 35 of 80 with the model's
+positions, 31 with the hand tracker (P8), and about half of P9's and P9b's. In all 66 of P8's, visual odometry raised "neither
+camera measures the current frame" with a walker parked about 0.55 m ahead, and **the robot was standing still**: zero commands
+and no movement over the last 2 s in every one. The missions ended at a median 166 s of 480, so time was left. Today a frame that
+no pass measures ends the mission (`perception.visual_odometry`, `PoseLost`), however briefly the view is blocked and however
+little the robot has moved. With polite walkers the true pose bought only 2 of 80 (P8), so whether the pose is worth handing over
+turns on walkers that do not yield.
+
+**What is handed over.** Where the robot is while the cameras cannot say: during an outage the pose is carried by the world
+model's prediction of its own motion under the commands actually applied, and visual odometry restarts from the carried pose
+once frames measure again. Rotation stays with the gyro, as in visual odometry today; what is learned is the translation.
+
+**Steps.**
+1. **The upper limit, and how long outages last** (GPU, about 2.5 h). The 80 missions of `wm_rude_model_*` (C5, model positions,
+   walkers that do not yield) with the true pose (`wm_pose_rude_*`), visual odometry running beside it in shadow. When the shadow
+   loses the pose, it logs the outage and restarts at the true pose on the next frame it can measure, so each mission records
+   every outage: its length, how far the robot moved and turned during it, and where the walker was.
+2. **The carrier, offline** (GPU, about 1-2 h). On corpus v2's validation units, windows shaped like step 1's outages (length
+   and motion; a walker within 0.8 m in the forward view), each frame's position carried by one 100-ms forecast of the applied
+   commands from the frames before it, yaw from the gyro. Three carriers on the same windows: the world model (C5's rollout
+   and decoder), C1 (the ridge command model, as the bridge) and the commands integrated as if executed exactly (the floor).
+3. **The code** (`perception.carried` or similar, unit tests). On `PoseLost` the controller enters a carried outage instead
+   of ending: each frame's pose is the carrier's; mapping and planning go on from it. Every frame a fresh visual odometry is
+   started there; once it measures 4 frames in a row, its poses, composed with the carried pose at its start, replace the
+   carrier, and floor registration reads them as before. The outage ends the mission as now if the robot moves farther during
+   it than the distance at which step 2's carrier reaches 5 cm of error at the 90th percentile. Off by default
+   (`--pose-carry off|model|c1`).
+4. **Missions** (GPU, about 6.5 h): walkers that do not yield (80, the same missions), then the fixed record (80) and four
+   walkers (40, `wf_held_c5`'s).
+
+**Bars, set before anything is scored.**
+- **Gate after step 1.** The pose goes on only if the true pose gains, against `wm_rude_model_*` (11 round trips), at least 4
+  net with wins at least twice the losses (P8's rule for the pose). If not, P10 closes there: pose losses would only turn into
+  timeouts or contacts, and the record says so.
+- **The carrier (step 2).** The world model carries the pose if its error at the end of the windows is at most 5 cm at the 90th
+  percentile, and its median no worse than C1's. If only C1 passes, C1 carries it, and the record says the pose is bridged,
+  not handed over.
+- **Missions (step 4).** Walkers that do not yield: missions ended by pose loss at most 9 (35 now), round trips at least 11 plus
+  half the true pose's net gain from step 1 (rounded down), contact stops at most 13 (10 now). Over every carried outage, the
+  position error against the truth when visual odometry takes over again at most 10 cm at the 90th percentile. The fixed
+  record (80): within the running allowance of 3 below 70, no contacts. Four walkers (40): contact stops at most 2, round
+  trips at least 18 (`wf_held_c5` 21, less 3).
+- **Stopping** ("Phases and gates"): every 20 missions. Step 1 stops early only if the gate can no longer be met. Step 4 stops
+  when a bar is decided; a new failure in at least 5 of the first 20 (a position jump at takeover, a crash in the carrier) stops it
+  as broken.
+
+**Compute.** About 11 GPU-hours, at most 6 world-model missions at once, mazes 10-29 only (50-89 stay held). Step 1 needs only the
+shadow log, so it can run while steps 2 and 3 are written.
+
 ## Compute and order
 
 | Phase | Compute |
