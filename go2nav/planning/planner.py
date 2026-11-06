@@ -62,7 +62,13 @@ the robot stands. Then
 stops while the robot is within 0.8 m ahead of it, and a non-polite one waits at the robot: backing off past that lets
 either walk on (the give-way ceiling: a still mover near and ahead responds to a retreat in 85-97% of the probe's
 windows).
+
+`remembered` (docs/dynamic/PLAN.md, P9; set by the controller with the walker memory, `controllers.memory`): 1-cm cells of
+walkers the model remembers out of the camera's view. Every selection stage that reads the map's 1-cm cells (the
+forecast clearance check and turn re-checks, the stopping projection, the scripted backup, the give-way back-off) reads
+them too; routing and the route target do not.
 """
+import dataclasses
 import math
 
 import numpy as np
@@ -107,6 +113,7 @@ class Planner:
         self.arrival_radius_m, self.recovery, self.harness = arrival_radius_m, recovery, harness
         self.deadlock_escape, self.terminal_burst_on = deadlock_escape, terminal_burst
         self.obstacle_prediction, self.tracks = obstacle_prediction, []  # set by the controller each map update
+        self.remembered = frozenset()                                     # likewise, with the walker memory
         self.candidates = tuple(candidates)  # the forecast candidates (`planning.actions`)
         self.exits, self.coverage_fix = harness == 'reserve_exit_v2', coverage_fix
         self.margin_m, self.unknown = margin_m, unknown  # cautious clearance (planning.caution)
@@ -372,9 +379,16 @@ class Planner:
 
     # -- selection --------------------------------------------------------------------------------------------------
 
+    def _remembering(self, snapshot):
+        """The snapshot with the remembered walkers' cells among its 1-cm cells (see the module docstring)."""
+        if not self.remembered:
+            return snapshot
+        return dataclasses.replace(snapshot, fine_occupied=snapshot.fine_occupied|self.remembered)
+
     def select(self, prediction, goal_body, scan_error, snapshot, position, rotation, *, generation):
         """The action for a forecast (6, 8, 5), in the stages' fixed order (each may revise the previous choice)."""
         self.backup_plan = False
+        snapshot = self._remembering(snapshot)
         B = np.asarray(snapshot.map_from_initial)
         q, Q = B@position, B@rotation
         heading = math.atan2(Q[1, 0], Q[0, 0])
@@ -451,6 +465,7 @@ class Planner:
 
     def select_reactive(self, goal_body, scan_error, snapshot, position, rotation, prefix):
         """C2's action (`planning.reactive`; no forecast), then the recovery stages that apply to it."""
+        snapshot = self._remembering(snapshot)
         B = np.asarray(snapshot.map_from_initial)
         q, Q = B@position, B@rotation
         clearance = grid.fine_clearance(snapshot.fine_occupied)

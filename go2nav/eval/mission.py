@@ -108,7 +108,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         models=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False, deadlock_escape=False,
         terminal_burst=False, obstacle_prediction=False, footprint_clearing=False, obstacle_series='v1', obstacle_speed=None,
         candidates='primitives', safety='primitive', pose_oracle=False, map_oracle=None, prediction_oracle=False,
-        mover_trails=False, give_way=False, close_up=False, walker_mode='off', obstacle_polite=True):
+        mover_trails=False, give_way=False, close_up=False, walker_mode='off', obstacle_polite=True, walker_memory=False):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
     (how many moving obstacles; `obstacle_series` their placement series, `obstacle_speed` their speed range,
@@ -135,7 +135,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     in the clearance check). `walker_mode`: the world model's walkers (`models['walker_world_model']`,
     `go2nav.controllers.walkers`), logged beside the hand tracker ('shadow'), driving the planner
     ('live') or driving it with positions only ('held'); 'truth': every walker's true position in place of the tracks,
-    positions only (a module oracle)."""
+    positions only (a module oracle). `walker_memory`: the planner's clearance checks also see the walkers the memory
+    (`models['walker_memory']`, `go2nav.controllers.memory`) remembers out of the camera's view."""
     import cv2
     import torch
     from go2nav.controllers import arms
@@ -171,6 +172,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  **(dict(give_way=True) if give_way else {}),
                                  **(dict(close_up=True) if close_up else {}),
                                  **(dict(walker_mode=walker_mode) if walker_mode != 'off' else {}),
+                                 **(dict(walker_memory=True) if walker_memory else {}),
                                  **(dict(candidates=candidates, lattice_axes=actions.LATTICE_AXES)
                                     if candidates == 'lattice' else {}),
                                  **(dict(safety=safety) if safety != 'primitive' else {}),
@@ -211,6 +213,16 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                 finder = WalkerFinder(forecaster.model, encoder=forecaster.encoder)  # one model for both jobs
             else:
                 finder = WalkerFinder(load_world_model(models['walker_world_model']))
+        memory = None
+        if walker_memory:
+            from go2nav.controllers.memory import MemoryRunner
+            from go2nav.models.lewm import load_world_model
+            from go2nav.models.memory import load_memory
+            state = torch.load(models['walker_memory'], map_location='cpu', weights_only=False)
+            same = arm in ('C5', 'C6') and not degrade and models['walker_world_model'] == models.get('lewm_world_model')
+            memory = MemoryRunner(load_memory(models['walker_memory']),
+                                  forecaster.model if same else load_world_model(models['walker_world_model']),
+                                  threshold=state['threshold'])
         controller = NavigationController(forecaster, goal_xy=cues['goal_initial_body_xy_m'],
                                           home_xy=cues['return_initial_body_xy_m'], arrival_radius_m=.02,
                                           navigation_frames=4800, recovery=recovery, margin_m=margin_m,
@@ -222,7 +234,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                           truth=truth, pose_oracle=pose_oracle, map_oracle=map_oracle,
                                           prediction_oracle=prediction_oracle, mover_trails=mover_trails,
                                           give_way=give_way, close_up=close_up, walker_finder=finder,
-                                          walker_mode=walker_mode)
+                                          walker_mode=walker_mode, walker_memory=memory)
         history = deque(maxlen=4)
         for tick in range(STEP_BUDGET):
             now = session.sim_ns
@@ -264,6 +276,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                     for p in controller.poses])
             if walker_mode != 'off':
                 save(out/'walker_shadow.json', controller.walker_shadow)
+            if walker_memory:
+                save(out/'walker_memory.json', controller.memory_log)
         save(out/'requests.json', requests)
         save(out/'acquisitions.json', acquisitions)
         save(out/'stage_timings.json', timings)
@@ -349,6 +363,8 @@ def main():
     p.add_argument('--walker-mode', choices=('off', 'shadow', 'live', 'held', 'truth'), default='off',
                    help="the world model's walkers: logged beside the hand tracker, or driving the planner; truth: the true positions")
     p.add_argument('--obstacle-polite', choices=('on', 'off'), default='on', help='off: walkers that do not yield')
+    p.add_argument('--walker-memory', choices=('on', 'off'), default='off',
+                   help="the planner's clearance checks also see the walkers the memory remembers out of view")
     p.add_argument('--close-up', choices=('on', 'off'), default='off',
                    help='walk up to an obstacle that cuts the only route instead of scanning where the route was lost')
     p.add_argument('--pose-oracle', choices=('on', 'off'), default='off', help='the true pose (module oracle)')
@@ -377,7 +393,7 @@ def main():
                  pose_oracle=a.pose_oracle == 'on', map_oracle=None if a.map_oracle == 'off' else a.map_oracle,
                  prediction_oracle=a.prediction_oracle == 'on', mover_trails=a.mover_trails == 'on',
                  give_way=a.give_way == 'on', close_up=a.close_up == 'on', walker_mode=a.walker_mode,
-                 obstacle_polite=a.obstacle_polite == 'on')
+                 obstacle_polite=a.obstacle_polite == 'on', walker_memory=a.walker_memory == 'on')
     print(json.dumps(result))
 
 

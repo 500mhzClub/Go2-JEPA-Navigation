@@ -3,6 +3,7 @@
     python -m go2nav.training.memory cache ROOT --world-model outputs/lewm/go2_v2_walkers/lewm.pt --out outputs/memory/states
     python -m go2nav.training.memory train ROOT --states outputs/memory/states --out outputs/memory/fixed
     python -m go2nav.training.memory evaluate ROOT --states outputs/memory/states --memory outputs/memory/fixed/memory.pt
+    python -m go2nav.training.memory calibrate ROOT --states outputs/memory/states --memory outputs/memory/fixed/memory.pt
 
 **Stage A, the fixed encoder.** `cache` encodes every second frame of each unit with labels (`data.memory_labels`)
 once with the world model (bf16, its states (13, 192) as float16, `STATES/<role>/<unit>.npy`), and `train` fits the
@@ -207,12 +208,49 @@ def evaluate(root, states, memory_path, out, device='cuda', probe=None):
             result[view]['ap_by_age'] = {label: {n: round(mb.average_precision(merged[n][~merged['label'] | sel],
                                                                                merged['label'][~merged['label'] | sel]), 4)
                                                  for n in ('memory', 'constant_velocity', 'hold')}
-                                         for label, lo, hi in mb.AGE_BINS
-                                         for sel in [np.isinf(age) if label == 'never seen' else (age > lo) & (age <= hi)]}
+                                         for label, _, _ in mb.AGE_BINS
+                                         for sel in [mb.in_bin(age, label)]}
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=1)+'\n')
     print(json.dumps(result, indent=1))
     return result
+
+
+def calibrate(root, states, memory_path, device='cuda', units_n=200, precision=.5, seed=0):
+    """The missions' threshold (PLAN P9, step 4): the lowest whose precision on the cells out of view of `units_n`
+    training units is at least `precision`. Written into the memory checkpoint as `threshold`."""
+    model = load_memory(memory_path, device)
+    folders = [f for f in units(root, 'lewm_train') if (Path(states)/'lewm_train'/f'{f.name}.npy').exists()]
+    rng = np.random.default_rng(seed)
+    scores, labels = [], []
+    for i in sorted(rng.choice(len(folders), min(units_n, len(folders)), replace=False)):
+        folder = folders[i]
+        with np.load(folder/ml.FILE) as d:
+            occupied, visible = d['occupied'].reshape(len(d['t']), -1), d['visible'].reshape(len(d['t']), -1)
+        with np.load(folder/'steps.npz') as steps:
+            motion = motions(steps['pose'])
+        s = torch.from_numpy(np.load(Path(states)/'lewm_train'/f'{folder.name}.npy'))[None].to(device)
+        with torch.inference_mode(), torch.autocast(torch.device(device).type, dtype=torch.bfloat16):
+            logits = run_memory(model, s, torch.from_numpy(motion)[None].to(device), device)
+        p = torch.sigmoid(logits[0].float()).flatten(1).cpu().numpy()[:len(occupied)]
+        scores.append(p[~visible])
+        labels.append(occupied[~visible])
+    score, label = np.concatenate(scores), np.concatenate(labels)
+    order = np.argsort(-score, kind='stable')
+    hits = np.cumsum(label[order])
+    precisions = hits/np.arange(1, len(order)+1)
+    ok = np.flatnonzero(precisions >= precision)
+    threshold = float(score[order][ok[-1]]) if len(ok) else 1.
+    claimed = score >= threshold
+    detail = dict(threshold=round(threshold, 4), precision=round(float(label[claimed].mean()), 4) if claimed.any() else None,
+                  recall=round(float(claimed[label].mean()), 4), units=len(scores))
+    state = torch.load(memory_path, map_location='cpu', weights_only=False)
+    state['threshold'], state['calibration'] = threshold, detail
+    tmp = Path(memory_path).with_suffix('.tmp.pt')
+    torch.save(state, tmp)
+    os.replace(tmp, memory_path)
+    print(json.dumps(detail))
+    return detail
 
 
 def cells_with(grids, rows, out):
@@ -241,6 +279,10 @@ def main():
     e.add_argument('--states', type=Path, required=True)
     e.add_argument('--memory', type=Path, required=True)
     e.add_argument('--out', type=Path)
+    k = sub.add_parser('calibrate')
+    k.add_argument('root', type=Path)
+    k.add_argument('--states', type=Path, required=True)
+    k.add_argument('--memory', type=Path, required=True)
     a = p.parse_args()
     if a.command == 'cache':
         cache(a.root, a.world_model, a.out)
@@ -251,6 +293,8 @@ def main():
             config[key] = type(DEFAULTS[key])(value)
         path = train(a.root, a.states, a.out, config)
         evaluate(a.root, a.states, path, a.out/'evaluation.json')
+    elif a.command == 'calibrate':
+        calibrate(a.root, a.states, a.memory)
     else:
         evaluate(a.root, a.states, a.memory, a.out or a.memory.parent/'evaluation.json')
 

@@ -1159,9 +1159,10 @@ cells out of the camera's view on the 0.2-m grid round the robot):
 | Walk on at the last velocity | **0.130** | **0.053** | **0.120** | **0.061** |
 | Per-cell prior (no memory) | 0.013 | 0.008 | 0.040 | 0.013 |
 
-- **Most of what is out of view was seen long ago or never.** Of the occupied cells out of view, 38% hold a walker never in
-  view, 6% one seen in the last 1.2 s, 14% 1.2-5 s, 23% 5-20 s, 48% earlier. In the rear zone (behind the body origin, within 0.8 m)
-  almost none was seen in the last 1.2 s, so the hand tracker's rule finds 0.03% of it.
+- **Most of what is out of view was seen seconds ago or never.** Of the occupied cells out of view, 38% hold a walker never in
+  view, 9% one in view now (its centre beside the field of view), 6% one seen in the last 1.2 s, 14% 1.2-5 s, 23% 5-20 s, 10% earlier.
+  In the rear zone (behind the body origin, within 0.8 m): 29% never seen, 19% 1.2-5 s, 36% 5-20 s, 17% earlier, almost none in the last
+  1.2 s, so the hand tracker's rule finds 0.03% of it. A memory of seconds reaches about half of the rear zone.
 - **The best baseline fades within seconds:** walking on at the last velocity finds 93% of cells seen up to 1.2 s before, 49% at
   1.2-5 s, 9% at 5-20 s. These baselines use true sightings and the true pose, so they are upper bounds.
 - **The contacts sit where a memory could help.** Of the 8 contact stops with the walker in contact out of view in P8's runs with

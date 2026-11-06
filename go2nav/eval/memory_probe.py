@@ -146,8 +146,8 @@ def main():
         age = merged['age']
         result[view]['ap_by_age'] = {label: {name: round(mb.average_precision(
             merged[name][~merged['label'] | sel], merged['label'][~merged['label'] | sel]), 4) for name in (*SETS, 'constant_velocity')}
-            for label, lo, hi in mb.AGE_BINS
-            for sel in [np.isinf(age) if label == 'never seen' else (age > lo) & (age <= hi)]}
+            for label, _, _ in mb.AGE_BINS
+            for sel in [mb.in_bin(age, label)]}
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(result, indent=1)+'\n')
     print(json.dumps(result, indent=1))

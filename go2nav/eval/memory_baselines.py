@@ -33,9 +33,20 @@ from go2nav.perception.tracks import KEEP_UNSEEN_S, MAX_SPEED_M_S
 
 BASELINES = ('forget', 'hold', 'constant_velocity', 'prior')
 VELOCITY_FRAMES = 4
-AGE_BINS = (('never seen', np.inf, np.inf), ('up to 1.2 s', 0, KEEP_UNSEEN_S), ('1.2-5 s', KEEP_UNSEEN_S, 5.),
-            ('5-20 s', 5., 20.), ('older', 20., np.inf))
+AGE_BINS = (('seen now', 0., 0.), ('up to 1.2 s', 0., KEEP_UNSEEN_S), ('1.2-5 s', KEEP_UNSEEN_S, 5.), ('5-20 s', 5., 20.),
+            ('older', 20., np.inf), ('never seen', np.inf, np.inf))
 REAR = (ml.GRID[:, 0] < 0) & (np.linalg.norm(ml.GRID, axis=1) < .8)
+
+
+def in_bin(age, name):
+    """Cells whose walker's sighting age falls in the named `AGE_BINS` bin (`seen now`: in view at this frame, its centre
+    beside the field of view; `never seen`: not yet in view)."""
+    lo, hi = next((lo, hi) for n, lo, hi in AGE_BINS if n == name)
+    if name == 'seen now':
+        return age == 0
+    if name == 'never seen':
+        return np.isinf(age)
+    return (age > lo) & (age <= hi) & np.isfinite(age)
 
 
 def stamp(body):
@@ -139,14 +150,12 @@ def report(data):
         if b != 'prior':
             row.update(precision=round(float(label[claim].mean()), 4) if claim.any() else None,
                        recall=round(float(claim[label].mean()), 4))
-            row['recall_by_age'] = {name: round(float(claim[label & (data['age'] > lo) & (data['age'] <= hi)].mean()), 4)
-                                    if name != 'never seen' else round(float(claim[label & np.isinf(data['age'])].mean()), 4)
-                                    for name, lo, hi in AGE_BINS}
+            row['recall_by_age'] = {name: round(float(claim[label & in_bin(data['age'], name)].mean()), 4)
+                                    for name, _, _ in AGE_BINS}
         out[b] = row
     out['occupied_cells'] = int(label.sum())
     out['cells'] = len(label)
-    out['occupied_by_age'] = {name: int((label & (np.isinf(data['age']) if name == 'never seen' else
-                                                  (data['age'] > lo) & (data['age'] <= hi))).sum()) for name, lo, hi in AGE_BINS}
+    out['occupied_by_age'] = {name: int((label & in_bin(data['age'], name)).sum()) for name, _, _ in AGE_BINS}
     return out
 
 

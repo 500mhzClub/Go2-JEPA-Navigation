@@ -66,3 +66,33 @@ def test_average_precision_ranks_and_shares_ties():
     assert mb.average_precision(np.array([.9, .8, .7, .1]), label) == (1+2/3)/2
     assert mb.average_precision(np.array([1., 1., 1., 1.]), label) == .5   # one tie: the base rate
     assert math.isnan(mb.average_precision(np.ones(3), np.zeros(3, bool)))
+
+
+def test_a_remembered_group_is_one_walker_at_its_weighted_centre():
+    from go2nav.controllers.memory import groups
+    p = np.zeros((ml.CELLS, ml.CELLS))
+    p[2, 7], p[2, 8], p[3, 8] = .9, .6, .3                           # behind the robot, one group
+    p[12, 12] = .8                                                    # ahead, another
+    found = sorted(groups(p, .5))
+    assert len(found) == 2                                            # the 0.3 cell is below the threshold
+    x, y, peak = found[0]
+    assert peak == .9 and math.isclose(x, ml.CENTRES[2]) and ml.CENTRES[7] < y < ml.CENTRES[8]
+
+
+def test_only_walkers_out_of_the_camera_s_view_are_remembered():
+    from go2nav.controllers.memory import out_of_view
+    assert out_of_view(-.8, 0.) and out_of_view(.2, .9)               # behind, beside
+    assert not out_of_view(1.5, 0.)                                   # ahead: the depth map sees it
+
+
+def test_the_planner_s_selection_reads_remembered_cells_without_changing_the_map():
+    from go2nav.perception.mapping import MapSnapshot
+    from go2nav.planning.planner import Planner
+    empty = frozenset()
+    snapshot = MapSnapshot(0, 0, empty, empty, (0., 0., 0.), ((1., 0., 0.), (0., 1., 0.), (0., 0., 1.)), 0., 0, 0,
+                           frozenset({(1, 1)}), empty, empty, empty)
+    planner = Planner(arrival_radius_m=.02)
+    assert planner._remembering(snapshot) is snapshot                  # nothing remembered: the map as it is
+    planner.remembered = frozenset({(5, 5)})
+    assert planner._remembering(snapshot).fine_occupied == {(1, 1), (5, 5)}
+    assert snapshot.fine_occupied == {(1, 1)}                          # the map itself is untouched

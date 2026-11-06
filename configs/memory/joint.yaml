@@ -1,0 +1,19 @@
+# Stage B of the walker memory (docs/dynamic/PLAN.md, P9): go2_v2_walkers and the stage-A memory trained together
+# (go2nav.training.memory_joint), the world model on its own objectives and batches, the memory's loss reaching the encoder.
+seed: 2026110602
+lewm_config: configs/lewm/go2_v2_walkers.yaml
+init_model: outputs/lewm/go2_v2_walkers/lewm.pt
+steps: 6000
+lr: 2.0e-5
+warmup_steps: 300
+validate_every: 2000
+checkpoint_every: 500
+memory:
+  init: outputs/memory/fixed/memory.pt
+  lr: 1.0e-4
+  weight: 30.0
+  batch: 4
+  length: 60
+  burn_in: 10
+  pose_noise_m: 0.01
+  yaw_noise_rad: 0.005
