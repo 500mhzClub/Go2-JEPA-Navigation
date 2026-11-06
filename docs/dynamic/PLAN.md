@@ -672,6 +672,13 @@ against P9's bars there: out-of-view walker contacts at most 3, round trips at l
 stops reach 5 (P9: 20, memory off: 0), or as soon as either bar is decided. Only if both pass, the four-walker (40) and
 fixed-record (80) cohorts against P9's bars.
 
+**Result and what is deferred (6 November).** The veto removed the wall contacts but failed the out-of-view walker bar after
+8 missions (STATUS, "P9b"). Piece 3 closes as a measured negative result: the memory exists, passes its offline bar, and is
+not yet good enough at the body to keep walkers off. **To revisit after the pose piece** (decided 6 November): the memory
+near the body (finer cells within about 0.8 m of the robot, more loss weight there, and the walker's motion rather than a
+still position, so the veto can be read against where the walker will be), then P9b's missions again with the same bars and
+stopping rule. Better poses from the next piece also sharpen the memory's warp.
+
 ## Compute and order
 
 | Phase | Compute |

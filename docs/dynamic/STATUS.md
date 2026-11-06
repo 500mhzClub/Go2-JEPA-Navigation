@@ -1266,3 +1266,7 @@ robot into a robot that cannot move safely. The next step is in how the planner 
   or reverses past a remembered position that is off by tens of centimetres. The veto treats each remembered walker as still.
 - **So the limit is the memory's accuracy at the body, not how the planner reads it.** Its cells are 0.2 m and its labels
   are scored over ±1.6 m; a contact is decided within centimetres, by a walker moving toward the robot.
+
+**Piece 3 closes here** (decided 6 November): recorded as a negative result in missions, the memory kept for a revisit after
+the pose piece (PLAN P9b, "Result and what is deferred"). In every arm of these runs (P8, the memory in the cells, off, the
+veto), losing the visual pose ends about half the missions with walkers that do not yield, far more than contacts do.
