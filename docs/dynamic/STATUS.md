@@ -1247,3 +1247,22 @@ contact is decided at a few centimetres beside the body.
 **What this leaves.** The memory learns what the plan asked of it, and is the first part that remembers; the planner's use of
 it is wrong. Putting remembered walkers into the clearance field that the wall checks also read turns one walker beside the
 robot into a robot that cannot move safely. The next step is in how the planner reads the memory, not in the memory.
+
+## P9b: the memory as a veto: walls fixed, walker contacts not (6 November)
+
+`outputs/cohorts/memv_rude_obst1_c5` (`--walker-memory veto`, PLAN P9b). **Stopped by the stopping rule after 8 missions:**
+4 contact stops with the walker out of the forward view, against P9's bar of at most 3 in 80 (`outputs/memory/veto.log`).
+
+| Same 8 missions (one walker that does not yield) | P8 | Memory in the cells (P9) | Memory off | Veto |
+|---|---|---|---|---|
+| Round trips | 2 | 1 | 1 | 1 |
+| Contact stops with a wall | 0 | 3 | 0 | **0** |
+| Contact stops with a walker | 0 | 2 | 2 | **4** |
+
+- **The veto removes the wall contacts**, as the cause found in P9 predicted: the clearance checks measure walls again.
+- **It does not keep walkers off.** It changed the planner's choice in about a third of the decisions where it ran, almost
+  always to hold (637 of 667 changes in the finished missions). All four contacts are hind legs, with the walker remembered
+  0.3-0.55 m from the body in the last decisions or not at all: a walker that does not yield walks into a robot that holds
+  or reverses past a remembered position that is off by tens of centimetres. The veto treats each remembered walker as still.
+- **So the limit is the memory's accuracy at the body, not how the planner reads it.** Its cells are 0.2 m and its labels
+  are scored over ±1.6 m; a contact is decided within centimetres, by a walker moving toward the robot.
