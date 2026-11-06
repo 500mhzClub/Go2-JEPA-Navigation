@@ -1100,3 +1100,49 @@ on `cufh_*` is a round trip, but it says nothing about the tracker here: the two
 
 At one and two walkers the count is now 1 mission in 240 with the model's positions (`wh_*`, `wo_*`, `smh_*`) and 1 in 240 with the hand tracker (`ws_*`, `cuf_*`, `cufh_*`), too few
 to separate them. Neither tracker holds a walker that has been out of view this long, so memory (piece 4) remains the fix to test, not a change here.
+
+## P8: what the working planner owes to each part (6 November)
+
+The first attempt died with the system drive at 04:04 on 2 November; its missions from then on are set aside in `outputs/cohorts/_drive_fault_2nov`,
+9 clean ones kept. Rerun 5 to 6 November from the pinned worktree at a81b6e0, which has the same code as this branch: all 520 missions exited normally.
+The reading rules were set before scoring (PLAN P8).
+
+**1. No tracks: 69 of 80 against the fixed record's 70** (4 gained, 5 lost, p 1.0; 8 timeouts, 3 pose losses, no contacts). That is within 3, so the
+walker handover is not shown to change missions at this resolution. As the rule says, nothing is switched off on this. The planner uses the
+model's positions only for the close-up stand-off and trail marking, and that use is worth about nothing to round trips.
+
+**2. Next handover: memory, as planned.** No oracle meets the bar for the pose to go first (largest net gain, at least 4, wins at least twice losses):
+
+| C1, hand tracker, pooled over 2 and 4 walkers (80) | Round trips | Gained / lost against the references | Net | p | Failures |
+|---|---|---|---|---|---|
+| References (`cuf_obst2_c1`, `wm_ref_obst4_c1`) | 51 | | | | 24 timeouts, 5 pose losses |
+| True pose (`wm_pose_*`) | 53 | 10 / 8 | +2 | 0.82 | 26 timeouts, 1 contact |
+| True map (`wm_map_*`) | 48 | 9 / 12 | -3 | 0.66 | 17 timeouts, 14 pose losses, 1 contact |
+| Every walker's true position (`wm_true_*`) | 54 | 8 / 5 | +3 | 0.58 | 19 timeouts, 6 pose losses, 1 contact |
+
+- **Timeouts dominate every arm, and a perfect part leaves them.** The true pose removes every pose loss and buys 2 missions: those it saves were
+  timeouts, not pose losses. On this planner the limit is what it decides, not what it perceives, as P4's failure analysis found on lv2.
+- **The true map now loses** where on lv2 it was the one module with headroom. It also nearly triples pose losses (14 against 5), 7 of them with
+  no walker within 0.8 m; the full map sends the robot on routes it has not seen, and why visual odometry fails there is not examined here.
+- **Perfect walker positions add 3,** the ceiling for anything handed over as positions with this planner.
+
+**3. Speed stays parked by the rule, but walkers that do not yield break the working setup.** Hand tracker with speeds 8 of 80, model positions
+11 of 80 (5 gained, 2 lost, p 0.45); contact stops 14 against 10. Neither condition of the rule holds. Polite walkers had hidden this:
+
+| Walkers that do not yield (80) | Round trips | Pose losses | Contact stops | Timeouts |
+|---|---|---|---|---|
+| Hand tracker, speeds (`wm_rude_hand_*`) | 8 | 31 | 14 | 27 |
+| Model positions (`wm_rude_model_*`) | 11 | 35 | 10 | 24 |
+
+- **Pose loss:** 62 of the 66 have the walker in the forward view 0.51-0.62 m away, parked where it stops, at the robot's reach plus 5 cm
+  (`sim/obstacles.py`, `ASSERTIVE_GAP_M`). It fills both cameras' views, so neither measures the frame.
+- **Contacts:** 21 of 24 are with a walker out of the forward view, the blind rear again, now often: a walker that does not yield parks behind or
+  beside the robot and waits.
+- **How hard the condition is:** these walkers walk at the robot and never give up, so in a single-width passage the robot must retreat a cell or
+  more. That is harsher than most people, but the corpus v2 has such units and "no collisions" holds only for walkers that stop.
+
+**What this means for the next pieces.** Memory goes next by the rule, and the results add a reason: it is aimed at the walker the robot cannot see,
+which is 21 of the 24 contact stops here and every contact stop on record. Walkers that do not yield should be in its acceptance test beside
+P6's four-walker missions. The pose across frames visual odometry cannot measure (piece 3) is now the largest single failure when walkers do not
+yield, though the true pose barely helps when they do. And the timeouts, which no oracle removes, point at the decisions themselves: routing,
+give-way and when to go, the later pieces of the handover.
