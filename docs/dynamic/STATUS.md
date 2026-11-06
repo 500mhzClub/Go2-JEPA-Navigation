@@ -1182,3 +1182,68 @@ the past is its predictor's snapshots (level 2: 1.6 s apart over 3.2 s; level 3:
 
 No level beats walking on at the last velocity out of view, and all are far behind it for walkers seen 1-5 s before, so
 there was no early stop: step 3 trains a memory. The in-view bar for it is level 1 now, 0.854.
+
+## P9: memory, steps 3 and 4: the memory passes, the missions fail (6 November)
+
+**Step 3, the memory passes its bar** (`outputs/memory/fixed/evaluation.json`, stage A, the deployed model's states fixed;
+`outputs/memory/joint/evaluation_memory.json`, stage B, trained with the encoder; 347 validation units):
+
+| Average precision | Stage A | Stage B | Best baseline (walk on at the last velocity) | Bar |
+|---|---|---|---|---|
+| Out of view | 0.205 | **0.207** | 0.130 | above the baseline: passed |
+| Rear zone | 0.116 | | 0.053 | |
+| Walkers that do not yield, out of view | 0.392 | | 0.120 | |
+| In view (the probe's frames) | 0.917 | **0.919** | | at least 0.854: passed |
+
+- **By sighting age (stage A), it wins where the baseline has faded and loses where it has not:** 0.036 against 0.009 for
+  walkers seen 5-20 s before, 0.011 against 0.004 older; 0.27 against 0.90 up to 1.2 s, 0.12 against 0.32 at 1.2-5 s. The
+  baseline has each walker's true position and velocity at its last sighting.
+- **Stage B costs the world model little:** rollout error at 8 steps 0.0736 against 0.0687 before (in its own, changed
+  latent space); the retrained C5 [world-model rollout and decoder] heads are as accurate as before (median 8.42 mm at
+  800 ms on validation, against 8.73; transfer 13.9 against 14.4).
+- **The missions' threshold** `τ` = 0.248 (out-of-view precision 0.50 on 200 training units, recall 0.155).
+
+**Step 4, the missions fail** (`outputs/cohorts/mem_rude_obst{1,2}_c5`, walkers that do not yield, against P8's
+`wm_rude_model_*` on the same missions). Stopped at 77 of 80 matched missions, and the four-walker and fixed-record cohorts
+were not run: the contact bar had already failed, and the stopping rule written into PLAN.md the same evening ("Phases and
+gates") would have stopped the round sooner.
+
+| Walkers that do not yield (77 missions) | P8 | Memory | Bar |
+|---|---|---|---|
+| Contact stops | 9 | **32** | |
+| ...with a wall (hind legs) | 0 | **20** | |
+| ...with a walker | 9 | 12 | |
+| ...with the walker out of the forward view | 8 (of all 80) | **8** | at most 3: failed |
+| Round trips | 11 | 9 | at least 11 |
+
+**The memory's walker discs cause the wall contacts.** The control (`outputs/cohorts/memoff_rude_obst{1,2}_c5`,
+`configs/experiments/walker_memory_off.yaml`: the same jointly trained world model and heads, the memory off; stopped at 59
+matched missions once the answer was clear):
+
+| Same 59 missions | P8 | Memory on | Memory off |
+|---|---|---|---|
+| Round trips | 9 | 7 | 10 |
+| Contact stops with a wall | 0 | 13 | **0** |
+| Contact stops with a walker | 6 | 8 | 9 |
+| Visual pose lost | 27 | 20 | 29 |
+
+Stage B's encoder is not the cause of the wall contacts. Without the memory it has slightly more walker contacts than P8
+(9 against 6), within what these counts can tell apart.
+
+**How the discs lead to the walls.** A walker that does not yield spends long stretches pressed against the robot, and the
+memory holds it there (83% of the remembered walkers in these missions are within 0.5 m of a real one, most within 0.8 m of
+the robot). Its disc, out of view beside or behind the robot, keeps the robot's current clearance under the 0.45-m footprint
+the checks need, so every candidate is blocked and the planner falls back to the turn exits. Those require only that a turn
+not lose clearance against the current minimum, which is now the disc's: a turn that swings the hind legs toward an unseen
+wall passes. In 17 of the 20 wall contacts the current clearance was under 0.45 m for the last eight decisions (about 3 s),
+and a turn exit had been chosen in them.
+
+**Why the out-of-view walker contacts did not fall.** In the 3 s before the 8, the memory never had the walker in 2, had it
+about 1 m from where it was in 2 and 0.5-0.65 m in 1, held it within 0.3 m and then dropped it in the last 1.5 s in 2, and
+held it within 0.35 m throughout in 1: it loses or misplaces a walker that comes right up to the robot, the same weakness
+as the seconds just after a walker leaves view offline. The memory is accurate at the scale it was scored on (0.2-m cells, ±1.6 m), but a
+contact is decided at a few centimetres beside the body.
+
+**What this leaves.** The memory learns what the plan asked of it, and is the first part that remembers; the planner's use of
+it is wrong. Putting remembered walkers into the clearance field that the wall checks also read turns one walker beside the
+robot into a robot that cannot move safely. The next step is in how the planner reads the memory, not in the memory.

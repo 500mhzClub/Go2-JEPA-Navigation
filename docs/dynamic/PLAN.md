@@ -49,6 +49,19 @@ As before, the aim is functional baselines for each arm, not 1:1 rigour. We meas
 
 ## Phases and gates
 
+**Stopping an evaluation once its answer is clear (decided 6 November).** Mission rounds are checked every 20 missions,
+and a cohort, or the rest of a round, stops as soon as one of these holds:
+- **Bar decided.** A bar set beforehand can no longer change: a count bar ("at most k") is already exceeded, or a floor
+  ("at least k") cannot be reached even if every remaining mission succeeds. Only a fail can be called early; a pass
+  needs every mission. Once one bar of a step fails, the step's other cohorts are not run unless they answer a different
+  question, said before they are skipped.
+- **Question answered.** A diagnostic or comparison run states its deciding count before it starts (for example, a
+  failure seen in one arm and never in the other); it stops when the count is met on matched missions, or when a one-sided
+  exact test on the matched pairs gives p < 0.01.
+- **Broken.** A failure mode the bars never anticipated (a new kind of contact, a crash path) in at least 5 of the first
+  20 missions: stop, diagnose, and report before running more.
+A stopped run is reported as stopped, with how many missions ran and which rule stopped it.
+
 ### P1. Locomotion policy on command ranges (about a day; independent of P2)
 
 - **Training:** command sampling becomes a mixture, which keeps the old points well tracked while covering the range:
