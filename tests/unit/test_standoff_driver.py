@@ -104,3 +104,34 @@ def test_free_starts_sit_in_a_cell_of_the_layout_s_own_pitch():
     rng = np.random.default_rng(7)
     cell = np.asarray(grid.SQUARE.cells[int(rng.integers(len(grid.SQUARE.cells)))], float)
     assert np.allclose(tree[:2], cell*grid.PITCH_M+rng.uniform(-.15, .15, 2))
+
+
+def t_junction():
+    """A passage 1.3 m wide along x (x -2 to 4) with a branch to +y at x = 0 (to y = 2.5)."""
+    box = lambda cx, cy, sx, sy: dict(centre_xyz=[cx, cy, .7], size_xyz=[sx, sy, 1.4], yaw_rad=0.)
+    boxes = [box(1., -.69, 6.1, .08), box(-1.335, .69, 1.37, .08), box(2.335, .69, 3.37, .08),
+             box(-.69, 1.6, .08, 1.9), box(.69, 1.6, .08, 1.9), box(0., 2.54, 1.46, .08),
+             box(-2.04, 0., .08, 1.46), box(4.04, 0., .08, 1.46)]
+    return dict(geometry=dict(wall_boxes=boxes))
+
+
+class GivingWay(v2.StandoffDriver):
+    WEIGHTS = dict(standoff=1., idle=1e-6)            # idle: once out of the walker's sight
+    RESOLUTIONS = dict(give_way=1.)
+    WAIT_S = (1., 1.0001)
+
+    def _idle(self):
+        yield
+        for _ in range(10):
+            yield (0., 0., 0.)
+
+
+def test_giving_way_backs_to_the_junction_and_turns_out_of_the_passage():
+    walker = np.array([3.2, 0.])
+    for seed in range(6):
+        driver = GivingWay(t_junction(), np.random.default_rng(seed), movers=lambda: [walker])
+        commands, codes, poses = drive(driver, (1.0, 0., 0.), 300)
+        assert (commands[:, 0] <= -.199).sum() > 20                          # backed off at 0.20 m/s
+        into = poses[:, 1].max()
+        assert into > .65 and abs(poses[np.argmax(poses[:, 1]), 0]) < .35     # into the branch, out of the passage
+        assert min(driver.clearance(p[:2]) for p in poses) >= .40

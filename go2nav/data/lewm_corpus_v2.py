@@ -514,18 +514,22 @@ class StandoffDriver(GiveWayDriver):
     the data show what follows a robot's choice when a walker waits for it (docs/dynamic/PLAN.md P14 item 3). A
     stand-off, while a walker is in sight:
     - **approach:** face it, then walk up to 0.6-1.1 m from its centre (half the time) or stand in its way and let it come;
-    - **wait** 2-30 s (log-uniform);
-    - **resolve** at random (`RESOLUTIONS`): retreat 0.3-3 m back along the path it came by (a reverse pursuit of its own
-      breadcrumbs, `CRUMB_M` apart, recorded while not retreating), step aside (into a side passage if one opens within
-      1.5 m, else sideways), turn away from the walker and walk off 1-3 m, hold on 5-20 s, or advance on it;
+    - **wait** 1-12 s (log-uniform; corpus v2 already holds hours of stand-offs in which nothing happens);
+    - **resolve** at random (`RESOLUTIONS`): give way (back along its own path at 0.20 m/s to the first side opening,
+      at least 0.3 m and at most 4 m back, then into it 0.7-1.1 m, out of the walker's way: a walker that does not yield
+      follows a robot that only backs off, so in a corridor this is the move that lets it pass), retreat 0.3-3 m back
+      along the path it came by at 0.10 or 0.20 m/s (a reverse pursuit of its own breadcrumbs, `CRUMB_M` apart, recorded
+      while not retreating), step aside (into a side passage if one opens within 1.5 m, else sideways), turn away from
+      the walker and walk off 1-3 m, hold on 5-20 s, or advance on it;
     - **watch** 1-3 s.
     Every command still passes the stand-off rule (`admissible`) on the true walls and walkers, so it never touches either.
     The driver only makes the outcomes observed; nothing is trained to imitate it."""
 
     WEIGHTS = dict(harness=.05, cruise=.10, ou=.05, wall=.05, side=.05, encounter=.05, standoff=.65)
     SIGHT_KINDS = ('encounter', 'standoff')
-    RESOLUTIONS = dict(retreat=.35, aside=.20, walk_off=.20, hold=.15, advance=.10)
-    WAIT_S, CRUMB_M, LOOKAHEAD_M = (2., 30.), .10, .40
+    RESOLUTIONS = dict(give_way=.35, retreat=.15, aside=.15, walk_off=.15, hold=.10, advance=.10)
+    WAIT_S, CRUMB_M, LOOKAHEAD_M = (1., 12.), .10, .40
+    OPENING_M, GIVE_WAY_MAX_M = 1., 4.
 
     def __init__(self, spec, rng, movers=lambda: ()):
         super().__init__(spec, rng, movers)
@@ -564,16 +568,18 @@ class StandoffDriver(GiveWayDriver):
         for _ in range(int(self.rng.integers(10, 31))):                 # watch what follows
             pose = yield (0., 0., 0.)
 
-    def _resolve_retreat(self, pose):
-        distance, start = float(self.rng.uniform(.3, 3.)), np.asarray(pose[:2], float)
+    def _back_along_trail(self, pose, speed, until, limit_m):
+        """Reverse along the breadcrumbs at `speed` until `until(pose, distance_so_far)` (at most `limit_m` of ticks, with
+        room to turn); the path walked back is used up. Returns the pose."""
+        start = np.asarray(pose[:2], float)
         self.retreating = True
         try:
-            for _ in range(int(distance/.01)+80):                       # 1 cm a tick at 0.10 m/s, with room to turn
+            for _ in range(int(limit_m/(speed*.1))+80):
                 here = np.asarray(pose[:2], float)
-                if np.linalg.norm(here-start) >= distance:
+                if until(pose, float(np.linalg.norm(here-start))):
                     break
                 while self.trail and np.linalg.norm(self.trail[-1]-here) < .15:
-                    self.trail.pop()                                    # the path walked back is used up
+                    self.trail.pop()
                 turn = 0.
                 if self.trail:
                     target = self.trail[0]
@@ -584,10 +590,42 @@ class StandoffDriver(GiveWayDriver):
                     error = self._bearing(pose, target)-(v1.yaw_of(pose)+math.pi)
                     error = math.atan2(math.sin(error), math.cos(error))
                     turn = float(np.clip(1.5*error, -.45, .45))
-                pose = yield (-.10, 0., turn)
+                pose = yield (-speed, 0., turn)
         finally:
             self.retreating = False
         return pose
+
+    def _opening(self, pose):
+        """The side (+1 left, -1 right) of a passage opening beside the robot, or None: open for `OPENING_M` from the
+        body centre and from 0.3 m ahead of and behind it (the give-way then lines up with the opening's middle)."""
+        yaw = v1.yaw_of(pose)
+        along = np.array([math.cos(yaw), math.sin(yaw)])
+        room = {side: min(self.free_distance(np.asarray(pose[:2], float)+t*along, yaw+side*math.pi/2, limit=1.5)
+                          for t in (-.3, 0., .3)) for side in (1, -1)}
+        side = max(room, key=room.get)
+        return side if room[side] >= self.OPENING_M else None
+
+    def _resolve_give_way(self, pose):
+        pose = yield from self._back_along_trail(
+            pose, .20, lambda p, d: d >= self.GIVE_WAY_MAX_M or (d >= .3 and self._opening(p) is not None),
+            self.GIVE_WAY_MAX_M)
+        side = self._opening(pose)
+        if side is not None:
+            yaw = v1.yaw_of(pose)
+            along = np.array([math.cos(yaw), math.sin(yaw)])
+            span = [t for t in np.arange(-1., 1.01, .05)
+                    if self.free_distance(np.asarray(pose[:2], float)+t*along, yaw+side*math.pi/2, limit=1.5) >= self.OPENING_M]
+            offset = float(np.mean(span))                               # line up with the opening's middle
+            for _ in range(int(round(abs(offset)/.02))):
+                pose = yield (math.copysign(.20, offset), 0., 0.)
+            pose = yield from self._face(pose, yaw+side*math.pi/2)
+            for _ in range(int(self.rng.uniform(.7, 1.1)/.02)):
+                pose = yield (.20, 0., 0.)
+        return pose
+
+    def _resolve_retreat(self, pose):
+        distance, speed = float(self.rng.uniform(.3, 3.)), float(self.rng.choice((.10, .20)))
+        return (yield from self._back_along_trail(pose, speed, lambda p, d: d >= distance, distance))
 
     def _resolve_aside(self, pose):
         yaw = v1.yaw_of(pose)
