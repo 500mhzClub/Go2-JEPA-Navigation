@@ -88,3 +88,19 @@ def test_kinds_sets_and_seeds():
     assert v2.unit_seed(5, 'free') == v2.v1.keyed_seed(v2.VERSION, v2.v1.SET, 5, 'free')   # unchanged for v2's kinds
     assert v2.unit_seed(5, 'standoff') != v2.unit_seed(5, 'standoff_b')
     assert v2.FRAME_CAPS['standoff'] == v2.FRAME_CAPS['standoff_b'] == 900
+
+
+def test_free_starts_sit_in_a_cell_of_the_layout_s_own_pitch():
+    from go2nav.data import lewm_corpus as v1
+    from go2nav.mazes import grid
+    from go2nav.sim.obstacles import pitch_of
+    for spec in (dict(evaluation_layout=dict(pitch_m=1.6), geometry={}), dict(evaluation_layout=dict(pitch_m=1.1), geometry={}),
+                 dict(geometry={})):
+        for seed in range(20):
+            xy = np.asarray(v1.free_spec(spec, seed)['geometry']['spawn_se2_world'][:2])
+            cell = np.round(xy/pitch_of(spec))
+            assert np.abs(xy-cell*pitch_of(spec)).max() <= min(.15, pitch_of(spec)/2-.49)+1e-9
+    tree = v1.free_spec(dict(geometry={}), 7)['geometry']['spawn_se2_world']   # the tree mazes' starts are unchanged
+    rng = np.random.default_rng(7)
+    cell = np.asarray(grid.SQUARE.cells[int(rng.integers(len(grid.SQUARE.cells)))], float)
+    assert np.allclose(tree[:2], cell*grid.PITCH_M+rng.uniform(-.15, .15, 2))
