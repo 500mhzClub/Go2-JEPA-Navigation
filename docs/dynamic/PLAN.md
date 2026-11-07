@@ -735,6 +735,83 @@ shadow log, so it can run while steps 2 and 3 are written.
 model fails the carrier bar (90th percentile 28.5 cm) and C1 passes (1.7 cm, limit 0.05 m of carried path). P10 closes as a
 negative result; steps 3 and 4 do not run, and `--pose-carry` stays off.
 
+### P11. Getting out of the way of a walker that waits (approved 7 November)
+
+**Why.** A walker that does not yield walks up to the robot and waits for it to leave its path (`sim.obstacles`: it stops while
+the robot is within 0.625 m ahead of it, and never turns back). The planner treats the walker as an obstacle and waits too. In
+P10's 74 missions with the true pose (a walker "waits on the robot" when it has stood still at least 1 s within 0.70 m with the
+robot ahead of its last heading):
+- all 40 timeouts end in such a stand-off; it covers a median 81% of the mission, its longest stretch a median 222 s, and the
+  robot stands still 94% of it and reverses 2%;
+- 22 of the 24 contacts with walkers are with a still walker that had been waiting on the robot, 12 of them out of view in the
+  last second, so out-of-view contacts are a symptom of the stand-off;
+- no mission with a stand-off of 60 s or more made a round trip: 0 of 55 (P8's runs: 0 of 57).
+During stand-offs the walker is within 60° of the heading 86% of the time and in the forward view 71%, so the model's tracks
+see most of them. P4f's back-off rule (`planner.give_way`, off in the working setup) backs off 0.40 m at most 3 times per track,
+and a walker that does not yield just follows it.
+
+**What changes, and why it is a hand rule first.** This piece adds a response, it does not hand one over: the corpus barely
+contains the decision (with a mover waiting near and ahead the robot holds or turns in 93% of the next 1.6 s, P4f), and P4f's
+model ranked retreats inverted even after a give-way top-up. So the rule comes first, its encounters become the data, and P12
+hands the decision to the world model.
+
+**The rule** (`planner.vacate`, `--vacate on`, off by default).
+- **Trigger:** a confirmed track (the model's walkers, `held`) within 0.9 m and in the front half that has stayed within 0.15 m
+  of one spot for at least 4 s. Polite walkers turn back after 3 s, so they should rarely trigger it.
+- **Retreat:** back along the robot's own travelled path (breadcrumbs every 0.10 m, known floor), facing the walker so that it
+  stays in view. Each plan takes the reverse lattice candidate (-0.10 m/s, yaw -0.45 to 0.45 rad/s) whose world-model forecast
+  ends nearest a point 0.5 m back along the path, among those whose forecast path stays on observed floor with the footprint's
+  0.45 m of clearance from everything but that walker, and ends no nearer it.
+- **End:** no confirmed track within 1.2 m for 2 s (the walker has turned off; the planner resumes), or the path runs out, or
+  5 plans in a row with no admissible step, or 120 s. Then 10 plans before it can trigger again.
+- **Records:** every encounter (its trigger, steps, end and the walker track) is logged in `planning.json`, the seed of P12's data.
+
+**Steps.**
+1. **Code and unit tests** (CPU): the rule, `--vacate`, per-mission counts in `cohort`.
+2. **Walkers that do not yield** (`vacate_rude_obst{1,2}_c5`, 80, GPU about 3.5 h): the working setup with the rule, paired with
+   P8's `wm_rude_model_*` (11 round trips, 10 contact stops).
+3. **The fixed record** (`vacate_obst{1,2}_c5`, 80, about 3.5 h): polite walkers, paired with the fixed record (`wo_*` with
+   P7's two crash fixes, 70 of 80).
+4. **Only if step 2 fails:** the same 80 missions with the true walker positions (`walker_mode: truth`), to tell the rule from
+   the tracks.
+
+**Bars, set before anything is scored.**
+- **Step 2:** round trips at least 21 (net gain at least 10) with wins at least twice the losses, contact stops at most 10.
+- **Step 3:** within the running allowance of 3 below 70, no contacts.
+- **Stopping** ("Phases and gates"): every 20 missions; stop when a bar is decided, or as broken if a new failure (a crash, a
+  wall contact during a retreat) appears in at least 5 of the first 20.
+
+**Compute.** About 7 GPU-hours, at most 6 world-model missions at once, mazes 10-29 only (50-89 stay held). Step 3 runs only
+once step 2 passes.
+
+**Result (7 November).** Stopped during step 1: in six smoke rounds (21 missions where the rule could act) the robot never
+got out of the walker's way, and no round trip came of it (13 timeouts, 4 pose losses, 4 contacts; STATUS, "P11"). The
+waiting walker stands inside the cameras' blind zone (its face about 0.1 m from the lenses, under the 0.2-m depth minimum),
+so the map, the model's walker head and visual odometry all lose it once the robot moves. All 35 "walker gone" endings
+checked against the truth were wrong. The robot stops wedged just past a corner, and the true pose does not rescue it.
+Steps 2-4 do not run; `--vacate` stays off. The rule as finally coded is in STATUS and `planning/planner.py`.
+
+### P12. The world model decides when to give way (planned; after P11 merges, if P11 passes)
+
+*Superseded (7 November)* by the project review's plan (`docs/REVIEW_2026-11-07.md`, section 6): data that contain the
+decision, the world model as the decision-maker, and range sensing as an observation. The sketch below is kept for the
+record.
+
+The rule's when and how far become the model's. Sketch, to be set out in full for approval when P11 closes:
+1. **Data.** A corpus v2 top-up of kind `vacate`: free units with non-polite walkers, driven like `GiveWayDriver` but with P11's
+   retreat in its repertoire and its choices varied on purpose (hold for 2-30 s, retreat for 0.3-3 m, step forward), so that
+   the same stand-offs end in different ways: a walker that keeps waiting, one that follows, one that turns off. P11's mission
+   encounters say which situations to weight. Gate on the data: at least 25% of the stand-off windows followed by the walker
+   moving off the robot's path within 10 s.
+2. **Model.** The world model learns what each response leads to: whether the robot's way ahead is clear after H seconds under
+   hold or under retreat, either from rollouts read by the mover head or from a response head on the latent, trained with the
+   encoder as before. Offline bar: it ranks hold against retreat better than the rule's trigger on held-out units.
+3. **Missions.** The model's choice replaces the rule's trigger and end (when to back off, when to go again), on P11's missions;
+   bar: no worse than the rule, no more contacts.
+
+The memory near the body (P9b's deferred follow-up) waits until after P12, and returns only if contacts with walkers out of
+view remain.
+
 ## Compute and order
 
 | Phase | Compute |
