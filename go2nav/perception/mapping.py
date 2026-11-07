@@ -290,9 +290,11 @@ class RoutingMap:
             self.fine_occupied -= {c for c in self.fine_occupied if self.fine_seen_ns[c] < before_ns}
         return stale
 
-    def update(self, frame, measured_ns, position, rotation, depth, auxiliary_depth, specific_force):
+    def update(self, frame, measured_ns, position, rotation, depth, auxiliary_depth, specific_force, range_points=None):
         """`position`/`rotation`: the registered pose (initial-body frame); `depth`/`auxiliary_depth`: (depth_m, valid)
-        pairs; `specific_force`: the (20, 3) accelerometer history (used once, for the map orientation)."""
+        pairs; `specific_force`: the (20, 3) accelerometer history (used once, for the map orientation);
+        `range_points`: the range sensor's returns in the body frame (PLAN P13), which mark occupied cells as the
+        depth samples do but never floor or free space."""
         p, R = np.asarray(position, float), np.asarray(rotation, float)
         if self.floor_height is None:
             if self.B is None:
@@ -328,6 +330,15 @@ class RoutingMap:
             counts.append(int(covered.sum()))
             points = sampled_points(depth_m, valid, cameras.AUXILIARY if auxiliary else cameras.PRIMARY)
             mapped = ((points@R.T+p)@self.B.T) if auxiliary else (points@Q.T+q)
+            above = mapped[(mapped[:, 2] > self.floor_height+MIN_HEIGHT_M)&(mapped[:, 2] < self.floor_height+MAX_HEIGHT_M)]
+            keys = np.unique(np.floor(above[:, :2]/CELL_M).astype(int), axis=0)
+            new_occupied.update(tuple(map(int, cell)) for cell in keys
+                                if np.all(cell >= -HALF_CELLS) and np.all(cell < HALF_CELLS))
+            fine_keys = np.unique(np.floor(above[:, :2]/FINE_CELL_M).astype(int), axis=0)
+            new_fine.update(tuple(map(int, cell)) for cell in fine_keys
+                            if np.all(cell >= -FINE_HALF_CELLS) and np.all(cell < FINE_HALF_CELLS))
+        if range_points is not None and len(range_points):
+            mapped = np.asarray(range_points, float).reshape(-1, 3)@Q.T+q
             above = mapped[(mapped[:, 2] > self.floor_height+MIN_HEIGHT_M)&(mapped[:, 2] < self.floor_height+MAX_HEIGHT_M)]
             keys = np.unique(np.floor(above[:, :2]/CELL_M).astype(int), axis=0)
             new_occupied.update(tuple(map(int, cell)) for cell in keys

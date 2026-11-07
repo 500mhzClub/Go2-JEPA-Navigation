@@ -5,7 +5,8 @@
 A config gives the scene-id prefix, family, seeds, the exclusions and the roles (see configs/mazes/). Each `exclude`
 entry is either a graph registry (a JSON list of {'name', 'edges'}) or a set folder, whose mazes are all excluded.
 `qualify: {strip_coverage: F}` keeps only layouts with an episode whose stage-2 strips (`go2nav.sim.dynamics`) cover
-at least F of the route (the stage-2 selection). `grid_shape: [columns, rows]` builds on another grid (default 4 x 4).
+at least F of the route (the stage-2 selection). `grid_shape: [columns, rows]` builds on another grid (default 4 x 4);
+`layout_family` draws the layouts of another family (`go2nav.mazes.families`; default the tree).
 For a new set, exclude data/mazes/registries/built_graphs_2026-10-06.json plus any set built since.
 """
 import argparse
@@ -27,7 +28,8 @@ def excluded_graphs(entries):
         path = REPO/entry
         if path.is_dir():
             maze_set = MazeSet(path.name, root=path.parent)
-            graphs += [dict(name=s['scene_id'], edges=s['evaluation_layout']['edges'])
+            graphs += [dict(name=s['scene_id'], edges=s['evaluation_layout']['edges'],
+                            pitch_m=s['evaluation_layout'].get('pitch_m', grid.PITCH_M))
                        for s in map(maze_set.maze, maze_set.maze_ids())]
         else:
             graphs += json.loads(path.read_text())
@@ -59,7 +61,7 @@ def generate_from_config(path, qualify=None, workers=None):
     shape = grid.Shape(*config['grid_shape']) if config.get('grid_shape') else grid.SQUARE
     generated = generate(roles, seeds=seeds, excluded_graphs=excluded_graphs(config['exclude']),
                          scene_id_prefix=config['scene_id_prefix'], family=config['family'], qualify=qualify, shape=shape,
-                         workers=workers)
+                         workers=workers, layout_family=config.get('layout_family', 'tree'))
     return config, generated
 
 

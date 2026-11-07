@@ -12,7 +12,8 @@ current 100-ms window (so requests inside a window do not each get a fresh rate 
 (`go2nav.sim.sensors`), and stops the mission (`PhysicalStop`) on a disallowed contact, a body below 0.15 m or tilted
 past 0.7 rad, or (after settling) the contact, speed and domain guard (`go2nav.sim.contacts`). With moving obstacles
 (`go2nav.sim.obstacles`), every obstacle moves before each physics step after settling; they stand still while the
-robot settles.
+robot settles. With `range_sensor`, each frame also casts the range sensor's beams (`go2nav.sim.range_sensor`) into
+`last_range`.
 """
 
 import numpy as np
@@ -22,6 +23,7 @@ from go2nav.locomotion.safety import GUARD_SPEED_M_S, apply_limits
 from go2nav.perception.cameras import AUXILIARY, PRIMARY
 from go2nav.sim import contacts, dynamics as perturbations, scene as maze_scene, sensors
 from go2nav.sim.obstacles import ObstacleField
+from go2nav.sim.range_sensor import RangeSensor
 
 SETTLE_TICKS = 15
 FRAME_PERIOD_NS, FIRST_FRAME_NS = 100_000_000, 1_500_000_000
@@ -42,8 +44,11 @@ class MissionSession:
     physics step); `contact_packets` and `contact_events` are the evaluator's contact records."""
 
     def __init__(self, spec, output_dir, *, policy_checkpoint, noise_sigma_m=NOISE_SIGMA_M, dynamics=None, noise_layout=None,
-                 robot_visible=True, demo_textures=False, random_look=None, safety='primitive'):
+                 robot_visible=True, demo_textures=False, random_look=None, safety='primitive', range_sensor=False):
         self.spec, self.output_dir, self.dynamics, self.safety = spec, output_dir, dynamics, safety
+        # the range sensor (`go2nav.sim.range_sensor`): each frame's scan in `last_range`, or None when off
+        self.range_sensor = RangeSensor(spec) if range_sensor else None
+        self.last_range = None
         self.world = maze_scene.build(spec, output_dir, dynamics, robot_visible=robot_visible, demo_textures=demo_textures,
                                       random_look=random_look)
         strips = dynamics is not None and dynamics.strips is not None
@@ -71,6 +76,7 @@ class MissionSession:
         self.window, self.window_start_command = None, None
         self.samples, self.contact_packets, self.contact_times, self.contact_events = [], [], [], []
         self.base_xy = None  # the latest sampled base position (the obstacles yield to it; kept apart from `samples`)
+        self.base_yaw = None  # and its yaw (reactive walkers pass the robot's outline)
         self.body_sensor = sensors.BodySensor()
         self.history = sensors.History(sensors.BODY_CHANNELS)
         self.fast_history = sensors.History((sensors.FAST_GYRO,))
@@ -147,7 +153,7 @@ class MissionSession:
         for k in range(maze_scene.PHYSICS_STEPS_PER_POLICY):
             if self.obstacles is not None:
                 self.obstacles.update(maze_scene.PHYSICS_DT_S, self.base_xy,
-                                      base_time+(k+1)*maze_scene.PHYSICS_DT_S)
+                                      base_time+(k+1)*maze_scene.PHYSICS_DT_S, robot_yaw=self.base_yaw)
             self.world.scene.step()
             self.sim_ns = base_ns+(k+1)*2_000_000
             self.last_executed = command[None, :].copy()
@@ -179,6 +185,8 @@ class MissionSession:
                    phase=np.uint8(self.phase), edge_index=np.uint8(0))
         self.samples.append(row)
         self.base_xy = pos[:2].copy()
+        w, x, y, z = quat
+        self.base_yaw = float(np.arctan2(2*(w*z+x*y), 1-2*(y*y+z*z)))
         try:
             if not all(np.isfinite(np.asarray(v)).all() for v in row.values()):
                 raise ValueError('nonfinite physical sample')
@@ -255,6 +263,14 @@ class MissionSession:
             auxiliary_depth = sensors.add_depth_noise(auxiliary_depth, layout=self.noise_layout, frame=index, camera=1,
                                                       sigma_m=self.noise_sigma_m)
         auxiliary_rgb = sensors.auxiliary_rgb_packet(auxiliary_rgb, auxiliary_depth, policy, now)
+        if self.range_sensor is not None:
+            state = self._state()   # batched like the solver's state: one environment
+            position = np.asarray(state['pos'], np.float64).reshape(-1, 3)[0]
+            wxyz = np.asarray(state['quat_wxyz'], np.float64).reshape(-1, 4)[0]
+            walkers = [w.xy for w in self.obstacles.walkers] if self.obstacles is not None else []
+            heights = list(self.obstacles.heights) if self.obstacles is not None else []
+            ranges, valid = self.range_sensor.scan(position, wxyz, walkers, heights, frame=index)
+            self.last_range = dict(ranges_m=ranges, valid=valid, measured_ns=np.int64(now))
         self.frames += 1
         return policy, depth, fast, auxiliary_depth, auxiliary_rgb, now
 

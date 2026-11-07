@@ -23,6 +23,7 @@ import numpy as np
 
 from go2nav.mazes import grid
 from go2nav.sim import appearance, demo_appearance, random_appearance
+from go2nav.sim.obstacles import pitch_of
 
 PHYSICS_DT_S, POLICY_DT_S, COMMAND_DT_S = .002, .02, .1
 PHYSICS_STEPS_PER_POLICY = 10
@@ -122,7 +123,7 @@ def build(spec, output_dir, dynamics=None, robot_visible=True, demo_textures=Fal
     robot = scene.add_entity(gs.morphs.URDF(file=str(go2_urdf()), pos=spawn_xyz, quat=spawn_wxyz, fixed=False,
                                             visualization=robot_visible, collision=True), name='go2')
     placement = dynamics.obstacles if dynamics is not None and dynamics.obstacles else []
-    obstacles = [scene.add_entity(gs.morphs.Cylinder(pos=(*(np.asarray(o['start_cell'], float)*grid.PITCH_M), o['height_m']/2),
+    obstacles = [scene.add_entity(gs.morphs.Cylinder(pos=(*(np.asarray(o['start_cell'], float)*pitch_of(spec)), o['height_m']/2),
                                                      radius=o['radius_m'], height=o['height_m'], fixed=True,
                                                      visualization=True, collision=True),
                                   material=gs.materials.Rigid(friction=MATERIAL_FRICTION),

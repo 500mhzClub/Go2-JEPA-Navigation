@@ -1,0 +1,12 @@
+# Family B (docs/dynamic/PLAN.md P13 item 4, 7 November 2026): loops and rooms on the 4 x 4 grid, the pitch drawn per
+# layout from 1.1, 1.3 and 1.6 m (go2nav.mazes.families). A development family: collection, tuning, training and
+# evaluation may all use it. Its loops make every topology new to the tree family; the usual exclusions are kept anyway.
+description: 'loops_rooms_v1 (family B): dev_tune 0-9, validation 10-29'
+scene_id_prefix: navigation-loops-rooms-v1
+family: NAVIGATION_LOOPS_ROOMS_4X4
+layout_family: loops_rooms
+seeds: {construction: 2026110801, physics_base: 2026120000, appearance_base: 2026121000, episode_base: 2026122000}
+exclude: [data/mazes/registries/built_graphs_2026-10-06.json, data/mazes/registries/capability_v1_prior_graphs.json, data/mazes/c3v2_sets_v1, data/mazes/c3v3_sets_v1, data/mazes/stage2_sets_v1, data/mazes/dev_tune, data/mazes/validation, data/mazes/prelim_test_v1]
+roles:
+  - {name: dev_tune, count: 10, episodes: [0, 1]}
+  - {name: validation, count: 20, episodes: [0, 1]}

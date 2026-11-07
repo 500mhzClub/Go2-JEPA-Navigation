@@ -1,0 +1,678 @@
+{
+  "schema": "go2nav_maze_set.v1",
+  "name": "loops_rooms_v1",
+  "description": "loops_rooms_v1 (family B): dev_tune 0-9, validation 10-29",
+  "family": "NAVIGATION_LOOPS_ROOMS_4X4",
+  "scene_id_prefix": "navigation-loops-rooms-v1",
+  "seeds": {
+    "construction": 2026110801,
+    "physics_base": 2026120000,
+    "appearance_base": 2026121000,
+    "episode_base": 2026122000
+  },
+  "roles": [
+    {
+      "name": "dev_tune",
+      "count": 10,
+      "episodes": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "validation",
+      "count": 20,
+      "episodes": [
+        0,
+        1
+      ]
+    }
+  ],
+  "excluded_registries": [
+    "data/mazes/registries/built_graphs_2026-10-06.json",
+    "data/mazes/registries/capability_v1_prior_graphs.json",
+    "data/mazes/c3v2_sets_v1",
+    "data/mazes/c3v3_sets_v1",
+    "data/mazes/stage2_sets_v1",
+    "data/mazes/dev_tune",
+    "data/mazes/validation",
+    "data/mazes/prelim_test_v1"
+  ],
+  "candidates_examined": 92,
+  "rejection_counts": {
+    "insufficient_declared_route_structure": 61,
+    "repeated_abstract_topology": 1
+  },
+  "entries": [
+    {
+      "maze_id": 0,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_00.json",
+        "sha256": "f240820fa927785a6d984de3ce5f8f7cfbba1ddfbac3321edf77e6b266073d42",
+        "bytes": 11317
+      },
+      "episodes": [
+        {
+          "file": "episode_00_0.json",
+          "sha256": "ca654213ee0b26471c425eb2f6d1ad2cdc30a13d0e716277ce47f41c3b9da2eb",
+          "bytes": 737
+        },
+        {
+          "file": "episode_00_1.json",
+          "sha256": "3c82dd2ee12c7dda43649ce8becb70d6b22c5a50355cbf60a27e54088af8dc65",
+          "bytes": 736
+        }
+      ]
+    },
+    {
+      "maze_id": 1,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_01.json",
+        "sha256": "3aba373a9ba53f6c0de4f5532e7994a5996464d7e0fc46ad43e035b780d43e5b",
+        "bytes": 11266
+      },
+      "episodes": [
+        {
+          "file": "episode_01_0.json",
+          "sha256": "39d3ec5c93285507ca20857b076e4e07e18a32928a10e1fcb53cc438e1d23d13",
+          "bytes": 733
+        },
+        {
+          "file": "episode_01_1.json",
+          "sha256": "b9d1335c294f98a5a3de3739d737c0c90a836251c34834eb3a9cb5e9e9fa5740",
+          "bytes": 734
+        }
+      ]
+    },
+    {
+      "maze_id": 2,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_02.json",
+        "sha256": "30db9954ac681c87d00495f8f638b87f7dd37ffa8e74cea936e7bb958e97ec00",
+        "bytes": 11252
+      },
+      "episodes": [
+        {
+          "file": "episode_02_0.json",
+          "sha256": "a840934bc8bf72a0c17beb19e647e05be143cd0d04fc16ec15858ccaf52b3bef",
+          "bytes": 738
+        },
+        {
+          "file": "episode_02_1.json",
+          "sha256": "51d384c25ab7bd5b90322ad17d9d74d6c2a0183343250085d1301c16f6884d32",
+          "bytes": 736
+        }
+      ]
+    },
+    {
+      "maze_id": 3,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_03.json",
+        "sha256": "87a484f368ac0119cd1b2e422defea6ff7b23ebc0aae9b1019ab82596cad52ab",
+        "bytes": 11453
+      },
+      "episodes": [
+        {
+          "file": "episode_03_0.json",
+          "sha256": "bc224fe552b31bcb48a32890f044a591eb17c2433d7193612ef8f6bffc06f9d5",
+          "bytes": 736
+        },
+        {
+          "file": "episode_03_1.json",
+          "sha256": "84aa6b4bab4b1383d874096e55a2dad2d11f7f228f8dd82a495353471d28aa63",
+          "bytes": 736
+        }
+      ]
+    },
+    {
+      "maze_id": 4,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_04.json",
+        "sha256": "123e8100350ce3b2199e468a14ca31e4ea23e6b9970dfbcb517d3e4aaf25584b",
+        "bytes": 11093
+      },
+      "episodes": [
+        {
+          "file": "episode_04_0.json",
+          "sha256": "f3b869a126f1e3f33194c21ae42c9321953dfb46748c7dcb5eb3f49c0f5fe278",
+          "bytes": 742
+        },
+        {
+          "file": "episode_04_1.json",
+          "sha256": "262cc2f952f84b96ce771496a4f3a5d8bb6b5c248f511f215ae5a3eed75ff837",
+          "bytes": 736
+        }
+      ]
+    },
+    {
+      "maze_id": 5,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_05.json",
+        "sha256": "26d74bc11232122872069cc7e59c28d4223ad1c7f28be400ed635135ccf74831",
+        "bytes": 11569
+      },
+      "episodes": [
+        {
+          "file": "episode_05_0.json",
+          "sha256": "67986a61de191934945c39af02920a502fefa9a17810ff702560ea3aeed4ad03",
+          "bytes": 733
+        },
+        {
+          "file": "episode_05_1.json",
+          "sha256": "df0ba4340ccdf7eb2ed33aee69cdf814dc678a4a2c3cfe88736997ac356b7b80",
+          "bytes": 737
+        }
+      ]
+    },
+    {
+      "maze_id": 6,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_06.json",
+        "sha256": "7afc01b5a398eb9eab0d621e5aeb6aa3f2866597584bcb4165302e4578aae017",
+        "bytes": 11689
+      },
+      "episodes": [
+        {
+          "file": "episode_06_0.json",
+          "sha256": "2bd996a4c16d1e58d57bd04cc5abef94df8de0ab96c43905f08d8c777cc61f30",
+          "bytes": 736
+        },
+        {
+          "file": "episode_06_1.json",
+          "sha256": "76850f6f5ebecbee328190458271ae9edff2870a2b7756e05e5cc88402fadc48",
+          "bytes": 733
+        }
+      ]
+    },
+    {
+      "maze_id": 7,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_07.json",
+        "sha256": "55376b5fdddca78843c146ff38401ac06a5c3796294747c1abef6e25944b3051",
+        "bytes": 11285
+      },
+      "episodes": [
+        {
+          "file": "episode_07_0.json",
+          "sha256": "5cf2f135784d68ba51db97b9b797b05ece0453f28d34bed5823c4e84caea8e3c",
+          "bytes": 734
+        },
+        {
+          "file": "episode_07_1.json",
+          "sha256": "833d50a6ebbec247abde7528ac7a57c0a61ab79610b3abe38f743cc7e99a8391",
+          "bytes": 737
+        }
+      ]
+    },
+    {
+      "maze_id": 8,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_08.json",
+        "sha256": "521daff687523d42c2d833915fd63804206118f63a964138ff3ffb8bd401e790",
+        "bytes": 11436
+      },
+      "episodes": [
+        {
+          "file": "episode_08_0.json",
+          "sha256": "8ce23cb625f9af3756d2627aab36e9740e738f0a3c755dc59d95220854d9ddf6",
+          "bytes": 736
+        },
+        {
+          "file": "episode_08_1.json",
+          "sha256": "3946ac00efdb5ff408b427cdb5a479e4f12d99b1573e9097734635a570c02e3f",
+          "bytes": 737
+        }
+      ]
+    },
+    {
+      "maze_id": 9,
+      "role": "dev_tune",
+      "maze": {
+        "file": "maze_09.json",
+        "sha256": "313f47d7c4c89eb3a8cf199e9f53fde359bb2e945d91a9e8f898db9ab2e6271c",
+        "bytes": 11666
+      },
+      "episodes": [
+        {
+          "file": "episode_09_0.json",
+          "sha256": "7abde74852683fad686525640555a5ad26677dc4404d71bb33ccf74bd051116a",
+          "bytes": 736
+        },
+        {
+          "file": "episode_09_1.json",
+          "sha256": "3e43744e477ec70982bfd9a4e961705cf9790393d6d99ecf4e5bc245765ea372",
+          "bytes": 738
+        }
+      ]
+    },
+    {
+      "maze_id": 10,
+      "role": "validation",
+      "maze": {
+        "file": "maze_10.json",
+        "sha256": "af10036de057ee649ef7143403572989dd51bb91643b2f075dd76911b0220055",
+        "bytes": 11270
+      },
+      "episodes": [
+        {
+          "file": "episode_10_0.json",
+          "sha256": "bd27a48f589025a4e580729328ace83f8c3d3a77d0f87a1d454601b7608cdf80",
+          "bytes": 738
+        },
+        {
+          "file": "episode_10_1.json",
+          "sha256": "5e29ebdbae345bc71c93521752367a3a009d2065755996fa37477ce4fa6929d7",
+          "bytes": 738
+        }
+      ]
+    },
+    {
+      "maze_id": 11,
+      "role": "validation",
+      "maze": {
+        "file": "maze_11.json",
+        "sha256": "00520184cfc0231d89054746f3dc7318bbba370aaed40a5ffd338a60a3d5d910",
+        "bytes": 11480
+      },
+      "episodes": [
+        {
+          "file": "episode_11_0.json",
+          "sha256": "e8079acff906e33337547dafe4a35a4aab313eafbb05b8821891176be1a79949",
+          "bytes": 739
+        },
+        {
+          "file": "episode_11_1.json",
+          "sha256": "b2fe43751b29803598968412cc90cdfa4805ca4ed9e7c66620b564789d052d90",
+          "bytes": 738
+        }
+      ]
+    },
+    {
+      "maze_id": 12,
+      "role": "validation",
+      "maze": {
+        "file": "maze_12.json",
+        "sha256": "a8eb1ce0667df2c19d352640e5d0520c46db950c5b1979618766a15695e6aa1e",
+        "bytes": 11668
+      },
+      "episodes": [
+        {
+          "file": "episode_12_0.json",
+          "sha256": "26621f260aed93d24b10982384ae5344d0da09edfc6849b07d999d51d8249e39",
+          "bytes": 739
+        },
+        {
+          "file": "episode_12_1.json",
+          "sha256": "879d73bf775a6e979a4c5b0bde673b954a8d63c747b05c0843084f4e14ae1a36",
+          "bytes": 738
+        }
+      ]
+    },
+    {
+      "maze_id": 13,
+      "role": "validation",
+      "maze": {
+        "file": "maze_13.json",
+        "sha256": "a835131b5b4c2f418198a39f06a99e48c6601917f7083b76f51ae5000a2b3de7",
+        "bytes": 11535
+      },
+      "episodes": [
+        {
+          "file": "episode_13_0.json",
+          "sha256": "ed4014c2c811ee9979e912117b281a23821ba690200794557e7df0e3fc3c5aca",
+          "bytes": 738
+        },
+        {
+          "file": "episode_13_1.json",
+          "sha256": "26d47ca6f4d7fb8ab89d935e491c97765d6e1830d99c359368c06a93b9392fa0",
+          "bytes": 739
+        }
+      ]
+    },
+    {
+      "maze_id": 14,
+      "role": "validation",
+      "maze": {
+        "file": "maze_14.json",
+        "sha256": "c51fcf86ced48b8fd0962c20da1e1b4be72861fb27020d0e64c5b04c46b97efb",
+        "bytes": 11559
+      },
+      "episodes": [
+        {
+          "file": "episode_14_0.json",
+          "sha256": "1f829b40753bbabce7e418b81dc989e5341bb6369b5fa7506caa983179b89299",
+          "bytes": 741
+        },
+        {
+          "file": "episode_14_1.json",
+          "sha256": "253644597fd6efa6151634c2a0b01aa7d52e85400ba734ee3a4f16d8b18c731e",
+          "bytes": 738
+        }
+      ]
+    },
+    {
+      "maze_id": 15,
+      "role": "validation",
+      "maze": {
+        "file": "maze_15.json",
+        "sha256": "64e4e05e1280fa5dba925976911d0fa09d4038c2fb5d5edbd3eb8fde800d9cd1",
+        "bytes": 11283
+      },
+      "episodes": [
+        {
+          "file": "episode_15_0.json",
+          "sha256": "22faff5884084d51bd59d87ac980e42fcfa2e6ae1922111410a747e7f2676000",
+          "bytes": 741
+        },
+        {
+          "file": "episode_15_1.json",
+          "sha256": "bb8b6bbeafeb83b407ad292d33b5c1b5e8c0a80fa6697e4e86ab13c27eaec35a",
+          "bytes": 738
+        }
+      ]
+    },
+    {
+      "maze_id": 16,
+      "role": "validation",
+      "maze": {
+        "file": "maze_16.json",
+        "sha256": "feb73a70737610f44305afa7a637f4148c473f84a68fd82c1e9360ff14bc220f",
+        "bytes": 11375
+      },
+      "episodes": [
+        {
+          "file": "episode_16_0.json",
+          "sha256": "034b878811f4c1ab70691c4b9af6f7259d33d576a19ef6c2ec93cb7908548c92",
+          "bytes": 741
+        },
+        {
+          "file": "episode_16_1.json",
+          "sha256": "ac92a3439411f61daca2872abf7ef81b52ce16a99cb3b55f53fcbbd280b3a721",
+          "bytes": 741
+        }
+      ]
+    },
+    {
+      "maze_id": 17,
+      "role": "validation",
+      "maze": {
+        "file": "maze_17.json",
+        "sha256": "6103a8dcc4eca07cd6854144bc2d19fbdfb315a77745571cac298804a50f398b",
+        "bytes": 11444
+      },
+      "episodes": [
+        {
+          "file": "episode_17_0.json",
+          "sha256": "cac6b3f955aac5f09acbf1ea193f8d0548984adeb018c2fefc55226382fc4a3c",
+          "bytes": 740
+        },
+        {
+          "file": "episode_17_1.json",
+          "sha256": "1229e7631c829af530869c535aa1ee0ff93ee46cbcd771468fb237f8286c302a",
+          "bytes": 739
+        }
+      ]
+    },
+    {
+      "maze_id": 18,
+      "role": "validation",
+      "maze": {
+        "file": "maze_18.json",
+        "sha256": "1b86789ece309687c7751e865b4a1394a255b0d14ce93064bd292b5e36530cc4",
+        "bytes": 11256
+      },
+      "episodes": [
+        {
+          "file": "episode_18_0.json",
+          "sha256": "4da620622b59a05021a7a9d6cbfdd4d2fab1b8c91210ea9e6acd9563b5aa1c31",
+          "bytes": 737
+        },
+        {
+          "file": "episode_18_1.json",
+          "sha256": "1cd30d2bf054cab1040a40ec26e1d349b12f5e92778983af03727e40264a07ad",
+          "bytes": 738
+        }
+      ]
+    },
+    {
+      "maze_id": 19,
+      "role": "validation",
+      "maze": {
+        "file": "maze_19.json",
+        "sha256": "80b84b7315addeb4e23cfdef9af74c37e3aa6ba13faa81cafc96d13ea87805b3",
+        "bytes": 11585
+      },
+      "episodes": [
+        {
+          "file": "episode_19_0.json",
+          "sha256": "9dcb7705fb5efd590680320a89d094ef6168deeda422d82298176745de07fd25",
+          "bytes": 741
+        },
+        {
+          "file": "episode_19_1.json",
+          "sha256": "e6353422e8ffe2ea151f85514cec8f02c70f611ebf50a08ece3bf5d1cbfacb46",
+          "bytes": 741
+        }
+      ]
+    },
+    {
+      "maze_id": 20,
+      "role": "validation",
+      "maze": {
+        "file": "maze_20.json",
+        "sha256": "9496b8efd8e58fde2a8e775c05326c4a76119b65868c3a7796138acdd13666a7",
+        "bytes": 11468
+      },
+      "episodes": [
+        {
+          "file": "episode_20_0.json",
+          "sha256": "58cda32b0a8ec4613177d78ca4256626ea22bf548c8c76add317f93e17d7495f",
+          "bytes": 739
+        },
+        {
+          "file": "episode_20_1.json",
+          "sha256": "1465afab2b28c48933986d0b847d15337893decab5b6f0688ad4215ba5966236",
+          "bytes": 738
+        }
+      ]
+    },
+    {
+      "maze_id": 21,
+      "role": "validation",
+      "maze": {
+        "file": "maze_21.json",
+        "sha256": "3b860b8e7746ff27bee7d8fd388cb7260becdb5c5c534084adcecce87cf51359",
+        "bytes": 11270
+      },
+      "episodes": [
+        {
+          "file": "episode_21_0.json",
+          "sha256": "9b55e683cb8a5bb19b146f99686d6323407a62f7a1149313bb126e3cf6f15e3b",
+          "bytes": 739
+        },
+        {
+          "file": "episode_21_1.json",
+          "sha256": "f06d89e0d95582e4b63cc0024e2405361298b9b8439fdeb175675278a962ca32",
+          "bytes": 738
+        }
+      ]
+    },
+    {
+      "maze_id": 22,
+      "role": "validation",
+      "maze": {
+        "file": "maze_22.json",
+        "sha256": "af2feb492a326c2abf9240b73e8d42138bc9ddedcfce30d18ea5b773a8fd5e5a",
+        "bytes": 11361
+      },
+      "episodes": [
+        {
+          "file": "episode_22_0.json",
+          "sha256": "75c36ec90d294ffc4fb02417913e2070500875c47cd93fb7ee6d297860f651c7",
+          "bytes": 739
+        },
+        {
+          "file": "episode_22_1.json",
+          "sha256": "6ef9e669545e61b1c852eba090825e9a12cfc3b456dce0fbe4c02b1e6fe630df",
+          "bytes": 739
+        }
+      ]
+    },
+    {
+      "maze_id": 23,
+      "role": "validation",
+      "maze": {
+        "file": "maze_23.json",
+        "sha256": "da67f7b26b2a986938d9d944ebba942aa23c7504860037700d70aebd81f19ae9",
+        "bytes": 11085
+      },
+      "episodes": [
+        {
+          "file": "episode_23_0.json",
+          "sha256": "245b55c27378149d3c1056b2f3e374eaaa8c5cef06bec0ed348ec94509c9ee9e",
+          "bytes": 740
+        },
+        {
+          "file": "episode_23_1.json",
+          "sha256": "5bd466ae3d3aed5198623f4c13dddb85a412941899f05f8836c8a0f8534595b1",
+          "bytes": 740
+        }
+      ]
+    },
+    {
+      "maze_id": 24,
+      "role": "validation",
+      "maze": {
+        "file": "maze_24.json",
+        "sha256": "233400a63044ecf72a678f500e58973e276f8fb3c6f0a3e2db7993379f5f5ff6",
+        "bytes": 11273
+      },
+      "episodes": [
+        {
+          "file": "episode_24_0.json",
+          "sha256": "7943b5436630352ed03184146be68c0466842a76d15873c4bd9bd3372b47e3cf",
+          "bytes": 741
+        },
+        {
+          "file": "episode_24_1.json",
+          "sha256": "487b2fb25a46b64bdffa820587173da59f2e9cce938497204043a0c99b429b46",
+          "bytes": 738
+        }
+      ]
+    },
+    {
+      "maze_id": 25,
+      "role": "validation",
+      "maze": {
+        "file": "maze_25.json",
+        "sha256": "938741378740740acf4fc51487d14dafb1aca817832d0ef962d815934c1d075c",
+        "bytes": 11269
+      },
+      "episodes": [
+        {
+          "file": "episode_25_0.json",
+          "sha256": "2a5c618a04ec467b20dd9392314ff2d7732d6b1a474140964f19893b0b6b1bd5",
+          "bytes": 742
+        },
+        {
+          "file": "episode_25_1.json",
+          "sha256": "a7b2c17b72c97e87a53b703e6c1b811226ab2af80360d2789d9a63473f39cc19",
+          "bytes": 738
+        }
+      ]
+    },
+    {
+      "maze_id": 26,
+      "role": "validation",
+      "maze": {
+        "file": "maze_26.json",
+        "sha256": "0849c1b78a1e2640c9deb0f5e83b1f9c0cd4aaf9c5e163fb007f0100a881a397",
+        "bytes": 11498
+      },
+      "episodes": [
+        {
+          "file": "episode_26_0.json",
+          "sha256": "151391b653202dd2fdbb947f72812d758ee24914b4b0a4ef0cf11f3b987f5d2b",
+          "bytes": 741
+        },
+        {
+          "file": "episode_26_1.json",
+          "sha256": "f959bcebd81717bfb1f7a6b96ecc1241ffa4d61f83f808a7f24d4b4a7c613e76",
+          "bytes": 741
+        }
+      ]
+    },
+    {
+      "maze_id": 27,
+      "role": "validation",
+      "maze": {
+        "file": "maze_27.json",
+        "sha256": "885d43a5e0e71377e4ac21b3d7d979851d97e217868204984a23c73c4ba1dd05",
+        "bytes": 11429
+      },
+      "episodes": [
+        {
+          "file": "episode_27_0.json",
+          "sha256": "4d86ee06a5814ab20c0adc796b08bf95d48ae7014506aa88ebc3cf4f0e62ea54",
+          "bytes": 740
+        },
+        {
+          "file": "episode_27_1.json",
+          "sha256": "c31d10e0f1bf4739bc5f36587fc8a98cdab61134cf8d744f333ca1dd4c1c130b",
+          "bytes": 738
+        }
+      ]
+    },
+    {
+      "maze_id": 28,
+      "role": "validation",
+      "maze": {
+        "file": "maze_28.json",
+        "sha256": "0f6316575a49aab49358ccc3869ba5d827fb4b7892673c8f014943c0a1745615",
+        "bytes": 11521
+      },
+      "episodes": [
+        {
+          "file": "episode_28_0.json",
+          "sha256": "d718d825904f6d76463616f91969797197c3e7c308dac95573213cb902fef701",
+          "bytes": 738
+        },
+        {
+          "file": "episode_28_1.json",
+          "sha256": "d4e4f05845b59661a61da10d18ba0376ae74a3fd112b52ad6371eb00d3dbb3df",
+          "bytes": 737
+        }
+      ]
+    },
+    {
+      "maze_id": 29,
+      "role": "validation",
+      "maze": {
+        "file": "maze_29.json",
+        "sha256": "133d6a5c35bbe5c8bea13ac7f7aa4f21b92fb3e0362dada13e836f1a067757b9",
+        "bytes": 11670
+      },
+      "episodes": [
+        {
+          "file": "episode_29_0.json",
+          "sha256": "afdee49980938fbfb5eb5f6f60be49ac0d334d80d410bdc8a1ea2b7fcdf6fd41",
+          "bytes": 740
+        },
+        {
+          "file": "episode_29_1.json",
+          "sha256": "f5bc5def4c1a703b8f820f518bb9a6398af04b40941ffb6080a4cc74a89f3ce4",
+          "bytes": 737
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,659 @@
+{
+  "scene_id": "navigation-loops-rooms-v1-14",
+  "layout_index": 14,
+  "family": "NAVIGATION_LOOPS_ROOMS_4X4",
+  "data_role": "validation",
+  "procedural_seed": 2026120014,
+  "appearance_seed": 2026121014,
+  "appearance_arm": "distinctive",
+  "friction_mu": 1.0,
+  "render_near_m": 0.005,
+  "visual_surface_contract": "floor_first_variable_height_union_walls",
+  "geometry": {
+    "spawn_se2_world": [
+      -1.1,
+      0.0,
+      0.0
+    ],
+    "wall_boxes": [
+      {
+        "wall_id": "independent_round_trip_wall_-3_-2_1",
+        "centre_xyz": [
+          -1.6500000000000001,
+          -1.1,
+          0.7
+        ],
+        "size_xyz": [
+          0.08,
+          1.1800000000000002,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_-3_0_1",
+        "centre_xyz": [
+          -1.6500000000000001,
+          0.0,
+          0.7
+        ],
+        "size_xyz": [
+          0.08,
+          1.1800000000000002,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_-3_2_1",
+        "centre_xyz": [
+          -1.6500000000000001,
+          1.1,
+          0.7
+        ],
+        "size_xyz": [
+          0.08,
+          1.1800000000000002,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_-3_4_1",
+        "centre_xyz": [
+          -1.6500000000000001,
+          2.2,
+          0.7
+        ],
+        "size_xyz": [
+          0.08,
+          1.1800000000000002,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_-2_-3_0",
+        "centre_xyz": [
+          -1.1,
+          -1.6500000000000001,
+          0.7
+        ],
+        "size_xyz": [
+          1.1800000000000002,
+          0.08,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_-2_-1_0",
+        "centre_xyz": [
+          -1.1,
+          -0.55,
+          0.7
+        ],
+        "size_xyz": [
+          1.1800000000000002,
+          0.08,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_-2_1_0",
+        "centre_xyz": [
+          -1.1,
+          0.55,
+          0.7
+        ],
+        "size_xyz": [
+          1.1800000000000002,
+          0.08,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_-2_5_0",
+        "centre_xyz": [
+          -1.1,
+          2.75,
+          0.7
+        ],
+        "size_xyz": [
+          1.1800000000000002,
+          0.08,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_-1_2_1",
+        "centre_xyz": [
+          -0.55,
+          1.1,
+          0.7
+        ],
+        "size_xyz": [
+          0.08,
+          1.1800000000000002,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_0_-3_0",
+        "centre_xyz": [
+          0.0,
+          -1.6500000000000001,
+          0.7
+        ],
+        "size_xyz": [
+          1.1800000000000002,
+          0.08,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_0_1_0",
+        "centre_xyz": [
+          0.0,
+          0.55,
+          0.7
+        ],
+        "size_xyz": [
+          1.1800000000000002,
+          0.08,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_0_5_0",
+        "centre_xyz": [
+          0.0,
+          2.75,
+          0.7
+        ],
+        "size_xyz": [
+          1.1800000000000002,
+          0.08,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_1_0_1",
+        "centre_xyz": [
+          0.55,
+          0.0,
+          0.7
+        ],
+        "size_xyz": [
+          0.08,
+          1.1800000000000002,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_2_-3_0",
+        "centre_xyz": [
+          1.1,
+          -1.6500000000000001,
+          0.7
+        ],
+        "size_xyz": [
+          1.1800000000000002,
+          0.08,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_2_5_0",
+        "centre_xyz": [
+          1.1,
+          2.75,
+          0.7
+        ],
+        "size_xyz": [
+          1.1800000000000002,
+          0.08,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_3_4_1",
+        "centre_xyz": [
+          1.6500000000000001,
+          2.2,
+          0.7
+        ],
+        "size_xyz": [
+          0.08,
+          1.1800000000000002,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_4_-3_0",
+        "centre_xyz": [
+          2.2,
+          -1.6500000000000001,
+          0.7
+        ],
+        "size_xyz": [
+          1.1800000000000002,
+          0.08,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_4_5_0",
+        "centre_xyz": [
+          2.2,
+          2.75,
+          0.7
+        ],
+        "size_xyz": [
+          1.1800000000000002,
+          0.08,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_5_-2_1",
+        "centre_xyz": [
+          2.75,
+          -1.1,
+          0.7
+        ],
+        "size_xyz": [
+          0.08,
+          1.1800000000000002,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_5_0_1",
+        "centre_xyz": [
+          2.75,
+          0.0,
+          0.7
+        ],
+        "size_xyz": [
+          0.08,
+          1.1800000000000002,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_5_2_1",
+        "centre_xyz": [
+          2.75,
+          1.1,
+          0.7
+        ],
+        "size_xyz": [
+          0.08,
+          1.1800000000000002,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      },
+      {
+        "wall_id": "independent_round_trip_wall_5_4_1",
+        "centre_xyz": [
+          2.75,
+          2.2,
+          0.7
+        ],
+        "size_xyz": [
+          0.08,
+          1.1800000000000002,
+          1.4
+        ],
+        "yaw_rad": 0.0,
+        "material_id": "NEUTRAL_WALL"
+      }
+    ]
+  },
+  "evaluation_layout": {
+    "cells": [
+      [
+        -1,
+        -1
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        -1,
+        1
+      ],
+      [
+        -1,
+        2
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        2,
+        -1
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        2,
+        2
+      ]
+    ],
+    "edges": [
+      [
+        [
+          -1,
+          -1
+        ],
+        [
+          0,
+          -1
+        ]
+      ],
+      [
+        [
+          -1,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      [
+        [
+          -1,
+          1
+        ],
+        [
+          -1,
+          2
+        ]
+      ],
+      [
+        [
+          -1,
+          2
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      [
+        [
+          0,
+          -1
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      [
+        [
+          0,
+          -1
+        ],
+        [
+          1,
+          -1
+        ]
+      ],
+      [
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      [
+        [
+          1,
+          -1
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      [
+        [
+          1,
+          -1
+        ],
+        [
+          2,
+          -1
+        ]
+      ],
+      [
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      [
+        [
+          1,
+          1
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      [
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ]
+      ],
+      [
+        [
+          2,
+          -1
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      [
+        [
+          2,
+          0
+        ],
+        [
+          2,
+          1
+        ]
+      ],
+      [
+        [
+          2,
+          1
+        ],
+        [
+          2,
+          2
+        ]
+      ]
+    ],
+    "goal_cell": [
+      -1,
+      1
+    ],
+    "shortest_outbound_route": [
+      [
+        -1,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        -1,
+        2
+      ],
+      [
+        -1,
+        1
+      ]
+    ],
+    "shortest_outbound_distance_m": 9.9,
+    "pitch_m": 1.1,
+    "abstract_topology_sha256": "95a46aa9727ca470d3b98a2e154c4612d9c52d4890b5c4f75b4d6f618fba6aaf",
+    "abstract_topology_code": "undirected-v1:16:000000000000010000000000001000000010000000000100000000000000010010000001001000110000000000100001000110001000100100000010",
+    "exact_canonicalization_states": 3,
+    "metric_sha256": "d041cfebf4dbcf38230d26389f9aa14177233eab69f03cbca0920e1251da17ce",
+    "metric_code": "{\"edges\":[[[0,0],[0,1]],[[0,0],[1,0]],[[0,1],[0,2]],[[0,1],[1,1]],[[0,2],[0,3]],[[0,2],[1,2]],[[1,0],[1,1]],[[1,0],[2,0]],[[1,1],[1,2]],[[1,2],[1,3]],[[1,2],[2,2]],[[1,3],[2,3]],[[2,0],[2,1]],[[2,0],[3,0]],[[2,1],[3,1]],[[2,2],[2,3]],[[2,3],[3,3]],[[3,2],[3,3]]],\"pitch_m\":\"0x1.199999999999ap+0\",\"wall_height_m\":\"0x1.6666666666666p+0\",\"wall_thickness_m\":\"0x1.47ae147ae147bp-4\"}"
+  },
+  "construction_candidate_index": 51,
+  "native_execution": false,
+  "final_evaluation": false,
+  "navigation_qualified": false,
+  "layout_family": "loops_rooms"
+}
