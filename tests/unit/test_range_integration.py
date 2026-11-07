@@ -54,3 +54,28 @@ def test_the_dispatch_check_sees_a_walker_beside_and_behind(monkeypatch):
     assert found.cells == {tuple(np.floor(p[:2]/obstacles.CELL_M).astype(int)) for p in points}
     assert found.returns == (0, 1)                                 # the cameras' counts are unchanged
     assert not observed(monkeypatch, None).cells                   # without the sensor: only the floor, no obstacles
+
+
+def test_beams_clear_the_trail_a_walker_left_behind_the_robot(monkeypatch):
+    # an earlier frame left a walker's cells 1 m behind the robot (5-cm cell (-21, 0)); now a beam passes through
+    # them to a wall 2 m behind: the trail goes, the wall and its last 10 cm stay
+    routing_map = mapping.RoutingMap()
+    routing_map.B, routing_map.floor_height = np.eye(3), 0.
+    routing_map.occupied |= {(-21, 0), (-42, 0)}
+    routing_map.fine_occupied |= {(-103, 2), (-205, 2)}
+    covered = np.zeros(len(mapping.GRID), bool)
+    monkeypatch.setattr(mapping, 'floor_coverage', lambda *args, **kwargs: covered)
+    monkeypatch.setattr(mapping, 'sampled_points', lambda *args, **kwargs: np.zeros((0, 3)))
+    monkeypatch.setattr(mapping.floor, 'paired_floor_points', lambda *args, **kwargs: ((None, None),))
+    monkeypatch.setattr(mapping.floor, 'joint_plane', lambda *args, **kwargs: dict(available=True))
+    wall_behind = np.array([[-2.05, .025, .42]])                     # the beam from the mount (0.30, 0, 0.12) back to it
+    snapshot = routing_map.update(4, 0, np.zeros(3), np.eye(3), (None, None), (None, None), None, range_points=wall_behind)
+    assert (-21, 0) not in snapshot.occupied and (-103, 2) not in snapshot.fine_occupied
+    assert (-21, 0) in snapshot.cleared
+    assert (-42, 0) in snapshot.occupied and (-205, 2) in snapshot.fine_occupied   # at the hit: kept
+
+
+def test_carving_stays_in_the_band_and_short_of_the_hit():
+    cells = mapping.carve_free(np.array([0., 0., .42]), np.array([[2., 0., .42], [0., 1., -.5]]), 0.)
+    assert (39, 0) not in cells and (37, 0) in cells and (10, 0) in cells     # 10 cm short of the hit at x = 2.0
+    assert (0, 8) in cells and (0, 9) not in cells                           # the falling beam leaves the band at y = 0.42 m

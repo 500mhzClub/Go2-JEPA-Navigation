@@ -41,6 +41,7 @@ import numpy as np
 from numba import njit
 
 from go2nav.perception import cameras, floor
+from go2nav.perception.range import MOUNT_BODY_M
 from go2nav.perception.obstacles import sampled_points
 from go2nav.perception.rigid import UnportedBranch
 
@@ -260,6 +261,26 @@ def footprint_cells(Q, q, size):
     return {tuple(map(int, c)) for c in cells[keep]}
 
 
+CARVE_RANGE_M, CARVE_MARGIN_M = 5., .10
+
+
+def carve_free(origin, hits, floor_height):
+    """The 5-cm cells a range sensor's beams passed through (PLAN P13): from the mount at `origin` (map frame) towards
+    each return in `hits` (n, 3), up to `CARVE_MARGIN_M` short of it and within `CARVE_RANGE_M`, where the beam runs
+    inside the obstacle band (`MIN_HEIGHT_M`-`MAX_HEIGHT_M` above the floor). In this world every wall and walker is
+    taller than the beams, so a cell a beam crossed holds nothing in that band now."""
+    d = np.asarray(hits, float)-np.asarray(origin, float)
+    length = np.linalg.norm(d, axis=1)
+    unit = d/np.maximum(length, 1e-9)[:, None]
+    steps = np.arange(0., CARVE_RANGE_M, CELL_M/2)
+    samples = np.asarray(origin, float)[None, None]+steps[None, :, None]*unit[:, None, :]
+    keep = steps[None, :] < np.minimum(length-CARVE_MARGIN_M, CARVE_RANGE_M)[:, None]
+    height = samples[..., 2]-floor_height
+    keep &= (height > MIN_HEIGHT_M) & (height < MAX_HEIGHT_M)
+    keys = np.unique(np.floor(samples[keep][:, :2]/CELL_M).astype(int), axis=0)
+    return {tuple(map(int, cell)) for cell in keys if np.all(cell >= -HALF_CELLS) and np.all(cell < HALF_CELLS)}
+
+
 class RoutingMap:
     """See the module docstring. `update` takes the registered pose and both depth images of one frame."""
 
@@ -293,8 +314,9 @@ class RoutingMap:
     def update(self, frame, measured_ns, position, rotation, depth, auxiliary_depth, specific_force, range_points=None):
         """`position`/`rotation`: the registered pose (initial-body frame); `depth`/`auxiliary_depth`: (depth_m, valid)
         pairs; `specific_force`: the (20, 3) accelerometer history (used once, for the map orientation);
-        `range_points`: the range sensor's returns in the body frame (PLAN P13), which mark occupied cells as the
-        depth samples do but never floor or free space."""
+        `range_points`: the range sensor's returns in the body frame (PLAN P13). They mark occupied cells as the depth
+        samples do, and each beam clears the occupied cells it passed through (`carve_free`), so a walker that moves on
+        leaves no trail where the cameras never look. They never mark floor."""
         p, R = np.asarray(position, float), np.asarray(rotation, float)
         if self.floor_height is None:
             if self.B is None:
@@ -337,8 +359,10 @@ class RoutingMap:
             fine_keys = np.unique(np.floor(above[:, :2]/FINE_CELL_M).astype(int), axis=0)
             new_fine.update(tuple(map(int, cell)) for cell in fine_keys
                             if np.all(cell >= -FINE_HALF_CELLS) and np.all(cell < FINE_HALF_CELLS))
+        range_free = set()
         if range_points is not None and len(range_points):
             mapped = np.asarray(range_points, float).reshape(-1, 3)@Q.T+q
+            range_free = carve_free(Q@MOUNT_BODY_M+q, mapped, self.floor_height)
             above = mapped[(mapped[:, 2] > self.floor_height+MIN_HEIGHT_M)&(mapped[:, 2] < self.floor_height+MAX_HEIGHT_M)]
             keys = np.unique(np.floor(above[:, :2]/CELL_M).astype(int), axis=0)
             new_occupied.update(tuple(map(int, cell)) for cell in keys
@@ -359,6 +383,14 @@ class RoutingMap:
                 self.occupied -= cleared
                 self.fine_occupied -= {c for c in self.fine_occupied
                                        if (c[0]//ratio, c[1]//ratio) in cleared and c not in new_fine}
+        if range_free:
+            carved = (range_free-new_occupied)&self.occupied
+            if carved:
+                ratio = round(CELL_M/FINE_CELL_M)
+                self.occupied -= carved
+                self.fine_occupied -= {c for c in self.fine_occupied
+                                       if (c[0]//ratio, c[1]//ratio) in carved and c not in new_fine}
+                cleared = cleared | carved
         if self.mover_trails and self.movers:
             gone = self.movers-new_occupied
             if gone:
