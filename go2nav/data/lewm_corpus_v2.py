@@ -647,6 +647,8 @@ def run_free(spec, recorder, *, cap, seed, meshes, random_look, dynamics, driver
             if tick % v1.FRAME_STEPS == 0:
                 policy, depth, *_, measured = session.frame()
                 recorder.frame(policy, measured, session.samples[-1], walkers=walkers, depth=depth, truth=truth)
+                if session.last_range is not None:
+                    recorder.scan(session.last_range)
                 command, code = driver.next(session.samples[-1]['base_pose_world'])
                 recorder.plan_command[-1] = np.asarray(command, np.float32)
                 segments.append(code)
