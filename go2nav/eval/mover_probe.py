@@ -189,8 +189,8 @@ def branch(state, pose, tape, clearance, horizons=HORIZONS):
 
 def unit_spec(root, meta):
     from go2nav.eval.mission import episode_spec
-    episode = 0 if meta['kind'] in ('free', 'transfer', 'giveway') else v1.EPISODES[meta['kind']]
-    spec, _ = episode_spec(v1.SET, meta['maze'], episode, root=v1.mazes_root(root))
+    episode = 0 if meta['kind'] in ('free', 'transfer', 'giveway', 'standoff', 'standoff_b') else v1.EPISODES[meta['kind']]
+    spec, _ = episode_spec(meta.get('set', v1.SET), meta['maze'], episode, root=v1.mazes_root(root))
     return spec
 
 

@@ -63,9 +63,16 @@ LATERAL_SHARE = .75
 COUNTS, COUNT_P = (0, 1, 2, 3, 4), (.15, .30, .30, .15, .10)
 GIVE_WAY_COUNT_P = (0., 0., .3, .4, .3)     # give-way units: two to four movers
 GIVE_WAY_IMPOLITE_SHARE = .5                # and more of them wait at the robot
-FRAME_CAPS = dict(v1.FRAME_CAPS, giveway=600)
-KINDS = (*v1.KINDS, 'giveway')
-FREE_KINDS = ('free', 'transfer', 'giveway')
+STANDOFF_KINDS = ('standoff', 'standoff_b')  # P14's top-up: family A (lewm_sets_v1) and family B mazes
+FRAME_CAPS = dict(v1.FRAME_CAPS, giveway=600, standoff=900, standoff_b=900)
+KINDS = (*v1.KINDS, 'giveway', *STANDOFF_KINDS)
+FREE_KINDS = ('free', 'transfer', 'giveway', *STANDOFF_KINDS)
+FAMILY_B_SET = 'loops_rooms_corpus_v1'
+SET_FILES = {v1.SET: (v1.SET_CONFIG, v1.SET_REGISTRY),
+             FAMILY_B_SET: (REPO/'configs/mazes/loops_rooms_corpus_v1.yaml',
+                            REPO/'data/mazes/registries/loops_rooms_corpus_v1_registry.json')}
+STANDOFF_COUNT_P = (0., .4, .4, .2, 0.)     # stand-off units: one to three walkers
+STANDOFF_BEHAVIOURS = dict(reactive=.4, non_yielding=.4, polite=.2)
 IMPOLITE_SHARE = .2
 MIN_OBSTACLE_PIXELS = 200       # an obstacle counts as in view from this many depth pixels
 NEAR_M, RELATIVE_SPEED_M_S = 1., .05
@@ -77,8 +84,30 @@ def load_models():
     return {name: str(REPO/path) for name, path in yaml.safe_load(MODELS.read_text()).items()}
 
 
+def unit_set(kind):
+    """The maze set a unit of this kind is collected on."""
+    return FAMILY_B_SET if kind == 'standoff_b' else v1.SET
+
+
+def ensure_set(root, name):
+    """`v1.ensure_mazes` for any corpus set: generate it under ROOT/mazes once, and check it against its registry."""
+    config, registry = SET_FILES[name]
+    folder = v1.mazes_root(root)/name
+    if not (folder/'registry.json').exists():
+        import subprocess
+        partial = v1.mazes_root(root)/f'{name}.tmp'
+        shutil.rmtree(partial, ignore_errors=True)
+        subprocess.run([sys.executable, '-m', 'go2nav.mazes.cli', str(config), '--out', str(partial), '--name', name],
+                       cwd=REPO, check=True)
+        (partial/name).rename(folder)
+        partial.rmdir()
+    if (folder/'registry.json').read_bytes() != registry.read_bytes():
+        raise ValueError(f'{folder} does not match the committed registry {registry}')
+    return folder
+
+
 def unit_seed(maze, kind, *keys):
-    return v1.keyed_seed(VERSION, v1.SET, maze, kind, *keys)
+    return v1.keyed_seed(VERSION, unit_set(kind), maze, kind, *keys)
 
 
 def random_command(rng):
@@ -92,17 +121,24 @@ def unit_obstacles(spec, home_se2, beacon_xy, maze, kind):
     cells than the drawn count holds as many as it can."""
     from go2nav.sim import obstacles as moving
     rng = np.random.default_rng(unit_seed(maze, kind, 'obstacles'))
-    weights = GIVE_WAY_COUNT_P if kind == 'giveway' else COUNT_P
-    impolite = GIVE_WAY_IMPOLITE_SHARE if kind == 'giveway' else IMPOLITE_SHARE
-    count, polite = int(rng.choice(COUNTS, p=weights)), bool(rng.random() >= impolite)
+    extra, reactive = {}, False
+    if kind in STANDOFF_KINDS:
+        count = int(rng.choice(COUNTS, p=STANDOFF_COUNT_P))
+        draw = str(rng.choice(list(STANDOFF_BEHAVIOURS), p=list(STANDOFF_BEHAVIOURS.values())))
+        polite, reactive, extra = draw != 'non_yielding', draw == 'reactive', dict(behaviour=draw)
+    else:
+        weights = GIVE_WAY_COUNT_P if kind == 'giveway' else COUNT_P
+        impolite = GIVE_WAY_IMPOLITE_SHARE if kind == 'giveway' else IMPOLITE_SHARE
+        count, polite = int(rng.choice(COUNTS, p=weights)), bool(rng.random() >= impolite)
     episode = dict(home_se2_world=list(home_se2), beacon_xy_world=list(beacon_xy))
     while count:
         try:
-            placement = moving.place_obstacles(spec, episode, count, unit_seed(maze, kind, 'placement'), polite=polite)
-            return placement, dict(count=count, polite=polite)
+            placement = moving.place_obstacles(spec, episode, count, unit_seed(maze, kind, 'placement'), polite=polite,
+                                               reactive=reactive)
+            return placement, dict(count=count, polite=polite, **extra)
         except ValueError:
             count -= 1
-    return None, dict(count=0, polite=None)
+    return None, dict(count=0, polite=None, **extra)
 
 
 # -- recording --------------------------------------------------------------------------------------------------------
@@ -113,6 +149,7 @@ class Recorder(v1.Recorder):
     def __init__(self):
         super().__init__()
         self.obstacles_xy, self.waiting, self.obstacle_pixels, self.plan_command = [], [], [], []
+        self.ranges, self.range_valid = [], []      # the live range sensor's scans (P14), when fitted
 
     def frame(self, policy, measured_ns, sample, *, walkers=(), depth=None, truth=None):
         super().frame(policy, measured_ns, sample)
@@ -133,7 +170,15 @@ class Recorder(v1.Recorder):
                  waiting=np.stack(self.waiting) if n else np.zeros((0, k), bool),
                  obstacle_pixels=np.asarray(self.obstacle_pixels, np.int32),
                  plan_command=np.stack(self.plan_command) if n else np.zeros((0, 3), np.float32))
+        if self.ranges:
+            np.savez_compressed(folder/'range.npz', ranges_m=np.stack(self.ranges[:n]).astype(np.float16),
+                                valid=np.stack(self.range_valid[:n]))
         return n, blocks
+
+    def scan(self, last_range):
+        """Keep one frame's live range scan (`MissionSession.last_range`)."""
+        self.ranges.append(np.asarray(last_range['ranges_m'], np.float32))
+        self.range_valid.append(np.asarray(last_range['valid'], bool))
 
 
 def exploring(planner, rng, epsilon, admissible=lambda command: True):
@@ -183,6 +228,8 @@ def run_mission(spec, episode, recorder, *, cap, epsilon, seed, meshes, dynamics
                 policy, depth, fast, auxiliary_depth, auxiliary_rgb, measured = session.frame()
                 history.append(policy)
                 recorder.frame(policy, measured, session.samples[-1], walkers=walkers, depth=depth, truth=truth)
+                if session.last_range is not None:
+                    recorder.scan(session.last_range)
                 planned = len(controller.planning)
                 controller.on_frame(SensorFrame(tick//v1.FRAME_STEPS, measured, policy['image']['rgb'],
                                                 (depth['depth_m'], depth['valid']), auxiliary_rgb['rgb'],
@@ -229,6 +276,7 @@ class FreeDriverV2(v1.FreeDriver):
     Below 0.43 m it steps out, forward, back or sideways, whichever leaves it clearest, until 0.47 m clear."""
 
     WEIGHTS = dict(harness=.15, cruise=.15, ou=.15, wall=.10, side=.20, encounter=.25)
+    SIGHT_KINDS = ('encounter',)        # segments drawn only while an obstacle is in sight
     SIDE_AHEAD_M = .30
 
     def __init__(self, spec, rng, movers=lambda: ()):
@@ -260,7 +308,7 @@ class FreeDriverV2(v1.FreeDriver):
     def next(self, pose):
         while True:
             if self.segment is None:
-                kinds = [k for k in self.WEIGHTS if k != 'encounter' or self.in_sight(pose[:2]) is not None]
+                kinds = [k for k in self.WEIGHTS if k not in self.SIGHT_KINDS or self.in_sight(pose[:2]) is not None]
                 weights = np.array([self.WEIGHTS[k] for k in kinds])
                 kind = kinds[int(self.rng.choice(len(kinds), p=weights/weights.sum()))]
                 self.segment = (list(self.WEIGHTS).index(kind), getattr(self, f'_{kind}')())
@@ -458,11 +506,137 @@ class GiveWayDriver(FreeDriverV2):
                 pose = yield command
 
 
-def run_free(spec, recorder, *, cap, seed, meshes, random_look, dynamics, driver=FreeDriverV2):
+class StandoffDriver(GiveWayDriver):
+    """P14's driver (kinds `standoff`, `standoff_b`): `GiveWayDriver` with most of its time in **stand-offs**, so that
+    the data show what follows a robot's choice when a walker waits for it (docs/dynamic/PLAN.md P14 item 3). A
+    stand-off, while a walker is in sight:
+    - **approach:** face it, then walk up to 0.6-1.1 m from its centre (half the time) or stand in its way and let it come;
+    - **wait** 2-30 s (log-uniform);
+    - **resolve** at random (`RESOLUTIONS`): retreat 0.3-3 m back along the path it came by (a reverse pursuit of its own
+      breadcrumbs, `CRUMB_M` apart, recorded while not retreating), step aside (into a side passage if one opens within
+      1.5 m, else sideways), turn away from the walker and walk off 1-3 m, hold on 5-20 s, or advance on it;
+    - **watch** 1-3 s.
+    Every command still passes the stand-off rule (`admissible`) on the true walls and walkers, so it never touches either.
+    The driver only makes the outcomes observed; nothing is trained to imitate it."""
+
+    WEIGHTS = dict(harness=.05, cruise=.10, ou=.05, wall=.05, side=.05, encounter=.05, standoff=.65)
+    SIGHT_KINDS = ('encounter', 'standoff')
+    RESOLUTIONS = dict(retreat=.35, aside=.20, walk_off=.20, hold=.15, advance=.10)
+    WAIT_S, CRUMB_M, LOOKAHEAD_M = (2., 30.), .10, .40
+
+    def __init__(self, spec, rng, movers=lambda: ()):
+        super().__init__(spec, rng, movers)
+        self.trail, self.retreating = [], False
+
+    def next(self, pose):
+        xy = np.asarray(pose[:2], float)
+        if not self.retreating and (not self.trail or np.linalg.norm(xy-self.trail[-1]) >= self.CRUMB_M):
+            self.trail = (self.trail+[xy])[-600:]
+        return super().next(pose)
+
+    @staticmethod
+    def _bearing(pose, target):
+        return math.atan2(target[1]-pose[1], target[0]-pose[0])
+
+    def _standoff(self):
+        pose = yield
+        target = self.in_sight(pose[:2])
+        if target is None:
+            return
+        pose = yield from self._face(pose, self._bearing(pose, target))
+        if self.rng.random() < .5:                                      # walk up to it; else let it come
+            speed, stop_at = float(self.rng.choice((.15, .30))), float(self.rng.uniform(.6, 1.1))
+            for _ in range(80):
+                target = self.in_sight(pose[:2])
+                if target is None or np.linalg.norm(target-np.asarray(pose[:2])) < stop_at:
+                    break
+                error = self._bearing(pose, target)-v1.yaw_of(pose)
+                error = math.atan2(math.sin(error), math.cos(error))
+                pose = yield (speed, 0., float(np.clip(2*error, -.45, .45)))
+        wait = math.exp(self.rng.uniform(math.log(self.WAIT_S[0]), math.log(self.WAIT_S[1])))
+        for _ in range(int(round(wait/.1))):
+            pose = yield (0., 0., 0.)
+        resolution = str(self.rng.choice(list(self.RESOLUTIONS), p=list(self.RESOLUTIONS.values())))
+        pose = yield from getattr(self, f'_resolve_{resolution}')(pose)
+        for _ in range(int(self.rng.integers(10, 31))):                 # watch what follows
+            pose = yield (0., 0., 0.)
+
+    def _resolve_retreat(self, pose):
+        distance, start = float(self.rng.uniform(.3, 3.)), np.asarray(pose[:2], float)
+        self.retreating = True
+        try:
+            for _ in range(int(distance/.01)+80):                       # 1 cm a tick at 0.10 m/s, with room to turn
+                here = np.asarray(pose[:2], float)
+                if np.linalg.norm(here-start) >= distance:
+                    break
+                while self.trail and np.linalg.norm(self.trail[-1]-here) < .15:
+                    self.trail.pop()                                    # the path walked back is used up
+                turn = 0.
+                if self.trail:
+                    target = self.trail[0]
+                    for crumb in reversed(self.trail):
+                        if np.linalg.norm(crumb-here) >= self.LOOKAHEAD_M:
+                            target = crumb
+                            break
+                    error = self._bearing(pose, target)-(v1.yaw_of(pose)+math.pi)
+                    error = math.atan2(math.sin(error), math.cos(error))
+                    turn = float(np.clip(1.5*error, -.45, .45))
+                pose = yield (-.10, 0., turn)
+        finally:
+            self.retreating = False
+        return pose
+
+    def _resolve_aside(self, pose):
+        yaw = v1.yaw_of(pose)
+        room = {side: self.free_distance(pose[:2], yaw+side*math.pi/2, limit=1.5) for side in (1, -1)}
+        side = max(room, key=room.get)
+        if room[side] > 1.:                                             # a passage opens to that side: go into it
+            pose = yield from self._face(pose, yaw+side*math.pi/2)
+            for _ in range(int(self.rng.uniform(.6, 1.3)/.02)):
+                pose = yield (.20, 0., 0.)
+        else:                                                           # else step sideways
+            for _ in range(int(self.rng.uniform(.3, .8)/.015)):
+                pose = yield (0., .15*side, 0.)
+        return pose
+
+    def _resolve_walk_off(self, pose):
+        target = self.in_sight(pose[:2])
+        away = None if target is None else self._bearing(pose, target)
+        yaw = v1.yaw_of(pose)
+        headings = [yaw+k*math.pi/4 for k in range(8)]
+        if away is not None:
+            headings = [h for h in headings if abs(math.atan2(math.sin(h-away), math.cos(h-away))) > math.pi/3]
+        heading = max(headings, key=lambda h: self.free_distance(pose[:2], h))
+        pose = yield from self._face(pose, heading)
+        speed, distance, start = float(self.rng.choice((.15, .30))), float(self.rng.uniform(1., 3.)), np.asarray(pose[:2], float)
+        for _ in range(int(distance/(speed*.1))+20):
+            if np.linalg.norm(np.asarray(pose[:2], float)-start) >= distance or \
+                    self.free_distance(pose[:2], v1.yaw_of(pose)) < .6+speed:
+                break
+            pose = yield (speed, 0., 0.)
+        return pose
+
+    def _resolve_hold(self, pose):
+        for _ in range(int(self.rng.integers(50, 201))):
+            pose = yield (0., 0., 0.)
+        return pose
+
+    def _resolve_advance(self, pose):
+        for _ in range(int(self.rng.integers(10, 31))):
+            target = self.in_sight(pose[:2])
+            if target is None:
+                break
+            error = self._bearing(pose, target)-v1.yaw_of(pose)
+            error = math.atan2(math.sin(error), math.cos(error))
+            pose = yield (.15, 0., float(np.clip(2*error, -.45, .45)))
+        return pose
+
+
+def run_free(spec, recorder, *, cap, seed, meshes, random_look, dynamics, driver=FreeDriverV2, range_sensor=False):
     from go2nav.controllers.truth import GroundTruth
     from go2nav.sim.session import MissionSession, PhysicalStop
     session = MissionSession(spec, meshes, policy_checkpoint=Path(load_models()['go2_locomotion_policy']),
-                             random_look=random_look, dynamics=dynamics, safety='continuous')
+                             random_look=random_look, dynamics=dynamics, safety='continuous', range_sensor=range_sensor)
     session.settle()
     truth = GroundTruth(session)
     walkers = session.obstacles.walkers if session.obstacles is not None else []
@@ -501,7 +675,7 @@ def collect_unit(root, role, maze, kind):
     recorder, segments, look = Recorder(), None, None
     if kind in FREE_KINDS:
         from go2nav.sim import random_appearance
-        spec, _ = episode_spec(v1.SET, maze, 0, root=v1.mazes_root(root))
+        spec, _ = episode_spec(unit_set(kind), maze, 0, root=v1.mazes_root(root))
         spec = v1.free_spec(spec, seed)
         spawn = spec['geometry']['spawn_se2_world']
         placement, obstacles = unit_obstacles(spec, spawn, spawn[:2], maze, kind)
@@ -509,7 +683,9 @@ def collect_unit(root, role, maze, kind):
         scene.init_genesis(spec['procedural_seed'])
         stop, segments = run_free(spec, recorder, cap=FRAME_CAPS[kind], seed=seed, meshes=partial/'meshes',
                                   random_look=look, dynamics=Dynamics(obstacles=placement) if placement else None,
-                                  driver=GiveWayDriver if kind == 'giveway' else FreeDriverV2)
+                                  driver=StandoffDriver if kind in STANDOFF_KINDS else
+                                  GiveWayDriver if kind == 'giveway' else FreeDriverV2,
+                                  range_sensor=kind in STANDOFF_KINDS)
     else:
         spec, episode = episode_spec(v1.SET, maze, v1.EPISODES[kind], root=v1.mazes_root(root))
         placement, obstacles = unit_obstacles(spec, episode['home_se2_world'], episode['beacon_xy_world'], maze, kind)
@@ -521,7 +697,7 @@ def collect_unit(root, role, maze, kind):
     if segments is not None:
         np.save(partial/'segments.npy', np.asarray(segments, np.int8))
     shutil.rmtree(partial/'meshes', ignore_errors=True)
-    meta = dict(schema='go2nav_lewm_corpus_unit.v2', set=v1.SET, role=role, maze=maze, kind=kind, seed=seed,
+    meta = dict(schema='go2nav_lewm_corpus_unit.v2', set=unit_set(kind), role=role, maze=maze, kind=kind, seed=seed,
                 episode=v1.EPISODES.get(kind), recovery=False, epsilon=v1.EPSILON if kind == 'explore' else 0.,
                 frame_cap=FRAME_CAPS[kind], frames=frames, valid_blocks=blocks, physical_stop=stop, look=look,
                 obstacles=dict(obstacles, placement=placement), start_se2_world=spec['geometry']['spawn_se2_world'],
@@ -647,6 +823,8 @@ def main():
         print(json.dumps(collect_unit(args.root, args.role, args.maze, args.kind)))
     elif args.command == 'collect':
         role_kinds = {r: tuple(args.kinds) for r in args.roles} if args.kinds else v1.ROLE_KINDS
+        for name in {unit_set(k) for kinds in role_kinds.values() for k in kinds}-{v1.SET}:
+            ensure_set(args.root, name)
         sys.exit(1 if v1.collect(args.root, args.roles, mazes=v1.parse_range(args.mazes), workers=args.workers,
                                  egl_devices=args.egl_devices, module=__spec__.name, role_kinds=role_kinds) else 0)
     elif args.command == 'index':
