@@ -1,0 +1,14 @@
+# Family B for corpus collection (docs/dynamic/PLAN.md P14 preparation, approved 8 November 2026): loops and rooms on a
+# 5 x 4 grid (the corpus mazes' size), the pitch drawn per layout from 1.1, 1.3 and 1.6 m. The roles mirror lewm_sets_v1:
+# lewm_train 0-1199, lewm_val 1200-1299. Every family B evaluation layout (loops_rooms_v1, 4 x 4) and the held-out
+# family C (offices_v1) are excluded, so no training layout shares an evaluation layout's topology or embedding.
+description: 'loops_rooms_corpus_v1 (family B, 5 x 4): lewm_train 0-1199, lewm_val 1200-1299'
+scene_id_prefix: navigation-loops-rooms-corpus-v1
+family: NAVIGATION_LOOPS_ROOMS_5X4
+layout_family: loops_rooms
+grid_shape: [5, 4]
+seeds: {construction: 2026110803, physics_base: 2026126000, appearance_base: 2026127000, episode_base: 2026128000}
+exclude: [data/mazes/registries/built_graphs_2026-10-06.json, data/mazes/registries/capability_v1_prior_graphs.json, data/mazes/c3v2_sets_v1, data/mazes/c3v3_sets_v1, data/mazes/stage2_sets_v1, data/mazes/dev_tune, data/mazes/validation, data/mazes/prelim_test_v1, data/mazes/loops_rooms_v1, data/mazes/offices_v1]
+roles:
+  - {name: lewm_train, count: 1200, episodes: [0, 1]}
+  - {name: lewm_val, count: 100, episodes: [0, 1]}

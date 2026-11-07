@@ -887,6 +887,62 @@ contain the decision) is set out on its own branch.
 GPU: about 3 hours for the reference measure, then about 4.5 hours for the other reference suites before phase D. At
 most 6 world-model missions at once, EGL_DEVICE_ID=1, mazes 50-89 of family A still held.
 
+### P14. Review phase B: data that contain the decision (proposed 8 November; preparation approved 8 November)
+
+**Why.** In corpus v2, when a walker waited near the robot, the robot held or turned in place in 93% of the next 1.6 s
+(P4f). The stand-offs that end every failed mission with walkers that do not yield (P11) were almost never resolved in
+the data. A model that learns only from observation cannot learn from that what a retreat or a step aside leads to. This
+phase records those outcomes, and adds the range sensor to everything the model will see. Nothing in it changes how the
+robot is controlled. Branch `feature/phase-b-data`.
+
+**1. Range scans for corpus v2, cast offline** (`go2nav.data.range_backfill`; approved and running 8 November as
+preparation). Every frame of corpus v2's 5,200 units gets the scan the range sensor would have given, from the recorded
+pose, the walkers' recorded positions and the maze's walls. The output is written to `go2nav_lewm_v2_range`; the corpus
+is never touched. Check against the units' own truth labels (`free_rays.npy`): on 24 units the forward and backward beams
+differ from the labels by a median of 0.7 cm, 2.1 cm at the 95th percentile.
+
+**2. A family B training set** (`configs/mazes/loops_rooms_corpus_v1.yaml`; preparation). 1,300 layouts with loops and
+rooms on 5×4 grids, the corpus mazes' size: lewm_train 0-1199, lewm_val 1200-1299. It excludes every family B evaluation
+layout and the held-out family C.
+
+**3. The stand-off driver** (`StandoffDriver`, kind `standoff`). It extends `GiveWayDriver`; its encounters are
+stand-offs:
+- **Approach.** It faces the nearest walker in sight, then either walks to 0.6-1.1 m from it or stops in its path and
+  lets it come.
+- **Wait.** It holds for 2-30 s, drawn log-uniform, so both short and long stand-offs occur.
+- **Resolve,** chosen at random:
+  - retreat along its own path, 0.3-3 m (35%);
+  - step aside into the side with most room (20%);
+  - turn away and walk off, 1-3 m (20%);
+  - hold on, 5-20 s (15%);
+  - advance (10%).
+- **Safety.** Every command passes the free driver's stand-off rule on the true walls and walkers, so the driver never
+  touches anything.
+- **Role.** The driver only makes sure the outcomes are observed. No model is trained to imitate it.
+
+**4. A stand-off top-up** (`collect --kinds standoff`).
+- **Units:** 1,200 training and 100 validation units of 900 frames each.
+- **Layouts:** half on corpus v2's family A mazes (lewm_sets_v1, 5×4 trees), half on family B (loops_rooms_corpus_v1).
+- **Walkers:** one to three per unit, 40% of units reactive, 40% non-yielding, 20% polite.
+- **Recorded:** everything corpus v2 records, plus `range.npz` from the live sensor, plus each walker's internal state
+  (waiting, behaviour, yielding, patience) as labels for probes.
+- **Compute:** about 8 hours of collection on the CPU, rendering on the R9700. It runs after the phase A reference
+  suites, or beside them with fewer workers if the first minutes stay healthy.
+
+**Gate on the data, set before collection, read before any training.** A stand-off window is a walker standing still
+for at least 1 s within 0.70 m with the robot ahead of its last heading.
+- At least 25% of stand-off windows are followed by the walker leaving the robot's path within 10 s. Corpus v2 is far
+  below this; the exact share is measured on it first.
+- At least 20% of stand-offs include a retreat of 1 m or more.
+- Every walker behaviour and both layout families supply at least 15% of the stand-off windows.
+- Contact stops in at most 5% of units, as corpus v2's gate.
+
+If the gate fails, the driver's weights change and a small top-up runs again, measured the same way. No training starts
+on data that fails it.
+
+**Compute.** Preparation (items 1-2): CPU, under an hour. The driver and the collector: about a day of building. The
+collection: about 8 CPU-hours. Mazes 50-89 of family A and all of family C stay unused.
+
 ## Compute and order
 
 | Phase | Compute |
