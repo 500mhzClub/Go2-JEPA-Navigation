@@ -514,9 +514,11 @@ class StandoffDriver(GiveWayDriver):
     the data show what follows a robot's choice when a walker waits for it (docs/dynamic/PLAN.md P14 item 3). A
     stand-off, while a walker is in sight:
     - **approach:** face it, then walk up to 0.6-1.1 m from its centre (half the time) or stand in its way and let it come;
-    - **wait** 1-12 s (log-uniform; corpus v2 already holds hours of stand-offs in which nothing happens);
-    - **resolve** at random (`RESOLUTIONS`): give way (back along its own path at 0.20 m/s to the first side opening,
-      at least 0.3 m and at most 4 m back, then into it 0.7-1.1 m, out of the walker's way: a walker that does not yield
+    - **wait** 1-6 s (log-uniform; corpus v2 already holds hours of stand-offs in which nothing happens, and the hold
+      resolution below adds long ones);
+    - **resolve** at random (`RESOLUTIONS`): give way (back along its own path at 0.25 m/s to the first side opening,
+      at least 0.3 m and at most 4 m back, line up with its middle, turn to it at 0.8 rad/s and go 1.0-1.5 m into it at
+      0.30 m/s, out of the walker's way: a walker that does not yield
       follows a robot that only backs off, so in a corridor this is the move that lets it pass), retreat 0.3-3 m back
       along the path it came by at 0.10 or 0.20 m/s (a reverse pursuit of its own breadcrumbs, `CRUMB_M` apart, recorded
       while not retreating), step aside (into a side passage if one opens within 1.5 m, else sideways), turn away from
@@ -528,7 +530,7 @@ class StandoffDriver(GiveWayDriver):
     WEIGHTS = dict(harness=.05, cruise=.10, ou=.05, wall=.05, side=.05, encounter=.05, standoff=.65)
     SIGHT_KINDS = ('encounter', 'standoff')
     RESOLUTIONS = dict(give_way=.35, retreat=.15, aside=.15, walk_off=.15, hold=.10, advance=.10)
-    WAIT_S, CRUMB_M, LOOKAHEAD_M = (1., 12.), .10, .40
+    WAIT_S, CRUMB_M, LOOKAHEAD_M = (1., 6.), .10, .40
     OPENING_M, GIVE_WAY_MAX_M = 1., 4.
 
     def __init__(self, spec, rng, movers=lambda: ()):
@@ -607,7 +609,7 @@ class StandoffDriver(GiveWayDriver):
 
     def _resolve_give_way(self, pose):
         pose = yield from self._back_along_trail(
-            pose, .20, lambda p, d: d >= self.GIVE_WAY_MAX_M or (d >= .3 and self._opening(p) is not None),
+            pose, .25, lambda p, d: d >= self.GIVE_WAY_MAX_M or (d >= .3 and self._opening(p) is not None),
             self.GIVE_WAY_MAX_M)
         side = self._opening(pose)
         if side is not None:
@@ -618,9 +620,14 @@ class StandoffDriver(GiveWayDriver):
             offset = float(np.mean(span))                               # line up with the opening's middle
             for _ in range(int(round(abs(offset)/.02))):
                 pose = yield (math.copysign(.20, offset), 0., 0.)
-            pose = yield from self._face(pose, yaw+side*math.pi/2)
-            for _ in range(int(self.rng.uniform(.7, 1.1)/.02)):
-                pose = yield (.20, 0., 0.)
+            for _ in range(30):                                         # face the opening at the range's 0.8 rad/s
+                error = yaw+side*math.pi/2-v1.yaw_of(pose)
+                error = math.atan2(math.sin(error), math.cos(error))
+                if abs(error) < .12:
+                    break
+                pose = yield (0., 0., float(np.clip(2*error, -.8, .8)))
+            for _ in range(int(self.rng.uniform(1., 1.5)/.03)):
+                pose = yield (.30, 0., 0.)
         return pose
 
     def _resolve_retreat(self, pose):

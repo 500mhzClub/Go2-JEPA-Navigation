@@ -131,7 +131,7 @@ def test_giving_way_backs_to_the_junction_and_turns_out_of_the_passage():
     for seed in range(6):
         driver = GivingWay(t_junction(), np.random.default_rng(seed), movers=lambda: [walker])
         commands, codes, poses = drive(driver, (1.0, 0., 0.), 300)
-        assert (commands[:, 0] <= -.199).sum() > 20                          # backed off at 0.20 m/s
+        assert (commands[:, 0] <= -.249).sum() > 15                          # backed off at 0.25 m/s
         into = poses[:, 1].max()
         assert into > .65 and abs(poses[np.argmax(poses[:, 1]), 0]) < .35     # into the branch, out of the passage
         assert min(driver.clearance(p[:2]) for p in poses) >= .40
