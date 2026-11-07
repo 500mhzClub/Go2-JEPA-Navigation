@@ -99,7 +99,7 @@ class NavigationController:
                  deadlock_escape=False, terminal_burst=False, obstacle_prediction=False, footprint_clearing=False,
                  candidates=ACTIONS, truth=None, pose_oracle=False, map_oracle=None, prediction_oracle=False,
                  mover_trails=False, give_way=False, close_up=False, walker_finder=None, walker_mode='shadow',
-                 walker_memory=None, pose_carry=None):
+                 walker_memory=None, pose_carry=None, vacate=False):
         self.forecaster = forecaster
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
         if pose_carry is not None:  # 'model' or 'c1' (`perception.carried`)
@@ -113,7 +113,7 @@ class NavigationController:
                                harness=harness, coverage_fix=coverage_fix, deadlock_escape=deadlock_escape,
                                terminal_burst=terminal_burst,
                                obstacle_prediction='oracle' if prediction_oracle else obstacle_prediction,
-                               candidates=candidates, give_way=give_way, close_up=close_up)
+                               candidates=candidates, give_way=give_way, close_up=close_up, vacate=vacate)
         self.walker_finder, self.walker_mode = walker_finder, walker_mode
         self.walker_memory, self.memory_log = walker_memory, []   # `controllers.memory.MemoryRunner`
         self.model_tracker, self.walker_shadow = ModelTracker(held=walker_mode == 'held') if walker_finder is not None else None, []
@@ -126,6 +126,8 @@ class NavigationController:
             raise ValueError('mover trails need the obstacle tracker (obstacle_prediction)')
         if give_way and self.tracker is None and not driving:
             raise ValueError('the give-way rule needs the obstacle tracker (obstacle_prediction)')
+        if vacate and self.tracker is None and not driving:
+            raise ValueError('the vacate rule needs walker tracks (obstacle_prediction or walker_mode)')
         if (pose_oracle or map_oracle or prediction_oracle or truth_tracks) and truth is None:
             raise ValueError('module oracles need the ground truth')
         self.truth, self.pose_oracle, self.prediction_oracle = truth, pose_oracle, prediction_oracle

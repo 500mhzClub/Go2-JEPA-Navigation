@@ -74,7 +74,7 @@ def mission_command(cohort, arm, set_name, maze, episode, destination):
                       ('map_decay', '--map-decay'), ('deadlock_escape', '--deadlock-escape'),
                       ('terminal_burst', '--terminal-burst'), ('obstacle_prediction', '--obstacle-prediction'),
                       ('footprint_clearing', '--footprint-clearing'), ('mover_trails', '--mover-trails'),
-                      ('give_way', '--give-way'), ('close_up', '--close-up'), ('walker_mode', '--walker-mode'),
+                      ('give_way', '--give-way'), ('vacate', '--vacate'), ('close_up', '--close-up'), ('walker_mode', '--walker-mode'),
                       ('walker_memory', '--walker-memory'), ('candidates', '--candidates'),
                       ('safety', '--safety'), ('pose_carry', '--pose-carry'), ('pose_oracle', '--pose-oracle'), ('map_oracle', '--map-oracle'),
                       ('prediction_oracle', '--prediction-oracle')):
@@ -101,9 +101,13 @@ def interventions(run):
         counts['terminal_spin_breaks'] += bool(s.get('terminal_spin_break'))
         counts['give_way_steps'] += bool(s.get('give_way'))
         counts['give_way_back_offs'] += (s.get('give_way') or {}).get('step') == 1
+        counts['vacates'] += bool(s.get('vacate_started'))
+        counts['vacate_steps'] += (s.get('vacate') or {}).get('phase') == 'retreat'
+        counts['vacates_cleared'] += (s.get('vacate_ended') or {}).get('reason') == 'walker_gone'
     return dict(decisions=len(rows), **{k: counts[k] for k in ('latch_timeouts', 'latch_cooldown_suppressions',
                                                               'reactive_escapes', 'terminal_spin_breaks',
-                                                              'give_way_steps', 'give_way_back_offs')})
+                                                              'give_way_steps', 'give_way_back_offs', 'vacates',
+                                                              'vacate_steps', 'vacates_cleared')})
 
 
 def pose_corrections(run):

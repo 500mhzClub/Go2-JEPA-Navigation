@@ -1320,3 +1320,66 @@ a walker that blocks it and does not give way: it neither retreats nor gets out 
 view. The remaining handover pieces that address that are the responses and the decisions (give-way, retreat, when to go), not
 perception. A one-frame motion readout for the world model, so the model itself could carry the pose, is noted but has no
 mission value on this evidence.
+
+## P11: getting out of the way of a walker that waits: stopped in smoke tests (7 November)
+
+**Stopped during step 1** (code and smoke tests): in no form tried did the rule get the robot out of the walker's way, so the
+80-mission runs (steps 2-4) never ran. `planner.vacate` (`--vacate`, off by default) stays in the code with its tests;
+`configs/experiments/vacate.yaml` is the step-2 configuration, unrun.
+
+**1. Every failure with walkers that do not yield is a stand-off** (P10's 74 true-pose missions, `outputs/vacate/standoff.py`).
+A walker "waits on the robot" when it has stood still at least 1 s within 0.70 m, with the robot ahead of its last heading.
+- All 40 timeouts end in a stand-off: a median 81% of the mission (longest stretch a median 222 s), with the robot standing
+  still 94% of it and reversing 2%.
+- 23 of 25 contact stops end in one. 22 of the 24 contacts with walkers are with a still walker that had been waiting on the
+  robot, 12 of them out of view in the last second: out-of-view contacts are a symptom of the stand-off.
+- No mission with a stand-off of 60 s or more made a round trip: 0 of 55 (P8's visual-odometry runs: 0 of 57).
+- The walker is within 60° of the heading 86% of the stand-off time and in the forward view 71%. P8's first stand-offs come
+  after a median 7.1 m of travel, 4 of 65 within 0.3 m of the start.
+
+**2. The rule** (PLAN P11, as finally coded; `go2nav/planning/planner.py`, 9 unit tests in `tests/unit/test_vacate.py`):
+- **Trigger:** a confirmed track within 0.9 m in the front half, still for 4 s.
+- **Retreat:** back along breadcrumbs of the robot's own path (straight away from the walker once they run out), on the
+  world model's forecasts of the reverse lattice candidates (-0.10 m/s, turns capped at 0.3 rad/s).
+- **Each step must:**
+  - stay on observed floor;
+  - keep 0.45 m from every stored cell except within 0.40 m of the walker (or, closer to a wall, no more than 3 cm closer
+    than the robot stands and never under 0.33 m);
+  - keep both rear calves 0.12 m clear;
+  - end no nearer the walker.
+- **End:** no track within 1.2 m and the walker's depth cells gone for 2 s.
+
+**3. Smoke tests: 21 missions where the rule could act, no round trips** (P10's timeouts, one walker that does not yield;
+the scratch runs are not kept beyond this session):
+
+| Smoke | Change | Missions | Endings |
+|---|---|---|---|
+| 1 | First rule (0.45 m clearance) | 2 | 2 timeouts |
+| 2 | No-path fallback | 2 | 2 timeouts |
+| 3 | Wall clearance relaxed to 1 cm under the current, rear midline check | 3 (+ maze 16, never triggered, a round trip) | 3 timeouts |
+| 4 | 3-cm slack, 0.33 m floor | 4 | 2 timeouts, 1 pose loss, 1 wall contact (rear calf, during a retreat) |
+| 5 | Rear-calf corners, turn hysteresis | 4 | 2 timeouts, 2 pose losses |
+| 6 | Depth confirms the walker gone, turns capped; with visual odometry and with the true pose | 3 + 3 | VO: timeout, pose loss, walker contact. True pose: timeout, 2 wall contacts |
+
+In total: 13 timeouts, 4 pose losses, 4 contacts. Every contact in smoke 6 came under the ordinary planner's own turns and
+reversing arcs, not during a retreat.
+
+**4. Why it cannot work in this form.**
+- **The waiting walker is inside the cameras' blind zone.** It stops with its centre about 0.62 m from the robot's, its face
+  about 0.45 m away. The cameras are mounted 0.35 m forward and measure depth from 0.2 m, so the face is about 0.1 m from the
+  lenses: too close for depth. The map loses the walker's cells, the model's walker head drops its track once the robot
+  moves, and visual odometry fails ("neither camera measures the current frame").
+- **The robot cannot tell that the walker followed.** Smokes 4-6 ended 35 retreats on "walker gone". All 35 were wrong: the
+  true walker was 0.60-0.62 m away each time, having followed the robot back. Of 230 retreats, 3 covered 0.5 m or more; the
+  longest was 0.74 m.
+- **The robot is wedged.** In blocked steps the nearest stored cell lies behind the robot in 94-100% of plans, a median
+  of about (-0.3, ±0.3) m in the body frame, with the robot 0.38-0.48 m from it: it stops just past a corner. In smoke 4
+  the rear midline check passed while the rear-left calf closed to 0.08 m of a wall corner (true walls), and then hit it.
+- **The true pose does not rescue it** (smoke 6): two wall contacts under the ordinary planner's reversing arcs, one timeout.
+- **Little warning, by a first rough measure** (`outputs/vacate/approach.py`, 626 stand-off stretches including repeats):
+  the walker is in view at 1 m or more for a median 0.25 s before it parks; 35% of stretches give 2 s or more.
+
+**What it means.** The response to a walker that waits cannot be built from these sensors with a hand rule, or with the current
+model's readouts: the robot is blind to the walker at the range where it waits, and boxed in where it stops. The project review
+(`docs/REVIEW_2026-11-07.md`) takes this with P6-P10 and proposes the next plan: range sensing as an observation, data that
+contain the decision, and the world model as the decision-maker. PLAN P12's sketch is superseded by it.

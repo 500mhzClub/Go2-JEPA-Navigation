@@ -63,6 +63,23 @@ stops while the robot is within 0.8 m ahead of it, and a non-polite one waits at
 either walk on (the give-way ceiling: a still mover near and ahead responds to a retreat in 85-97% of the probe's
 windows).
 
+`vacate=True` (docs/dynamic/PLAN.md, P11) gets out of the way of a walker that waits for the robot. A walker that does not
+yield stops while the robot is near and ahead of it and never turns back, so holding for it, or backing off a fixed
+distance (it follows), never ends the stand-off. **Trigger:** a confirmed track within `VACATE_NEAR_M`, in the front half,
+that has stayed within `VACATE_STILL_M` of one spot for `VACATE_WAIT_S`. **Retreat:** back along the robot's own travelled
+path (breadcrumbs every `VACATE_CRUMB_M`, recorded while not vacating), facing the walker: each plan takes the reverse
+candidate whose forecast ends nearest the point `VACATE_LOOKAHEAD_M` back along the path, among those whose forecast path
+stays on observed floor with `VACATE_CLEARANCE_M` of clearance from every stored cell except those within
+`VACATE_EXCLUDE_M` of the walker (or, where the robot already stands closer, no more than `VACATE_SLACK_M` closer than it stands, the forecasts'
+drift, and at least `VACATE_MIN_CLEARANCE_M`), keeps the rear calves (`VACATE_REAR_CORNERS`) `VACATE_REAR_CLEARANCE_M` clear, and ends no
+nearer the walker; a turn the other way from the last step's must end `VACATE_TURN_HYSTERESIS_M` nearer; once the path is used up (or if the robot has not moved
+yet), the point `VACATE_LOOKAHEAD_M` straight away from the walker. Turns are limited to `VACATE_MAX_YAW` (faster ones lost visual
+odometry with the walker filling the view). **End:** no confirmed track within `VACATE_CLEAR_M`, and fewer than
+`VACATE_GONE_CELLS` stored cells within `VACATE_GONE_RADIUS_M` of the walker's last position (the head drops a walker this
+close while the robot moves), for `VACATE_CLEAR_S` (holding meanwhile; the walker has turned off), `VACATE_BLOCKED_PLANS` plans in a row
+with no admissible step, or `VACATE_MAX_S`; then `VACATE_COOLDOWN_PLANS` plans without the rule, and that track must wait
+again before it triggers. Each plan's `vacate` (or `vacate_started`, `vacate_ended`) detail records the encounter.
+
 The walker memory (docs/dynamic/PLAN.md, P9; set by the controller, `controllers.memory`), in one of two uses.
 `remembered` (use `cells`, P9's first missions): 1-cm cells of walkers the model remembers out of the camera's view, which
 every selection stage that reads the map's 1-cm cells (the forecast clearance check and turn re-checks, the stopping
@@ -97,6 +114,14 @@ BACKUP_FLOOR_M, BACKUP_REPEAT_RADIUS_M = .40, .30
 GIVE_WAY_NEAR_M, GIVE_WAY_HALF_WIDTH_M, GIVE_WAY_BACK_M = 1.5, .75, .40   # centroids: the visible face, ~0.1 m nearer
 GIVE_WAY_BACK_PLANS, GIVE_WAY_COOLDOWN_PLANS, GIVE_WAY_REPEATS = 25, 10, 3
 GIVE_WAY_CLEARANCE_M = grid.FOOTPRINT_RADIUS_M     # 0.40 m put a rear calf into a wall in 2 of the first 7 missions
+VACATE_NEAR_M, VACATE_STILL_M, VACATE_WAIT_S = .9, .15, 4.   # polite walkers turn back after 3 s (sim.obstacles)
+VACATE_CLEAR_M, VACATE_CLEAR_S, VACATE_MAX_S = 1.2, 2., 120.
+VACATE_CRUMB_M, VACATE_LOOKAHEAD_M, VACATE_EXCLUDE_M = .10, .5, .40
+VACATE_BLOCKED_PLANS, VACATE_COOLDOWN_PLANS, VACATE_CRUMBS = 5, 10, 5000
+VACATE_CLEARANCE_M, VACATE_MIN_CLEARANCE_M, VACATE_SLACK_M = grid.FOOTPRINT_RADIUS_M, .33, .03  # forecasts drift 1-3 cm
+VACATE_REAR_CORNERS = ((-.30, .17), (-.30, -.17))   # the rear calves (body frame): a smoke run's corner hit a wall at 0.08 m
+VACATE_REAR_CLEARANCE_M, VACATE_TURN_HYSTERESIS_M = .12, .03
+VACATE_MAX_YAW, VACATE_GONE_RADIUS_M, VACATE_GONE_CELLS = .30, .30, 20   # the head drops a walker this close
 ROUTES = ('OBSERVED_FLOOR_ROUTE_TO_FRONTIER', 'OBSERVED_FLOOR_ROUTE_TO_GOAL_CELL')
 HARNESSES = ('reserve_exit_v2', 'v4')
 
@@ -110,7 +135,7 @@ class Planner:
 
     def __init__(self, *, arrival_radius_m, recovery=False, margin_m=0., unknown=None, harness='reserve_exit_v2',
                  coverage_fix=True, deadlock_escape=False, terminal_burst=False, obstacle_prediction=False,
-                 candidates=ACTIONS, give_way=False, close_up=False):
+                 candidates=ACTIONS, give_way=False, close_up=False, vacate=False):
         if harness not in HARNESSES:
             raise ValueError(f'unknown harness {harness!r}')
         self.arrival_radius_m, self.recovery, self.harness = arrival_radius_m, recovery, harness
@@ -146,6 +171,8 @@ class Planner:
         self.backup_plan = False            # this plan carries the reverse command
         self.give_way, self.give_way_state, self.give_way_cooldown, self.give_way_counts = give_way, None, 0, {}
         self.close_up = close_up
+        self.vacate, self.vacate_state, self.vacate_cooldown, self.vacate_count = vacate, None, 0, 0
+        self.vacate_still, self.crumbs, self.vacate_why, self.vacate_turn = {}, [], None, None   # track id -> (anchor xy, since ns); the travelled path (map xy)
         if recovery:
             self.frontier_visits.excluded = routing.StickyExclusions()
 
@@ -462,6 +489,8 @@ class Planner:
             result = self._deadlock_escape(result)
         if self.give_way:
             result = self._give_way(result, snapshot, q, Q)
+        if self.vacate:
+            result = self._vacate(result, prediction, snapshot, q, Q)
         if len(self.remembered_walkers):
             body = (np.asarray(self.remembered_walkers, float).reshape(-1, 2)-q[:2])@Q[:2, :2]
             result = sel.remembered_veto(result, prediction, body)
@@ -715,6 +744,159 @@ class Planner:
         self.backup_plan = True
         state['step'] += 1
         return result
+
+    @staticmethod
+    def _as_hold(result, requested, detail_key, detail):
+        """The selection as a hold carrying `requested` (recorded as a hold, as the reverse steps are)."""
+        order = [r['action'] for r in result['candidates']] if 'candidates' in result else ACTIONS
+        result.update(action='hold', action_index=order.index('hold'), requested_command=[float(v) for v in requested])
+        result[detail_key] = detail
+        return result
+
+    def _vacate(self, result, prediction, snapshot, q, Q):
+        """The vacate rule (see the module docstring): a reverse step, a hold, or the selection unchanged."""
+        p, now = np.asarray(q, float)[:2], int(snapshot.measured_ns)
+        yaw = math.atan2(Q[1][0], Q[0][0])
+        c, s = math.cos(yaw), math.sin(yaw)
+        near, still = {}, {}
+        for t in self.tracks:
+            if not getattr(t, 'confirmed', False):
+                continue
+            xy = np.asarray(t.history[-1][1], float)
+            anchor = self.vacate_still.get(t.id)
+            if anchor is None or np.linalg.norm(xy-anchor[0]) > VACATE_STILL_M:
+                anchor = (xy, now)
+            still[t.id] = anchor
+            d = xy-p
+            near[t.id] = (xy, np.array([c*d[0]+s*d[1], -s*d[0]+c*d[1]]), (now-anchor[1])/1e9)
+        self.vacate_still = still
+        state = self.vacate_state
+        if state is None:
+            if not self.crumbs or np.linalg.norm(p-self.crumbs[-1]) >= VACATE_CRUMB_M:
+                self.crumbs = (self.crumbs+[p.copy()])[-VACATE_CRUMBS:]
+            if self.backup_plan:
+                return result
+            if self.vacate_cooldown:
+                self.vacate_cooldown -= 1
+                return result
+            waiting = {i: v for i, v in near.items() if v[1][0] > 0 and np.linalg.norm(v[1]) < VACATE_NEAR_M
+                       and v[2] >= VACATE_WAIT_S}
+            if not waiting:
+                return result
+            track = min(waiting, key=lambda i: float(np.linalg.norm(waiting[i][1])))
+            self.vacate_turn = None
+            state = self.vacate_state = dict(track=track, encounter=self.vacate_count, start_ns=now, start=p.copy(),
+                                             walker=waiting[track][0], steps=0, blocked=0, clear_since=None)
+            self.vacate_count += 1
+            result['vacate_started'] = dict(track=track, encounter=state['encounter'],
+                                            walker_body_xy_m=[round(float(v), 3) for v in waiting[track][1]],
+                                            waited_s=round(waiting[track][2], 2), crumbs=len(self.crumbs))
+        if state['track'] in near:
+            state['walker'] = near[state['track']][0]
+        close = [i for i, v in near.items() if np.linalg.norm(v[1]) < VACATE_CLEAR_M]
+        # the model's head loses a walker this close while the robot moves: the depth map must also have let it go
+        cells = np.asarray(list(snapshot.fine_occupied), float).reshape(-1, 2)
+        occupied = int((np.linalg.norm((cells+.5)*grid.FINE_CELL_M-state['walker'], axis=1) <= VACATE_GONE_RADIUS_M).sum())
+        state['clear_since'] = None if close or occupied >= VACATE_GONE_CELLS else (state['clear_since'] or now)
+        elapsed = (now-state['start_ns'])/1e9
+        detail = dict(track=state['track'], encounter=state['encounter'], step=state['steps'],
+                      elapsed_s=round(elapsed, 2), moved_m=round(float(np.linalg.norm(p-state['start'])), 3),
+                      walker_distance_m=round(float(np.linalg.norm(state['walker']-p)), 3), near_tracks=len(close),
+                      walker_cells=occupied)
+        end = None
+        if state['clear_since'] is not None and now-state['clear_since'] >= VACATE_CLEAR_S*1e9:
+            end = 'walker_gone'
+        elif elapsed >= VACATE_MAX_S:
+            end = 'time'
+        elif state['clear_since'] is not None:
+            return self._as_hold(result, (0., 0., 0.), 'vacate', dict(detail, phase='clear_wait'))
+        if end is None:
+            while self.crumbs and np.linalg.norm(self.crumbs[-1]-p) < 1.5*VACATE_CRUMB_M:
+                self.crumbs.pop()
+            away = p-state['walker']
+            target = p+VACATE_LOOKAHEAD_M*away/max(float(np.linalg.norm(away)), 1e-6)   # no path left: straight away
+            travelled, last = 0., p
+            for crumb in reversed(self.crumbs):
+                travelled += float(np.linalg.norm(crumb-last))
+                last, target = crumb, crumb
+                if travelled >= VACATE_LOOKAHEAD_M:
+                    break
+            step = self._vacate_step(result, prediction, snapshot, q, Q, state['walker'], target)
+            if step is None:
+                state['blocked'] += 1
+                if state['blocked'] >= VACATE_BLOCKED_PLANS:
+                    end = 'blocked'
+                else:
+                    return self._as_hold(result, (0., 0., 0.), 'vacate', dict(detail, phase='blocked',
+                                                                             blocked=state['blocked'], why=self.vacate_why))
+        if end is not None:
+            self.vacate_state, self.vacate_cooldown = None, VACATE_COOLDOWN_PLANS
+            self.vacate_still.pop(state['track'], None)
+            result['vacate_ended'] = dict(detail, reason=end, **(dict(why=self.vacate_why) if end == 'blocked' else {}))
+            return result
+        action, target_error = step
+        state['steps'] += 1
+        state['blocked'] = 0
+        self.backup_plan = True
+        return self._as_hold(result, command(action), 'vacate',
+                             dict(detail, phase='retreat', candidate=action, target_error_m=round(target_error, 3),
+                                  target_xy_m=[round(float(v), 3) for v in target]))
+
+    def _vacate_step(self, result, prediction, snapshot, q, Q, walker, target):
+        """(the reverse candidate whose forecast ends nearest `target`, that distance) among the admissible ones (see
+        the module docstring), or None."""
+        names = [r['action'] for r in result['candidates']] if 'candidates' in result else list(self.candidates)
+        g = np.arange(-int(VACATE_EXCLUDE_M/grid.FINE_CELL_M)-1, int(VACATE_EXCLUDE_M/grid.FINE_CELL_M)+2)
+        i, j = np.meshgrid(g, g, indexing='ij')
+        base = np.floor(np.asarray(walker, float)/grid.FINE_CELL_M).astype(int)
+        centres = (np.stack((i, j), -1)+base+.5)*grid.FINE_CELL_M
+        keep = np.linalg.norm(centres-walker, axis=-1) <= VACATE_EXCLUDE_M
+        excluded = frozenset(zip((i[keep]+base[0]).tolist(), (j[keep]+base[1]).tolist()))
+        clearance = grid.fine_clearance(snapshot.fine_occupied-excluded)
+        p = np.asarray(q, float)[:2]
+        start = float(np.linalg.norm(p-walker))
+        current, previous = clearance.minimum(p, p), self.vacate_turn
+        # below the footprint only as close as the robot already stands, and never below VACATE_MIN_CLEARANCE_M
+        required = VACATE_CLEARANCE_M if current is None else max(VACATE_MIN_CLEARANCE_M,
+                                                                   min(VACATE_CLEARANCE_M, current-VACATE_SLACK_M))
+        yaw = math.atan2(Q[1][0], Q[0][0])
+        best, why = None, dict(nearer=0, clearance=0, rear=0, floor=0, current_clearance_m=current,
+                               required_clearance_m=round(required, 3))
+        if len(clearance.cells):   # where the nearest stored cell lies (body frame), for the record
+            d = (clearance.cells+.5)*grid.FINE_CELL_M-p
+            n = d[int(np.argmin(np.einsum('ij,ij->i', d, d)))]
+            c, s_ = math.cos(yaw), math.sin(yaw)
+            why['nearest_body_xy_m'] = [round(float(c*n[0]+s_*n[1]), 3), round(float(-s_*n[0]+c*n[1]), 3)]
+        for k, action in enumerate(names):
+            if command(action)[0] >= 0 or abs(command(action)[2]) > VACATE_MAX_YAW+1e-9:
+                continue
+            points = sel.forecast_path(prediction, k, q, Q)
+            if float(np.linalg.norm(points[-1]-walker)) < start-.01:
+                why['nearer'] += 1
+                continue
+            segments = list(zip(points[:-1], points[1:]))
+            if any((m := clearance.minimum(a, b)) is not None and m < required for a, b in segments):
+                why['clearance'] += 1
+                continue
+            headings = yaw+np.arctan2(prediction[k, :, 2], prediction[k, :, 3])
+            ch, sh = np.cos(headings), np.sin(headings)
+            rears = [points[1:]+np.stack((ch*x-sh*y, sh*x+ch*y), 1) for x, y in VACATE_REAR_CORNERS]
+            if any((m := clearance.minimum(r, r)) is not None and m < VACATE_REAR_CLEARANCE_M for rs in rears for r in rs):
+                why['rear'] += 1
+                continue
+            if not all(tuple(cell) in snapshot.floor for a, b in segments for cell in grid.segment_cells(a, b)):
+                why['floor'] += 1
+                continue
+            error = float(np.linalg.norm(points[-1]-target))
+            turn = np.sign(command(action)[2])
+            if previous is not None and turn and turn != previous:
+                error += VACATE_TURN_HYSTERESIS_M        # no swinging from one side to the other plan by plan
+            if best is None or error < best[1]:
+                best = (action, error)
+        self.vacate_why = why
+        if best is not None:
+            self.vacate_turn = np.sign(command(best[0])[2]) or previous
+        return best
 
     def veto(self, plan, now_ns, generation):
         """A dispatched translation was vetoed: look 45° to the side of its yaw (left for straight) unless already."""

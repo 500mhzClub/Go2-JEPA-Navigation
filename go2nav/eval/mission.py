@@ -109,7 +109,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         terminal_burst=False, obstacle_prediction=False, footprint_clearing=False, obstacle_series='v1', obstacle_speed=None,
         candidates='primitives', safety='primitive', pose_oracle=False, map_oracle=None, prediction_oracle=False,
         mover_trails=False, give_way=False, close_up=False, walker_mode='off', obstacle_polite=True, walker_memory=False,
-        pose_carry='off'):
+        pose_carry='off', vacate=False):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
     (how many moving obstacles; `obstacle_series` their placement series, `obstacle_speed` their speed range,
@@ -128,7 +128,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     `footprint_clearing`: map cells inside the body's outline are dropped (`go2nav.perception.mapping`);
     `mover_trails`: a confirmed obstacle track's cells stay in the map only while seen occupied
     (`go2nav.perception.mapping`); `give_way`: back off from a still mover near and ahead (`go2nav.planning.planner`;
-    the give-way probe); `candidates`: 'primitives' (the six actions) or 'lattice' (the command lattice; C1,
+    the give-way probe); `vacate`: get out of the way of a walker that waits for the robot (P11,
+    `go2nav.planning.planner`); `candidates`: 'primitives' (the six actions) or 'lattice' (the command lattice; C1,
     C5 and C6; `go2nav.planning.actions`); `safety`: the command safety block, 'primitive' or 'continuous'
     (`go2nav.locomotion.safety`). Module oracles (the failure analysis; `go2nav.controllers.truth`): `pose_oracle` (the
     true pose), `map_oracle` ('obstacles': perceived walls with the moving obstacles where they truly are; 'full': the
@@ -175,6 +176,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  **(dict(mover_trails=True) if mover_trails else {}),
                                  **(dict(give_way=True) if give_way else {}),
                                  **(dict(close_up=True) if close_up else {}),
+                                 **(dict(vacate=True) if vacate else {}),
                                  **(dict(walker_mode=walker_mode) if walker_mode != 'off' else {}),
                                  **(dict(walker_memory=True) if walker_memory is True or walker_memory == 'on' else
                                     dict(walker_memory=walker_memory) if walker_memory else {}),
@@ -241,7 +243,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                           prediction_oracle=prediction_oracle, mover_trails=mover_trails,
                                           give_way=give_way, close_up=close_up, walker_finder=finder,
                                           walker_mode=walker_mode, walker_memory=memory,
-                                          pose_carry=None if pose_carry == 'off' else pose_carry)
+                                          pose_carry=None if pose_carry == 'off' else pose_carry, vacate=vacate)
         history = deque(maxlen=4)
         for tick in range(STEP_BUDGET):
             now = session.sim_ns
@@ -377,6 +379,8 @@ def main():
     p.add_argument('--walker-memory', choices=('on', 'veto', 'off'), default='off',
                    help="the walkers the memory remembers out of view: in the planner's clearance checks (on), or ruling out "
                         "actions toward them (veto)")
+    p.add_argument('--vacate', choices=('on', 'off'), default='off',
+                   help='get out of the way of a walker that waits for the robot (PLAN P11)')
     p.add_argument('--close-up', choices=('on', 'off'), default='off',
                    help='walk up to an obstacle that cuts the only route instead of scanning where the route was lost')
     p.add_argument('--pose-carry', choices=('off', 'model', 'c1'), default='off',
@@ -408,7 +412,7 @@ def main():
                  prediction_oracle=a.prediction_oracle == 'on', mover_trails=a.mover_trails == 'on',
                  give_way=a.give_way == 'on', close_up=a.close_up == 'on', walker_mode=a.walker_mode,
                  obstacle_polite=a.obstacle_polite == 'on', walker_memory={'on': True, 'veto': 'veto'}.get(a.walker_memory, False),
-                 pose_carry=a.pose_carry)
+                 pose_carry=a.pose_carry, vacate=a.vacate == 'on')
     print(json.dumps(result))
 
 
