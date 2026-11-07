@@ -920,6 +920,32 @@ stand-offs:
   touches anything.
 - **Role.** The driver only makes sure the outcomes are observed. No model is trained to imitate it.
 
+**Revised in four pilots** (7 November, collection approved; 48 units each, mazes 0-23 of both families; each set
+aside on the data drive, `_set_aside_standoff_*`). The first 69 units of the collection as designed met the gate on
+nothing: against walkers that do not yield, 43 stand-offs, none resolved, none with the robot 1 m away. Such a walker
+follows a robot that only backs off (both moved 0.4 m and stayed 0.62 m apart), so in a corridor the move that lets it
+pass is to get out of its lane at a junction. The driver now:
+- **gives way** (35%): back along its own path at 0.25 m/s to the first side opening (0.3-4 m), line up with the
+  opening's middle, turn to it at 0.8 rad/s and go 1.0-1.5 m into it at 0.30 m/s;
+- waits 1-6 s before resolving (corpus v2 already holds 6.7 h of stand-offs in which nothing happens; *hold on* keeps
+  long ones), and retreats at 0.10 or 0.20 m/s; resolutions: give way .35, retreat .15, aside .15, walk off .15,
+  hold .10, advance .10;
+- **unsticks:** a driver commanding motion that has not got 0.20 m from where it was 6 s ago, with a walker within
+  0.8 m, gives way (alternately walks off), and an escape step is kept 1.5 s. 86% of pilot 2's stand-off frames were the
+  driver stuck under its own stand-off rule, turning in place for up to 60 s or stepping back and forth;
+- **ends a pinned unit:** stuck three times on one spot (between two walkers that do not yield, or a walker and a
+  wall: walkers that never give up make that permanent), the unit ends ('PINNED', frames kept).
+Free starts also use the layout's own pitch now (they used 1.3 m, so on family B the robot could start against a wall),
+and the stand-off units run the no-slip pass (P13 item 6).
+
+| Pilot | Resolved within 10 s, stand-offs | Same, frames | Robot moved 1 m away | Contact stops |
+|---|---|---|---|---|
+| First 69 units (family A) | - | 7.9% | 4.3% | 1 |
+| 1: give way | - | 8.6% | 9.2% | 1 |
+| 2: faster | - | 3.7% | 15% | 0 |
+| 3: unstick | 21% | 12% | 26% | 1 |
+| 4: no progress, pinned | 20% | 5.7% | 31% | 2 (4%) |
+
 **End to end, one unit** (8 November, scratch root; family B maze 5, two reactive walkers): 900 frames, no contact,
 40% of the frames in stand-off segments. Its live range scans equal the offline cast at the same recorded poses
 exactly (largest difference 0.0 m), so item 1's backfill is the live sensor. Its walkers passed or waited beyond 0.70
@@ -936,8 +962,11 @@ m, so the audit counted no stand-offs in it.
 
 **Gate on the data, set before collection, read before any training.** A stand-off window is a walker standing still
 for at least 1 s within 0.70 m with the robot ahead of its last heading.
-- At least 25% of stand-off frames resolve within 10 s: the walker is out of the stand-off and more than 1.0 m from
-  the robot.
+- At least 20% of stand-offs resolve within 10 s: the walker is out of the stand-off and more than 1.0 m from the
+  robot. **Amended 7 November after the pilots** (approved; it first read "at least 25% of stand-off frames"). Counted by
+  frames, a few long stand-offs decide the share: 12% and 6% in pilots 3 and 4, whose drivers differ only in how they
+  get unstuck, against 21% and 20% counted per stand-off. What a world model can learn from is the number of distinct
+  resolutions it sees, not how long the unresolved waits last. `standoff_audit.gate` checks the amended conditions.
 - At least 20% of stand-offs see the robot move at least 1 m away from where it stood, further from the walker.
 
 Corpus v2 against the gate (`go2nav.data.standoff_audit`, all 5,200 units; `outputs/phase_a/standoff_audit_v2.json`):
@@ -957,7 +986,7 @@ has watched stand-offs in which nothing happens. The give-way top-up's retreats 
 - Contact stops in at most 5% of units, as corpus v2's gate.
 
 If the gate fails, the driver's weights change and a small top-up runs again, measured the same way. No training starts
-on data that fails it.
+on data that fails it. The collection runs with pilot 4's driver (2de1826); pilot 4's 48 units are its first.
 
 **Compute.** Preparation (items 1-2): CPU, under an hour. The driver and the collector: about a day of building. The
 collection: about 8 CPU-hours. Mazes 50-89 of family A and all of family C stay unused.

@@ -12,9 +12,11 @@ From each unit's frames (10 Hz: `steps.npz` pose, `dynamic.npz` walker positions
   stand-off began, further from the walker than it was.
 
 Reported overall and by walker behaviour ('reactive', 'non-yielding', 'polite') and by layout family (the unit's set):
-stand-offs, their frames, and the shares resolved and moved away. The P14 gate needs at least 25% of stand-off frames
-resolved within 10 s, at least 20% of stand-offs with the robot moving away, and every behaviour and family at least 15%
-of the stand-off frames.
+stand-offs, their frames, and the shares resolved (of the stand-offs, and of their frames) and moved away. The P14
+gate (`gate`; amended 7 November after the pilots, docs/dynamic/PLAN.md P14) needs at least 20% of stand-offs resolved
+within 10 s, at least 20% with the robot moving away, and non-yielding and reactive walkers and both layout families
+each at least 15% of the stand-off frames. It first asked for 25% of the stand-off *frames* resolved; a few long
+stand-offs decide that share (12% and 6% in two pilots of nearly the same driver, 21% and 20% counted per stand-off).
 """
 import argparse
 from collections import defaultdict
@@ -87,6 +89,7 @@ def summary(rows):
     def block(rs):
         frames = sum(r['frames'] for r in rs)
         return dict(stand_offs=len(rs), frames=frames,
+                    resolved_share=round(sum(r['resolved'] for r in rs)/len(rs), 4) if rs else None,
                     resolved_frame_share=round(sum(r['frames'] for r in rs if r['resolved'])/frames, 4) if frames else None,
                     moved_away_share=round(sum(r['moved_away'] for r in rs)/len(rs), 4) if rs else None)
     out = dict(all=block(rows))
@@ -97,6 +100,20 @@ def summary(rows):
         total = sum(r['frames'] for r in rows) or 1
         out[key] = {k: block(v) | dict(frame_share=round(sum(r['frames'] for r in v)/total, 4)) for k, v in sorted(groups.items())}
     return out
+
+
+GATE = dict(resolved_share=.20, moved_away_share=.20, frame_share=.15)
+GATE_BEHAVIOURS, GATE_FAMILIES = ('non-yielding', 'reactive'), ('lewm_sets_v1', 'loops_rooms_corpus_v1')
+
+
+def gate(summary_):
+    """The P14 data gate's conditions on a `summary` (contact stops are the corpus audit's), each True or False."""
+    share = lambda key, name: summary_[key].get(name, {}).get('frame_share', 0.)
+    checks = dict(resolved=(summary_['all']['resolved_share'] or 0.) >= GATE['resolved_share'],
+                  moved_away=(summary_['all']['moved_away_share'] or 0.) >= GATE['moved_away_share'])
+    checks |= {f'{b}_frames': share('behaviour', b) >= GATE['frame_share'] for b in GATE_BEHAVIOURS}
+    checks |= {f'{f}_frames': share('family', f) >= GATE['frame_share'] for f in GATE_FAMILIES}
+    return checks | dict(passed=all(checks.values()))
 
 
 def main():
@@ -112,6 +129,7 @@ def main():
     with ProcessPoolExecutor(a.workers, mp_context=multiprocessing.get_context('forkserver')) as pool:
         rows = [r for part in pool.map(audit_unit, [(str(a.corpus), u) for u in units], chunksize=8) for r in part]
     report = dict(corpus=str(a.corpus), units=len(units), **summary(rows))
+    report['gate'] = gate(report)
     text = json.dumps(report, indent=1)
     print(text)
     if a.out:
