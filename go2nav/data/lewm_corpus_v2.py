@@ -52,6 +52,7 @@ import numpy as np
 import yaml
 
 from go2nav.data import lewm_corpus as v1
+from go2nav.sim.scene import NOSLIP_ITERATIONS
 
 VERSION = 'v2'
 REPO = v1.REPO
@@ -64,6 +65,8 @@ COUNTS, COUNT_P = (0, 1, 2, 3, 4), (.15, .30, .30, .15, .10)
 GIVE_WAY_COUNT_P = (0., 0., .3, .4, .3)     # give-way units: two to four movers
 GIVE_WAY_IMPOLITE_SHARE = .5                # and more of them wait at the robot
 STANDOFF_KINDS = ('standoff', 'standoff_b')  # P14's top-up: family A (lewm_sets_v1) and family B mazes
+# The stand-off units run the rigid solver's no-slip pass (P13 item 6: a zero command holds the robot still); the other
+# kinds were collected without it.
 FRAME_CAPS = dict(v1.FRAME_CAPS, giveway=600, standoff=900, standoff_b=900)
 KINDS = (*v1.KINDS, 'giveway', *STANDOFF_KINDS)
 FREE_KINDS = ('free', 'transfer', 'giveway', *STANDOFF_KINDS)
@@ -632,11 +635,13 @@ class StandoffDriver(GiveWayDriver):
         return pose
 
 
-def run_free(spec, recorder, *, cap, seed, meshes, random_look, dynamics, driver=FreeDriverV2, range_sensor=False):
+def run_free(spec, recorder, *, cap, seed, meshes, random_look, dynamics, driver=FreeDriverV2, range_sensor=False,
+             noslip=False):
     from go2nav.controllers.truth import GroundTruth
     from go2nav.sim.session import MissionSession, PhysicalStop
     session = MissionSession(spec, meshes, policy_checkpoint=Path(load_models()['go2_locomotion_policy']),
-                             random_look=random_look, dynamics=dynamics, safety='continuous', range_sensor=range_sensor)
+                             random_look=random_look, dynamics=dynamics, safety='continuous', range_sensor=range_sensor,
+                             noslip=noslip)
     session.settle()
     truth = GroundTruth(session)
     walkers = session.obstacles.walkers if session.obstacles is not None else []
@@ -687,7 +692,7 @@ def collect_unit(root, role, maze, kind):
                                   random_look=look, dynamics=Dynamics(obstacles=placement) if placement else None,
                                   driver=StandoffDriver if kind in STANDOFF_KINDS else
                                   GiveWayDriver if kind == 'giveway' else FreeDriverV2,
-                                  range_sensor=kind in STANDOFF_KINDS)
+                                  range_sensor=kind in STANDOFF_KINDS, noslip=kind in STANDOFF_KINDS)
     else:
         spec, episode = episode_spec(v1.SET, maze, v1.EPISODES[kind], root=v1.mazes_root(root))
         placement, obstacles = unit_obstacles(spec, episode['home_se2_world'], episode['beacon_xy_world'], maze, kind)
@@ -704,6 +709,7 @@ def collect_unit(root, role, maze, kind):
                 frame_cap=FRAME_CAPS[kind], frames=frames, valid_blocks=blocks, physical_stop=stop, look=look,
                 obstacles=dict(obstacles, placement=placement), start_se2_world=spec['geometry']['spawn_se2_world'],
                 wall_s=round(time.monotonic()-started, 1), code=v1.code_identity(),
+                physics=dict(noslip_iterations=NOSLIP_ITERATIONS if kind in STANDOFF_KINDS else 0),
                 models={k: str(Path(v).relative_to(REPO)) for k, v in load_models().items()})
     (partial/'meta.json').write_text(json.dumps(meta, indent=1)+'\n')
     shutil.rmtree(folder, ignore_errors=True)
