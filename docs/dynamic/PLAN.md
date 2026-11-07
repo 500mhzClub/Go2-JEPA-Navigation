@@ -931,9 +931,20 @@ stand-offs:
 
 **Gate on the data, set before collection, read before any training.** A stand-off window is a walker standing still
 for at least 1 s within 0.70 m with the robot ahead of its last heading.
-- At least 25% of stand-off windows are followed by the walker leaving the robot's path within 10 s. Corpus v2 is far
-  below this; the exact share is measured on it first.
-- At least 20% of stand-offs include a retreat of 1 m or more.
+- At least 25% of stand-off frames resolve within 10 s: the walker is out of the stand-off and more than 1.0 m from
+  the robot.
+- At least 20% of stand-offs see the robot move at least 1 m away from where it stood, further from the walker.
+
+Corpus v2 against the gate (`go2nav.data.standoff_audit`, all 5,200 units; `outputs/phase_a/standoff_audit_v2.json`):
+
+| Corpus v2 | Stand-offs | Stand-off frames | Resolved within 10 s | Robot moved 1 m away |
+|---|---|---|---|---|
+| All | 3,740 | 241,193 (6.7 h) | 2.6% | 4.1% |
+| Walkers that do not yield | 3,374 | 98% of them | 0.9% | 2.2% |
+| Polite walkers | 366 | 2% | 88% (they turn back) | 22% |
+
+The corpus already holds 6.7 hours of stand-offs with walkers that do not yield, and under 1% of them resolve: the model
+has watched stand-offs in which nothing happens. The give-way top-up's retreats (0.1-0.3 m) did not change that.
 - Every walker behaviour and both layout families supply at least 15% of the stand-off windows.
 - Contact stops in at most 5% of units, as corpus v2's gate.
 
