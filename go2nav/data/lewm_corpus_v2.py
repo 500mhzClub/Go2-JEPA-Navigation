@@ -533,15 +533,52 @@ class StandoffDriver(GiveWayDriver):
     WAIT_S, CRUMB_M, LOOKAHEAD_M = (1., 6.), .10, .40
     OPENING_M, GIVE_WAY_MAX_M = 1., 4.
 
+    STUCK_TICKS, STUCK_M, STUCK_NEAR_M, ESCAPE_HOLD_TICKS = 40, .05, .80, 15
+
     def __init__(self, spec, rng, movers=lambda: ()):
         super().__init__(spec, rng, movers)
         self.trail, self.retreating = [], False
+        self.recent, self.unstuck, self.escape_step, self.escape_ticks = deque(maxlen=self.STUCK_TICKS), 0, None, 0
+        self.commanded = deque(maxlen=self.STUCK_TICKS)     # whether each recent command asked for motion
 
     def next(self, pose):
         xy = np.asarray(pose[:2], float)
         if not self.retreating and (not self.trail or np.linalg.norm(xy-self.trail[-1]) >= self.CRUMB_M):
             self.trail = (self.trail+[xy])[-600:]
-        return super().next(pose)
+        self.recent.append(xy)
+        near = [m for m in self.movers() if np.linalg.norm(np.asarray(m)-xy) < self.STUCK_NEAR_M]
+        if (near and len(self.recent) == self.STUCK_TICKS and all(self.commanded)
+                and max(np.linalg.norm(q-xy) for q in self.recent) < self.STUCK_M):
+            # Stuck at a walker (turning in place or stepping back and forth under the stand-off rule): give way, or
+            # walk off if the last unsticking was a give-way that left it stuck again.
+            self.unstuck += 1
+            resolution = self._resolve_give_way if self.unstuck % 2 else self._resolve_walk_off
+            self.segment = (list(self.WEIGHTS).index('standoff'), self._unstick(resolution))
+            next(self.segment[1])
+            self.recent.clear()
+        command, code = super().next(pose)
+        self.commanded.append(any(abs(c) > 1e-6 for c in command))    # a deliberate hold is never stuck
+        return command, code
+
+    def _unstick(self, resolution):
+        pose = yield
+        pose = yield from resolution(pose)
+        for _ in range(int(self.rng.integers(10, 31))):                 # watch what follows
+            pose = yield (0., 0., 0.)
+
+    def _escape(self, xy, h):
+        """`FreeDriverV2._escape`, but a step once chosen is kept for `ESCAPE_HOLD_TICKS` (re-choosing every tick
+        stepped back and forth on the spot with a walker at the robot)."""
+        if self.escape_step is None or self.escape_ticks >= self.ESCAPE_HOLD_TICKS:
+            self.escape_step, self.escape_ticks = super()._escape(xy, h), 0
+        self.escape_ticks += 1
+        return self.escape_step
+
+    def _safe(self, command, pose):
+        out = super()._safe(command, pose)
+        if not self.escaping:
+            self.escape_step = None
+        return out
 
     @staticmethod
     def _bearing(pose, target):

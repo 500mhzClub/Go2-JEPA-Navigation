@@ -135,3 +135,19 @@ def test_giving_way_backs_to_the_junction_and_turns_out_of_the_passage():
         into = poses[:, 1].max()
         assert into > .65 and abs(poses[np.argmax(poses[:, 1]), 0]) < .35     # into the branch, out of the passage
         assert min(driver.clearance(p[:2]) for p in poses) >= .40
+
+
+def test_a_driver_stuck_at_a_walker_gives_way_but_a_hold_is_left_alone():
+    walker = np.array([1.62, 0.])
+    driver = GivingWay(t_junction(), np.random.default_rng(0), movers=lambda: [walker])
+    driver.trail = [np.array([x, 0.]) for x in np.arange(-.5, 1.01, .1)]
+    pose = pose_of(1., 0., 0.)
+    driver.recent.extend([np.array([1., 0.])]*driver.STUCK_TICKS)
+    driver.commanded.extend([True]*driver.STUCK_TICKS)
+    command, _ = driver.next(pose)
+    assert command[0] < 0                                                    # it backs off to give way
+    held = GivingWay(t_junction(), np.random.default_rng(0), movers=lambda: [walker])
+    held.recent.extend([np.array([1., 0.])]*held.STUCK_TICKS)
+    held.commanded.extend([False]*held.STUCK_TICKS)
+    held.next(pose)
+    assert held.unstuck == 0
