@@ -679,7 +679,7 @@ near the body (finer cells within about 0.8 m of the robot, more loss weight the
 still position, so the veto can be read against where the walker will be), then P9b's missions again with the same bars and
 stopping rule. Better poses from the next piece also sharpen the memory's warp.
 
-### P10. The world model carries the pose through frames visual odometry cannot measure (proposed 6 November)
+### P10. The world model carries the pose through frames visual odometry cannot measure (approved 6 November)
 
 **Why.** With walkers that do not yield, pose loss ends more missions than anything else: 35 of 80 with the model's
 positions, 31 with the hand tracker (P8), and about half of P9's and P9b's. In all 66 of P8's, visual odometry raised "neither
@@ -729,6 +729,11 @@ once frames measure again. Rotation stays with the gyro, as in visual odometry t
 
 **Compute.** About 11 GPU-hours, at most 6 world-model missions at once, mazes 10-29 only (50-89 stay held). Step 1 needs only the
 shadow log, so it can run while steps 2 and 3 are written.
+
+**Result (7 November).** The gate failed: stopped by the stopping rule after 74 missions, the true pose 3 won, 5 lost against
+`wm_rude_model_*` (STATUS, "P10"). Pose losses become timeouts and contacts with walkers out of view. Offline, the deployed world
+model fails the carrier bar (90th percentile 28.5 cm) and C1 passes (1.7 cm, limit 0.05 m of carried path). P10 closes as a
+negative result; steps 3 and 4 do not run, and `--pose-carry` stays off.
 
 ## Compute and order
 

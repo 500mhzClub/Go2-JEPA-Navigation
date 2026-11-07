@@ -1270,3 +1270,53 @@ robot into a robot that cannot move safely. The next step is in how the planner 
 **Piece 3 closes here** (decided 6 November): recorded as a negative result in missions, the memory kept for a revisit after
 the pose piece (PLAN P9b, "Result and what is deferred"). In every arm of these runs (P8, the memory in the cells, off, the
 veto), losing the visual pose ends about half the missions with walkers that do not yield, far more than contacts do.
+
+## P10: the pose: no headroom when walkers do not yield (7 November)
+
+**Stopped at step 1 by the stopping rule** after 74 of 80 missions (01:39), when the gate could no longer be met
+(`outputs/pose/oracle.log`). `wm_pose_rude_obst{1,2}_c5`: the working setup with the true pose and walkers that do not yield,
+paired with P8's `wm_rude_model_*`; visual odometry ran beside it in shadow (`controllers.pose_shadow`, `pose_shadow.json`).
+
+**1. The gate fails: the true pose gains nothing.** 3 won, 5 lost, net −2 (the gate needs +4 with wins at least twice losses). P10
+closes here, as its rule says; steps 3 and 4 do not run.
+
+| Same 74 missions | P8 (visual odometry) | True pose |
+|---|---|---|
+| Round trips | 11 | 9 |
+| Pose losses | 34 | 0 |
+| Contact stops, walker out of the forward view | 7 | 20 |
+| Contact stops, walker in view / wall | 2 / 0 | 4 / 1 |
+| Timeouts | 20 | 40 |
+
+Of P8's 34 pose losses, with the true pose: 2 round trips, 15 timeouts, 15 contacts with a walker out of view, 1 in view, 1 wall.
+
+- **The pose loss was ending missions already lost.** The walker parks in front, both cameras are blinded, and the robot is
+  stuck. With the pose kept, the same walker walks round or into it, out of the camera's view, or keeps it boxed until 480 s.
+  A pose fix alone would trade a pose loss for a contact about half the time.
+- **Outages are short and still.** 93 shadow outages: median 1.0 s, 90th percentile 7.7 s, longest 31 s; the robot moved a
+  median 0.7 cm during one (90th percentile 3.0 cm, 2 over 5 cm), with the walker 0.5-0.55 m ahead. Visual odometry recovers
+  on its own once it is restarted.
+
+**2. The carriers offline** (`eval.pose_carry`, 1,500 windows of corpus v2's validation units with a walker within 0.8 m in
+view, `outputs/pose/carriers/summary.json`; scored on windows shaped like step 1's 82 closed outages,
+`outputs/pose/score_step2.py`):
+
+| Error at the outage's length and path | Median | 90th percentile |
+|---|---|---|
+| World model (C5 rollout, decoder at 100 ms) | 3.5 cm | 28.5 cm |
+| C1 | 0.3 cm | 1.7 cm |
+| The commands integrated exactly | 0.3 cm | 1.8 cm |
+
+- **The deployed world model cannot carry the pose.** Its decoder reads 3-4 mm of motion a frame with the robot standing still,
+  and the error grows with every carried frame (90th percentile 32 cm over every carried frame, up to 10 s, with under 2 cm of true motion). It was fitted to
+  0.8-s forecasts, where this bias is within its 8-mm error; chained frame by frame it is not.
+- **C1 passes but adds nothing to the commands.** Its 90th percentile stays at most 5 cm up to 5 cm of carried path
+  (`perception.carried.MAX_CARRIED_PATH_M` 0.05), which covers all but 2 of the outages. By the bar, C1 would have carried the
+  pose (bridged, not handed over); the gate makes this moot. `--pose-carry` stays in the code, off by default, untested in missions.
+
+**What this means for the next pieces.** Every oracle so far leaves the failures with walkers that do not yield in place: the
+true pose (here), the true map and the true walker positions (P8), and the memory (P9). What fails is the robot's response to
+a walker that blocks it and does not give way: it neither retreats nor gets out of the way, and contact comes from out of
+view. The remaining handover pieces that address that are the responses and the decisions (give-way, retreat, when to go), not
+perception. A one-frame motion readout for the world model, so the model itself could carry the pose, is noted but has no
+mission value on this evidence.

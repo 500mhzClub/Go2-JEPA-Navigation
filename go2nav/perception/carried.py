@@ -30,7 +30,7 @@ from go2nav.perception.visual_odometry import Pose, VisualOdometry
 TAKEOVER_FRAMES = 4
 FRAME_NS = 100_000_000
 CARRIERS = ('model', 'c1', 'command')
-MAX_CARRIED_PATH_M = None  # set from P10 step 2: where the carrier reaches 5 cm of error at the 90th percentile
+MAX_CARRIED_PATH_M = .05  # P10 step 2: C1's 90th-percentile error reaches 5 cm beyond this carried path (STATUS, P10)
 
 
 def applied_last_frame(packet, now_ns):
