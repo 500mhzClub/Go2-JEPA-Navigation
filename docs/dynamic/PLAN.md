@@ -920,6 +920,11 @@ stand-offs:
   touches anything.
 - **Role.** The driver only makes sure the outcomes are observed. No model is trained to imitate it.
 
+**End to end, one unit** (8 November, scratch root; family B maze 5, two reactive walkers): 900 frames, no contact,
+40% of the frames in stand-off segments. Its live range scans equal the offline cast at the same recorded poses
+exactly (largest difference 0.0 m), so item 1's backfill is the live sensor. Its walkers passed or waited beyond 0.70
+m, so the audit counted no stand-offs in it.
+
 **4. A stand-off top-up** (`collect --kinds standoff`).
 - **Units:** 1,200 training and 100 validation units of 900 frames each.
 - **Layouts:** half on corpus v2's family A mazes (lewm_sets_v1, 5×4 trees), half on family B (loops_rooms_corpus_v1).
@@ -945,7 +950,10 @@ Corpus v2 against the gate (`go2nav.data.standoff_audit`, all 5,200 units; `outp
 
 The corpus already holds 6.7 hours of stand-offs with walkers that do not yield, and under 1% of them resolve: the model
 has watched stand-offs in which nothing happens. The give-way top-up's retreats (0.1-0.3 m) did not change that.
-- Every walker behaviour and both layout families supply at least 15% of the stand-off windows.
+- Every walker behaviour is drawn for at least 15% of the units, and both layout families supply at least 15% of the
+  stand-off frames. Non-yielding and reactive walkers each supply at least 15% of the stand-off frames. Polite walkers
+  stop 0.8 m away and turn back after 3 s, and yielding reactive ones wait 0.40 m short of the robot's outline (a
+  centre about 0.95 m away), so under the 0.70-m definition they make few stand-off frames by design.
 - Contact stops in at most 5% of units, as corpus v2's gate.
 
 If the gate fails, the driver's weights change and a small top-up runs again, measured the same way. No training starts
