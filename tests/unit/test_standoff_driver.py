@@ -151,3 +151,15 @@ def test_a_driver_stuck_at_a_walker_gives_way_but_a_hold_is_left_alone():
     held.commanded.extend([False]*held.STUCK_TICKS)
     held.next(pose)
     assert held.unstuck == 0
+
+
+def test_stuck_three_times_on_one_spot_is_pinned():
+    walker = np.array([1.62, 0.])
+    driver = GivingWay(t_junction(), np.random.default_rng(0), movers=lambda: [walker])
+    pose = pose_of(1., 0., 0.)
+    for attempt in range(3):
+        assert not driver.pinned
+        driver.recent.extend([np.array([1., 0.])]*driver.STUCK_TICKS)
+        driver.commanded.extend([True]*driver.STUCK_TICKS)
+        driver.next(pose)
+    assert driver.pinned and driver.unstuck == 3

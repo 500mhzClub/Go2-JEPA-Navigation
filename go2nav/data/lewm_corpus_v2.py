@@ -524,6 +524,9 @@ class StandoffDriver(GiveWayDriver):
       while not retreating), step aside (into a side passage if one opens within 1.5 m, else sideways), turn away from
       the walker and walk off 1-3 m, hold on 5-20 s, or advance on it;
     - **watch** 1-3 s.
+    **Unsticking.** A driver that commands motion but has not got 0.20 m from where it was 6 s ago, with a walker within
+    0.8 m, gives way (alternately walks off); stuck three times on the same spot it is pinned (between two walkers that
+    do not yield, or a walker and a wall) and the unit ends ('PINNED', the frames kept). An escape step is kept 1.5 s.
     Every command still passes the stand-off rule (`admissible`) on the true walls and walkers, so it never touches either.
     The driver only makes the outcomes observed; nothing is trained to imitate it."""
 
@@ -533,13 +536,15 @@ class StandoffDriver(GiveWayDriver):
     WAIT_S, CRUMB_M, LOOKAHEAD_M = (1., 6.), .10, .40
     OPENING_M, GIVE_WAY_MAX_M = 1., 4.
 
-    STUCK_TICKS, STUCK_M, STUCK_NEAR_M, ESCAPE_HOLD_TICKS = 40, .05, .80, 15
+    STUCK_TICKS, STUCK_M, STUCK_NEAR_M, STUCK_MOVING, ESCAPE_HOLD_TICKS = 60, .20, .80, .25, 15
+    PINNED_M, PINNED_TRIES = .30, 3
 
     def __init__(self, spec, rng, movers=lambda: ()):
         super().__init__(spec, rng, movers)
         self.trail, self.retreating = [], False
         self.recent, self.unstuck, self.escape_step, self.escape_ticks = deque(maxlen=self.STUCK_TICKS), 0, None, 0
         self.commanded = deque(maxlen=self.STUCK_TICKS)     # whether each recent command asked for motion
+        self.unstick_at, self.pinned = [], False
 
     def next(self, pose):
         xy = np.asarray(pose[:2], float)
@@ -547,10 +552,14 @@ class StandoffDriver(GiveWayDriver):
             self.trail = (self.trail+[xy])[-600:]
         self.recent.append(xy)
         near = [m for m in self.movers() if np.linalg.norm(np.asarray(m)-xy) < self.STUCK_NEAR_M]
-        if (near and len(self.recent) == self.STUCK_TICKS and all(self.commanded)
-                and max(np.linalg.norm(q-xy) for q in self.recent) < self.STUCK_M):
-            # Stuck at a walker (turning in place or stepping back and forth under the stand-off rule): give way, or
-            # walk off if the last unsticking was a give-way that left it stuck again.
+        if (near and len(self.recent) == self.STUCK_TICKS and np.mean(self.commanded) >= self.STUCK_MOVING
+                and max(np.linalg.norm(q-self.recent[0]) for q in self.recent) < self.STUCK_M):
+            # No progress at a walker for 6 s while commanding motion (turning in place, stepping back and forth under
+            # the stand-off rule): give way, or walk off if the last unsticking was a give-way that left it stuck again.
+            # Stuck `PINNED_TRIES` times on the same spot (between two walkers that do not yield, or a walker and a
+            # wall), it is pinned for good and the unit ends (`run_free`: 'PINNED').
+            self.unstick_at = [q for q in self.unstick_at if np.linalg.norm(q-xy) < self.PINNED_M]+[xy]
+            self.pinned = len(self.unstick_at) >= self.PINNED_TRIES
             self.unstuck += 1
             resolution = self._resolve_give_way if self.unstuck % 2 else self._resolve_walk_off
             self.segment = (list(self.WEIGHTS).index('standoff'), self._unstick(resolution))
@@ -612,11 +621,14 @@ class StandoffDriver(GiveWayDriver):
         room to turn); the path walked back is used up. Returns the pose."""
         start = np.asarray(pose[:2], float)
         self.retreating = True
+        progress = deque(maxlen=30)
         try:
             for _ in range(int(limit_m/(speed*.1))+80):
                 here = np.asarray(pose[:2], float)
-                if until(pose, float(np.linalg.norm(here-start))):
-                    break
+                progress.append(here)
+                if until(pose, float(np.linalg.norm(here-start))) or \
+                        (len(progress) == progress.maxlen and np.linalg.norm(here-progress[0]) < .05):
+                    break                                               # done, or blocked behind for 3 s
                 while self.trail and np.linalg.norm(self.trail[-1]-here) < .15:
                     self.trail.pop()
                 turn = 0.
@@ -739,6 +751,8 @@ def run_free(spec, recorder, *, cap, seed, meshes, random_look, dynamics, driver
                 command, code = driver.next(session.samples[-1]['base_pose_world'])
                 recorder.plan_command[-1] = np.asarray(command, np.float32)
                 segments.append(code)
+                if getattr(driver, 'pinned', False):
+                    return 'PINNED', segments
             session.phase = 2
             recorder.step(command, session.step(command))
     except PhysicalStop as error:
