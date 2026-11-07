@@ -108,7 +108,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         models=None, harness='reserve_exit_v2', coverage_fix=True, map_decay=False, deadlock_escape=False,
         terminal_burst=False, obstacle_prediction=False, footprint_clearing=False, obstacle_series='v1', obstacle_speed=None,
         candidates='primitives', safety='primitive', pose_oracle=False, map_oracle=None, prediction_oracle=False,
-        mover_trails=False, give_way=False, close_up=False, walker_mode='off', obstacle_polite=True, walker_memory=False):
+        mover_trails=False, give_way=False, close_up=False, walker_mode='off', obstacle_polite=True, walker_memory=False,
+        pose_carry='off'):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
     (how many moving obstacles; `obstacle_series` their placement series, `obstacle_speed` their speed range,
@@ -135,7 +136,9 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     in the clearance check). `walker_mode`: the world model's walkers (`models['walker_world_model']`,
     `go2nav.controllers.walkers`), logged beside the hand tracker ('shadow'), driving the planner
     ('live') or driving it with positions only ('held'); 'truth': every walker's true position in place of the tracks,
-    positions only (a module oracle). `walker_memory`: the planner's clearance checks also see the walkers the memory
+    positions only (a module oracle). `pose_carry` ('model' or 'c1'): a frame visual odometry cannot measure opens an
+    outage carried by the mission's forecaster or by C1 instead of ending the mission (`go2nav.perception.carried`).
+    `walker_memory`: the planner's clearance checks also see the walkers the memory
     (`models['walker_memory']`, `go2nav.controllers.memory`) remembers out of the camera's view (True), or its last stage
     rules out actions toward them ('veto')."""
     import cv2
@@ -175,6 +178,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  **(dict(walker_mode=walker_mode) if walker_mode != 'off' else {}),
                                  **(dict(walker_memory=True) if walker_memory is True or walker_memory == 'on' else
                                     dict(walker_memory=walker_memory) if walker_memory else {}),
+                                 **(dict(pose_carry=pose_carry) if pose_carry != 'off' else {}),
                                  **(dict(candidates=candidates, lattice_axes=actions.LATTICE_AXES)
                                     if candidates == 'lattice' else {}),
                                  **(dict(safety=safety) if safety != 'primitive' else {}),
@@ -236,7 +240,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                           truth=truth, pose_oracle=pose_oracle, map_oracle=map_oracle,
                                           prediction_oracle=prediction_oracle, mover_trails=mover_trails,
                                           give_way=give_way, close_up=close_up, walker_finder=finder,
-                                          walker_mode=walker_mode, walker_memory=memory)
+                                          walker_mode=walker_mode, walker_memory=memory,
+                                          pose_carry=None if pose_carry == 'off' else pose_carry)
         history = deque(maxlen=4)
         for tick in range(STEP_BUDGET):
             now = session.sim_ns
@@ -280,6 +285,10 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                 save(out/'walker_shadow.json', controller.walker_shadow)
             if walker_memory:
                 save(out/'walker_memory.json', controller.memory_log)
+            if pose_carry != 'off':
+                save(out/'pose_carry.json', controller.carried_outages())
+            if controller.pose_shadow is not None:
+                save(out/'pose_shadow.json', controller.pose_shadow.log())
         save(out/'requests.json', requests)
         save(out/'acquisitions.json', acquisitions)
         save(out/'stage_timings.json', timings)
@@ -370,6 +379,8 @@ def main():
                         "actions toward them (veto)")
     p.add_argument('--close-up', choices=('on', 'off'), default='off',
                    help='walk up to an obstacle that cuts the only route instead of scanning where the route was lost')
+    p.add_argument('--pose-carry', choices=('off', 'model', 'c1'), default='off',
+                   help="outages of visual odometry carried by the mission's forecaster or by C1 (perception.carried)")
     p.add_argument('--pose-oracle', choices=('on', 'off'), default='off', help='the true pose (module oracle)')
     p.add_argument('--map-oracle', choices=('obstacles', 'full', 'static', 'off'), default='off',
                    help='obstacles: perceived walls, true obstacles; full: the true map; static: the true map, '
@@ -396,7 +407,8 @@ def main():
                  pose_oracle=a.pose_oracle == 'on', map_oracle=None if a.map_oracle == 'off' else a.map_oracle,
                  prediction_oracle=a.prediction_oracle == 'on', mover_trails=a.mover_trails == 'on',
                  give_way=a.give_way == 'on', close_up=a.close_up == 'on', walker_mode=a.walker_mode,
-                 obstacle_polite=a.obstacle_polite == 'on', walker_memory={'on': True, 'veto': 'veto'}.get(a.walker_memory, False))
+                 obstacle_polite=a.obstacle_polite == 'on', walker_memory={'on': True, 'veto': 'veto'}.get(a.walker_memory, False),
+                 pose_carry=a.pose_carry)
     print(json.dumps(result))
 
 
