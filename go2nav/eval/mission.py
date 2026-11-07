@@ -110,7 +110,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         terminal_burst=False, obstacle_prediction=False, footprint_clearing=False, obstacle_series='v1', obstacle_speed=None,
         candidates='primitives', safety='primitive', pose_oracle=False, map_oracle=None, prediction_oracle=False,
         mover_trails=False, give_way=False, close_up=False, walker_mode='off', obstacle_polite=True, walker_memory=False,
-        pose_carry='off', vacate=False, range_sensor=False, obstacle_reactive=False):
+        pose_carry='off', vacate=False, range_sensor=False, obstacle_reactive=False,
+        noslip=False):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
     (how many moving obstacles; `obstacle_series` their placement series, `obstacle_speed` their speed range,
@@ -131,7 +132,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     (`go2nav.perception.mapping`); `give_way`: back off from a still mover near and ahead (`go2nav.planning.planner`;
     the give-way probe); `vacate`: get out of the way of a walker that waits for the robot (P11,
     `go2nav.planning.planner`); `range_sensor`: an L1-style range sensor (P13; `go2nav.sim.range_sensor`), its returns
-    joining the map's occupied cells and the dispatch check's obstacles; `candidates`: 'primitives' (the six actions) or 'lattice' (the command lattice; C1,
+    joining the map's occupied cells and the dispatch check's obstacles; `noslip`: the rigid solver's no-slip pass, so a
+    zero command holds the robot still (P13 item 6; `go2nav.sim.scene`); `candidates`: 'primitives' (the six actions) or 'lattice' (the command lattice; C1,
     C5 and C6; `go2nav.planning.actions`); `safety`: the command safety block, 'primitive' or 'continuous'
     (`go2nav.locomotion.safety`). Module oracles (the failure analysis; `go2nav.controllers.truth`): `pose_oracle` (the
     true pose), `map_oracle` ('obstacles': perceived walls with the moving obstacles where they truly are; 'full': the
@@ -180,6 +182,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  **(dict(close_up=True) if close_up else {}),
                                  **(dict(vacate=True) if vacate else {}),
                                  **(dict(range_sensor=True) if range_sensor else {}),
+                                 **(dict(noslip=True) if noslip else {}),
                                  **(dict(walker_mode=walker_mode) if walker_mode != 'off' else {}),
                                  **(dict(walker_memory=True) if walker_memory is True or walker_memory == 'on' else
                                     dict(walker_memory=walker_memory) if walker_memory else {}),
@@ -203,7 +206,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         policy = Path(models['go2_locomotion_policy']) if models and 'go2_locomotion_policy' in models \
             else artifacts.path('go2_locomotion_policy')
         session = MissionSession(spec, out/'native', policy_checkpoint=policy,
-                                 dynamics=dynamics, demo_textures=demo_textures, safety=safety, range_sensor=range_sensor)
+                                 dynamics=dynamics, demo_textures=demo_textures, safety=safety, range_sensor=range_sensor,
+                                 noslip=noslip)
         cues = settled_task_cues(episode, session.settle())
         if arm == 'C0':
             from go2nav.controllers.oracle import OracleForecaster
@@ -402,6 +406,8 @@ def main():
                         'obstacles kept out of the route grid (module oracle)')
     p.add_argument('--prediction-oracle', choices=('on', 'off'), default='off',
                    help='true obstacle futures in the clearance check (module oracle)')
+    p.add_argument('--noslip', choices=('on', 'off'), default='off',
+                   help="the rigid solver's no-slip pass, so that a zero command holds the robot still (sim.scene.NOSLIP_ITERATIONS)")
     p.add_argument('--out', type=Path, required=True)
     a = p.parse_args()
     strips = None
@@ -424,7 +430,7 @@ def main():
                  give_way=a.give_way == 'on', close_up=a.close_up == 'on', walker_mode=a.walker_mode,
                  obstacle_polite=a.obstacle_polite == 'on', walker_memory={'on': True, 'veto': 'veto'}.get(a.walker_memory, False),
                  pose_carry=a.pose_carry, vacate=a.vacate == 'on', range_sensor=a.range_sensor == 'on',
-                 obstacle_reactive=a.obstacle_reactive == 'on')
+                 obstacle_reactive=a.obstacle_reactive == 'on', noslip=a.noslip == 'on')
     print(json.dumps(result))
 
 

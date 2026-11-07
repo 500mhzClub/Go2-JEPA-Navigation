@@ -44,13 +44,14 @@ class MissionSession:
     physics step); `contact_packets` and `contact_events` are the evaluator's contact records."""
 
     def __init__(self, spec, output_dir, *, policy_checkpoint, noise_sigma_m=NOISE_SIGMA_M, dynamics=None, noise_layout=None,
-                 robot_visible=True, demo_textures=False, random_look=None, safety='primitive', range_sensor=False):
+                 robot_visible=True, demo_textures=False, random_look=None, safety='primitive', range_sensor=False,
+                 noslip=False):
         self.spec, self.output_dir, self.dynamics, self.safety = spec, output_dir, dynamics, safety
         # the range sensor (`go2nav.sim.range_sensor`): each frame's scan in `last_range`, or None when off
         self.range_sensor = RangeSensor(spec) if range_sensor else None
         self.last_range = None
         self.world = maze_scene.build(spec, output_dir, dynamics, robot_visible=robot_visible, demo_textures=demo_textures,
-                                      random_look=random_look)
+                                      random_look=random_look, noslip=noslip)
         strips = dynamics is not None and dynamics.strips is not None
         self.friction_field = (perturbations.FrictionField(self.world.robot, self.world.floor, dynamics.strips, dynamics.strip_mu)
                                if strips else None)

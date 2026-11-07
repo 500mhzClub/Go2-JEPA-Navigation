@@ -75,7 +75,7 @@ def mission_command(cohort, arm, set_name, maze, episode, destination):
                       ('map_decay', '--map-decay'), ('deadlock_escape', '--deadlock-escape'),
                       ('terminal_burst', '--terminal-burst'), ('obstacle_prediction', '--obstacle-prediction'),
                       ('footprint_clearing', '--footprint-clearing'), ('mover_trails', '--mover-trails'),
-                      ('give_way', '--give-way'), ('vacate', '--vacate'), ('range_sensor', '--range-sensor'), ('close_up', '--close-up'), ('walker_mode', '--walker-mode'),
+                      ('give_way', '--give-way'), ('vacate', '--vacate'), ('range_sensor', '--range-sensor'), ('noslip', '--noslip'), ('close_up', '--close-up'), ('walker_mode', '--walker-mode'),
                       ('walker_memory', '--walker-memory'), ('candidates', '--candidates'),
                       ('safety', '--safety'), ('pose_carry', '--pose-carry'), ('pose_oracle', '--pose-oracle'), ('map_oracle', '--map-oracle'),
                       ('prediction_oracle', '--prediction-oracle')):
