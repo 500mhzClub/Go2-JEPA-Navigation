@@ -163,3 +163,14 @@ def test_stuck_three_times_on_one_spot_is_pinned():
         driver.commanded.extend([True]*driver.STUCK_TICKS)
         driver.next(pose)
     assert driver.pinned and driver.unstuck == 3
+
+
+def test_cornered_in_a_dead_end_is_pinned_at_the_first_stuck():
+    walker = np.array([.32, 0.])                                             # at the mouth of the corridor's closed end
+    driver = GivingWay(corridor(), np.random.default_rng(0), movers=lambda: [walker])
+    driver.recent.extend([np.array([-.3, 0.])]*driver.STUCK_TICKS)
+    driver.commanded.extend([True]*driver.STUCK_TICKS)
+    driver.next(pose_of(-.3, 0., 0.))
+    assert driver.pinned and driver.unstuck == 1
+    open_ = GivingWay(corridor(), np.random.default_rng(0), movers=lambda: [np.array([-.5, 0.])])
+    assert not open_._cornered(np.array([.3, 0.]))                           # the way past the walker's back is open

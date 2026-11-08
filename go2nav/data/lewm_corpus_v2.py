@@ -526,7 +526,9 @@ class StandoffDriver(GiveWayDriver):
     - **watch** 1-3 s.
     **Unsticking.** A driver that commands motion but has not got 0.20 m from where it was 6 s ago, with a walker within
     0.8 m, gives way (alternately walks off); stuck three times on the same spot it is pinned (between two walkers that
-    do not yield, or a walker and a wall) and the unit ends ('PINNED', the frames kept). An escape step is kept 1.5 s.
+    do not yield, or a walker and a wall) and the unit ends ('PINNED', the frames kept). Stuck where every way out with
+    1 m of room runs into a walker within 1.3 m (a dead end with a walker that does not yield at its mouth), it is
+    pinned at once. An escape step is kept 1.5 s.
     Every command still passes the stand-off rule (`admissible`) on the true walls and walkers, so it never touches either.
     The driver only makes the outcomes observed; nothing is trained to imitate it."""
 
@@ -538,6 +540,7 @@ class StandoffDriver(GiveWayDriver):
 
     STUCK_TICKS, STUCK_M, STUCK_NEAR_M, STUCK_MOVING, ESCAPE_HOLD_TICKS = 60, .20, .80, .25, 15
     PINNED_M, PINNED_TRIES = .30, 3
+    CORNER_FREE_M, CORNER_WALKER_M = 1., 1.3
 
     def __init__(self, spec, rng, movers=lambda: ()):
         super().__init__(spec, rng, movers)
@@ -558,8 +561,10 @@ class StandoffDriver(GiveWayDriver):
             # the stand-off rule): give way, or walk off if the last unsticking was a give-way that left it stuck again.
             # Stuck `PINNED_TRIES` times on the same spot (between two walkers that do not yield, or a walker and a
             # wall), it is pinned for good and the unit ends (`run_free`: 'PINNED').
+            # Cornered (every way out runs into a walker: a dead end with a walker that does not yield at its mouth,
+            # which never turns back), it is pinned at once: nothing the robot does there can resolve the stand-off.
             self.unstick_at = [q for q in self.unstick_at if np.linalg.norm(q-xy) < self.PINNED_M]+[xy]
-            self.pinned = len(self.unstick_at) >= self.PINNED_TRIES
+            self.pinned = len(self.unstick_at) >= self.PINNED_TRIES or self._cornered(xy)
             self.unstuck += 1
             resolution = self._resolve_give_way if self.unstuck % 2 else self._resolve_walk_off
             self.segment = (list(self.WEIGHTS).index('standoff'), self._unstick(resolution))
@@ -568,6 +573,19 @@ class StandoffDriver(GiveWayDriver):
         command, code = super().next(pose)
         self.commanded.append(any(abs(c) > 1e-6 for c in command))    # a deliberate hold is never stuck
         return command, code
+
+    def _cornered(self, xy):
+        """Whether every heading with `CORNER_FREE_M` of room runs into a walker within `CORNER_WALKER_M`."""
+        movers = [np.asarray(m, float)-xy for m in self.movers()]
+        for k in range(16):
+            h = k*math.pi/8
+            u = np.array([math.cos(h), math.sin(h)])
+            if self.free_distance(xy, h, limit=self.CORNER_FREE_M+.05) < self.CORNER_FREE_M:
+                continue
+            if not any(r@u > 0 and np.linalg.norm(r) < self.CORNER_WALKER_M and abs(u[0]*r[1]-u[1]*r[0]) < .45
+                       for r in movers):
+                return False
+        return True
 
     def _unstick(self, resolution):
         pose = yield
