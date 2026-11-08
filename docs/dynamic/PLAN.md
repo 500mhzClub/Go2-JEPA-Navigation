@@ -1027,6 +1027,68 @@ The lateral share is 9.5% of blocks, against its gate of 10%; it was accepted at
 **Compute.** Preparation (items 1-2): CPU, under an hour. The driver and the collector: about a day of building. The
 collection: about 8 CPU-hours. Mazes 50-89 of family A and all of family C stay unused.
 
+### P15. Review phase C: a model that predicts the interaction (proposed 8 November; approved 8 November: proprioception from the IMU and the commands, heads with stop-gradient, family C untouched)
+
+**Why.** P14 gives data in which a stand-off's outcome follows the robot's choice. Phase C asks whether a
+self-supervised predictor learns that outcome. Corpus v2's models scored AUC 0.19-0.40 on the give-way contrast,
+inverted, against a privileged ceiling of 0.87. This phase decides the thesis (docs/REVIEW_2026-11-07.md). Branch
+`feature/phase-b-data` until P14 merges.
+
+**0. Control** (approved and running, 8 November). `go2_3level_v2`, unchanged, on corpus v2 plus the stand-off units,
+with their clips at the upper levels (configs/hjepa/go2_3level_p14_control.yaml). It is scored on the gates below. It
+separates the effect of the data from that of the new inputs.
+
+**1. Model: `go2_3level_c`.** H-JEPA as `go2_3level_v2`, levels at 100 ms, 1.6 s and 12.8 s, trained jointly. Upper
+gradients flow into level 1, and nothing is frozen.
+- **Range input.** Each frame's 720-beam ring (`range.npz`: P14's own units, and corpus v2's backfill in
+  `go2nav_lewm_v2_range`) goes into a small 1-D convolution with circular padding, pooled into 8 sectors of 45°. The
+  sectors become 8 tokens in the ViT's sequence, with their own position embeddings, so [CLS] attends to the camera
+  and the ring together. Invalid beams read as the maximum range, with a mask channel.
+- **Proprioception.** The corpus has no joint states. One more token carries what an IMU and the policy give the
+  real robot:
+  - body angular velocity (`twist`);
+  - projected gravity (from the pose's orientation);
+  - the applied command history (`applied_history`).
+
+  The base's linear velocity is left out, since hardware has no direct sensor for it. Adding joint states would mean
+  recollecting the corpus (about 20 CPU-hours).
+- **Rollouts at every level.** The upper levels add a 2-6-step autoregressive rollout loss to the teacher-forced one,
+  as level 1 already has with 8 steps. The lengths are drawn per batch, and the weight equals the teacher-forced
+  loss's.
+- **Heads, with stop-gradient.** They read the latent and never shape it, so the representation stays
+  self-supervised:
+  - contact within 0.8 s;
+  - the robot's own motion over one step and over 1.6 s;
+  - walker presence (a walker within 2 m, in view).
+
+  Their labels are privileged and used in training only, from the recorded pose, walls and walkers:
+  - contact means the body outline's true clearance falls under 0.10 m;
+  - the number of positives is counted before training, and reported.
+
+**2. Gates.** Fixed before any model is scored, offline, on the validation units (both families) and the transfer
+units. Family C stays untouched until phase D's held-out missions:
+1. **Give-way.** P4e's probe (`mover_probe.give_way`), with labels for the new stand-off validation units. The
+   retreat-minus-hold contrast must rank the walkers that respond with AUC ≥ 0.80, at 1.6 s and at 3.2 s.
+   - At the 12.8-s level: whether the robot's way is clear after a 2-3 m retreat (from `branch`, with a retreat tape
+     of that length), AUC ≥ 0.75.
+2. **Contact.** The contact head, AUC ≥ 0.9 at 0.8 s.
+3. **Own motion at standstill.** The one-step motion head's bias on held frames (zero command) stays under 1 mm a
+   frame. P10 found 3-4 mm.
+4. **Walkers.** Localisation no worse than LeWM v2's 0.216 m.
+
+L1 health and action sensitivity must not fall below `go2_3level_v2`'s. The control is scored the same way.
+
+If gate 1 fails on these data, the thesis has a clean negative result: the self-supervised predictor does not learn
+the reaction even when it is observed. The next choice is then supervision on predicted states (P4d's labels on
+rollouts) or route 1. The record will say which, and why.
+
+**3. Order and compute.**
+1. Build and test: about a day, beside the control.
+2. A 30-minute smoke run measures throughput and memory under the 85% cap. The 9 extra tokens a frame add about 5%
+   to the encoder.
+3. Training: about 15-16 h for 60k steps. It starts when the control finishes, since the R9700 holds one of them.
+4. Probes on the CPU.
+
 ## Compute and order
 
 | Phase | Compute |
