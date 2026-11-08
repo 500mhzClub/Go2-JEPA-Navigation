@@ -988,6 +988,42 @@ has watched stand-offs in which nothing happens. The give-way top-up's retreats 
 If the gate fails, the driver's weights change and a small top-up runs again, measured the same way. No training starts
 on data that fails it. The collection runs with pilot 4's driver (2de1826); pilot 4's 48 units are its first.
 
+**Collected 7-8 November.**
+
+The first full collection, at ed0cbb5 with 1,300 units, failed the gate:
+
+- 18.7% of its 1,623 stand-offs were resolved, against the 20% the gate requires.
+- Non-yielding walkers' stand-offs resolved 15.6% of the time, reactive walkers' 24%.
+- 127 non-yielding units ended pinned. They held 542 of the 1,192 non-yielding stand-offs, and 5% of those resolved.
+- 102 of the 171 pinned units ended in a dead end with a non-yielding walker at its mouth. That walker never turns back, so no move can resolve the stand-off.
+
+The fifth revision was approved on 8 November (89ef678). When the driver is stuck and every way out with 1 m of room runs into a walker within 1.3 m, it is now pinned at once rather than after three tries. The 527 non-yielding units were set aside in `_set_aside_standoff_ny_ed0cbb5` and recollected; pilot 5 (mazes 0-59) was their first 51.
+
+On the same 527 units, the revision resolved the same number of stand-offs (186) out of fewer recorded (945 against 1,192). It records fewer hopeless repeats; it adds no resolutions. Contact stops fell from 17 to 3.
+
+The reactive and polite units stay at ed0cbb5. The revision changes nothing there until a driver is stuck with a walker at the robot. A reactive walker turns back after its patience, so a later collection with reactive walkers should limit the rule to walkers that do not yield.
+
+**The gate on the corpus: passed.**
+
+| | Result | Gate |
+|---|---|---|
+| Stand-offs resolved within 10 s | 22.1% of 1,376 | ≥20% |
+| Robot moved ≥1 m away | 27.9% | ≥20% |
+| Stand-off frames, non-yielding / reactive | 74% / 25% | ≥15% each |
+| Stand-off frames, families A / B | 46% / 54% | ≥15% each |
+| Contact stops, `standoff` / `standoff_b` | 25/650 (3.8%) / 14/650 (2.2%) | ≤5% |
+
+198 units ended pinned.
+
+Indexed 8 November: 6,500 units and 4,963,265 windows of 12 frames; the 31 October index is kept as `index_12_pre_p14.*`.
+
+In the corpus audit, two of corpus v2's accepted shortfalls now pass:
+
+- 38,194 rest-start windows;
+- an obstacle in view in 23.7% of frames.
+
+The lateral share is 9.5% of blocks, against its gate of 10%; it was accepted at 8.9%.
+
 **Compute.** Preparation (items 1-2): CPU, under an hour. The driver and the collector: about a day of building. The
 collection: about 8 CPU-hours. Mazes 50-89 of family A and all of family C stay unused.
 
