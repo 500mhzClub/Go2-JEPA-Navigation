@@ -82,6 +82,10 @@ HALF_FOV_RAD = math.radians(78.323/2)
 MAX_VIEW_M = 5.
 GIVE_WAY_M, GIVE_WAY_HALF_WIDTH_M = 1.5, .75  # give-way windows: a mover this near, ahead, this close to the path
 GIVE_WAY_CONTRASTS = ('retreat', 'advance')
+# P15's 12.8-s give-way label: from a give-way window, the kinematic robot retreats at 0.2 m/s for 128 frames (2.56 m,
+# less where a wall stops it), or holds; the way is clear if no walker's centre is within CLEAR_M of the segment from
+# where the robot ends to CLEAR_AHEAD_M ahead of where it stood at t (the way it was going).
+LONG_RETREAT, LONG_FRAMES, CLEAR_M, CLEAR_AHEAD_M = (-.2, 0., 0.), 128, .5, 1.
 
 
 def body_frame(pose, xy):
@@ -202,6 +206,20 @@ def branch(state, pose, tape, clearance, horizons=HORIZONS):
     return np.asarray(out).reshape(len(robot), len(state), 2), np.asarray(robot)
 
 
+def way_clear(walkers_xy, robot_xy, pose):
+    """Whether no walker centre (k, 2) is within `CLEAR_M` of the segment from `robot_xy` to `CLEAR_AHEAD_M` ahead of
+    `pose` (where the robot stood at t, facing its way)."""
+    yaw = float(v1.planar_yaw(np.asarray(pose)[3:7]))
+    a = np.asarray(robot_xy, float)
+    b = np.asarray(pose[:2], float)+CLEAR_AHEAD_M*np.array([math.cos(yaw), math.sin(yaw)])
+    d = b-a
+    for w in np.asarray(walkers_xy, float):
+        s = np.clip((w-a)@d/max(d@d, 1e-12), 0., 1.)
+        if np.linalg.norm(w-(a+s*d)) < CLEAR_M:
+            return False
+    return True
+
+
 def unit_spec(root, meta):
     from go2nav.eval.mission import episode_spec
     episode = 0 if meta['kind'] in ('free', 'transfer', 'giveway', 'standoff', 'standoff_b') else v1.EPISODES[meta['kind']]
@@ -239,7 +257,8 @@ def unit_labels(args):
     error, states = replay(spec, placement, pose, recorded, keep={t for t, _ in rows})
     replays = np.cumsum(error > REPLAY_TOLERANCE_M) == 0          # every frame up to here replayed
     out = {key: [] for key in ('t', 'mover', 'xy_t', 'target', 'persistence', 'constant_velocity', 'waiting',
-                               'moving', 'previous', 'replayed', 'cf_executed', *(f'cf_{c}' for c in CONTRAST))}
+                               'moving', 'previous', 'replayed', 'cf_executed', *(f'cf_{c}' for c in CONTRAST),
+                               'clear_retreat', 'clear_hold')}
     for t, k in rows:
         p = pose[t]
         velocity = (recorded[t, k]-recorded[t-VELOCITY_FRAMES, k])/(VELOCITY_FRAMES*.1)
@@ -259,9 +278,18 @@ def unit_labels(args):
                          **{name: contrast_tape(c, previous, H[-1]) for name, c in CONTRAST.items()})
             for name, tape in tapes.items():
                 out[f'cf_{name}'].append(body_frame(p, branch(states[t], p, tape, clearance)[0][:, k]))
+            xy = body_frame(p, recorded[t, k])
+            if xy[0] > 0 and abs(xy[1]) < GIVE_WAY_HALF_WIDTH_M and np.linalg.norm(xy) < GIVE_WAY_M:
+                for name, command in (('retreat', LONG_RETREAT), ('hold', CONTRAST['hold'])):
+                    walkers_at, robot_at = branch(states[t], p, contrast_tape(command, previous, LONG_FRAMES),
+                                                  clearance, horizons=(LONG_FRAMES,))
+                    out[f'clear_{name}'].append(float(way_clear(walkers_at[0], robot_at[0], p)))
+            else:
+                out['clear_retreat'].append(np.nan), out['clear_hold'].append(np.nan)
         else:
             for name in ('executed', *CONTRAST):
                 out[f'cf_{name}'].append(np.full((len(H), 2), np.nan))
+            out['clear_retreat'].append(np.nan), out['clear_hold'].append(np.nan)
     out = {key: np.asarray(v) for key, v in out.items()}
     out.update(polite=np.full(len(rows), placement[0].get('polite', True)),
                replay_error=np.asarray([error[t] for t, _ in rows]))
