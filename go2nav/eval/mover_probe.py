@@ -86,6 +86,11 @@ GIVE_WAY_CONTRASTS = ('retreat', 'advance')
 # less where a wall stops it), or holds; the way is clear if no walker's centre is within CLEAR_M of the segment from
 # where the robot ends to CLEAR_AHEAD_M ahead of where it stood at t (the way it was going).
 LONG_RETREAT, LONG_FRAMES, CLEAR_M, CLEAR_AHEAD_M = (-.2, 0., 0.), 128, .5, 1.
+# The side step (the move that lets a walker that does not yield pass; P14's driver's give-way): back along the robot's
+# own recorded path at 0.25 m/s to the first side opening (1 m of room across the body, at least 0.3 m and at most
+# SIDE_BACK_MAX_M back), turn to face it at up to 0.8 rad/s, go SIDE_IN_M into it at 0.3 m/s, then hold. No opening
+# within reach: it holds where the back-off ended. Scored after SIDE_FRAMES (two level-3 steps).
+SIDE_BACK_MAX_M, SIDE_OPENING_M, SIDE_IN_M, SIDE_FRAMES = 2.5, 1., 1., 256
 
 
 def body_frame(pose, xy):
@@ -220,6 +225,63 @@ def way_clear(walkers_xy, robot_xy, pose):
     return True
 
 
+def side_opening(geometry, xy, yaw):
+    """+1 (left) or -1 (right): a side with `SIDE_OPENING_M` of room across the body at its centre and 0.3 m ahead of
+    and behind it, or None (`StandoffDriver._opening`)."""
+    along = np.array([math.cos(yaw), math.sin(yaw)])
+    room = {side: min(geometry.free_distance(np.asarray(xy, float)+t*along, yaw+side*math.pi/2, limit=1.5)
+                      for t in (-.3, 0., .3)) for side in (1, -1)}
+    side = max(room, key=room.get)
+    return side if room[side] >= SIDE_OPENING_M else None
+
+
+def side_step_tape(geometry, pose, trail, previous, frames=SIDE_FRAMES):
+    """The side step's executed commands (frames, 5, 3) from `pose`, planned on a kinematic robot over the walls
+    (`geometry.free_distance`), backing along `trail` (the recorded positions before t, most recent first), through
+    the continuous block's rate limits once per 100 ms (as `contrast_tape`). Returns (tape, whether an opening was
+    found)."""
+    lower, upper, delta = BLOCKS['continuous']
+    xy, yaw = np.asarray(pose[:2], float).copy(), float(v1.planar_yaw(np.asarray(pose)[3:7]))
+    crumbs, kept = [], None
+    for q in np.asarray(trail, float):                  # thinned to 0.1 m
+        if kept is None or np.linalg.norm(q-kept) >= .1:
+            crumbs.append(q)
+            kept = q
+    phase, travelled, went, side, facing = 'back', 0., 0., None, None
+    out, last = np.empty((frames, v1.FRAME_STEPS, 3), np.float32), np.asarray(previous, np.float32)
+    for f in range(frames):
+        if phase == 'back':
+            side = side_opening(geometry, xy, yaw) if travelled >= .3 else None
+            while crumbs and np.linalg.norm(crumbs[0]-xy) < .15:
+                crumbs.pop(0)
+            if side is not None:
+                phase, facing = 'turn', yaw+side*math.pi/2
+            elif travelled >= SIDE_BACK_MAX_M or not crumbs:
+                phase = 'hold'
+        if phase == 'back':
+            target = next((c for c in crumbs if np.linalg.norm(c-xy) >= .4), crumbs[-1])
+            error = math.atan2(target[1]-xy[1], target[0]-xy[0])-(yaw+math.pi)
+            command = (-.25, 0., float(np.clip(1.5*math.atan2(math.sin(error), math.cos(error)), -.45, .45)))
+        elif phase == 'turn':
+            error = math.atan2(math.sin(facing-yaw), math.cos(facing-yaw))
+            if abs(error) < .12:
+                phase = 'go'
+            command = (0., 0., float(np.clip(2*error, -.8, .8)))
+        if phase == 'go':
+            command = (.3, 0., 0.) if went < SIDE_IN_M else (0., 0., 0.)
+            phase = 'go' if went < SIDE_IN_M else 'hold'
+        if phase == 'hold':
+            command = (0., 0., 0.)
+        last = np.clip(np.clip(np.asarray(command, np.float32), lower, upper), last-delta, last+delta)
+        out[f] = last
+        c, s = math.cos(yaw), math.sin(yaw)
+        step = np.array([c*last[0]-s*last[1], s*last[0]+c*last[1]])*.1
+        xy, yaw = xy+step, yaw+float(last[2])*.1
+        travelled += float(np.linalg.norm(step)) if phase == 'back' else 0.
+        went += float(np.linalg.norm(step)) if phase == 'go' else 0.
+    return out, side is not None
+
+
 def unit_spec(root, meta):
     from go2nav.eval.mission import episode_spec
     episode = 0 if meta['kind'] in ('free', 'transfer', 'giveway', 'standoff', 'standoff_b') else v1.EPISODES[meta['kind']]
@@ -258,7 +320,7 @@ def unit_labels(args):
     replays = np.cumsum(error > REPLAY_TOLERANCE_M) == 0          # every frame up to here replayed
     out = {key: [] for key in ('t', 'mover', 'xy_t', 'target', 'persistence', 'constant_velocity', 'waiting',
                                'moving', 'previous', 'replayed', 'cf_executed', *(f'cf_{c}' for c in CONTRAST),
-                               'clear_retreat', 'clear_hold')}
+                               'clear_retreat', 'clear_hold', 'clear_side', 'clear_hold_long', 'side_found')}
     for t, k in rows:
         p = pose[t]
         velocity = (recorded[t, k]-recorded[t-VELOCITY_FRAMES, k])/(VELOCITY_FRAMES*.1)
@@ -284,12 +346,21 @@ def unit_labels(args):
                     walkers_at, robot_at = branch(states[t], p, contrast_tape(command, previous, LONG_FRAMES),
                                                   clearance, horizons=(LONG_FRAMES,))
                     out[f'clear_{name}'].append(float(way_clear(walkers_at[0], robot_at[0], p)))
+                tape, found = side_step_tape(geometry, p, pose[t::-1, :2], previous)
+                for name, tape_ in (('side', tape), ('hold_long', contrast_tape(CONTRAST['hold'], previous, SIDE_FRAMES))):
+                    walkers_at, robot_at = branch(states[t], p, tape_, clearance, horizons=(SIDE_FRAMES,))
+                    out[f'clear_{name}'].append(float(way_clear(walkers_at[0], robot_at[0], p)))
+                out['side_found'].append(float(found))
             else:
-                out['clear_retreat'].append(np.nan), out['clear_hold'].append(np.nan)
+                for name in ('retreat', 'hold', 'side', 'hold_long'):
+                    out[f'clear_{name}'].append(np.nan)
+                out['side_found'].append(np.nan)
         else:
             for name in ('executed', *CONTRAST):
                 out[f'cf_{name}'].append(np.full((len(H), 2), np.nan))
-            out['clear_retreat'].append(np.nan), out['clear_hold'].append(np.nan)
+            for name in ('retreat', 'hold', 'side', 'hold_long'):
+                out[f'clear_{name}'].append(np.nan)
+            out['side_found'].append(np.nan)
     out = {key: np.asarray(v) for key, v in out.items()}
     out.update(polite=np.full(len(rows), placement[0].get('polite', True)),
                replay_error=np.asarray([error[t] for t, _ in rows]))

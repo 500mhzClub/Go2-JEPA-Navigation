@@ -36,3 +36,18 @@ def test_auc_by_split():
     values, label = np.array([.1, .9, .2, .8]), np.array([False, True, True, False])
     split = np.array(['val', 'val', 'transfer', 'transfer'])
     assert g.by_split(values, label, split) == dict(val=1., transfer=0.)
+
+
+def test_the_side_step_backs_to_the_opening_and_goes_in():
+    from go2nav.data import lewm_corpus_v2 as v2
+    from tests.unit.test_standoff_driver import t_junction
+    geometry = v2.FreeDriverV2(t_junction(), np.random.default_rng(0))
+    trail = np.array([[x, 0.] for x in np.arange(1., -1.6, -.05)])          # it came along the passage from x = -1.5
+    tape, found = mp.side_step_tape(geometry, pose_of(1., 0., 0.), trail, np.zeros(3, np.float32))
+    assert found and tape.shape == (mp.SIDE_FRAMES, 5, 3)
+    x, y, h = 1., 0., 0.
+    for vx, vy, wz in tape[:, 0]:
+        x, y = x+.1*(vx*math.cos(h)-vy*math.sin(h)), y+.1*(vx*math.sin(h)+vy*math.cos(h))
+        h += .1*wz
+    assert y > .6 and abs(x) < .4                                            # into the branch at x = 0
+    assert not tape[-20:].any()                                              # then holds

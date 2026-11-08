@@ -1089,13 +1089,26 @@ L1 health and action sensitivity must not fall below `go2_3level_v2`'s. The cont
   looks.
 - **Gate 1, give-way.** It passes if one rollout readout (ridge or MLP) at one level (1 or 2) reaches retreat AUC
   ≥ 0.80 at both 1.6 s and 3.2 s, on `val` and on `transfer`.
-- **Gate 1, the 12.8-s part.** From a give-way window, the kinematic robot retreats at 0.2 m/s for 12.8 s (2.56 m,
-  less where a wall stops it). The way is clear if no walker is within 0.5 m of the segment from where the robot ends
-  to 1 m ahead of where it stood (`mover_probe.way_clear`).
-  - The model's input: level 3's states at t - 12.8 s and t, and one step of its predictor under the retreat tape.
+- **Gate 1, the 12.8-s part (revised 8 November, before any model was scored).** From a give-way window, the
+  kinematic robot makes the side step (`mover_probe.side_step_tape`), the move P14's driver uses against a walker that
+  does not yield:
+  - it backs along its own recorded path at 0.25 m/s to the first side opening (at least 0.3 m and at most 2.5 m
+    back);
+  - it turns to face the opening and goes 1 m in;
+  - it holds.
+
+  After 25.6 s (two level-3 steps), the way is clear if no walker is within 0.5 m of the segment from where the robot
+  ends to 1 m ahead of where it stood (`mover_probe.way_clear`).
+  - The model's input: level 3's states at t - 12.8 s and t, and two steps of its predictor under the side step's
+    macro-actions.
   - Read by ridge and MLP readouts fitted on the training units' labels.
   - It passes at AUC ≥ 0.75 on both splits by one readout.
-  - Reported beside it: the same readouts on the state at t alone.
+  - Reported beside it: the same readouts on the state at t alone, and the base rates.
+
+  **Why it was revised.** The gate first used a straight 2.56-m retreat over 12.8 s. A straight retreat is the wrong
+  move against a walker that does not yield, because the walker follows it. On 80 validation units the straight
+  retreat cleared the way where holding did not in 10% of such walkers' windows; the side step does so in 28% (36%
+  clear, against 12% after holding). The straight retreat's label is kept and reported.
 - **Gate 2, contact.** Windows every fifth frame, with 4 frames of history and 0.8 s after. The contact head reads the
   model's 8-step rollout under the executed commands, against contact at t + 0.8 s. It needs AUC ≥ 0.9 on both splits.
   - The control has no heads, so it is read by readouts fitted on frozen latents. With stop-gradient heads that is

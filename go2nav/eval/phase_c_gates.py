@@ -10,11 +10,14 @@ comparison with earlier models needs it, `val_v2` (corpus v2's own validation ki
 1. **Give-way** (`eval.mover_probe.give_way`, P4e's probe): the retreat-minus-hold contrast of the mover's position,
    from a rollout readout (ridge or MLP), at level 1 (`lewm.pt`) and level 2 (`hjepa.pt --level 2`). It passes if one
    readout at one level has AUC >= 0.80 at 1.6 s and at 3.2 s, on `val` and on `transfer`.
-   - At 12.8 s (`clear_way`): from a give-way window, whether the way is clear after a 2.56-m retreat
-     (`mover_probe.way_clear`). Level 3's states at t - 12.8 s and t, one step of its predictor under the retreat tape's
-     macro-action, read by ridge and MLP readouts fitted on the training labels. It passes if one readout has
+   - At the 12.8-s level (`clear_way`): from a give-way window, whether the way is clear 25.6 s after a side step
+     (`mover_probe.side_step_tape`: back along the robot's own path to the first side opening, turn into it, go 1 m in,
+     hold; `way_clear`). Level 3's states at t - 12.8 s and t, two steps of its predictor under the side step's
+     macro-actions, read by ridge and MLP readouts fitted on the training labels. It passes if one readout has
      AUC >= 0.75 on `val` and on `transfer`. Reported beside it: the same readouts on the state at t alone (does the
-     rollout add anything?) and the base rates after retreating and after holding.
+     rollout add anything?) and the base rates after the side step, after holding 25.6 s, and after the straight
+     12.8-s retreat this gate first used (8 November: a straight retreat is the wrong move against a walker that does
+     not yield, which follows it).
 2. **Contact**: on level-1 windows (every `STRIDE`-th frame with 4 frames of history and 0.8 s after, valid action
    blocks throughout), the contact head on the model's 8-step rollout under the executed commands, against contact at
    t + 0.8 s (`data.head_labels`: clearance under 0.10 m). AUC >= 0.9 on `val` and on `transfer`. A model without
@@ -192,9 +195,13 @@ def clear_way(model, root, labels_train, labels_eval, device, *, obs_root, updat
     cmean, cstd = control_stats(model.config.level1.command_dim)
     autocast = lambda: torch.autocast(torch.device(device).type, dtype=torch.bfloat16)
 
+    from go2nav.data import lewm_corpus_v2 as v2
+    from go2nav.models.hjepa import upper_rollout
+    steps_ahead = mp.SIDE_FRAMES//p
+
     def features(data):
-        rows_all = np.flatnonzero(~np.isnan(data['clear_retreat']))
-        out = dict(now=[], back=[], rolled_retreat=[], rolled_hold=[], rows=[])
+        rows_all = np.flatnonzero(~np.isnan(data['clear_side']))
+        out = dict(now=[], back=[], rolled=[], rows=[])
         with torch.inference_mode():
             for u, path in enumerate(data['units']):
                 rows = rows_all[data['unit'][rows_all] == u]
@@ -220,25 +227,29 @@ def clear_way(model, root, labels_train, labels_eval, device, *, obs_root, updat
                 states = model.states(torch.stack([z[tt+o] for o in offsets], 1), level).float()
                 blocks = action_blocks(steps['executed'], cmean, cstd).to(device)
                 past = torch.stack([blocks[tt-(n-1)*p+k] for k in range((n-1)*p)], 1)
-                for name, command in (('retreat', mp.LONG_RETREAT), ('hold', mp.CONTRAST['hold'])):
-                    tape = np.stack([mp.contrast_tape(command, previous, p) for previous in data['previous'][rows]])
-                    macros = model.macros(torch.cat((past, action_blocks(tape, cmean, cstd).to(device)), 1), level)
-                    with autocast():
-                        out[f'rolled_{name}'].append(upper.predict(states, macros.float())[:, -1].float().cpu())
+                geometry = v2.FreeDriverV2(mp.unit_spec(root, json.loads((Path(root)/str(path)/'meta.json').read_text())),
+                                           np.random.default_rng(0))
+                pose = steps['pose']
+                tape = np.stack([mp.side_step_tape(geometry, pose[s], pose[s::-1, :2], previous)[0]
+                                 for s, previous in zip(t, data['previous'][rows])])
+                macros = model.macros(torch.cat((past, action_blocks(tape, cmean, cstd).to(device)), 1), level)
+                with autocast():
+                    out['rolled'].append(upper_rollout(upper, states, macros.float(), steps_ahead)[:, -1].float().cpu())
                 out['now'].append(states[:, -1].cpu())
                 out['back'].append(states[:, -2].cpu())
                 out['rows'].append(rows)
         return {k: (np.concatenate(v) if k == 'rows' else torch.cat(v)) for k, v in out.items()}
     train, ev = (dict(np.load(f)) for f in (labels_train, labels_eval))
     ftrain, feval = features(train), features(ev)
-    rich = lambda f: torch.cat((f['now'], f['rolled_retreat']-f['now'], f['now']-f['back']), -1)
+    rich = lambda f: torch.cat((f['now'], f['rolled']-f['now'], f['now']-f['back']), -1)
     plain = lambda f: torch.cat((f['now'], f['now']-f['back']), -1)
-    label_train, label_eval = train['clear_retreat'][ftrain['rows']], ev['clear_retreat'][feval['rows']] > .5
+    label_train, label_eval = train['clear_side'][ftrain['rows']], ev['clear_side'][feval['rows']] > .5
     split = mp.kinds(ev)[feval['rows']]
+    share = lambda key: {s: round(float((ev[key][feval['rows']] > .5)[split == s].mean()), 3) for s in SPLITS}
     report = dict(train_windows=int(len(ftrain['rows'])), eval_windows=int(len(feval['rows'])),
-                  clear_after_retreat={s: round(float(label_eval[split == s].mean()), 3) for s in SPLITS},
-                  clear_after_hold={s: round(float((ev['clear_hold'][feval['rows']] > .5)[split == s].mean()), 3)
-                                    for s in SPLITS}, rollout={}, state_only={})
+                  clear_after_side_step=share('clear_side'), clear_after_hold_25s=share('clear_hold_long'),
+                  clear_after_straight_retreat_12s=share('clear_retreat'), opening_found=share('side_found'),
+                  rollout={}, state_only={})
     for key, inputs in (('rollout', rich), ('state_only', plain)):
         for name, fit in readouts(inputs(ftrain), label_train, train['unit'][ftrain['rows']], device, updates).items():
             with torch.no_grad():
