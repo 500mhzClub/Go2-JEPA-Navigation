@@ -78,9 +78,9 @@ def to_device(batch, device):
     """uint8 frames to normalised (B, T, 3, H, W) floats, everything on the device."""
     out = dict(frames=[normalise_frames(f.to(device, non_blocking=True)) for f in batch['frames']],
                actions=[a.to(device, non_blocking=True) for a in batch['actions']])
-    for key in ('obs', 'poses'):
+    for key in ('obs', 'poses'):     # float16 sensors to float32 (autocast does not mix float16 inputs on every device)
         if key in batch:
-            out[key] = [x.to(device, non_blocking=True) for x in batch[key]]
+            out[key] = [x.to(device, non_blocking=True).float() for x in batch[key]]
     if 'labels' in batch:
         out['labels'] = {k: v.to(device, non_blocking=True) for k, v in batch['labels'].items()}
     return out
@@ -115,7 +115,7 @@ def validate_upper(model, corpus, indices, *, device, seed=VALIDATION_SEED, batc
         order = torch.randperm(b, generator=shuffle).to(device)
         for k, level in enumerate(model.upper):
             with torch.autocast(device.type, dtype=torch.bfloat16, enabled=device.type == 'cuda'):
-                obs = None if extras['obs'] is None else extras['obs'][k].to(device)
+                obs = None if extras['obs'] is None else extras['obs'][k].to(device).float()
                 z1 = model.level1.encode(normalise_frames(frames[k].to(device)), obs)
                 all_states = model.states(z1, k+2).float()
                 all_macros = model.macros(actions[k].to(device), k+2).float()
@@ -217,7 +217,8 @@ def train(config, corpus_root, out, *, device='cuda:0'):
         optimiser.load_state_dict(state['optimiser'])
         scheduler.load_state_dict(state['scheduler'])
         torch.set_rng_state(state['rng_cpu'])
-        torch.cuda.set_rng_state(state['rng_cuda'], device)
+        if state.get('rng_cuda') is not None:
+            torch.cuda.set_rng_state(state['rng_cuda'], device)
         first, skipped = state['step']+1, state['skipped']
         rows = [json.loads(line) for line in (out/'metrics.jsonl').read_text().splitlines() if line.strip()] \
             if (out/'metrics.jsonl').exists() else []
@@ -280,7 +281,7 @@ def train(config, corpus_root, out, *, device='cuda:0'):
                                   **{f'{k}_pred': round(v['pred'], 4) for k, v in row['upper'].items()})), flush=True)
         if (step+1) % runtime['checkpoint_every'] == 0 or last:
             atomic_save(dict(model=model.state_dict(), optimiser=optimiser.state_dict(), scheduler=scheduler.state_dict(),
-                             step=step, skipped=skipped, rng_cpu=torch.get_rng_state(), rng_cuda=torch.cuda.get_rng_state(device)),
+                             step=step, skipped=skipped, rng_cpu=torch.get_rng_state(), rng_cuda=torch.cuda.get_rng_state(device) if device.type == 'cuda' else None),
                         checkpoint)
         if (step+1) % runtime['milestone_every'] == 0:
             save_hjepa(out/f'hjepa_step{step+1}.pt', model, extra=dict(step=step+1))
