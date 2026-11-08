@@ -22,7 +22,9 @@ comparison with earlier models needs it, `val_v2` (corpus v2's own validation ki
    the same test. Both are reported for a model with heads, and its own head decides.
 3. **Own motion at standstill**: on the windows held at zero command (the action blocks at t - 1 and t all zero), the
    one-step motion head's bias: the norm of the mean planar error of [z_t, z_(t+1) - z_t] -> (dx, dy), in mm a frame.
-   Under 1 mm on `val`.
+   Under 1 mm on `val`, and the same head must beat a zero prediction where the robot moves (skill above 0 on the
+   other `val` windows: 1 - its median planar error / the median planar motion), so a head that always reads zero
+   cannot pass.
 4. **Walkers**: the probe's MLP localisation at h = 0 (median error, `val_v2`, the windows LeWM v2 was scored on), no
    worse than LeWM v2's 0.216 m.
 5. **Health** (`evaluation.json`): level 1's action sensitivity (L2) and both upper levels' (H2) pass, as
@@ -141,10 +143,15 @@ def contact_and_motion(model, root, device, *, obs_root, heads_root, updates):
     motion_fits = readouts(pairs(train), train['motion']/scale, train['unit'], device, updates)
     held = val['held'] & (val['split'] == 'val')
 
+    moving = ~val['held'] & (val['split'] == 'val')
+
     def motion_bias(predicted):
-        error = (predicted*scale-val['motion'])[held]
-        return dict(bias_mm=round(1000*float(np.linalg.norm(error[:, :2].mean(0))), 3),
-                    median_error_mm=round(1000*float(np.median(np.linalg.norm(error[:, :2], axis=1))), 3))
+        error = predicted*scale-val['motion']
+        planar = np.linalg.norm(error[:, :2], axis=1)
+        return dict(bias_mm=round(1000*float(np.linalg.norm(error[held, :2].mean(0))), 3),
+                    median_error_mm=round(1000*float(np.median(planar[held])), 3),
+                    moving_skill=round(1-float(np.median(planar[moving]))
+                                       / float(np.median(np.linalg.norm(val['motion'][moving, :2], axis=1))), 3))
     with torch.no_grad():
         for name, fit in contact_fits.items():
             score = lambda z: fit(z.float().to(device))[:, 0].cpu().numpy()
@@ -164,7 +171,7 @@ def contact_and_motion(model, root, device, *, obs_root, heads_root, updates):
             report['motion']['head'] = motion_bias(h.run(h.motion, pairs(val).to(device)).float().cpu().numpy())
     decider = 'head' if model.heads is not None else None
     contact_pass = (lambda e: all((e['rollout'][s] or 0) >= CONTACT_AUC for s in SPLITS))
-    motion_pass = (lambda e: e['bias_mm'] < MOTION_BIAS_MM)
+    motion_pass = (lambda e: e['bias_mm'] < MOTION_BIAS_MM and e['moving_skill'] > 0)
     if decider:
         report['contact_pass'], report['motion_pass'] = contact_pass(report['contact'][decider]), \
             motion_pass(report['motion'][decider])

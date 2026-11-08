@@ -1102,6 +1102,9 @@ L1 health and action sensitivity must not fall below `go2_3level_v2`'s. The cont
     the same test.
 - **Gate 3, own motion at standstill.** On windows whose action blocks at t - 1 and t are zero, the norm of the mean
   planar error of the one-step motion head must stay under 1 mm a frame, on `val`.
+  - The same head must also beat a zero prediction where the robot moves (skill above 0). A smoke run showed that an
+    untrained head reading almost zero everywhere has a 0.09-mm bias.
+  - This check was added 8 November, before any model was scored.
 - **Gate 4, walkers.** The probe's MLP localisation at h = 0 (median error), on corpus v2's own validation kinds, which
   are the windows LeWM v2's 0.216 m was measured on.
 - **Health.** Level 1's L2 and the upper levels' H2 pass, from `evaluation.json`.
