@@ -30,10 +30,15 @@ def draw_crops(rng, clip_length, layout):
     return [int(rng.integers(0, (clip_length-1)//period+1-count+1)) for period, count in layout]
 
 
-def clip_crops(corpus, indices, rng, layout):
-    """Per upper level, the crops' frames (B, c_l, H, W, 3) uint8 and level-1 action blocks (B, (c_l - 1) P_l, A)."""
+def clip_crops(corpus, indices, rng, layout, *, extras=False):
+    """Per upper level, the crops' frames (B, c_l, H, W, 3) uint8 and level-1 action blocks (B, (c_l - 1) P_l, A). With
+    `extras` (P15) also a dict: per level the frames' other sensors `obs` (B, c_l, obs_dim) if the corpus has them,
+    and their planar poses `poses` (B, c_l, 3) if it has those."""
     frames = [[] for _ in layout]
     actions = [[] for _ in layout]
+    with_obs, with_poses = (bool(getattr(corpus, f'with_{x}', False)) for x in ('obs', 'poses'))
+    obs = [[] for _ in layout]
+    poses = [[] for _ in layout]
     for i in indices:
         unit, start = int(corpus.unit[i]), int(corpus.start[i])
         blocks = corpus.actions(unit)[start:start+corpus.length-1]
@@ -46,7 +51,15 @@ def clip_crops(corpus, indices, rng, layout):
         for level, row in enumerate(rows):
             frames[level].append(pixels[at:at+len(row)])
             at += len(row)
-    return [torch.from_numpy(np.stack(f)) for f in frames], [torch.from_numpy(np.stack(a)) for a in actions]
+            if extras and with_obs:
+                obs[level].append(np.asarray(corpus.obs(unit)[row]))
+            if extras and with_poses:
+                poses[level].append(corpus.poses(unit)[row])
+    out = [torch.from_numpy(np.stack(f)) for f in frames], [torch.from_numpy(np.stack(a)) for a in actions]
+    if not extras:
+        return out
+    return (*out, dict(obs=[torch.from_numpy(np.stack(o)) for o in obs] if with_obs else None,
+                       poses=[torch.from_numpy(np.stack(p)) for p in poses] if with_poses else None))
 
 
 def upper_draw(corpus, mazes, rng, clips_per_maze):
@@ -77,9 +90,19 @@ class HJEPABatches(torch.utils.data.Dataset):
         step = self.first+k
         indices = self.windows.sample(self.seed, step, mazes_per_batch=self.mazes_per_batch,
                                       windows_per_maze=self.windows_per_maze)
-        frames, actions, keys = self.windows.batch(indices)
+        frames, actions, keys, *rest = self.windows.batch(indices)
         mazes = np.unique(np.array([u['maze'] for u in self.windows.units])[self.windows.unit[indices]])
         rng = keyed_rng(self.seed, 'hjepa_upper', step)
-        upper_frames, upper_actions = clip_crops(self.clips, upper_draw(self.clips, mazes, rng, self.clips_per_maze), rng,
-                                                 self.layout)
-        return dict(frames=[frames, *upper_frames], actions=[actions, *upper_actions], keys=keys)
+        upper = clip_crops(self.clips, upper_draw(self.clips, mazes, rng, self.clips_per_maze), rng, self.layout,
+                           extras=True)
+        out = dict(frames=[frames, *upper[0]], actions=[actions, *upper[1]], keys=keys)
+        has = lambda x: bool(getattr(self.windows, f'with_{x}', False))
+        poses = rest.pop(0) if has('poses') else None
+        if has('movers') or has('free'):
+            raise ValueError('H-JEPA batches carry no mover or free labels')
+        if has('obs'):
+            out['obs'] = [rest.pop(0), *upper[2]['obs']]
+        if has('heads'):
+            out['labels'] = rest.pop(0)
+            out['poses'] = [poses, upper[2]['poses'][0]]
+        return out

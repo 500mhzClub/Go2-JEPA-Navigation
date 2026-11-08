@@ -127,10 +127,12 @@ def validate(model, corpus, indices, *, rollout_steps, device, seed=VALIDATION_S
     generator = torch.Generator(device=device).manual_seed(seed)
     shuffle = torch.Generator().manual_seed(seed)
     for start in range(0, len(indices), batch):
-        frames, actions, _ = corpus.batch(indices[start:start+batch])
+        frames, actions, _, *extra = corpus.batch(indices[start:start+batch])
         frames, actions = frames.to(device, non_blocking=True), actions.to(device, non_blocking=True)
+        obs = extra[int(corpus.with_poses)+int(corpus.with_movers)+int(corpus.with_free)].to(device) \
+            if getattr(corpus, 'with_obs', False) else None
         with torch.autocast(device.type, dtype=torch.bfloat16, enabled=device.type == 'cuda'):
-            z = model.encode(normalise_frames(frames)).float()
+            z = model.encode(normalise_frames(frames), obs).float()
             pred = model.predict(z[:, :n], actions[:, :n]).float()
             target = z[:, n:n+k]
             variants = dict(rollout=actions)

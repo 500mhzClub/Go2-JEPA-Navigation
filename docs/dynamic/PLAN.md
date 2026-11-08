@@ -1052,18 +1052,24 @@ gradients flow into level 1, and nothing is frozen.
 
   The base's linear velocity is left out, since hardware has no direct sensor for it. Adding joint states would mean
   recollecting the corpus (about 20 CPU-hours).
-- **Rollouts at every level.** The upper levels add a 2-6-step autoregressive rollout loss to the teacher-forced one,
-  as level 1 already has with 8 steps. The lengths are drawn per batch, and the weight equals the teacher-forced
-  loss's.
+- **Rollouts at the upper levels.** Level 2 (1.6 s) adds a 6-step autoregressive rollout loss to the teacher-forced
+  one, as level 1 already has with 8 steps. The loss averages every step from 1 to 6, so it covers the 2-6 steps of
+  the review, at one fixed shape for the compiled loss; its weight equals the teacher-forced loss's. Level 3 (12.8 s)
+  stays teacher-forced: a 257-frame clip holds only its 3 states, and longer clips would cut the stand-off units
+  (900 frames) to a few clips each.
 - **Heads, with stop-gradient.** They read the latent and never shape it, so the representation stays
   self-supervised:
-  - contact within 0.8 s;
+  - contact at the frame (the gate reads the head on the model's 0.8-s rollout);
   - the robot's own motion over one step and over 1.6 s;
   - walker presence (a walker within 2 m, in view).
 
   Their labels are privileged and used in training only, from the recorded pose, walls and walkers:
-  - contact means the body outline's true clearance falls under 0.10 m;
-  - the number of positives is counted before training, and reported.
+  - contact means the body outline's true clearance falls under 0.10 m (a rectangle of 0.70 x 0.32 m);
+  - the number of positives is counted before training, and reported: about 8% of frames in a sample of 30 units.
+
+  Built 8 November (`data.observations`, `data.head_labels`, `models.lewm.ObservationTokens`, `models.hjepa.Heads`,
+  configs/hjepa/go2_3level_c.yaml). The give-way probe now replays reactive walkers and family B's pitch, so the
+  stand-off validation units are labelled: 11,425 windows from 353 units.
 
 **2. Gates.** Fixed before any model is scored, offline, on the validation units (both families) and the transfer
 units. Family C stays untouched until phase D's held-out missions:

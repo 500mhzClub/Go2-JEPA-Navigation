@@ -44,9 +44,13 @@ class Corpus:
     """The window index of a corpus root (built by `lewm_corpus index`), filtered by role and unit kind."""
 
     def __init__(self, root, *, length=12, roles=('lewm_train',), kinds=None, poses=False, command_dim=2, movers=False,
-                 free=False):
+                 free=False, obs_root=None, heads_root=None):
         self.root, self.length, self.with_poses, self.axes = Path(root), length, poses, COMMAND_AXES[command_dim]
         self.with_movers, self.with_free = movers, free
+        self.obs_root = None if obs_root is None else Path(obs_root)
+        self.heads_root = None if heads_root is None else Path(heads_root)
+        self.with_obs, self.with_heads = obs_root is not None, heads_root is not None
+        self._obs, self._heads = {}, {}
         meta = json.loads((self.root/f'index_{length}.json').read_text())
         index = np.load(self.root/f'index_{length}.npz')
         self.units = meta['units']
@@ -101,6 +105,22 @@ class Corpus:
             self._free[unit] = np.load(self.root/self.units[unit]['path']/FILE, mmap_mode='r')
         return self._free[unit]
 
+    def obs(self, unit):
+        """A unit's other sensors (n, obs_dim) float16 (`data.observations`, P15), memory-mapped."""
+        if unit not in self._obs:
+            from go2nav.data.observations import FILE
+            self._obs[unit] = np.load(self.obs_root/self.units[unit]['path']/FILE, mmap_mode='r')
+        return self._obs[unit]
+
+    def head_labels(self, unit):
+        """A unit's head labels (`data.head_labels`, P15): clearance (n,) float32 and presence (n, 2) float32 (the
+        camera's, the ring's)."""
+        if unit not in self._heads:
+            with np.load(self.heads_root/self.units[unit]['path']/'heads.npz') as d:
+                self._heads[unit] = (d['clearance'].astype(np.float32),
+                                     np.stack((d['presence'], d['presence_ring']), 1).astype(np.float32))
+        return self._heads[unit]
+
     def window(self, i):
         u, s = int(self.unit[i]), int(self.start[i])
         return np.asarray(self.frames(u)[s:s+self.length]), self.actions(u)[s:s+self.length-1]
@@ -115,6 +135,12 @@ class Corpus:
             out += (torch.from_numpy(np.stack([self.movers(int(u))[s:s+self.length] for u, s in keys]).astype(np.float32)),)
         if self.with_free:
             out += (torch.from_numpy(np.stack([self.free(int(u))[s:s+self.length] for u, s in keys]).astype(np.float32)),)
+        if self.with_obs:
+            out += (torch.from_numpy(np.stack([self.obs(int(u))[s:s+self.length] for u, s in keys])),)
+        if self.with_heads:
+            labels = [self.head_labels(int(u)) for u, _ in keys]
+            out += (dict(clearance=torch.from_numpy(np.stack([c[s:s+self.length] for (c, _), (_, s) in zip(labels, keys)])),
+                         presence=torch.from_numpy(np.stack([p[s:s+self.length] for (_, p), (_, s) in zip(labels, keys)]))),)
         return out
 
     def sample(self, seed, step, *, mazes_per_batch, windows_per_maze, batch_size=None):
