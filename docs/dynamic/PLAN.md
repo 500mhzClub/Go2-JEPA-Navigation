@@ -1122,6 +1122,21 @@ L1 health and action sensitivity must not fall below `go2_3level_v2`'s. The cont
   are the windows LeWM v2's 0.216 m was measured on.
 - **Health.** Level 1's L2 and the upper levels' H2 pass, from `evaluation.json`.
 
+**Before data: `go2_3level_v2`, 8 November** (corpus v2 without P14's units; the gates' first run on a trained model).
+It fails the give-way gate (retreat AUC 0.40-0.59 on every readout and level), the 12.8-s gate (0.73 val, 0.59
+transfer, no better than the state at t alone: 0.73, 0.56), contact (0.90 val, 0.68 transfer) and own motion (skill
+-0.27). It passes walkers (0.175 m) and health. Its rollout heads move the walker where it does not respond: the
+spurious response is 0.17 m at 3.2 s.
+
+**The give-way gate can be passed** (checked 8 November, after the first score, before the control's and phase C's).
+The same label, fitted from the simulator's state at t in the give-way windows (the walker's position, velocity, speed,
+whether it waits, the previous command) instead of a latent, scores retreat AUC 0.95/0.95 (1.6/3.2 s) on val and
+0.94/0.91 on transfer with a logistic fit, and 0.98/0.97 and 0.98/0.95 with an MLP. Adding the walker's type changes
+nothing. Most of it is whether the walker is waiting for the robot (92% of waiting walkers respond to a retreat, 19% of
+the others) and how near it is. So a model that predicted the reaction would pass by a wide margin. The gate reads the
+contrast of the model's own rollouts, not a classifier on its state, so it is a harder test than this ceiling
+(`outputs/phase_c/give_way_ceiling.py`).
+
 If gate 1 fails on these data, the thesis has a clean negative result: the self-supervised predictor does not learn
 the reaction even when it is observed. The next choice is then supervision on predicted states (P4d's labels on
 rollouts) or route 1. The record will say which, and why.
