@@ -1084,6 +1084,28 @@ units. Family C stays untouched until phase D's held-out missions:
 
 L1 health and action sensitivity must not fall below `go2_3level_v2`'s. The control is scored the same way.
 
+**How each gate is read** (`eval.phase_c_gates`, written 8 November before any model is scored):
+- **Splits.** `val` is the validation units of both families, every kind but transfer. `transfer` is the held-out
+  looks.
+- **Gate 1, give-way.** It passes if one rollout readout (ridge or MLP) at one level (1 or 2) reaches retreat AUC
+  ≥ 0.80 at both 1.6 s and 3.2 s, on `val` and on `transfer`.
+- **Gate 1, the 12.8-s part.** From a give-way window, the kinematic robot retreats at 0.2 m/s for 12.8 s (2.56 m,
+  less where a wall stops it). The way is clear if no walker is within 0.5 m of the segment from where the robot ends
+  to 1 m ahead of where it stood (`mover_probe.way_clear`).
+  - The model's input: level 3's states at t - 12.8 s and t, and one step of its predictor under the retreat tape.
+  - Read by ridge and MLP readouts fitted on the training units' labels.
+  - It passes at AUC ≥ 0.75 on both splits by one readout.
+  - Reported beside it: the same readouts on the state at t alone.
+- **Gate 2, contact.** Windows every fifth frame, with 4 frames of history and 0.8 s after. The contact head reads the
+  model's 8-step rollout under the executed commands, against contact at t + 0.8 s. It needs AUC ≥ 0.9 on both splits.
+  - The control has no heads, so it is read by readouts fitted on frozen latents. With stop-gradient heads that is
+    the same test.
+- **Gate 3, own motion at standstill.** On windows whose action blocks at t - 1 and t are zero, the norm of the mean
+  planar error of the one-step motion head must stay under 1 mm a frame, on `val`.
+- **Gate 4, walkers.** The probe's MLP localisation at h = 0 (median error), on corpus v2's own validation kinds, which
+  are the windows LeWM v2's 0.216 m was measured on.
+- **Health.** Level 1's L2 and the upper levels' H2 pass, from `evaluation.json`.
+
 If gate 1 fails on these data, the thesis has a clean negative result: the self-supervised predictor does not learn
 the reaction even when it is observed. The next choice is then supervision on predicted states (P4d's labels on
 rollouts) or route 1. The record will say which, and why.
