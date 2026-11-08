@@ -125,9 +125,24 @@ def sight_line(clearance):
 
 
 def walkers(spec, placement):
-    neighbours = moving.passages(spec)
-    return [moving.Walker(neighbours, tuple(o['start_cell']), o['speed_m_s'], np.random.default_rng(o['walk_seed']),
-                          polite=o.get('polite', True)) for o in placement]
+    """The walkers as `sim.obstacles.ObstacleField` builds them: reactive ones too, at the layout's own pitch."""
+    neighbours, pitch = moving.passages(spec), moving.pitch_of(spec)
+
+    def walker(o):
+        args = (neighbours, tuple(o['start_cell']), o['speed_m_s'], np.random.default_rng(o['walk_seed']))
+        if o.get('behaviour') == 'reactive':
+            return moving.ReactiveWalker(*args, patience=float(o['patience_s']), yields=bool(o['yields']), pitch=pitch)
+        return moving.Walker(*args, polite=o.get('polite', True), pitch=pitch)
+    return [walker(o) for o in placement]
+
+
+def step_walkers(state, dt, robot_xy, robot_yaw):
+    """Advance every walker by dt as `ObstacleField.update` does (reactive ones also see the yaw and the others)."""
+    for k, w in enumerate(state):
+        if isinstance(w, moving.ReactiveWalker):
+            w.step(dt, robot_xy, robot_yaw, [o.xy for j, o in enumerate(state) if j != k])
+        else:
+            w.step(dt, robot_xy)
 
 
 def replay(spec, placement, pose, recorded, keep=()):
@@ -140,10 +155,11 @@ def replay(spec, placement, pose, recorded, keep=()):
         if i in keep:
             kept[i] = copy.deepcopy(state)
         if i+1 < n:
+            a, b = float(v1.planar_yaw(pose[i, 3:7])), float(v1.planar_yaw(pose[i+1, 3:7]))
+            turn = math.atan2(math.sin(b-a), math.cos(b-a))
             for k in range(SUBSTEPS):
                 robot = pose[i, :2]+(pose[i+1, :2]-pose[i, :2])*k/SUBSTEPS
-                for w in state:
-                    w.step(PHYSICS_DT_S, robot)
+                step_walkers(state, PHYSICS_DT_S, robot, a+turn*k/SUBSTEPS)
     return error, kept
 
 
@@ -171,8 +187,7 @@ def branch(state, pose, tape, clearance, horizons=HORIZONS):
         for p in range(v1.FRAME_STEPS):
             vx, vy, wz = (float(v) for v in tape[f, p])
             for _ in range(per_policy):
-                for w in state:
-                    w.step(PHYSICS_DT_S, xy)
+                step_walkers(state, PHYSICS_DT_S, xy, yaw)
                 c, s = math.cos(yaw), math.sin(yaw)
                 step = np.array([c*vx-s*vy, s*vx+c*vy])*PHYSICS_DT_S
                 ahead = xy+step
