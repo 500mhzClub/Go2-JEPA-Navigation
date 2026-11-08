@@ -279,6 +279,16 @@ def localisation(probe_l1):
     return dict(mlp_h0_median_m=m['median_m'], reference_m=LOCALISATION_M, pass_=m['median_m'] <= LOCALISATION_M)
 
 
+def contact_motion_cached(model, out, root, device, **kw):
+    """Gates 2 and 3, kept in OUT/contact_motion.json: they need no give-way labels, so they can run ahead (`contact`)."""
+    cache = Path(out)/'contact_motion.json'
+    if cache.exists():
+        return json.loads(cache.read_text())
+    report = contact_and_motion(model, root, device, **kw)
+    cache.write_text(json.dumps(report, indent=1, default=str)+'\n')
+    return report
+
+
 def health(run):
     e = json.loads((Path(run)/'evaluation.json').read_text())
     checks = dict(l1_action_sensitivity=e['validation']['l2_action_sensitivity'],
@@ -303,8 +313,8 @@ def run(run_dir, out, *, root, train_labels, eval_labels, obs_root=None, heads_r
     model = load_hjepa(run_dir/'hjepa.pt', device)
     report['clear_way'] = clear_way(model, root, train_labels, eval_labels, device, obs_root=obs_root, updates=updates)
     save()
-    report['contact_motion'] = contact_and_motion(model, root, device, obs_root=obs_root, heads_root=heads_root,
-                                                  updates=updates)
+    report['contact_motion'] = contact_motion_cached(model, out, root, device, obs_root=obs_root,
+                                                     heads_root=heads_root, updates=updates)
     report['health'] = health(run_dir)
     report['gates'] = dict(give_way=report['give_way']['pass_'] and report['clear_way']['pass'],
                            contact=report['contact_motion']['contact_pass'],
@@ -327,7 +337,22 @@ def main():
     r.add_argument('--heads-root', type=Path, required=True, help='data.head_labels (the contact labels)')
     r.add_argument('--device', default='cuda:0')
     r.add_argument('--updates', type=int, default=mp.UPDATES)
+    c = sub.add_parser('contact', help='gates 2 and 3 only, ahead of the give-way labels')
+    c.add_argument('run_dir', type=Path)
+    c.add_argument('--out', required=True, type=Path)
+    c.add_argument('--root', type=Path, default=Path('/mnt/workspace_drive/go2nav_lewm_v2'))
+    c.add_argument('--obs-root', type=Path)
+    c.add_argument('--heads-root', type=Path, required=True)
+    c.add_argument('--device', default='cuda:0')
+    c.add_argument('--updates', type=int, default=mp.UPDATES)
     a = p.parse_args()
+    if a.command == 'contact':
+        from go2nav.models.hjepa import load_hjepa
+        a.out.mkdir(parents=True, exist_ok=True)
+        report = contact_motion_cached(load_hjepa(a.run_dir/'hjepa.pt', a.device), a.out, a.root, a.device,
+                                       obs_root=a.obs_root, heads_root=a.heads_root, updates=a.updates)
+        print(json.dumps(dict(contact=report['contact_pass'], motion=report['motion_pass']), indent=1))
+        return
     report = run(a.run_dir, a.out, root=a.root, train_labels=a.train_labels, eval_labels=a.eval_labels,
                  obs_root=a.obs_root, heads_root=a.heads_root, device=a.device, updates=a.updates)
     print(json.dumps(report['gates'], indent=1))
