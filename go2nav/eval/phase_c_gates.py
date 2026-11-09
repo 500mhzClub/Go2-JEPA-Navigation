@@ -61,14 +61,15 @@ def split_of(path):
 def level1_windows(model, root, paths, device, *, obs_root=None, heads_root=None, stride=STRIDE, horizon=CONTACT_H):
     """Level-1 windows of `paths` (see the module docstring): per window the z history (W, n, D), the rollout's z at
     t + horizon (W, D), the true z at t + horizon and at t + 1, and the labels (contact at t and t + horizon, the
-    body-frame motion t -> t + 1, held), its unit and split."""
+    body-frame motion t -> t + 1, held), its unit and split, the applied-command history at t (W, 15, 3) and the
+    executed commands over the horizon (W, horizon, 3)."""
     import torch
     from go2nav.models.lewm import action_blocks, body_motion, control_stats, normalise_frames
     from go2nav.data.lewm_corpus import planar_yaw
     level1 = model.level1
     n, cmean, cstd = level1.config.history, *control_stats(level1.config.command_dim)
     out = {k: [] for k in ('zh', 'rolled', 'true_h', 'z_next', 'contact_t', 'contact_h', 'motion', 'held', 'unit',
-                           'split')}
+                           'split', 'history', 'tape')}
     autocast = lambda: torch.autocast(torch.device(device).type, dtype=torch.bfloat16)
     with torch.inference_mode():
         for u, path in enumerate(paths):
@@ -106,6 +107,8 @@ def level1_windows(model, root, paths, device, *, obs_root=None, heads_root=None
             out['contact_h'].append(clearance[t+horizon] < mp_contact_m())
             out['motion'].append(motion.astype(np.float32))
             out['held'].append(held)
+            out['history'].append(steps['applied_history'][t].astype(np.float32))      # P16: the scene-blind null's inputs
+            out['tape'].append(np.stack([executed[t+k].mean(1) for k in range(horizon)], 1).astype(np.float32))
             out['unit'].append(np.full(len(t), u))
             out['split'].append(np.full(len(t), split_of(path)))
     import torch as _t

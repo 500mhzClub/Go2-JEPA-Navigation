@@ -19,6 +19,10 @@ atomically (DIR/checkpoint.pt), and rerunning the same command resumes from it w
 **Validation** (every `validate_every` steps, at the end, and `evaluate`):
 - level 1, exactly as `training.lewm.validate` on the same fixed windows (gates L1 health and L2 action sensitivity),
   and on the held-out look;
+  with level 1's `action_share` (the share of the latent one step's action sets) and, for a model with other sensors,
+  `input_shares` (how much of the latent each input sets; `training.lewm.input_shares`). A run whose `action_share`
+  passes `runtime.max_action_share` (default 0.25; P16) stops after that step's checkpoint: its latent is mostly its
+  own commands (`go2_3level_c` read 0.27 at its first validation; camera-only models read 0.02-0.04);
 - each upper level, on fixed clips of the validation mazes' mission and explore units: the teacher-forced prediction
   loss, SIGReg, inverse dynamics and state health (z spread, effective rank) (gate H1); and the last transition's
   prediction error with the true macro-action, against a shuffled one (permuted across clips) and persistence (the
@@ -47,8 +51,9 @@ from go2nav.data.lewm_dataset import Corpus, keyed_rng
 from go2nav.models.hjepa import HJEPA, HJEPAConfig, UpperConfig, export_level1, losses, save_hjepa, upper_rollout
 from go2nav.models.lewm import SIGReg, normalise_frames
 from go2nav.training.common import sha256_file, write_lineage
-from go2nav.training.lewm import (EVAL_STEPS, TRANSFER_WINDOWS, VALIDATION_SEED, VALIDATION_WINDOWS, atomic_save,
-                                  keyed_seed, load_config, model_config as level1_config, schedule, validate)
+from go2nav.training.lewm import (EVAL_STEPS, MAX_ACTION_SHARE, TRANSFER_WINDOWS, VALIDATION_SEED, VALIDATION_WINDOWS,
+                                  atomic_save, keyed_seed, load_config, model_config as level1_config, schedule,
+                                  validate)
 
 REPO = Path(__file__).resolve().parents[2]
 UPPER_VALIDATION_CLIPS = 1024
@@ -209,7 +214,7 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     sigreg = SIGReg(knots=config['sigreg'].get('knots', 17), num_proj=config['sigreg']['projections']).to(device)
     optimiser = torch.optim.AdamW(model.parameters(), lr=optim['lr'], weight_decay=optim['weight_decay'], fused=True)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(optim['warmup_steps'], optim['steps']))
-    first, nonfinite, skipped = 0, 0, []
+    first, nonfinite, skipped, mostly_action = 0, 0, [], None
     checkpoint = out/'checkpoint.pt'
     if checkpoint.exists():
         state = torch.load(checkpoint, map_location='cpu', weights_only=False)
@@ -278,13 +283,24 @@ def train(config, corpus_root, out, *, device='cuda:0'):
                                   l1_rank=round(row['validation']['effective_rank'], 1),
                                   **{f'{k}_h2': v['h2_action_sensitivity'] for k, v in row['upper'].items()},
                                   **{f'{k}_rank': round(v['effective_rank'], 1) for k, v in row['upper'].items()},
-                                  **{f'{k}_pred': round(v['pred'], 4) for k, v in row['upper'].items()})), flush=True)
+                                  **{f'{k}_pred': round(v['pred'], 4) for k, v in row['upper'].items()},
+                                  action_share=round(row['validation']['action_share'], 3),
+                                  **({'input_shares': row['validation']['input_shares']}
+                                     if 'input_shares' in row['validation'] else {}))), flush=True)
+            if row['validation']['action_share'] > runtime.get('max_action_share', MAX_ACTION_SHARE):
+                mostly_action = row['validation']['action_share']
         if (step+1) % runtime['checkpoint_every'] == 0 or last:
             atomic_save(dict(model=model.state_dict(), optimiser=optimiser.state_dict(), scheduler=scheduler.state_dict(),
                              step=step, skipped=skipped, rng_cpu=torch.get_rng_state(), rng_cuda=torch.cuda.get_rng_state(device) if device.type == 'cuda' else None),
                         checkpoint)
         if (step+1) % runtime['milestone_every'] == 0:
             save_hjepa(out/f'hjepa_step{step+1}.pt', model, extra=dict(step=step+1))
+        if mostly_action is not None:       # P16: stopped after the checkpoint, so the run can be examined
+            save_hjepa(out/f'hjepa_stopped_step{step+1}.pt', model, extra=dict(step=step+1))
+            log.close()
+            raise RuntimeError(f'stopped at step {step}: one step\'s action sets {mostly_action:.2f} of the latent '
+                               f'(limit {runtime.get("max_action_share", MAX_ACTION_SHARE)}); the latent is mostly '
+                               'the action (docs/dynamic/PLAN.md P16)')
     log.close()
     if step != optim['steps']-1:
         raise RuntimeError(f'training stopped at step {step} of {optim["steps"]}')

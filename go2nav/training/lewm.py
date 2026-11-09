@@ -68,6 +68,7 @@ EVAL_STEPS = 8  # validation always rolls out the forecaster's 8 steps
 TRAIN_KINDS = ('explore', 'mission', 'free')  # data.train_kinds: corpus v2's give-way units only where named
 MAX_NONFINITE = 20
 MEMORY_FRACTION = .85
+MAX_ACTION_SHARE = .25  # P16: above this share of the latent set by one step's action, the latent is mostly the action
 
 
 def load_config(path, overrides=()):
@@ -114,6 +115,41 @@ def zero_command_actions(actions, corpus):
 
 
 @torch.no_grad()
+def input_shares(model, pixels, obs, generator):
+    """How much of the latent each input sets (P16): normalised frames (B, 3, H, W) and their other sensors
+    (B, obs_dim) or None; one input at a time is permuted across the batch, the others kept, and the share is the mean
+    squared change of z over twice z's total variance (1: the latent is that input alone; 0: it ignores it). Inputs:
+    `image`, and with `ObservationTokens` `ring` (the ring and its mask) and `proprio`."""
+    from go2nav.models.lewm import RANGE_BEAMS
+    was_training = model.training
+    model.eval()
+    z = model.embed(pixels, obs).float()
+    total = float(z.var(0).sum())
+    order = torch.randperm(len(z), generator=generator).to(z.device)
+    share = lambda p, o: float((z-model.embed(p, o).float()).pow(2).sum(1).mean())/max(2*total, 1e-12)
+    out = dict(image=share(pixels[order], obs))
+    if obs is not None:
+        parts = {}
+        if model.config.range_sectors:
+            parts['ring'] = slice(0, 2*RANGE_BEAMS)
+        if model.config.proprio_dim:
+            parts['proprio'] = slice(obs.size(1)-model.config.proprio_dim, obs.size(1))
+        for name, part in parts.items():
+            swapped = obs.clone()
+            swapped[:, part] = obs[order][:, part]
+            out[name] = share(pixels, swapped)
+    model.train(was_training)
+    return {k: round(v, 4) for k, v in out.items()}
+
+
+def action_share(true_error, shuffled_error, z_std_mean):
+    """The share of the latent that one step's action sets (P16): the one-step prediction error with shuffled actions
+    less that with the true ones, over twice the latent's variance per dimension. A camera-only model reads about
+    0.04; a model whose encoder is fed its own commands, 0.3-0.4."""
+    return float((shuffled_error-true_error)/max(2*z_std_mean**2, 1e-12))
+
+
+@torch.no_grad()
 def validate(model, corpus, indices, *, rollout_steps, device, seed=VALIDATION_SEED, batch=128):
     """Validation metrics on the windows `indices` of `corpus` (see the module docstring). With a grid, every metric
     is [CLS]'s, plus the grid tokens' rollout and persistence errors by step."""
@@ -154,6 +190,10 @@ def validate(model, corpus, indices, *, rollout_steps, device, seed=VALIDATION_S
         sums['pred'] += float((cls(pred)-cls(z[:, 1:n+1])).pow(2).mean())*b
         sums['sigreg'] += float(sigreg(cls(z).transpose(0, 1), generator))*b
         zs.append(cls(z[:, n-1]).cpu())
+        if obs is not None and not grid:
+            with torch.autocast(device.type, dtype=torch.bfloat16, enabled=device.type == 'cuda'):
+                for name, value in input_shares(model, normalise_frames(frames[:, n-1]), obs[:, n-1], shuffle).items():
+                    sums[f'share/{name}'] += value*b
         count += b
     z = torch.cat(zs).double()
     eig = torch.linalg.eigvalsh(torch.cov(z.T)).clamp(min=0)
@@ -165,6 +205,10 @@ def validate(model, corpus, indices, *, rollout_steps, device, seed=VALIDATION_S
                **{f'{name}_by_step': (v/count).tolist() for name, v in per_step.items()})
     true, shuffled, persistence = (np.asarray(out[f'{x}_by_step']) for x in ('rollout', 'shuffled', 'persistence'))
     out['l2_action_sensitivity'] = bool(np.all(true[2:] <= .7*shuffled[2:]) and np.all(true[2:] < persistence[2:]))
+    out['action_share'] = action_share(true[0], shuffled[0], out['z_std_mean'])
+    out['action_share_ok'] = bool(out['action_share'] <= MAX_ACTION_SHARE)
+    if any(key.startswith('share/') for key in sums):
+        out['input_shares'] = {key[6:]: value/count for key, value in sums.items() if key.startswith('share/')}
     model.train(was_training)
     return out
 

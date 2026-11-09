@@ -1185,48 +1185,67 @@ rollouts) or route 1. The record will say which, and why.
 ### P16. Measures that isolate prediction (review step 2; approved 9 November)
 
 **Why.** P15's gates were fixed before scoring but never checked against a model that predicts nothing. Every later
-model is judged by these measures, so they come first. Branch of its own, from main once phases A to C are merged.
+model is judged by these measures, so they come first. Branch `feature/prediction-measures`, cut from
+`feature/phase-b-data` (phase A is merged; phase B was not yet).
 
-**1. Nulls and a ceiling beside every score** (`eval.phase_c_gates`). Fitted on the training units' labels, scored on
-the same windows as the model:
+**1. Nulls and a ceiling beside every score** (`go2nav/eval/measures.py`). Fitted on the training units' labels,
+scored on the same windows as the model:
 - **scene-blind:** a readout on the robot's applied-command history and the tape alone;
 - **present-only:** the model's own readout on its states at t, with no rollout and no tape;
-- **ceiling:** the readout on the simulator's state at t (`outputs/phase_c/give_way_ceiling.py`, moved into the
-  package).
+- **ceiling:** a readout on the simulator's state at t (`outputs/phase_c/give_way_ceiling.py`, moved into the package).
 
-**The pass mark is one rule for every AUC:** the model closes at least half the gap between its best null and the
-ceiling, on val and on transfer. No bar is a chosen number.
+**The pass mark is one rule for every AUC** (`half_gap`): the model closes at least half the gap between its best null
+and the ceiling, on val and on transfer. No bar is a chosen number.
 
-**2. The reaction, read by its slope.** On give-way windows with a counterfactual, the predicted contrast (tape minus
-hold) is regressed on the true contrast and on the robot's own displacement under the tape, pooled over the retreat and
-advance tapes (`outputs/phase_c/leakage_and_budget.py`, moved into `eval.mover_probe`):
-- **response:** the coefficient on the true contrast, 1 for a correct model, with a 95% interval over units;
-- **leak:** the coefficient on the robot's displacement, 0 for a correct model.
-
-Read in two strata: **stand-off** (the walker still and within 1 m, the robot's commands zero for 1.5 s) and the rest.
-Inside the stand-off stratum the command history is constant and the walker's distance nearly so, so the nulls' slopes
-must be 0; a null whose interval excludes 0 voids the stratum. **Pass:** the response's interval lies above 0.5 and the
-leak's inside ±0.1, at 1.6 and 3.2 s, in the stand-off stratum, on val and transfer, by one readout at one level.
+**2. The reaction, read by its slope on matched windows** (`reaction`). *Revised later on 9 November, before any model was
+scored.* The text first approved read the slope inside a "stand-off stratum" (the walker still and within
+1 m, the robot's commands zero for 1.5 s). Counted on the labels, that stratum cannot carry it: 93-98% of its windows
+respond to a retreat alike, so the slope would rest on the few that do not, and transfer holds 85 windows.
+- **Matched windows:** give-way windows where the robot's applied commands were zero over the last 1.5 s and just
+  before t, whatever the walker does. The command history and every tape are then identical from window to window, so
+  a scene-blind model's predicted contrast is a constant, and whatever varies in a model's contrast comes from the
+  scene. Val: 1,329 windows from 81 units, 76% responding to a retreat at 1.6 s (81% at 3.2 s). Transfer: 172 from 30
+  units, 51% (56%).
+- **Slope:** the predicted contrast (the readout on the tape's rollout minus on hold's) regressed on the true one with
+  an intercept; 1 for a correct model; 95% interval over units.
+- **Offset:** the intercept's size in metres, what the model moves every walker by whether it reacts or not (P15's
+  leak); 0 for a correct model.
+- **Pass:** for the retreat tape, at 1.6 and 3.2 s, on val and transfer, the slope's interval lies above 0.5 and the
+  offset is under 5 cm (the size that counts as a response), by one readout (ridge or MLP) at one level (1 or 2).
+- **Reported:** the same for the advance tape (41 responding windows on val at 1.6 s, too few to decide), and the AUC
+  of the contrast's size for whether the walker responds, whose null is 0.5 by construction and whose ceiling is a
+  classifier on the simulator's state.
 
 **3. Decisions, read as the advantage of one tape over another in the same state.**
-- **At 25.6 s:** the label is "the side step leaves the way clear and holding does not" (P15's `clear_side` and
-  `clear_hold_long`). The model's score is its readout on the rollout under the side step minus the same readout on the
-  rollout under hold. AUC for that label against the other windows, with the nulls, the ceiling and the one rule.
-- **Contact within 0.8 s:** only windows not in contact at t (1.4% of val windows become contacts, 2.3% of transfer).
-  The head on the rollout under the executed commands, against the same head on the state at t (present-only).
-- **Reported beside each:** a critic on the state (one readout per tape on the states at t). If it matches the
-  rollout, the predictor adds nothing and the decision can still be read from the state.
+- **The side step over holding, at 25.6 s** (`advantage`): the label is "the side step leaves the way clear and
+  holding does not" (P15's `clear_side` and `clear_hold_long`; 16% of val windows and 17% of transfer). One readout is
+  fitted on both tapes' rollouts against each tape's own outcome, so it tells them apart only through the rollout; the
+  score is its value under the side step minus under hold. Nulls: scene-blind (the side step's tape is planned on the
+  true walls, so it carries some of the scene, and the null shows how much) and present-only (no tape: 0.5 by
+  construction). Ceiling: the same fit on the simulator's state at t with the tape. It sees the nearest walker only, so
+  a model can pass it.
+- **New contacts within 0.8 s** (`new_contacts`): only windows not in contact at t (1.4% of val windows become
+  contacts, 2.3% of transfer). The model's head, or readouts, on the rollout under the executed commands. Nulls:
+  present-only (the same reader, and readouts fitted for the future label, on the state at t) and scene-blind (the
+  command history and the executed commands). The ceiling is 1: under the executed commands the future is set by the
+  present, up to the walkers' draws.
+- **Reported beside the advantage:** a critic on the state (one readout per tape on the states at t). If it matches
+  the rollout, the predictor adds nothing and the decision can still be read from the state.
 
-**4. A health check with an upper limit** (`training.hjepa` validation).
-- The permutation shares of each input (`outputs/phase_c/review_2026-11-09/attribution.py`, moved into the package).
-- The share of the latent set by the action: one step predicted with shuffled actions against the true ones, over
-  twice the latent's variance. The control reads 0.03 and `go2_3level_c` 0.41. A run above 0.25 is stopped.
+**4. A health check with an upper limit** (`training.lewm.validate`, `training.hjepa`).
+- `input_shares`: how much of the latent each input sets, by permuting one input across the validation batch
+  (the review's check, in the package).
+- `action_share`: the share of the latent one step's action sets (one step predicted with shuffled actions against
+  the true ones, over twice the latent's variance). Camera-only models read 0.02-0.04 at every validation of their
+  runs; `go2_3level_c` read 0.27 at its first, 5,000 steps in, and 0.41 at 50,000. A run above 0.25
+  (`runtime.max_action_share`) stops after that step's checkpoint: it would have ended `go2_3level_c` 19 hours earlier.
 
-**5. First scores:** `go2_3level_v2`, the control and `go2_3level_c`'s 40k checkpoint, from their cached features where
-those suffice. They are expected to fail; they show what each measure reads on models whose behaviour is known.
+**5. First scores:** `go2_3level_v2`, the control and `go2_3level_c`'s 40k checkpoint, the reaction from their cached
+probe features. They are expected to fail; they show what each measure reads on models whose behaviour is known.
 
-**Compute.** About a day of building. Parts 1, 2 and 4 on cached features, minutes on the CPU. Part 3 needs level 3's
-rollouts under the hold tape and the contact windows encoded again: about an hour a model on the GPU.
+**Compute.** About a day of building. The side step's tapes are planned once per labels file on the CPU
+(`measures tapes`). Scoring a model: minutes for the reaction; the advantage and the contact windows are encoded again
+on the GPU.
 
 ### P17. The planner and its cost, first on the true model (review step 3; approved 9 November, set out in full before it starts)
 
