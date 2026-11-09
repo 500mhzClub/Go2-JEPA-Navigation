@@ -1166,6 +1166,94 @@ rollouts) or route 1. The record will say which, and why.
 3. Training: about 15-16 h for 60k steps. It starts when the control finishes, since the R9700 holds one of them.
 4. Probes on the CPU.
 
+**4. Result: the run is void as a test of the thesis (review of 9 November, `docs/REVIEW_2026-11-09.md`; approved).**
+- **`go2_3level_c` learned its command history.** Permuting one input across 960 validation frames, the 1.5-s
+  applied-command history in the proprioception token sets 89% of the latent's variance, the camera 4%, the ring 11%
+  (the control: the camera 100%). The history recorded at frame t+1 holds the command of step t, so the
+  inverse-dynamics loss is solved by copying (0.168 in the control, 0.0029 here), and walker localisation went from
+  0.13 m to 0.43 m. The health checks pass on such a model.
+- **The gates do not isolate prediction.** The give-way AUC is matched by a classifier on the command history alone
+  (0.77 / 0.73 on val) and passed by the walker's distance alone (0.91 / 0.90 val, 0.87 / 0.83 transfer). The 12.8-s
+  readout scores the same without its rollout. "In contact now" scores 0.92 on the contact gate. The valid measure is
+  the leakage script's slope of the predicted reaction on the true one: between -0.03 and 0.09 in every model.
+- **What stands.** The control and `go2_3level_v2` do not predict the reaction, and the stand-off data did not change
+  that. `go2_3level_c` says nothing either way. Stopping it at about 50,000 steps was approved; its 20k and 40k
+  checkpoints and their gate runs are kept. This is not the clean negative result this section promised, and the
+  thesis's base case, a planner on the model, is still untried.
+- The review's next steps replace phases D and E's order: P16, P17 and P18 below, each its own piece.
+
+### P16. Measures that isolate prediction (review step 2; approved 9 November)
+
+**Why.** P15's gates were fixed before scoring but never checked against a model that predicts nothing. Every later
+model is judged by these measures, so they come first. Branch of its own, from main once phases A to C are merged.
+
+**1. Nulls and a ceiling beside every score** (`eval.phase_c_gates`). Fitted on the training units' labels, scored on
+the same windows as the model:
+- **scene-blind:** a readout on the robot's applied-command history and the tape alone;
+- **present-only:** the model's own readout on its states at t, with no rollout and no tape;
+- **ceiling:** the readout on the simulator's state at t (`outputs/phase_c/give_way_ceiling.py`, moved into the
+  package).
+
+**The pass mark is one rule for every AUC:** the model closes at least half the gap between its best null and the
+ceiling, on val and on transfer. No bar is a chosen number.
+
+**2. The reaction, read by its slope.** On give-way windows with a counterfactual, the predicted contrast (tape minus
+hold) is regressed on the true contrast and on the robot's own displacement under the tape, pooled over the retreat and
+advance tapes (`outputs/phase_c/leakage_and_budget.py`, moved into `eval.mover_probe`):
+- **response:** the coefficient on the true contrast, 1 for a correct model, with a 95% interval over units;
+- **leak:** the coefficient on the robot's displacement, 0 for a correct model.
+
+Read in two strata: **stand-off** (the walker still and within 1 m, the robot's commands zero for 1.5 s) and the rest.
+Inside the stand-off stratum the command history is constant and the walker's distance nearly so, so the nulls' slopes
+must be 0; a null whose interval excludes 0 voids the stratum. **Pass:** the response's interval lies above 0.5 and the
+leak's inside ±0.1, at 1.6 and 3.2 s, in the stand-off stratum, on val and transfer, by one readout at one level.
+
+**3. Decisions, read as the advantage of one tape over another in the same state.**
+- **At 25.6 s:** the label is "the side step leaves the way clear and holding does not" (P15's `clear_side` and
+  `clear_hold_long`). The model's score is its readout on the rollout under the side step minus the same readout on the
+  rollout under hold. AUC for that label against the other windows, with the nulls, the ceiling and the one rule.
+- **Contact within 0.8 s:** only windows not in contact at t (1.4% of val windows become contacts, 2.3% of transfer).
+  The head on the rollout under the executed commands, against the same head on the state at t (present-only).
+- **Reported beside each:** a critic on the state (one readout per tape on the states at t). If it matches the
+  rollout, the predictor adds nothing and the decision can still be read from the state.
+
+**4. A health check with an upper limit** (`training.hjepa` validation).
+- The permutation shares of each input (`outputs/phase_c/review_2026-11-09/attribution.py`, moved into the package).
+- The share of the latent set by the action: one step predicted with shuffled actions against the true ones, over
+  twice the latent's variance. The control reads 0.03 and `go2_3level_c` 0.41. A run above 0.25 is stopped.
+
+**5. First scores:** `go2_3level_v2`, the control and `go2_3level_c`'s 40k checkpoint, from their cached features where
+those suffice. They are expected to fail; they show what each measure reads on models whose behaviour is known.
+
+**Compute.** About a day of building. Parts 1, 2 and 4 on cached features, minutes on the CPU. Part 3 needs level 3's
+rollouts under the hold tape and the contact windows encoded again: about an hour a model on the GPU.
+
+### P17. The planner and its cost, first on the true model (review step 3; approved 9 November, set out in full before it starts)
+
+**Why.** The cost, the critic and the planner have never been built, and no agent has shown what the suites with walkers
+that do not yield allow. With the true model in the planner, a failure is the cost's, the horizon's or the test bed's,
+never the prediction's.
+- **Planner:** MPPI over command tapes within the locomotion policy's range.
+- **Model:** the kinematic robot and the walkers' own scripts (`mover_probe.branch`). No learned part.
+- **Intrinsic cost:** the body outline's clearance under a margin, progress along the route to the next waypoint, and
+  time. Three terms, fixed.
+- **Offline:** on the stand-off validation windows, whether the planner's choice leaves the way clear after 25.6 s,
+  against holding (12% with walkers that do not yield) and the scripted side step (36%), at horizons of 1.6, 6.4 and
+  25.6 s. This says what horizon, or what critic at the rollout's end, the decision needs.
+- **Closed loop:** kinematic missions on the validation layouts with the true map's route. They give the upper bound for
+  each suite: polite, reactive, four walkers, and walkers that do not yield.
+- CPU only, 1-2 days. The loop is the start of the review's fast ring world (step 5).
+
+### P18. The planner in missions where the model already suffices (review step 4; approved 9 November, set out in full before it starts)
+
+- P17's planner and cost in place of the selection stages (`planning/selection.py`, the recovery family, the latches),
+  with the router, the map, visual odometry and the dispatch reflex kept.
+- The robot's own motion from the control's level 1 through its decoder; clearance from the range ring at the frame,
+  moved by the predicted motion.
+- **Suites:** static, polite (80) and four walkers (40), against P13's references with the same sensor. Bars and the
+  count of tuned constants on the decision path are written here before any mission runs.
+- 2-3 days of building, about 12 GPU-hours of missions.
+
 ## Compute and order
 
 | Phase | Compute |
