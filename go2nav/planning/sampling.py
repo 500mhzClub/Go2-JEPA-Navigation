@@ -14,9 +14,10 @@ A tape that makes for a point follows the steepest descent of the point's distan
 robot, turning towards it and driving as its heading allows; within `NEAR_M` of the target it closes on it with forward
 and lateral commands.
 
-**Model** (`TrueModel`; P18 replaces the robot's part with a learned one): the robot's path is the tape's, through the
-continuous block's limits, at 100 ms; the walkers are copies of the world's, stepped against that path, random
-generators included, so the model knows their future draws.
+**Model** (P18 replaces the robot's part with a learned one): the robot's path is the tape's, through the continuous
+block's limits, at 100 ms. The walkers' part is one of `MODELS`: `true` (copies of the world's walkers stepped against
+that path, random generators included, so the model knows their future draws), `fresh` (the same with new dice each
+plan), `velocity`, `frozen` and `frozen_seen` (`SimpleModel`: walkers that do not react).
 
 **Cost,** in seconds:
 - time: 0.1 s for each step further than `ARRIVE_M` from the target;
@@ -76,18 +77,31 @@ def integrate(start, requested):
     return path, heading
 
 
-class TrueModel:
-    """The walkers' part of the model: copies of the world's walkers stepped against a robot path at 100 ms."""
+RING_MOUNT_M = .30          # the range sensor's mount, ahead of the body's centre (`sim.range_sensor`)
+MODELS = ('true', 'fresh', 'velocity', 'frozen', 'frozen_seen')
 
-    def walkers(self, snapshot, xy, yaw, frames):
+
+class TrueModel:
+    """The walkers' part of the model: copies of the world's walkers stepped against a robot path at 100 ms. With
+    `fresh` dice each plan's copies get a new random generator, the same for every tape of the plan: the model knows
+    the walkers' rules and their state, not their future draws."""
+
+    def __init__(self, fresh=False, seed=0):
+        self.fresh, self.rng = fresh, np.random.default_rng([seed, 17])
+
+    def walkers(self, snapshot, xy, yaw, frames, geometry=None):
         """Walker positions (K, T, n, 2) along paths xy (K, T, 2), yaw (K, T), each stepped for its first `frames[k]`
         frames (the rest repeat the last position)."""
         count, horizon = xy.shape[:2]
         out = np.zeros((count, horizon, len(snapshot['walkers']), 2))
         if not snapshot['walkers']:
             return out
+        seeds = self.rng.integers(2**62, size=len(snapshot['walkers'])) if self.fresh else None
         for k in range(count):
             walkers = copy.deepcopy(snapshot['walkers'])
+            if self.fresh:
+                for walker, seed in zip(walkers, seeds):
+                    walker.rng = np.random.default_rng(int(seed))
             at, heading = snapshot['xy'], snapshot['yaw']
             for t in range(int(frames[k])):
                 kin.step_walkers(walkers, FRAME_S, at, heading)      # against the pose the frame starts from
@@ -97,13 +111,60 @@ class TrueModel:
         return out
 
 
+class SimpleModel:
+    """Walkers that do not react to the robot (P17, the ladder of models):
+    - `velocity`: each walker carried on at its velocity over the last frame, stopping where a wall would be within
+      its radius;
+    - `frozen`: each walker where it is now;
+    - `frozen_seen`: only what a range ring shows: a walker is where it was last in the sensor's line of sight (the
+      mount, `RING_MOUNT_M` ahead of the centre), and is forgotten once that place is in sight and empty. One never
+      seen is not in the model."""
+
+    def __init__(self, kind):
+        self.kind, self.remembered = kind, {}
+
+    def believed(self, snapshot, geometry):
+        """The walkers' positions and velocities the model starts from."""
+        xy, velocity = snapshot['walkers_xy'], snapshot['walkers_velocity']
+        if self.kind != 'frozen_seen':
+            return xy, velocity if self.kind == 'velocity' else np.zeros_like(xy)
+        mount = snapshot['xy']+RING_MOUNT_M*np.array([np.cos(snapshot['yaw']), np.sin(snapshot['yaw'])])
+        for k, at in enumerate(xy):
+            if geometry.visible(mount, at):
+                self.remembered[k] = at.copy()
+            elif k in self.remembered and geometry.visible(mount, self.remembered[k]):
+                del self.remembered[k]
+        kept = np.array([self.remembered[k] for k in sorted(self.remembered)], float).reshape(-1, 2)
+        return kept, np.zeros_like(kept)
+
+    def walkers(self, snapshot, xy, yaw, frames, geometry=None):
+        at, velocity = self.believed(snapshot, geometry)
+        count, horizon = xy.shape[:2]
+        path = at[None]+velocity[None]*(np.arange(1, horizon+1)*FRAME_S)[:, None, None]          # (T, n, 2)
+        if len(at) and velocity.any():
+            free = geometry.wall_distance(path) >= moving.RADIUS_M
+            reached = np.minimum.accumulate(free, 0)                       # until the first frame at a wall
+            last = np.maximum(reached.sum(0)-1, 0)                          # (n,) the last free frame
+            stopped = np.where(reached.any(0)[:, None], path[last, np.arange(len(at))], at)
+            path = np.where(reached[..., None], path, stopped[None])
+        return np.broadcast_to(path[None], (count, horizon, len(at), 2)).copy()
+
+
+def make_model(name, seed=0):
+    if name not in MODELS:
+        raise ValueError(f'the model is one of {MODELS}')
+    return TrueModel(fresh=name == 'fresh', seed=seed) if name in ('true', 'fresh') else SimpleModel(name)
+
+
 class Planner:
-    def __init__(self, geometry, *, horizon_s, terminal='static', seed=0, model=None):
+    def __init__(self, geometry, *, horizon_s, terminal='static', seed=0, model='true', max_speed=None, cells=True):
         if terminal not in ('static', 'walkers'):
             raise ValueError("terminal is 'static' or 'walkers'")
         self.geometry, self.fields, self.terminal = geometry, Fields(geometry), terminal
         self.frames = int(round(horizon_s/FRAME_S))
-        self.model = model or TrueModel()
+        self.model = make_model(model, seed) if isinstance(model, str) else model
+        self.speeds = SPEEDS if max_speed is None else tuple(v*max_speed/SPEEDS[0] for v in SPEEDS)
+        self.max_speed, self.use_cells = max_speed, cells
         self.rng = np.random.default_rng(seed)
         self.previous, self.target = None, None
         self.cells = {cell: np.asarray(cell, float)*geometry.pitch for cell in geometry.neighbours}
@@ -176,15 +237,16 @@ class Planner:
     def proposals(self, snapshot, target):
         """The proposed tapes (K, T, 3) of requests and a name for each."""
         frames = self.frames
-        programmes = [(None, 0, backing, speed) for speed in SPEEDS for backing in (False, True)]
-        names = [f'target{"_backing" if backing else ""}@{speed}' for speed in SPEEDS for backing in (False, True)]
-        programmes.append((None, frames, False, SPEEDS[0]))
+        speeds = self.speeds
+        programmes = [(None, 0, backing, speed) for speed in speeds for backing in (False, True)]
+        names = [f'target{"_backing" if backing else ""}@{speed:g}' for speed in speeds for backing in (False, True)]
+        programmes.append((None, frames, False, speeds[0]))
         names.append('hold')
         waits = sorted({min(int(round(w/FRAME_S)), frames) for w in WAITS_S})
-        for cell in self.near_cells(snapshot['xy']):
+        for cell in self.near_cells(snapshot['xy']) if self.use_cells else ():
             for wait in waits:
                 for backing in (False, True):
-                    programmes.append((cell, wait, backing, SPEEDS[0]))
+                    programmes.append((cell, wait, backing, speeds[0]))
                     names.append(f'cell{cell}_wait{wait*FRAME_S:g}{"_backing" if backing else ""}')
         tapes = [self.follow(snapshot, target, programmes)]
         bases = [tapes[0][0]]
@@ -200,7 +262,10 @@ class Planner:
                            for g in range(GAUSSIANS)])
         tapes.append(np.stack([bases[g % len(bases)] for g in range(GAUSSIANS)])+smooth)
         names += [f'gaussian{g}' for g in range(GAUSSIANS)]
-        return np.concatenate(tapes), names
+        requested = np.concatenate(tapes)
+        if self.max_speed is not None:                                 # the handicapped robot: no faster than this
+            requested[..., 0] = np.clip(requested[..., 0], -min(REVERSE_M_S, self.max_speed), self.max_speed)
+        return requested, names
 
     def costs(self, snapshot, target, requested):
         """Each tape's cost and its terms (see the module docstring)."""
@@ -209,7 +274,7 @@ class Planner:
         walls = self.fields.wall_clearance(kin.body_points(xy, yaw)).min(-1)                    # (K, T)
         breach = walls < FLOOR_M
         alive = np.where(breach.any(1), breach.argmax(1)+1, frames)          # frames worth stepping the walkers for
-        walkers = self.model.walkers(snapshot, xy, yaw, alive)
+        walkers = self.model.walkers(snapshot, xy, yaw, alive, self.geometry)
         clearance = walls
         if walkers.shape[2]:
             gap = kin.rectangle_gap(walkers, xy[:, :, None], yaw[:, :, None]).min(-1)-moving.RADIUS_M

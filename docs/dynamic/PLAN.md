@@ -1316,6 +1316,32 @@ never the prediction's. Branch `feature/planner-true-model`.
   can resolve.
 - The lowest clearance each mission kept, and the seconds spent with a walker waiting on the robot.
 
+**5. A ladder of models and two handicaps** (approved 9 November, after the first two runs; set out before any of
+its runs). The first runs with walkers that do not yield gave 42 and 51 of 80 at a 1.6-s horizon, against the hand
+reference's 7: the kinematic planner knows the map, tracks perfectly and walks at 0.4 m/s, so it often finishes before
+it meets a walker. The bound is generous in ways that are not prediction. These runs take the advantages away one at a
+time (`planning.sampling.MODELS`; `eval.kinematic_missions --model, --max-speed, --no-cells`).
+
+| Run | The walkers in the planner's model | What the step up to the next run measures |
+|---|---|---|
+| `frozen_seen` | where the range ring last saw them in its line of sight; unseen ones absent | seeing round corners |
+| `frozen` | all of them, where they are now | their velocity |
+| `velocity` | carried on at their velocity, stopping at walls | how they react to the robot: what a learned model must supply |
+| `fresh` | the simulator's own rules, with new dice each plan | knowing their future draws |
+| `true` | the simulator's own, dice included (item 2) | |
+
+- **The ladder:** each model at horizons of 6.4 and 25.6 s with the `walkers` terminal distance, on the three suites
+  (walkers that do not yield 80, polite 80, four walkers 40).
+- **Slow robot:** the true model with forward commands capped at 0.2 m/s, near the reference's pace, on the first two
+  suites at both horizons. It shows how much of a result is finishing early.
+- **No cell proposals:** the true model without the walk-to-a-cell tapes, same runs. It shows whether the cost and the
+  Gaussian proposals alone find the way out of a stand-off.
+- **Slow and ring-only:** `frozen_seen` at 0.2 m/s and 6.4 s on the first two suites: the nearest the kinematic world
+  comes to what the hand reference knows, except the map.
+- **Read:** round trips and contact stops per run, as a table. No pass mark. The step from `velocity` to `fresh` is the
+  figure the world-model work is judged against: what predicting the walkers' reactions is worth to this planner.
+- The model steps the walkers at 100 ms where the world steps them at 2 ms, and lags the world by about 4 mm a second.
+
 **Dropped from the outline:** the offline score on the corpus's stand-off windows. Those units have no goal, so the
 cost's progress term has nothing to measure there; the missions answer the same question in closed loop.
 

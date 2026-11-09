@@ -75,6 +75,13 @@ class Geometry:
         outside = np.maximum(np.abs(np.asarray(points, float)[..., None, :]-self.centres)-self.halves, 0.)
         return np.sqrt((outside**2).sum(-1)).min(-1)
 
+    def visible(self, a, b, step=.04):
+        """Whether the straight line from a to b crosses no wall (sampled every `step`)."""
+        a, b = np.asarray(a, float), np.asarray(b, float)
+        count = max(2, int(np.linalg.norm(b-a)/step)+1)
+        points = a+(b-a)*np.linspace(0., 1., count)[:, None]
+        return bool((self.wall_distance(points) > 0.).all())
+
     def clearance(self, xy, yaw, walkers=()):
         """The body outline's clearance at one pose: to the walls (through the outline's points) and to the walkers'
         cylinders (exact)."""
@@ -132,6 +139,7 @@ class World:
         self.executed = np.zeros(3, np.float32)
         self.frame, self.contact, self.path_m, self.minimum_clearance = 0, None, 0., math.inf
         self.waiting_frames = 0
+        self.walkers_velocity = np.zeros((len(self.walkers), 2))
 
     def walkers_xy(self):
         return np.array([w.xy for w in self.walkers], float).reshape(-1, 2)
@@ -145,6 +153,7 @@ class World:
             return self.executed
         self.executed = limit(requested, self.executed)
         vx, vy, wz = (float(v) for v in self.executed)
+        before = self.walkers_xy()
         for k in range(SUBSTEPS):
             step_walkers(self.walkers, DT_S, self.xy, self.yaw)
             c, s = math.cos(self.yaw), math.sin(self.yaw)
@@ -160,9 +169,12 @@ class World:
                     self.contact = 'wall' if walls <= walkers else 'walker'
                     break
         self.frame += 1
+        self.walkers_velocity = (self.walkers_xy()-before)/FRAME_S
         self.waiting_frames += int(any(waiting_on(w, self.xy) for w in self.walkers))
         return self.executed
 
     def snapshot(self):
-        """What a planner's model starts from: the robot's pose and last command, and copies of the walkers."""
-        return dict(xy=self.xy.copy(), yaw=self.yaw, executed=self.executed.copy(), walkers=copy.deepcopy(self.walkers))
+        """What a planner's model starts from: the robot's pose and last command, copies of the walkers, and their
+        positions and velocities over the last frame (what the simpler models are given)."""
+        return dict(xy=self.xy.copy(), yaw=self.yaw, executed=self.executed.copy(), walkers=copy.deepcopy(self.walkers),
+                    walkers_xy=self.walkers_xy(), walkers_velocity=self.walkers_velocity.copy())

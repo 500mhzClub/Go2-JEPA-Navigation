@@ -88,3 +88,56 @@ def test_the_plan_costs_a_tape_into_a_wall_out():
     total, terms = planner.costs(snapshot, record['beacon_xy_world'], np.concatenate((ahead, 0*ahead)))
     assert terms['breached'][0] or terms['clearance'][0] > 0 or total[0] < total[1]       # walking on is costed
     assert not terms['breached'][1] and terms['time'][1] == 3.2                           # holding costs its time
+
+
+def test_the_simpler_models_do_not_react_and_stop_at_walls():
+    from go2nav.planning import sampling as s
+    w, _ = world(walkers=1)
+    for _ in range(30):
+        w.step((0., 0., 0.))
+    snapshot = w.snapshot()
+    xy, yaw = np.tile(snapshot['xy'], (2, 300, 1)), np.zeros((2, 300))
+    frozen = s.make_model('frozen').walkers(snapshot, xy, yaw, np.full(2, 300), w.geometry)
+    assert frozen.shape == (2, 300, 1, 2) and np.allclose(frozen, snapshot['walkers_xy'])
+    carried = s.make_model('velocity').walkers(snapshot, xy, yaw, np.full(2, 300), w.geometry)
+    speed = np.linalg.norm(snapshot['walkers_velocity'][0])
+    assert speed > .1 and np.allclose(np.linalg.norm(carried[0, 9, 0]-snapshot['walkers_xy'][0]), speed)   # 1 s on
+    assert w.geometry.wall_distance(carried[0, :, 0]).min() >= moving.RADIUS_M-1e-9      # 30 s on it stands at a wall
+    assert np.allclose(carried[0, -1], carried[0, -2])
+
+
+def test_fresh_dice_keep_the_rules_and_change_the_draws():
+    from go2nav.planning import sampling as s
+    w, _ = world(walkers=1)
+    snapshot = w.snapshot()
+    xy, yaw = np.tile(snapshot['xy'], (1, 400, 1)), np.zeros((1, 400))
+    true = s.make_model('true').walkers(snapshot, xy, yaw, np.array([400]), w.geometry)
+    fresh = s.make_model('fresh', seed=3).walkers(snapshot, xy, yaw, np.array([400]), w.geometry)
+    for _ in range(400):
+        w.step((0., 0., 0.))
+    assert np.linalg.norm(true[0, -1, 0]-w.walkers_xy()[0]) < .3      # the walk replayed (100-ms steps lag a little)
+    assert np.linalg.norm(fresh[0, -1, 0]-true[0, -1, 0]) > .5                # other draws, another walk
+    assert np.allclose(fresh[0, 5], true[0, 5])                               # the same walk until the first draw
+
+
+def test_a_ring_sees_only_what_is_in_its_line_of_sight():
+    from go2nav.planning import sampling as s
+    w, record = world(walkers=1)
+    model, snapshot = s.make_model('frozen_seen'), w.snapshot()
+    hidden = not w.geometry.visible(snapshot['xy'], snapshot['walkers_xy'][0])
+    at, _ = model.believed(snapshot, w.geometry)
+    assert hidden and len(at) == 0                                            # it starts three passages away, unseen
+    snapshot['walkers_xy'] = (snapshot['xy']+np.array([np.cos(snapshot['yaw']), np.sin(snapshot['yaw'])])*.9)[None]
+    at, _ = model.believed(snapshot, w.geometry)
+    assert len(at) == 1                                                       # in sight: believed where it is
+    seen = at[0].copy()
+    snapshot['walkers_xy'] = w.walkers_xy()                                   # gone from sight; its place is in sight
+    at, _ = model.believed(snapshot, w.geometry)
+    assert len(at) == 0 and w.geometry.visible(snapshot['xy'], seen)
+
+
+def test_the_slow_robot_asks_for_no_more_than_its_speed():
+    w, record = world()
+    planner = Planner(w.geometry, horizon_s=3.2, max_speed=.2, cells=False)
+    requested, names = planner.proposals(w.snapshot(), np.asarray(record['beacon_xy_world']))
+    assert requested[..., 0].max() <= .2+1e-9 and not any(n.startswith('cell') for n in names)

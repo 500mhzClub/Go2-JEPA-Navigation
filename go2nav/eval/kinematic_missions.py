@@ -37,7 +37,8 @@ def placement_for(set_name, maze, episode_index, spec, episode, walkers, kind):
     return moving.place_obstacles(spec, episode, walkers, seed, polite=kind != 'rude', reactive=kind == 'reactive')
 
 
-def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, terminal, seed=0, frames=FRAMES):
+def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, terminal, seed=0, frames=FRAMES,
+                model='true', max_speed=None, cells=True):
     from go2nav.eval.mission import episode_spec
     from go2nav.planning.mission import RoundTripMission
     from go2nav.planning.sampling import REPLAN_FRAMES, Planner
@@ -46,7 +47,8 @@ def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, term
     world = World(spec, episode['home_se2_world'], placement_for(set_name, maze, episode_index, spec, episode, walkers, kind))
     mission = RoundTripMission(episode['beacon_xy_world'], episode['home_se2_world'][:2],
                                arrival_radius_m=ARRIVAL_RADIUS_M, navigation_frames=frames)
-    planner = Planner(world.geometry, horizon_s=horizon_s, terminal=terminal, seed=seed)
+    planner = Planner(world.geometry, horizon_s=horizon_s, terminal=terminal, seed=seed, model=model,
+                      max_speed=max_speed, cells=cells)
     requested, queue, plans, spent, sealed_s, chosen = np.zeros(3, np.float32), [], 0, 0., 0., {}
     frame = 0
     while True:
@@ -81,7 +83,8 @@ def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, term
         field = fields.with_walkers(world.xy, world.walkers_xy())
         reachable = int(sum(np.isfinite(float(fields.value(field, centre[None])[0])) for centre in planner.cells.values()))
     return dict(set=set_name, maze=int(maze), episode=int(episode_index), walkers=int(walkers), kind=kind,
-                horizon_s=horizon_s, terminal=terminal, exit=exit_, round_trip=bool(round_trip),
+                horizon_s=horizon_s, terminal=terminal, model=model, max_speed=max_speed, cells=cells, exit=exit_,
+                round_trip=bool(round_trip),
                 beacon=bool(any(a['phase'] == 'OUTBOUND' for a in state['arrivals'])),
                 simulated_s=round(world.frame*FRAME_S, 1), path_m=round(world.path_m, 2),
                 minimum_clearance_m=round(float(world.minimum_clearance), 3),
@@ -123,13 +126,15 @@ def summary(rows):
     return out
 
 
-def run(out, *, set_name, mazes, episodes, walkers, kind, horizon_s, terminal, workers=None, seed=0):
+def run(out, *, set_name, mazes, episodes, walkers, kind, horizon_s, terminal, workers=None, seed=0, model='true',
+        max_speed=None, cells=True):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     config = dict(set=set_name, mazes=list(mazes), episodes=list(episodes), walkers=list(walkers), kind=kind,
-                  horizon_s=horizon_s, terminal=terminal, seed=seed)
+                  horizon_s=horizon_s, terminal=terminal, seed=seed, model=model, max_speed=max_speed, cells=cells)
     (out/'config.json').write_text(json.dumps(config, indent=1)+'\n')
-    kwargs = dict(kind=kind, horizon_s=horizon_s, terminal=terminal, seed=seed)
+    kwargs = dict(kind=kind, horizon_s=horizon_s, terminal=terminal, seed=seed, model=model, max_speed=max_speed,
+                  cells=cells)
     jobs = [(str(out), (set_name, m, e, n), kwargs) for n in walkers for m in mazes for e in episodes]
     with ProcessPoolExecutor(workers or os.cpu_count(), mp_context=multiprocessing.get_context('forkserver')) as pool:
         rows = list(pool.map(_job, jobs))
@@ -157,6 +162,9 @@ def main():
     r.add_argument('--terminal', choices=('static', 'walkers'), required=True)
     r.add_argument('--workers', type=int)
     r.add_argument('--seed', type=int, default=0)
+    r.add_argument('--model', default='true', help='the walkers\' part of the planner\'s model (planning.sampling.MODELS)')
+    r.add_argument('--max-speed', type=float, help='the fastest forward command the planner asks for (default: 0.4)')
+    r.add_argument('--no-cells', action='store_true', help='without the walk-to-a-cell proposals')
     s = sub.add_parser('summary')
     s.add_argument('folders', type=Path, nargs='+')
     a = p.parse_args()
@@ -166,7 +174,8 @@ def main():
             print(folder.name, json.dumps(summary(rows)['all']))
         return
     report = run(a.out, set_name=a.set, mazes=a.mazes, episodes=a.episodes, walkers=a.walkers, kind=a.kind,
-                 horizon_s=a.horizon, terminal=a.terminal, workers=a.workers, seed=a.seed)
+                 horizon_s=a.horizon, terminal=a.terminal, workers=a.workers, seed=a.seed, model=a.model,
+                 max_speed=a.max_speed, cells=not a.no_cells)
     print(json.dumps(report['summary'], indent=1))
 
 
