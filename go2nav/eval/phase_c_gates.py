@@ -315,13 +315,27 @@ def run(run_dir, out, *, root, train_labels, eval_labels, obs_root=None, heads_r
     save()
     report['contact_motion'] = contact_motion_cached(model, out, root, device, obs_root=obs_root,
                                                      heads_root=heads_root, updates=updates)
-    report['health'] = health(run_dir)
+    finished = (run_dir/'evaluation.json').exists()       # an interim checkpoint (`interim`) has no health check
+    report['health'] = health(run_dir) if finished else None
     report['gates'] = dict(give_way=report['give_way']['pass_'] and report['clear_way']['pass'],
                            contact=report['contact_motion']['contact_pass'],
                            motion_at_standstill=report['contact_motion']['motion_pass'],
-                           walkers=report['walkers']['pass_'], health=report['health']['pass_'])
+                           walkers=report['walkers']['pass_'], health=report['health']['pass_'] if finished else None)
     save()
     return report
+
+
+def interim(checkpoint, folder):
+    """A run folder for an interim checkpoint (hjepa_stepN.pt): the checkpoint as hjepa.pt and its level 1 exported
+    as lewm.pt, so `run` scores it (without the health check, which needs the finished run's evaluation)."""
+    from go2nav.models.hjepa import export_level1, load_hjepa
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    if not (folder/'hjepa.pt').exists():
+        (folder/'hjepa.pt').symlink_to(Path(checkpoint).resolve())
+    if not (folder/'lewm.pt').exists():
+        export_level1(load_hjepa(checkpoint), folder/'lewm.pt', extra=dict(interim=str(checkpoint)))
+    return folder
 
 
 def main():
@@ -337,6 +351,9 @@ def main():
     r.add_argument('--heads-root', type=Path, required=True, help='data.head_labels (the contact labels)')
     r.add_argument('--device', default='cuda:0')
     r.add_argument('--updates', type=int, default=mp.UPDATES)
+    i = sub.add_parser('interim', help='make a run folder for an interim checkpoint (then `run` it)')
+    i.add_argument('checkpoint', type=Path)
+    i.add_argument('folder', type=Path)
     c = sub.add_parser('contact', help='gates 2 and 3 only, ahead of the give-way labels')
     c.add_argument('run_dir', type=Path)
     c.add_argument('--out', required=True, type=Path)
@@ -346,6 +363,9 @@ def main():
     c.add_argument('--device', default='cuda:0')
     c.add_argument('--updates', type=int, default=mp.UPDATES)
     a = p.parse_args()
+    if a.command == 'interim':
+        print(interim(a.checkpoint, a.folder))
+        return
     if a.command == 'contact':
         from go2nav.models.hjepa import load_hjepa
         a.out.mkdir(parents=True, exist_ok=True)
