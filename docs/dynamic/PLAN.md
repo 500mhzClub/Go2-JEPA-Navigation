@@ -1265,21 +1265,62 @@ on the GPU.
   So part of its rise on P15's gate came from the scene, not only from the command history. Its predicted reaction is
   4-7% of the true one, on top of 3-4 cm applied to every walker. The verdict on the run is unchanged.
 
-### P17. The planner and its cost, first on the true model (review step 3; approved 9 November, set out in full before it starts)
+### P17. The planner and its cost, first on the true model (review step 3; approved 9 November; set out 9 November before any run)
 
 **Why.** The cost, the critic and the planner have never been built, and no agent has shown what the suites with walkers
 that do not yield allow. With the true model in the planner, a failure is the cost's, the horizon's or the test bed's,
-never the prediction's.
-- **Planner:** MPPI over command tapes within the locomotion policy's range.
-- **Model:** the kinematic robot and the walkers' own scripts (`mover_probe.branch`). No learned part.
-- **Intrinsic cost:** the body outline's clearance under a margin, progress along the route to the next waypoint, and
-  time. Three terms, fixed.
-- **Offline:** on the stand-off validation windows, whether the planner's choice leaves the way clear after 25.6 s,
-  against holding (12% with walkers that do not yield) and the scripted side step (36%), at horizons of 1.6, 6.4 and
-  25.6 s. This says what horizon, or what critic at the rollout's end, the decision needs.
-- **Closed loop:** kinematic missions on the validation layouts with the true map's route. They give the upper bound for
-  each suite: polite, reactive, four walkers, and walkers that do not yield.
-- CPU only, 1-2 days. The loop is the start of the review's fast ring world (step 5).
+never the prediction's. Branch `feature/planner-true-model`.
+
+**1. A kinematic world** (`go2nav/sim/kinematic.py`). No rendering, no physics engine, the CPU only.
+- **The robot** moves exactly as commanded: the request passes the continuous block's bounds and rate limits once per
+  100 ms, as in missions, and is integrated at 2 ms. It tracks perfectly, which the real robot does not.
+- **The walkers** are the simulator's own (`sim.obstacles`: polite, not yielding, reactive), stepped every 2 ms against
+  the robot's pose, from the placement a mission of the same set, maze, episode and count draws. Their walks replay the
+  missions' draws; their meetings with the robot differ, since the robot does.
+- **Contact** ends the mission, as in missions: the body outline (0.70 by 0.32 m) touching a wall or a walker.
+- **The task** is the missions' own (`planning.mission.RoundTripMission` on the true position): the beacon, then home,
+  each held within 4 cm for a second at a zero command, inside 480 s.
+
+**2. The planner** (`go2nav/planning/sampling.py`): a sampling planner over command tapes, replanned every 0.4 s.
+- **Proposals.** Plain MPPI draws Gaussian noise round one tape, and cannot find a manoeuvre of 20 s (back out, turn
+  into a branch, wait, return). So beside Gaussian perturbations of the last plan, the proposals include tapes that
+  walk to a nearby cell (any within three passages), wait there 2, 5, 10 or 20 s, and then make for the target, driving
+  forwards or backing; a hold; and a straight approach near the target. They are a prior over tapes, built from the
+  layout's distances alone. They hold no rule about walkers: which tape runs is the cost's choice.
+- **The model** predicts the robot's path from the tape, and the walkers by stepping copies of them against that path,
+  at 100 ms. The copies carry the walkers' random generators, so the model also knows their future draws. That makes
+  the result an upper bound, generous on two counts: perfect tracking and foreknowledge.
+- **The intrinsic cost,** in seconds, three terms, fixed for every run:
+  - time: each step not yet at the target;
+  - clearance: up to 2 s a second as the outline's clearance falls from 0.20 m to 0.08 m; under 0.08 m a tape is
+    discarded. The floor is 0.08 m because a walker that does not yield stops 0.10 m from the outline, and 0.057 m is
+    what squeezing past one in a 1.22-m passage would leave;
+  - progress: the distance still to walk from where the tape ends, at 0.3 m/s.
+- **The terminal distance is the variable under test** (the review's "what critic does the decision need"):
+  - `static`: the distance through the walls alone;
+  - `walkers`: the distance with the walkers, where the tape leaves them, as obstacles. A sealed way costs 200 s more.
+    It is a critic in the simplest form: the time to go if the world froze at the horizon.
+
+**3. Runs.** Validation mazes 10-29, two episodes each, as P13's reference suites.
+- **Walkers that do not yield** (80 missions: one and two walkers): horizons 1.6, 6.4 and 25.6 s, each with both
+  terminal distances. Six runs.
+- **Polite walkers** (80) and **four walkers** (40): the configuration that does best above, and the cheapest.
+- **Reactive walkers** (80), if their cost allows: a reactive walker's step takes 50 times a plain one's.
+
+**4. What is read.** No pass mark: this piece measures.
+- Round trips per suite and configuration, beside P13's hand reference (7 of 80; 65 of 80; 21 of 40). The best is the
+  suite's upper bound.
+- Which horizon and which terminal distance the stand-off needs: the smallest configuration within 3 round trips of
+  the best.
+- Timeouts that end pinned (the robot in a dead end with a walker that does not yield at its mouth): what no planner
+  can resolve.
+- The lowest clearance each mission kept, and the seconds spent with a walker waiting on the robot.
+
+**Dropped from the outline:** the offline score on the corpus's stand-off windows. Those units have no goal, so the
+cost's progress term has nothing to measure there; the missions answer the same question in closed loop.
+
+**Compute.** CPU only. A plan takes 0.1-0.5 s with plain walkers; a mission 1-8 minutes; a run of 80 missions under an
+hour on 28 processes.
 
 ### P18. The planner in missions where the model already suffices (review step 4; approved 9 November, set out in full before it starts)
 
