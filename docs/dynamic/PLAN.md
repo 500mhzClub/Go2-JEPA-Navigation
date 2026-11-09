@@ -1173,7 +1173,9 @@ rollouts) or route 1. The record will say which, and why.
   inverse-dynamics loss is solved by copying (0.168 in the control, 0.0029 here), and walker localisation went from
   0.13 m to 0.43 m. The health checks pass on such a model.
 - **The gates do not isolate prediction.** The give-way AUC is matched by a classifier on the command history alone
-  (0.77 / 0.73 on val) and passed by the walker's distance alone (0.91 / 0.90 val, 0.87 / 0.83 transfer). The 12.8-s
+  (0.77 / 0.73 on val) and passed by the walker's distance alone (0.91 / 0.90 val, 0.87 / 0.83 transfer). (P16's first
+  scores add: with the command history held constant the model still ranks responders at 1.6 s, as well as the walker's
+  distance does, so part of its score came from the scene.) The 12.8-s
   readout scores the same without its rollout. "In contact now" scores 0.92 on the contact gate. The valid measure is
   the leakage script's slope of the predicted reaction on the true one: between -0.03 and 0.09 in every model.
 - **What stands.** The control and `go2_3level_v2` do not predict the reaction, and the stand-off data did not change
@@ -1246,6 +1248,20 @@ probe features. They are expected to fail; they show what each measure reads on 
 **Compute.** About a day of building. The side step's tapes are planned once per labels file on the CPU
 (`measures tapes`). Scoring a model: minutes for the reaction; the advantage and the contact windows are encoded again
 on the GPU.
+
+**6. First scores (9 November; STATUS P16).** No model passes any measure, and the measures read as intended.
+- **Reaction:** no readout of any model has one cell with the slope's interval above 0.5. Level 1, ridge, retreat at
+  1.6 s on val: `go2_3level_v2` 0.03, the control -0.04, `go2_3level_c` at 40k 0.07.
+- **New contacts:** the rollout scores what the state at t scores, in every model (skill 0.00-0.14).
+- **The advantage measure cannot be used as built.** Its ceiling (0.76 val, 0.72 transfer) does not clear its
+  scene-blind null (0.76, 0.73): the side step's tape, planned on the true walls, tells as much as the nearest walker's
+  state adds. `half_gap` now gives no skill where the ceiling is within 0.05 of the null (added after these scores; no
+  verdict changes). Proposed, not applied: the ceiling becomes 1, as for contacts, since the label is the replay's own
+  outcome. P17's planner on the true model is the real ceiling for decisions.
+- **A correction to the review.** On matched windows, where the command history is constant, `go2_3level_c` still
+  ranks the walkers that respond at 1.6 s (AUC 0.82 on both splits; the walker's distance alone scores 0.84 and 0.89).
+  So part of its rise on P15's gate came from the scene, not only from the command history. Its predicted reaction is
+  4-7% of the true one, on top of 3-4 cm applied to every walker. The verdict on the run is unchanged.
 
 ### P17. The planner and its cost, first on the true model (review step 3; approved 9 November, set out in full before it starts)
 

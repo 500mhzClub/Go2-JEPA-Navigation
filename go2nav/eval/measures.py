@@ -50,13 +50,15 @@ from go2nav.eval import mover_probe as mp
 SPLITS = ('val', 'transfer')
 HORIZON_S = {2: 1.6, 3: 3.2}              # indices of `mover_probe.HORIZONS`
 GAP_SHARE, SLOPE_FLOOR, OFFSET_M = .5, .5, mp.EVENT_M
+MIN_GAP = .05                             # a ceiling this close to the null leaves nothing to close
 STILL = 1e-3                              # a command under this is zero
 
 
 def half_gap(model, null, ceiling):
     """The one pass rule for an AUC: `skill` is the share of the gap from the best null to the ceiling the model
-    closes; it passes at `GAP_SHARE`. A ceiling no better than the null leaves nothing to close: no pass."""
-    if model is None or ceiling is None or ceiling <= null:
+    closes; it passes at `GAP_SHARE`. A ceiling within `MIN_GAP` of the null leaves nothing to close: no skill, no pass
+    (the first scores' advantage ceiling stood 0.003 above its null, which read as a skill of -32)."""
+    if model is None or ceiling is None or ceiling-null < MIN_GAP:
         return dict(skill=None, passed=False)
     skill = (model-null)/(ceiling-null)
     return dict(skill=round(float(skill), 3), passed=bool(skill >= GAP_SHARE))
@@ -479,13 +481,13 @@ def main():
     t = sub.add_parser('tapes', help='the side step\'s tapes of a labels file (once; no model)')
     t.add_argument('--labels', required=True, type=Path)
     t.add_argument('--out', required=True, type=Path)
-    t.add_argument('--root', type=Path, default=Path('/mnt/workspace_drive/go2nav_lewm_v2'))
+    t.add_argument('--root', type=Path, required=True, help='the corpus root')
     t.add_argument('--workers', type=int)
     r = sub.add_parser('run')
     r.add_argument('run_dir', type=Path)
     r.add_argument('--gates', required=True, type=Path)
     r.add_argument('--out', required=True, type=Path)
-    r.add_argument('--root', type=Path, default=Path('/mnt/workspace_drive/go2nav_lewm_v2'))
+    r.add_argument('--root', type=Path, required=True, help='the corpus root')
     for name in ('train-labels', 'eval-labels', 'train-tapes', 'eval-tapes', 'heads-root'):
         r.add_argument(f'--{name}', required=True, type=Path)
     r.add_argument('--obs-root', type=Path)

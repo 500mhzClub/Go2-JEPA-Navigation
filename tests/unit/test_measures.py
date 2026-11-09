@@ -14,7 +14,7 @@ from go2nav.training.lewm import MAX_ACTION_SHARE, action_share, input_shares
 def test_an_auc_passes_when_it_closes_half_the_gap_from_its_null_to_the_ceiling():
     assert m.half_gap(.8, .5, .9) == dict(skill=.75, passed=True)
     assert not m.half_gap(.69, .5, .9)['passed']
-    assert not m.half_gap(.95, .9, .9)['passed']          # a ceiling no better than the null leaves nothing to close
+    assert m.half_gap(.95, .9, .93) == dict(skill=None, passed=False)   # a ceiling at the null leaves nothing to close
     assert not m.half_gap(None, .5, .9)['passed']
 
 

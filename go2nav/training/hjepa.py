@@ -199,15 +199,16 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     level1_weights, upper_weights = weights(config)
     dim = mconfig.level1.command_dim
     extras = {}    # P15: the other sensors, and for the heads the poses and labels
+    beside = lambda key, suffix: data.get(key) or str(corpus_root)+suffix    # by default, beside the corpus
     if mconfig.level1.obs_dim:
-        extras['obs_root'] = data['obs_root']
+        extras['obs_root'] = beside('obs_root', '_obs')
     if mconfig.heads:
-        extras |= dict(poses=True, heads_root=data['heads_root'])
+        extras |= dict(poses=True, heads_root=beside('heads_root', '_heads'))
     windows = Corpus(corpus_root, length=mconfig.level1.history+level1_weights['rollout_steps'], roles=('lewm_train',),
                      command_dim=dim, **extras)
     clips = Corpus(corpus_root, length=mconfig.clip_length, roles=('lewm_train',), kinds=tuple(data['upper_kinds']),
                    command_dim=dim, **{k: v for k, v in extras.items() if k != 'heads_root'})
-    sets = validation_sets(corpus_root, mconfig, data['upper_kinds'], obs_root=data.get('obs_root'))
+    sets = validation_sets(corpus_root, mconfig, data['upper_kinds'], obs_root=extras.get('obs_root'))
 
     model = HJEPA.seeded(seed, mconfig).to(device).train()
     model.level1.encoder.checkpoint_blocks = runtime.get('checkpoint_blocks', 0)
