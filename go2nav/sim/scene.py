@@ -23,8 +23,12 @@ import numpy as np
 
 from go2nav.mazes import grid
 from go2nav.sim import appearance, demo_appearance, random_appearance
+from go2nav.sim.obstacles import pitch_of
 
 PHYSICS_DT_S, POLICY_DT_S, COMMAND_DT_S = .002, .02, .1
+# The rigid solver's no-slip pass (`build(noslip=True)`): without it, loaded feet slide about 1 mm/s while the robot stands
+# at a zero command, enough to touch a walker or wall a few minutes into a hold (PLAN P13 item 6).
+NOSLIP_ITERATIONS = 10
 PHYSICS_STEPS_PER_POLICY = 10
 POLICY_STEPS_PER_COMMAND = 5
 SPAWN_HEIGHT_M = .375
@@ -84,14 +88,15 @@ def init_genesis(seed):
     gs.init(backend=gs.cpu, seed=int(seed) & 0x7FFF_FFFF, logging_level='warning')
 
 
-def build(spec, output_dir, dynamics=None, robot_visible=True, demo_textures=False, random_look=None):
+def build(spec, output_dir, dynamics=None, robot_visible=True, demo_textures=False, random_look=None, noslip=False):
     """Build the scene of a maze spec (with the episode's `procedural_seed` and home pose in `geometry.spawn_se2_world`).
     Genesis must already be initialised (`init_genesis`). Visual meshes are written to `output_dir`. `dynamics`
     (`go2nav.sim.dynamics.Dynamics`): marked strips are tinted on the floor, and a uniform friction replaces the
     episode's after the build. `robot_visible=False` builds the robot without visual geometry (the older corridor
     collections rendered only the floor and walls). `demo_textures` draws the demonstration brick and parquet surfaces
     (`go2nav.sim.demo_appearance`) instead of the maze's appearance arm. `random_look` (a `random_appearance.sample`
-    record; the LeWM corpus's free units only) draws its surfaces and lighting instead."""
+    record; the LeWM corpus's free units only) draws its surfaces and lighting instead. `noslip` runs the rigid solver's
+    no-slip pass (`NOSLIP_ITERATIONS`), so that a robot holding still stays put."""
     import genesis as gs
     from go2nav.sim.dynamics import tint_floor
     boxes = spec['geometry']['wall_boxes']
@@ -112,6 +117,8 @@ def build(spec, output_dir, dynamics=None, robot_visible=True, demo_textures=Fal
         meshes[0] = (meshes[0][0], floor_mesh)
     spawn_xyz, spawn_wxyz = spawn_pose(spec['geometry']['spawn_se2_world'])
     lighting = dict(vis_options=random_appearance.vis_options(random_look['lighting'])) if random_look is not None else {}
+    if noslip:
+        lighting['rigid_options'] = gs.options.RigidOptions(noslip_iterations=NOSLIP_ITERATIONS)
     scene = gs.Scene(sim_options=gs.options.SimOptions(dt=PHYSICS_DT_S, gravity=(0., 0., -9.81)), show_viewer=False,
                      renderer=gs.renderers.Rasterizer(), **lighting)
     floor_material, wall_material = gs.materials.Rigid(friction=MATERIAL_FRICTION), gs.materials.Rigid(friction=MATERIAL_FRICTION)
@@ -122,7 +129,7 @@ def build(spec, output_dir, dynamics=None, robot_visible=True, demo_textures=Fal
     robot = scene.add_entity(gs.morphs.URDF(file=str(go2_urdf()), pos=spawn_xyz, quat=spawn_wxyz, fixed=False,
                                             visualization=robot_visible, collision=True), name='go2')
     placement = dynamics.obstacles if dynamics is not None and dynamics.obstacles else []
-    obstacles = [scene.add_entity(gs.morphs.Cylinder(pos=(*(np.asarray(o['start_cell'], float)*grid.PITCH_M), o['height_m']/2),
+    obstacles = [scene.add_entity(gs.morphs.Cylinder(pos=(*(np.asarray(o['start_cell'], float)*pitch_of(spec)), o['height_m']/2),
                                                      radius=o['radius_m'], height=o['height_m'], fixed=True,
                                                      visualization=True, collision=True),
                                   material=gs.materials.Rigid(friction=MATERIAL_FRICTION),

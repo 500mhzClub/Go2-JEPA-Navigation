@@ -1,0 +1,12 @@
+# Family C (docs/dynamic/PLAN.md P13 item 4, 7 November 2026): offices on a 6 x 4 grid, the pitch 1.2 or 1.4 m per layout
+# (go2nav.mazes.families). HELD OUT FOR GOOD: never used for data collection, tuning, training or smoke tests; run only
+# for a claim the user approves.
+description: 'offices_v1 (family C, held out for good): held_out 0-19'
+scene_id_prefix: navigation-offices-v1
+family: NAVIGATION_OFFICES_6X4
+layout_family: offices
+grid_shape: [6, 4]
+seeds: {construction: 2026110802, physics_base: 2026123000, appearance_base: 2026124000, episode_base: 2026125000}
+exclude: [data/mazes/registries/built_graphs_2026-10-06.json, data/mazes/registries/capability_v1_prior_graphs.json, data/mazes/c3v2_sets_v1, data/mazes/c3v3_sets_v1, data/mazes/stage2_sets_v1, data/mazes/dev_tune, data/mazes/validation, data/mazes/prelim_test_v1]
+roles:
+  - {name: held_out, count: 20, episodes: [0, 1]}

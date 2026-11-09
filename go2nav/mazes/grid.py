@@ -44,6 +44,14 @@ class Shape:
 SQUARE = Shape()
 
 
+def world_bounds(shape=SQUARE, pitch_m=PITCH_M):
+    """The world bounds of a grid of this shape and pitch: the outermost cell centres plus `BOUNDS_MARGIN_M`."""
+    if pitch_m == PITCH_M:
+        return shape.world_bounds_xy_m
+    low = round(-pitch_m-BOUNDS_MARGIN_M, 6)
+    return ((low, low), tuple(round((n-2)*pitch_m+BOUNDS_MARGIN_M, 6) for n in (shape.columns, shape.rows)))
+
+
 def edge(a, b):
     """The undirected passage between cells a and b, in canonical (sorted) order."""
     return tuple(sorted((a, b)))
@@ -111,8 +119,9 @@ def route_turns(route):
     return sum(a != b for a, b in zip(directions, directions[1:]))
 
 
-def wall_boxes(links, *, wall_id_prefix, shape=SQUARE):
-    """Axis-aligned wall boxes for every unconnected neighbour pair, including the outer boundary.
+def wall_boxes(links, *, wall_id_prefix, shape=SQUARE, pitch_m=PITCH_M):
+    """Axis-aligned wall boxes for every unconnected neighbour pair, including the outer boundary, on a grid of
+    `pitch_m`.
 
     A wall sits at the midpoint between two cell centres. Its key (2x+dx, 2y+dy, |dx|) is shared by both cells, so each
     wall appears once. Boxes are returned sorted by key; each is a dict with wall_id, centre_xyz, size_xyz, yaw_rad and
@@ -127,8 +136,8 @@ def wall_boxes(links, *, wall_id_prefix, shape=SQUARE):
             key = (mx, my, abs(dx))
             walls[key] = dict(
                 wall_id=f'{wall_id_prefix}_{mx}_{my}_{abs(dx)}',
-                centre_xyz=[mx*PITCH_M/2, my*PITCH_M/2, WALL_HEIGHT_M/2],
-                size_xyz=([WALL_THICKNESS_M, PITCH_M+WALL_THICKNESS_M, WALL_HEIGHT_M] if dx
-                          else [PITCH_M+WALL_THICKNESS_M, WALL_THICKNESS_M, WALL_HEIGHT_M]),
+                centre_xyz=[mx*pitch_m/2, my*pitch_m/2, WALL_HEIGHT_M/2],
+                size_xyz=([WALL_THICKNESS_M, pitch_m+WALL_THICKNESS_M, WALL_HEIGHT_M] if dx
+                          else [pitch_m+WALL_THICKNESS_M, WALL_THICKNESS_M, WALL_HEIGHT_M]),
                 yaw_rad=0., material_id='NEUTRAL_WALL')
     return [walls[k] for k in sorted(walls)]

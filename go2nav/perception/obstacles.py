@@ -46,9 +46,10 @@ class DepthObstacleObserver:
         self.initial_up = None
         self.frames = 0
 
-    def observe(self, depth, auxiliary_depth, gyro_rates, specific_force, now):
+    def observe(self, depth, auxiliary_depth, gyro_rates, specific_force, now, range_points=None):
         """`depth`/`auxiliary_depth`: (depth_m, valid) pairs; `gyro_rates`: the frame's (51, 3) block;
-        `specific_force`: the (20, 3) accelerometer history (used once, for the initial up direction)."""
+        `specific_force`: the (20, 3) accelerometer history (used once, for the initial up direction);
+        `range_points`: the range sensor's returns in the body frame (PLAN P13), marked as the depth samples are."""
         G = self.gyro.update(gyro_rates)
         if self.initial_up is None:
             up = np.asarray(specific_force).mean(0)
@@ -64,6 +65,8 @@ class DepthObstacleObserver:
         # Without forward returns, the downward camera alone gives the obstacles (the dispatch check then allows
         # turns only; a missing forward ray is never taken as free).
         used = clouds if len(clouds[0]) else clouds[1:]
+        if range_points is not None and len(range_points):
+            used = used+[np.asarray(range_points, float).reshape(-1, 3)]
         normal, cells = plane['normal_body'], set()
         for points in used:
             height = points@normal+plane['offset_body_m']

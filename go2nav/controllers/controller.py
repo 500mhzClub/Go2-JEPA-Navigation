@@ -40,6 +40,7 @@ from go2nav.controllers.walkers import ModelTracker
 from go2nav.perception.carried import MAX_CARRIED_PATH_M, CarriedOdometry, Carrier
 from go2nav.perception.mapping import RoutingMap
 from go2nav.perception.obstacles import DepthObstacleObserver
+from go2nav.perception import range as range_beams
 from go2nav.perception.registration import FloorRegistration
 from go2nav.perception.tracks import ObstacleTracker
 from go2nav.perception.visual_odometry import VisualOdometry
@@ -77,6 +78,7 @@ class SensorFrame:
     specific_force: np.ndarray      # (20, 3) 50 Hz accelerometer history
     policy: dict                    # the policy observation packet (images, body sensors, applied commands)
     history: tuple                  # the last four policy packets (t-300 .. t ms)
+    range_scan: tuple = None        # the range sensor's (ranges_m, valid), when fitted (`go2nav.perception.range`)
 
 
 @dataclass
@@ -191,7 +193,8 @@ class NavigationController:
             if self.map_oracle is not None:
                 depth, auxiliary_depth = self.map_oracle.mask(depth, auxiliary_depth)
             self.latest_map = self.routing_map.update(frame.frame, frame.measured_ns, registered.position, registered.rotation,
-                                                      depth, auxiliary_depth, frame.specific_force)
+                                                      depth, auxiliary_depth, frame.specific_force,
+                                                      range_points=self._range_points(frame))
             if self.map_oracle is not None:
                 self.latest_map = self.map_oracle.apply(self.latest_map, registered.position, registered.rotation)
             if self.tracker is not None:
@@ -212,7 +215,13 @@ class NavigationController:
             if frame.frame >= MAP_PERIOD_FRAMES:
                 self._plan(frame, registered)
         self.latest_obstacles = self.obstacles.observe(frame.depth, frame.auxiliary_depth, frame.gyro_rates,
-                                                       frame.specific_force, frame.measured_ns)
+                                                       frame.specific_force, frame.measured_ns,
+                                                       range_points=self._range_points(frame))
+
+    @staticmethod
+    def _range_points(frame):
+        """The range sensor's returns as body-frame points (PLAN P13), or None without the sensor."""
+        return None if frame.range_scan is None else range_beams.body_points(*frame.range_scan)
 
     def _model_walkers(self, frame):
         """Advance the world model's tracks with this frame's history; live, the planner takes them for its own."""

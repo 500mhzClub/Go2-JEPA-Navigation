@@ -13,6 +13,8 @@ added to the default stance, tracked by joint PD control at 50 Hz with two physi
 Observation (45 values, see `OBSERVATION_LAYOUT`): body angular velocity, gravity in the body frame, the scaled command,
 joint positions relative to the stance, joint velocities, and the previous action.
 
+With `noslip_iterations` in the config, the rigid solver runs its no-slip pass (as missions with `--noslip on`).
+
 Rewards: exponential tracking of the commanded planar velocity and yaw rate, minus penalties on vertical velocity, base
 height error, action rate and distance from the default pose. Episodes end after 20 s or on roll/pitch above 10 degrees.
 """
@@ -59,7 +61,8 @@ class Go2LocomotionEnv:
 
         self.scene = gs.Scene(
             sim_options=gs.options.SimOptions(dt=self.dt, substeps=2),
-            rigid_options=gs.options.RigidOptions(enable_self_collision=False, tolerance=1e-5, max_collision_pairs=20),
+            rigid_options=gs.options.RigidOptions(enable_self_collision=False, tolerance=1e-5, max_collision_pairs=20,
+                                                  noslip_iterations=int(cfg.get('noslip_iterations', 0))),
             viewer_options=gs.options.ViewerOptions(camera_pos=(2.0, 0.0, 2.5), camera_lookat=(0.0, 0.0, 0.5),
                                                     camera_fov=40, max_FPS=int(1.0/self.dt)),
             vis_options=gs.options.VisOptions(rendered_envs_idx=[0]),

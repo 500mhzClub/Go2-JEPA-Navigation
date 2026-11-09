@@ -812,6 +812,81 @@ The rule's when and how far become the model's. Sketch, to be set out in full fo
 The memory near the body (P9b's deferred follow-up) waits until after P12, and returns only if contacts with walkers out of
 view remain.
 
+### P13. Review phase A: observations that can show the problem (approved 7 November)
+
+The project review (`docs/REVIEW_2026-11-07.md`, approved 7 November with its plan) puts the world model in charge:
+phases A-E. This is phase A. It builds what the later phases need to observe, collect and judge, and changes no
+behaviour of the working setup by default. Branch `feature/phase-a-observations`.
+
+**1. A range sensor** (`go2nav/sim/range_sensor.py`, `--range-sensor on`).
+- **Model:** after the Go2's L1 LiDAR, 360° in azimuth, idealised to one horizontal ring:
+  - 720 beams (0.5° apart) from a mount 0.30 m forward and 0.12 m above the base origin;
+  - ranges 0.05-20 m, Gaussian noise σ 1 cm (seeded), one scan with each 10-Hz frame;
+  - cast analytically against the wall boxes and the walkers' cylinders, never the robot's own body.
+
+  The walls and walkers are vertical prisms, so one ring sees what a 90° fan would. The real L1's floor returns and
+  self-occlusion are left out, and the record says so.
+- **Recorded** in each frame's packet as `range` (ranges and validity), so phase B's corpus has it.
+- **Tests:** casts against a box and a cylinder, the minimum range, noise that replays exactly.
+
+**2. The hand reference with the sensor.** With `--range-sensor on`, the planner gets the sensor's returns:
+- returns within 1 m join the dispatch check's obstacle cells;
+- every return joins the map's occupied 1-cm cells at the frame's pose.
+
+Floor and free space still come from the cameras, so routing is unchanged. This is the reference phase D is measured
+against, with the same sensor.
+- **Measure, no pass mark:** P10's 80 missions with walkers that do not yield (`rs_rude_obst{1,2}_c5`), the working setup
+  plus the sensor, paired with `wm_rude_model_*` [P8's run, 11 round trips, 10 contact stops]. Read: round trips;
+  contact stops by kind (walker in view, walker out of view, wall); timeouts; pose losses; stand-off seconds. About 3
+  GPU-hours.
+- The other two reference suites phase D needs (the fixed record's 80 missions, four walkers' 40) run before phase D,
+  about 4.5 GPU-hours.
+
+**3. Reactive walkers** (`sim/obstacles.py`, `behaviour: reactive`, alongside polite and non-polite):
+- They walk the passage graph as now, but steer round the robot and each other.
+- They pass where the gap allows their radius plus 5 cm, and otherwise wait.
+- Each walker draws a patience (2-20 s), after which it turns back, and a yielding share decides whether it stops for
+  the robot as a polite walker does.
+- They never move into the robot (5-cm gap, as now). Their draws are recorded in the placement, so a mission replays
+  exactly.
+- **Tests:** passing in a wide corridor, waiting then turning back in a narrow one, exact replay.
+
+**4. Layout families** (`go2nav/mazes/families.py`). Every family stays on a cell grid with axis-aligned walls, so the
+walkers' passage graph, the scene builder and the casting work unchanged. The pitch becomes a per-layout value, read from
+the specification's `evaluation_layout.pitch_m` (every registered set already records it) by the walkers, the scene and
+the episode builder.
+- **Family A:** today's 4×4 tree mazes, 1.3 m pitch.
+- **Family B (development):** 4×4 grids, pitch drawn from 1.1, 1.3 and 1.6 m. A spanning tree plus 2-3 extra passages
+  (loops), and one or two 2×2 rooms with their inner walls removed. (5×5 was planned, but the layout identity's exact
+  canonical form takes at most 24 cells; the LeWM corpus is already on 5×4 trees.) Set `loops_rooms_v1`: dev_tune 0-9,
+  validation 10-29, two episodes each.
+- **Family C (held out for good):** offices, a different construction, on a 6×4 grid at a pitch of 1.2 or 1.4 m. A
+  corridor along one row; below it rooms of 2×1 cells; above it a 2×2 room or an outer 2×1 room with an inner one behind;
+  one door each, sometimes two. Set `offices_v1`: 20 layouts, two episodes each. It is never used for collection,
+  tuning, training or smoke tests, and is run only for a claim the user approves.
+- **Tests:** connectivity, identities and exclusions as today's sets, walls matching the passages, the pitch read
+  through.
+- The hand planner gets a few smoke missions on family B. Failures there are information, not something to tune.
+  Family C gets none, to stay unseen: its code paths are family B's and the generator's, covered by unit tests and by
+  its exact regeneration.
+
+**5. Metrics** (`eval/cohort.py`). Per mission:
+- time to the beacon and home;
+- path length;
+- stand-off seconds (from the true walker states, as `outputs/vacate/standoff.py`);
+- contacts per kilometre.
+
+Per comparison, the exact sign test as now, under the stop rule. Each suite's fixed anchor (the run every later one
+pairs with) is named in the suite's configuration.
+
+**Gate to phase B.** All five items built and unit-tested, the full suite green, the reference measure reported in
+STATUS, and family B smoke-tested with the hand reference. Then this branch merges, and phase B (data that
+contain the decision) is set out on its own branch.
+
+**Compute.** About 2-3 days of building, mostly CPU, longer than the review's 1-2 days because of the layout families.
+GPU: about 3 hours for the reference measure, then about 4.5 hours for the other reference suites before phase D. At
+most 6 world-model missions at once, EGL_DEVICE_ID=1, mazes 50-89 of family A still held.
+
 ## Compute and order
 
 | Phase | Compute |

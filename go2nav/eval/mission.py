@@ -72,12 +72,13 @@ def episode_spec(set_name, maze, episode_index, root=None):
 
 
 def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=None, strips=None, stall_stop_s=None,
-                     obstacles=None, obstacle_series='v1', obstacle_speed=None, obstacle_polite=True):
+                     obstacles=None, obstacle_series='v1', obstacle_speed=None, obstacle_polite=True,
+                     obstacle_reactive=False):
     """The `Dynamics` of a mission and its record. `strips` is (mu, marked); strip placement is seeded by the set's
     original name (the role, or `prelim_test`), the maze and the episode. `obstacles`: how many moving obstacles
     (`go2nav.sim.obstacles`), placed with a seed of the set, maze, episode and count in `obstacle_series` (v1: the
     development series), at speeds drawn from `obstacle_speed` (low, high; default `SPEED_M_S`); `obstacle_polite=False`
-    gives the walkers that do not yield (`sim.obstacles`)."""
+    gives the walkers that do not yield, `obstacle_reactive` the reactive ones (`sim.obstacles`, PLAN P13)."""
     from go2nav.sim.dynamics import Dynamics, place_strips, placement_seed
     from go2nav.sim import obstacles as moving
     if friction is None and strips is None and not stall_stop_s and not obstacles:
@@ -96,7 +97,7 @@ def mission_dynamics(set_name, maze, episode_index, spec, episode, *, friction=N
     if obstacles:
         seed = moving.placement_seed(set_name, maze, episode_index, obstacles, obstacle_series)
         dynamics.obstacles = moving.place_obstacles(spec, episode, obstacles, seed, obstacle_speed or moving.SPEED_M_S,
-                                                    polite=obstacle_polite)
+                                                    polite=obstacle_polite, reactive=obstacle_reactive)
         record.update(moving_obstacles=dict(count=obstacles, placement=dynamics.obstacles,
                                             **(dict(series=obstacle_series) if obstacle_series != 'v1' else {}),
                                             **(dict(speed_m_s=list(obstacle_speed)) if obstacle_speed else {})))
@@ -109,7 +110,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         terminal_burst=False, obstacle_prediction=False, footprint_clearing=False, obstacle_series='v1', obstacle_speed=None,
         candidates='primitives', safety='primitive', pose_oracle=False, map_oracle=None, prediction_oracle=False,
         mover_trails=False, give_way=False, close_up=False, walker_mode='off', obstacle_polite=True, walker_memory=False,
-        pose_carry='off', vacate=False):
+        pose_carry='off', vacate=False, range_sensor=False, obstacle_reactive=False,
+        noslip=False):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
     (how many moving obstacles; `obstacle_series` their placement series, `obstacle_speed` their speed range,
@@ -129,7 +131,9 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     `mover_trails`: a confirmed obstacle track's cells stay in the map only while seen occupied
     (`go2nav.perception.mapping`); `give_way`: back off from a still mover near and ahead (`go2nav.planning.planner`;
     the give-way probe); `vacate`: get out of the way of a walker that waits for the robot (P11,
-    `go2nav.planning.planner`); `candidates`: 'primitives' (the six actions) or 'lattice' (the command lattice; C1,
+    `go2nav.planning.planner`); `range_sensor`: an L1-style range sensor (P13; `go2nav.sim.range_sensor`), its returns
+    joining the map's occupied cells and the dispatch check's obstacles; `noslip`: the rigid solver's no-slip pass, so a
+    zero command holds the robot still (P13 item 6; `go2nav.sim.scene`); `candidates`: 'primitives' (the six actions) or 'lattice' (the command lattice; C1,
     C5 and C6; `go2nav.planning.actions`); `safety`: the command safety block, 'primitive' or 'continuous'
     (`go2nav.locomotion.safety`). Module oracles (the failure analysis; `go2nav.controllers.truth`): `pose_oracle` (the
     true pose), `map_oracle` ('obstacles': perceived walls with the moving obstacles where they truly are; 'full': the
@@ -154,7 +158,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
     dynamics, dynamics_record = mission_dynamics(set_name, maze, episode_index, spec, episode, friction=friction,
                                                  strips=strips, stall_stop_s=stall_stop_s, obstacles=obstacles,
                                                  obstacle_series=obstacle_series, obstacle_speed=obstacle_speed,
-                                                 obstacle_polite=obstacle_polite)
+                                                 obstacle_polite=obstacle_polite, obstacle_reactive=obstacle_reactive)
     from go2nav.planning import actions, caution
     margin_m = caution.calibrated_bound(arm, margin) if margin else 0.
     unknown_bound = caution.calibrated_bound(arm, unknown_level or margin or 'p99') if pessimistic else None
@@ -177,6 +181,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  **(dict(give_way=True) if give_way else {}),
                                  **(dict(close_up=True) if close_up else {}),
                                  **(dict(vacate=True) if vacate else {}),
+                                 **(dict(range_sensor=True) if range_sensor else {}),
+                                 **(dict(noslip=True) if noslip else {}),
                                  **(dict(walker_mode=walker_mode) if walker_mode != 'off' else {}),
                                  **(dict(walker_memory=True) if walker_memory is True or walker_memory == 'on' else
                                     dict(walker_memory=walker_memory) if walker_memory else {}),
@@ -200,7 +206,8 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         policy = Path(models['go2_locomotion_policy']) if models and 'go2_locomotion_policy' in models \
             else artifacts.path('go2_locomotion_policy')
         session = MissionSession(spec, out/'native', policy_checkpoint=policy,
-                                 dynamics=dynamics, demo_textures=demo_textures, safety=safety)
+                                 dynamics=dynamics, demo_textures=demo_textures, safety=safety, range_sensor=range_sensor,
+                                 noslip=noslip)
         cues = settled_task_cues(episode, session.settle())
         if arm == 'C0':
             from go2nav.controllers.oracle import OracleForecaster
@@ -256,11 +263,15 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                                 (depth['depth_m'], depth['valid']), auxiliary_rgb['rgb'],
                                                 (auxiliary_depth['depth_m'], auxiliary_depth['valid']), fast['values'],
                                                 policy['sensor_state']['sensed']['specific_force']['values'], policy,
-                                                tuple(history)))
+                                                tuple(history),
+                                                None if session.last_range is None else
+                                                (session.last_range['ranges_m'], session.last_range['valid'])))
                 if len(controller.planning) > planned and 'action' in controller.planning[-1]:
                     timings.append(dict(stage='frame_with_planning', frame=tick//FRAME_STEPS,
                                         wall_ns=time.perf_counter_ns()-begun))
-                acquisitions.append(dict(frame=tick//FRAME_STEPS, measured_ns=measured))
+                acquisitions.append(dict(frame=tick//FRAME_STEPS, measured_ns=measured,
+                                         **({} if session.last_range is None else
+                                            dict(range_returns=int(session.last_range['valid'].sum())))))
             request = controller.request(now)
             row = dict(request, simulator_ns=now, pre_sample_index=len(session.samples)-1)
             requests.append(row)
@@ -379,6 +390,10 @@ def main():
     p.add_argument('--walker-memory', choices=('on', 'veto', 'off'), default='off',
                    help="the walkers the memory remembers out of view: in the planner's clearance checks (on), or ruling out "
                         "actions toward them (veto)")
+    p.add_argument('--obstacle-reactive', choices=('on', 'off'), default='off',
+                   help='reactive walkers: they pass the robot where there is room, else wait, then turn back (PLAN P13)')
+    p.add_argument('--range-sensor', choices=('on', 'off'), default='off',
+                   help='an L1-style range sensor whose returns join the map and the dispatch check (PLAN P13)')
     p.add_argument('--vacate', choices=('on', 'off'), default='off',
                    help='get out of the way of a walker that waits for the robot (PLAN P11)')
     p.add_argument('--close-up', choices=('on', 'off'), default='off',
@@ -391,6 +406,8 @@ def main():
                         'obstacles kept out of the route grid (module oracle)')
     p.add_argument('--prediction-oracle', choices=('on', 'off'), default='off',
                    help='true obstacle futures in the clearance check (module oracle)')
+    p.add_argument('--noslip', choices=('on', 'off'), default='off',
+                   help="the rigid solver's no-slip pass, so that a zero command holds the robot still (sim.scene.NOSLIP_ITERATIONS)")
     p.add_argument('--out', type=Path, required=True)
     a = p.parse_args()
     strips = None
@@ -412,7 +429,8 @@ def main():
                  prediction_oracle=a.prediction_oracle == 'on', mover_trails=a.mover_trails == 'on',
                  give_way=a.give_way == 'on', close_up=a.close_up == 'on', walker_mode=a.walker_mode,
                  obstacle_polite=a.obstacle_polite == 'on', walker_memory={'on': True, 'veto': 'veto'}.get(a.walker_memory, False),
-                 pose_carry=a.pose_carry, vacate=a.vacate == 'on')
+                 pose_carry=a.pose_carry, vacate=a.vacate == 'on', range_sensor=a.range_sensor == 'on',
+                 obstacle_reactive=a.obstacle_reactive == 'on', noslip=a.noslip == 'on')
     print(json.dumps(result))
 
 

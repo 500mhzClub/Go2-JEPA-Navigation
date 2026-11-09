@@ -21,6 +21,10 @@ over the range. Both run for every policy, so a primitive policy is measured on 
 
 The command enters only through the policy's observation, exactly as in missions. `--compare` prints two results side by
 side with differences.
+
+**Hold** (`hold`; P13 item 6, zero means zero): every robot, after a few seconds of a random command, holds a zero command
+for 300 s; how far the base slides and turns. `--noslip-iterations` runs the rigid solver's no-slip pass (as missions with
+`--noslip on`); `--hold-only` runs only this test.
 """
 import argparse
 import itertools
@@ -39,13 +43,15 @@ DEFAULT_CONFIG = REPO/'configs/locomotion/contract_ppo.yaml'
 LATTICE = dict(vx=(-.25, -.1, 0., .15, .3, .45), vy=(-.2, 0., .2), yaw=(-.8, -.4, 0., .4, .8))
 
 
-def _setup(checkpoint, n_envs, friction, seed):
+def _setup(checkpoint, n_envs, friction, seed, noslip_iterations=None):
     import genesis as gs
     from go2nav.locomotion.env import Go2LocomotionEnv
     cfg = load_config(checkpoint)
     reference = yaml.safe_load(DEFAULT_CONFIG.read_text())
     cfg = dict(reference, **cfg)  # an original checkpoint's cfgs.pkl has no primitive bank: use the reference bank
-    cfg['env'] = dict(cfg['env'], resampling_time_s=1e4)  # commands are set here, never resampled
+    cfg['env'] = dict(cfg['env'], resampling_time_s=1e4, episode_length_s=1e4)  # commands set here; no time-outs
+    if noslip_iterations is not None:
+        cfg['noslip_iterations'] = noslip_iterations
     rocm.configure()
     gs.init(backend=gs.gpu, precision='32', logging_level='warning', seed=seed, performance_mode=True)
     env = Go2LocomotionEnv(n_envs, cfg, friction=friction)
@@ -141,15 +147,51 @@ def continuous_switching(env, actor, switch_s, switches, seed):
                 resets=int(resets.sum()))
 
 
+def hold(env, actor, before_s=3.0, hold_s=300.0, settle_s=2.0, seed=0):
+    """Long holds (the hold contract: zero means zero). Each robot is driven for `before_s` with a command drawn from
+    the `LATTICE` range (a quarter of them already holding), then commanded zero for `hold_s`. From `settle_s` into
+    the hold to its end: the planar displacement of the base in the world (m) and its heading change (rad), per robot,
+    and the mean joint speed (rad/s), summarised by median, 90th percentile and worst; and resets."""
+    rng = np.random.default_rng(seed)
+    low, high = (np.array([f(v) for v in LATTICE.values()], dtype=np.float32) for f in (min, max))
+    before = rng.uniform(low, high, (env.num_envs, 3)).astype(np.float32)
+    before[:env.num_envs//4] = 0.
+    zero = torch.zeros((env.num_envs, 3), device=env.device)
+    start_xy = start_yaw = None
+    joint_speed, resets = [], np.zeros(env.num_envs, bool)
+    env.reset()
+    steps_before, steps_settle, steps_hold = (int(round(s/env.dt)) for s in (before_s, settle_s, hold_s))
+    yaw = lambda: env.base_euler[:, 2].cpu().numpy()*np.pi/180
+    with torch.no_grad():
+        for k in range(steps_before+steps_hold):
+            env.commands.copy_(torch.as_tensor(before, device=env.device) if k < steps_before else zero)
+            env._update_observation()
+            _, _, done, _ = env.step(actor(env.get_observations(), stochastic_output=False))
+            resets |= done.cpu().numpy()
+            if k == steps_before+steps_settle:
+                start_xy, start_yaw = env.base_pos[:, :2].cpu().numpy().copy(), yaw()
+            if k > steps_before+steps_settle:
+                joint_speed.append(env.dof_vel.abs().mean(dim=1).cpu().numpy())
+    drift = np.linalg.norm(env.base_pos[:, :2].cpu().numpy()-start_xy, axis=1)[~resets]
+    turn = np.abs(np.angle(np.exp(1j*(yaw()-start_yaw))))[~resets]
+    speed = np.mean(joint_speed, axis=0)[~resets]
+    stats = lambda x: dict(median=float(np.median(x)), p90=float(np.percentile(x, 90)), worst=float(x.max()))
+    return dict(robots=env.num_envs, before_s=before_s, hold_s=hold_s, settle_s=settle_s, resets=int(resets.sum()),
+                drift_m=stats(drift), drift_mm_per_s=stats(drift*1e3/(hold_s-settle_s)), heading_change_rad=stats(turn),
+                mean_joint_speed_radps=stats(speed))
+
+
 def run(checkpoint, *, robots=32, lattice_robots=8, horizon_s=8.0, warmup_s=2.0, switch_s=2.0, friction=None,
-        seed=20260516):
-    env, actor, primitives = _setup(checkpoint, robots*len(load_primitives()), friction, seed)
-    return dict(checkpoint=str(checkpoint), friction=friction, robots_per_primitive=robots, horizon_s=horizon_s,
+        seed=20260516, noslip_iterations=None):
+    env, actor, primitives = _setup(checkpoint, robots*len(load_primitives()), friction, seed, noslip_iterations)
+    return dict(checkpoint=str(checkpoint), friction=friction, noslip_iterations=noslip_iterations,
+                robots_per_primitive=robots, horizon_s=horizon_s,
                 warmup_s=warmup_s, seed=seed, axes=['vx_mps', 'vy_mps', 'yaw_rate_radps'],
                 steady=steady(env, actor, primitives, robots, horizon_s, warmup_s),
                 switching=switching(env, actor, primitives, switch_s, seed),
                 lattice=lattice(env, actor, lattice_robots, horizon_s, warmup_s),
-                continuous_switching=continuous_switching(env, actor, switch_s, 9, seed))
+                continuous_switching=continuous_switching(env, actor, switch_s, 9, seed),
+                hold=hold(env, actor))
 
 
 def load_primitives():
@@ -188,11 +230,21 @@ def main():
     p.add_argument('--friction', type=float)
     p.add_argument('--robots', type=int, default=32)
     p.add_argument('--compare', nargs=2, metavar=('A_JSON', 'B_JSON'))
+    p.add_argument('--hold-only', action='store_true', help='only the long-hold test (`hold`), with --robots robots')
+    p.add_argument('--hold-s', type=float, default=300.)
+    p.add_argument('--noslip-iterations', type=int, help="the rigid solver's no-slip pass (default: the policy's training config)")
     a = p.parse_args()
     if a.compare:
         print(compare(*(json.loads(Path(x).read_text()) for x in a.compare)))
         return
-    result = run(a.checkpoint, robots=a.robots, friction=a.friction)
+    if a.hold_only:
+        env, actor, _ = _setup(a.checkpoint, a.robots, a.friction, 20260516, a.noslip_iterations)
+        result = dict(checkpoint=str(a.checkpoint), friction=a.friction, noslip_iterations=a.noslip_iterations,
+                      hold=hold(env, actor, hold_s=a.hold_s))
+        Path(a.out).write_text(json.dumps(result, indent=1)+'\n')
+        print(json.dumps(result['hold'], indent=1))
+        return
+    result = run(a.checkpoint, robots=a.robots, friction=a.friction, noslip_iterations=a.noslip_iterations)
     Path(a.out).write_text(json.dumps(result, indent=1)+'\n')
     print(compare(result, result).split('\n')[0])
     for name, r in result['steady'].items():

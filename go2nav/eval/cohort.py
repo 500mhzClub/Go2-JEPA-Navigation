@@ -36,6 +36,7 @@ import time
 
 import yaml
 
+from go2nav.eval.metrics import contacts_per_km, mission_metrics
 from go2nav.controllers.registry import GPU_LANES, MEMORY_GIB
 
 GIB = 1024**3
@@ -67,14 +68,14 @@ def mission_command(cohort, arm, set_name, maze, episode, destination):
                '--episode', str(episode), '--recovery', cohort.get('recovery', 'off'), '--out', str(destination)]
     for key, flag in (('friction', '--friction'), ('strips', '--strips'), ('stall_stop_s', '--stall-stop-s'),
                       ('obstacles', '--obstacles'), ('obstacle_series', '--obstacle-series'),
-                      ('obstacle_speed', '--obstacle-speed'), ('obstacle_polite', '--obstacle-polite'),
+                      ('obstacle_speed', '--obstacle-speed'), ('obstacle_polite', '--obstacle-polite'), ('obstacle_reactive', '--obstacle-reactive'),
                       ('decoder_fit', '--decoder-fit'), ('degrade', '--degrade'), ('margin', '--margin'),
                       ('pessimistic', '--pessimistic'), ('unknown_level', '--unknown-level'), ('models', '--models'),
                       ('harness', '--harness'), ('coverage_fix', '--coverage-fix'),
                       ('map_decay', '--map-decay'), ('deadlock_escape', '--deadlock-escape'),
                       ('terminal_burst', '--terminal-burst'), ('obstacle_prediction', '--obstacle-prediction'),
                       ('footprint_clearing', '--footprint-clearing'), ('mover_trails', '--mover-trails'),
-                      ('give_way', '--give-way'), ('vacate', '--vacate'), ('close_up', '--close-up'), ('walker_mode', '--walker-mode'),
+                      ('give_way', '--give-way'), ('vacate', '--vacate'), ('range_sensor', '--range-sensor'), ('noslip', '--noslip'), ('close_up', '--close-up'), ('walker_mode', '--walker-mode'),
                       ('walker_memory', '--walker-memory'), ('candidates', '--candidates'),
                       ('safety', '--safety'), ('pose_carry', '--pose-carry'), ('pose_oracle', '--pose-oracle'), ('map_oracle', '--map-oracle'),
                       ('prediction_oracle', '--prediction-oracle')):
@@ -148,7 +149,7 @@ def mission_row(run, assignment, arm, code=None):
                    source_error=ev['source_error'], taxonomy=ev['failure_and_stall_taxonomy'], wall_s=ev['wall_s'])
     else:
         row.update(round_trip=None, unread=True)
-    return row | interventions(run) | pose_corrections(run)
+    return row | interventions(run) | pose_corrections(run) | mission_metrics(run)
 
 
 # -- running ----------------------------------------------------------------------------------------------------------
@@ -278,6 +279,14 @@ def tables(rows):
                      f"| {sum(bool(r['home']) for r in read)} | {helped} | {sum(r.get('contacts') or 0 for r in read)} "
                      f"| {sum(r.get('hard') or 0 for r in read)} | {fmt(min(clearances) if clearances else None)} "
                      f"| {fmt(statistics.median(spl) if spl else None)} |")
+    lines += ['', '| Ctrl | Path (km) | Contact stops: walker / wall | Contacts per km | Median stand-off (s) | Median outbound (s) | Median return (s) |',
+              '|---|---:|---:|---:|---:|---:|---:|']
+    for ctrl, rs in sorted(by.items()):
+        read = [r for r in rs if r.get('path_m') is not None]
+        median = lambda key: fmt(statistics.median(v) if (v := [r[key] for r in read if r.get(key) is not None]) else None)
+        lines.append(f"| {ctrl} | {fmt(sum(r['path_m'] for r in read)/1000.)} "
+                     f"| {sum(r.get('contact_stop') == 'walker' for r in read)} / {sum(r.get('contact_stop') == 'wall' for r in read)} "
+                     f"| {fmt(contacts_per_km(read))} | {median('stand_off_s')} | {median('outbound_s')} | {median('return_s')} |")
     return '\n'.join(lines)
 
 

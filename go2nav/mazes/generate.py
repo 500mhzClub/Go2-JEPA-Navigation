@@ -27,7 +27,7 @@ import random
 
 import numpy as np
 
-from go2nav.mazes import grid
+from go2nav.mazes import families, grid
 from go2nav.mazes.identity import layout_identities
 from go2nav.mazes.reference import ReferenceGeometry, segment_crosses_wall, walls_from_boxes
 
@@ -62,26 +62,32 @@ class Role:
     spec_fields: dict = field(default_factory=dict)  # extra specification fields (e.g. recording_split)
 
 
-def identities(links):
-    return layout_identities(links, pitch_m=grid.PITCH_M, wall_thickness_m=grid.WALL_THICKNESS_M,
+def identities(links, pitch_m=grid.PITCH_M):
+    return layout_identities(links, pitch_m=pitch_m, wall_thickness_m=grid.WALL_THICKNESS_M,
                              wall_height_m=grid.WALL_HEIGHT_M)
 
 
+def pitch_of(spec):
+    """A specification's cell pitch (every registered set records it in its evaluation layout)."""
+    return float(spec.get('evaluation_layout', {}).get('pitch_m', grid.PITCH_M))
+
+
 def accepted_layouts(construction_seed, excluded_graphs, rejections, *, maximum_candidates=MAXIMUM_CANDIDATES,
-                     shape=grid.SQUARE):
-    """Yield every layout the acceptance rules admit, in candidate order, as (candidate_index, links, identity).
+                     shape=grid.SQUARE, layout_family=families.TREE):
+    """Yield every layout the acceptance rules admit, in candidate order, as (candidate_index, links, identity, pitch_m),
+    the candidates drawn by `layout_family` (`families`).
 
     `excluded_graphs` is a list of {'name', 'edges'} for every earlier maze. Each rejected candidate is appended to
     `rejections` as {'candidate_index', 'reason', <identities>}.
     """
-    previous = [identities(g['edges']) for g in excluded_graphs]
+    previous = [identities(g['edges'], g.get('pitch_m', grid.PITCH_M)) for g in excluded_graphs]
     old_topology = {p['abstract_topology_code'] for p in previous}
     old_metric = {p['metric_code'] for p in previous}
     topology, metric = set(), set()
     rng = random.Random(construction_seed)
     for number in range(maximum_candidates):
-        links = grid.random_spanning_tree(rng, shape)
-        identity = identities(links)
+        links, pitch = families.layout(layout_family, rng, shape)
+        identity = identities(links, pitch)
         route = grid.farthest_route(links, shape)
         if len(route) < MIN_ROUTE_CELLS or grid.route_turns(route) < MIN_ROUTE_TURNS:
             reason = 'insufficient_declared_route_structure'
@@ -100,27 +106,31 @@ def accepted_layouts(construction_seed, excluded_graphs, rejections, *, maximum_
             continue
         topology.add(identity['abstract_topology_code'])
         metric.add(identity['metric_code'])
-        yield number, links, identity
+        yield number, links, identity, pitch
 
 
 def make_spec(index, links, identity, candidate_index, *, seeds, scene_id_prefix, family, role,
-              wall_id_prefix='independent_round_trip_wall', spec_fields=None, shape=grid.SQUARE):
-    """The maze specification (schema v1: the format of every registered set)."""
+              wall_id_prefix='independent_round_trip_wall', spec_fields=None, shape=grid.SQUARE, pitch_m=grid.PITCH_M,
+              layout_family=families.TREE):
+    """The maze specification (schema v1: the format of every registered set; a family other than the tree records
+    itself as `layout_family`)."""
     route = grid.farthest_route(links, shape)
     spec = dict(
         scene_id=f'{scene_id_prefix}-{index:02d}', layout_index=index, family=family, data_role=role,
         procedural_seed=seeds.physics_base+index, appearance_seed=seeds.appearance_base+index,
         appearance_arm='distinctive', friction_mu=1., render_near_m=.005,
         visual_surface_contract='floor_first_variable_height_union_walls',
-        geometry=dict(spawn_se2_world=[grid.START[0]*grid.PITCH_M, grid.START[1]*grid.PITCH_M, 0.],
-                      wall_boxes=grid.wall_boxes(links, wall_id_prefix=wall_id_prefix, shape=shape)),
+        geometry=dict(spawn_se2_world=[grid.START[0]*pitch_m, grid.START[1]*pitch_m, 0.],
+                      wall_boxes=grid.wall_boxes(links, wall_id_prefix=wall_id_prefix, shape=shape, pitch_m=pitch_m)),
         evaluation_layout=dict(cells=[list(c) for c in shape.cells], edges=[[list(a), list(b)] for a, b in links],
                                goal_cell=list(route[-1]), shortest_outbound_route=[list(c) for c in route],
-                               shortest_outbound_distance_m=(len(route)-1)*grid.PITCH_M, pitch_m=grid.PITCH_M, **identity),
+                               shortest_outbound_distance_m=(len(route)-1)*pitch_m, pitch_m=pitch_m, **identity),
         construction_candidate_index=candidate_index, native_execution=False, final_evaluation=False,
         navigation_qualified=False)
     if shape != grid.SQUARE:
         spec['grid_shape'] = [shape.columns, shape.rows]
+    if layout_family != families.TREE:
+        spec['layout_family'] = layout_family
     return spec | (spec_fields or {})
 
 
@@ -134,9 +144,10 @@ def make_episode(spec, episode_index, *, seeds, rules=EpisodeRules()):
     pairs = [(a, b) for a in cells for b in cells if a != b]
     rng.shuffle(pairs)
     walls = walls_from_boxes(spec['geometry']['wall_boxes'])
+    pitch = pitch_of(spec)
     for a, b in pairs:
-        start, target = np.asarray(a)*grid.PITCH_M, np.asarray(b)*grid.PITCH_M
-        geometry = ReferenceGeometry(walls, shape.world_bounds_xy_m, target, radius_m=rules.inflation_radius_m,
+        start, target = np.asarray(a)*pitch, np.asarray(b)*pitch
+        geometry = ReferenceGeometry(walls, grid.world_bounds(shape, pitch), target, radius_m=rules.inflation_radius_m,
                                      clearance_m=rules.additional_clearance_m, resolution_m=rules.grid_resolution_m)
         if float(min(geometry.footprint_clearance(start), geometry.footprint_clearance(target)))+geometry.radius \
                 < rules.min_endpoint_clearance_m:
@@ -168,7 +179,7 @@ def _episodes(job):
 
 
 def generate(roles, *, seeds, excluded_graphs, scene_id_prefix, family, qualify=None,
-             maximum_candidates=MAXIMUM_CANDIDATES, shape=grid.SQUARE, workers=None):
+             maximum_candidates=MAXIMUM_CANDIDATES, shape=grid.SQUARE, workers=None, layout_family=families.TREE):
     """Generate a set: layouts take roles in index order; each gets its role's episodes.
 
     Without `qualify`, every accepted layout is used in order; the episodes (the slow part: a reference geometry per
@@ -181,12 +192,14 @@ def generate(roles, *, seeds, excluded_graphs, scene_id_prefix, family, qualify=
     """
     plan = [role for role in roles for _ in range(role.count)]
     entries, rejections = [], []
-    for candidate_index, links, identity in accepted_layouts(seeds.construction, excluded_graphs, rejections,
-                                                             maximum_candidates=maximum_candidates, shape=shape):
+    for candidate_index, links, identity, pitch in accepted_layouts(seeds.construction, excluded_graphs, rejections,
+                                                                    maximum_candidates=maximum_candidates, shape=shape,
+                                                                    layout_family=layout_family):
         index = len(entries)
         role = plan[index]
         spec = make_spec(index, links, identity, candidate_index, seeds=seeds, scene_id_prefix=scene_id_prefix,
-                         family=family, role=role.name, spec_fields=role.spec_fields, shape=shape)
+                         family=family, role=role.name, spec_fields=role.spec_fields, shape=shape, pitch_m=pitch,
+                         layout_family=layout_family)
         if qualify is None:
             entries.append(dict(spec=spec, episodes=role.episodes))  # episode indices, built below
         else:
