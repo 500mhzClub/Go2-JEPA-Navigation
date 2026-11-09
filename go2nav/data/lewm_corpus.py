@@ -397,12 +397,17 @@ def run_free(spec, recorder, *, cap, seed, meshes, random_look):
 
 
 def free_spec(spec, seed):
-    """The maze with a random start: a random cell centre (+-0.15 m) and a uniform heading; its own physics seed."""
+    """The maze with a random start: a random cell centre (at the layout's own pitch, `pitch_of`), moved up to 0.15 m in
+    each axis but never closer than 0.45 m to a wall's face (only narrow pitches shrink the jitter: 0.06 m at 1.1 m), and a
+    uniform heading; its own physics seed."""
     from go2nav.mazes import grid
+    from go2nav.sim.obstacles import pitch_of
     rng = np.random.default_rng(seed)
     shape = grid.Shape(*spec['grid_shape']) if 'grid_shape' in spec else grid.SQUARE
     cell = np.asarray(shape.cells[int(rng.integers(len(shape.cells)))], float)
-    xy = cell*grid.PITCH_M+rng.uniform(-.15, .15, 2)
+    pitch = pitch_of(spec)
+    jitter = min(.15, pitch/2-grid.WALL_THICKNESS_M/2-.45)
+    xy = cell*pitch+rng.uniform(-jitter, jitter, 2)
     return spec | dict(procedural_seed=seed,
                        geometry=spec['geometry'] | dict(spawn_se2_world=[*xy.tolist(), float(rng.uniform(-math.pi, math.pi))]))
 

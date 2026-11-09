@@ -82,6 +82,15 @@ HALF_FOV_RAD = math.radians(78.323/2)
 MAX_VIEW_M = 5.
 GIVE_WAY_M, GIVE_WAY_HALF_WIDTH_M = 1.5, .75  # give-way windows: a mover this near, ahead, this close to the path
 GIVE_WAY_CONTRASTS = ('retreat', 'advance')
+# P15's 12.8-s give-way label: from a give-way window, the kinematic robot retreats at 0.2 m/s for 128 frames (2.56 m,
+# less where a wall stops it), or holds; the way is clear if no walker's centre is within CLEAR_M of the segment from
+# where the robot ends to CLEAR_AHEAD_M ahead of where it stood at t (the way it was going).
+LONG_RETREAT, LONG_FRAMES, CLEAR_M, CLEAR_AHEAD_M = (-.2, 0., 0.), 128, .5, 1.
+# The side step (the move that lets a walker that does not yield pass; P14's driver's give-way): back along the robot's
+# own recorded path at 0.25 m/s to the first side opening (1 m of room across the body, at least 0.3 m and at most
+# SIDE_BACK_MAX_M back), turn to face it at up to 0.8 rad/s, go SIDE_IN_M into it at 0.3 m/s, then hold. No opening
+# within reach: it holds where the back-off ended. Scored after SIDE_FRAMES (two level-3 steps).
+SIDE_BACK_MAX_M, SIDE_OPENING_M, SIDE_IN_M, SIDE_FRAMES = 2.5, 1., 1., 256
 
 
 def body_frame(pose, xy):
@@ -125,9 +134,24 @@ def sight_line(clearance):
 
 
 def walkers(spec, placement):
-    neighbours = moving.passages(spec)
-    return [moving.Walker(neighbours, tuple(o['start_cell']), o['speed_m_s'], np.random.default_rng(o['walk_seed']),
-                          polite=o.get('polite', True)) for o in placement]
+    """The walkers as `sim.obstacles.ObstacleField` builds them: reactive ones too, at the layout's own pitch."""
+    neighbours, pitch = moving.passages(spec), moving.pitch_of(spec)
+
+    def walker(o):
+        args = (neighbours, tuple(o['start_cell']), o['speed_m_s'], np.random.default_rng(o['walk_seed']))
+        if o.get('behaviour') == 'reactive':
+            return moving.ReactiveWalker(*args, patience=float(o['patience_s']), yields=bool(o['yields']), pitch=pitch)
+        return moving.Walker(*args, polite=o.get('polite', True), pitch=pitch)
+    return [walker(o) for o in placement]
+
+
+def step_walkers(state, dt, robot_xy, robot_yaw):
+    """Advance every walker by dt as `ObstacleField.update` does (reactive ones also see the yaw and the others)."""
+    for k, w in enumerate(state):
+        if isinstance(w, moving.ReactiveWalker):
+            w.step(dt, robot_xy, robot_yaw, [o.xy for j, o in enumerate(state) if j != k])
+        else:
+            w.step(dt, robot_xy)
 
 
 def replay(spec, placement, pose, recorded, keep=()):
@@ -140,10 +164,11 @@ def replay(spec, placement, pose, recorded, keep=()):
         if i in keep:
             kept[i] = copy.deepcopy(state)
         if i+1 < n:
+            a, b = float(v1.planar_yaw(pose[i, 3:7])), float(v1.planar_yaw(pose[i+1, 3:7]))
+            turn = math.atan2(math.sin(b-a), math.cos(b-a))
             for k in range(SUBSTEPS):
                 robot = pose[i, :2]+(pose[i+1, :2]-pose[i, :2])*k/SUBSTEPS
-                for w in state:
-                    w.step(PHYSICS_DT_S, robot)
+                step_walkers(state, PHYSICS_DT_S, robot, a+turn*k/SUBSTEPS)
     return error, kept
 
 
@@ -171,8 +196,7 @@ def branch(state, pose, tape, clearance, horizons=HORIZONS):
         for p in range(v1.FRAME_STEPS):
             vx, vy, wz = (float(v) for v in tape[f, p])
             for _ in range(per_policy):
-                for w in state:
-                    w.step(PHYSICS_DT_S, xy)
+                step_walkers(state, PHYSICS_DT_S, xy, yaw)
                 c, s = math.cos(yaw), math.sin(yaw)
                 step = np.array([c*vx-s*vy, s*vx+c*vy])*PHYSICS_DT_S
                 ahead = xy+step
@@ -187,10 +211,81 @@ def branch(state, pose, tape, clearance, horizons=HORIZONS):
     return np.asarray(out).reshape(len(robot), len(state), 2), np.asarray(robot)
 
 
+def way_clear(walkers_xy, robot_xy, pose):
+    """Whether no walker centre (k, 2) is within `CLEAR_M` of the segment from `robot_xy` to `CLEAR_AHEAD_M` ahead of
+    `pose` (where the robot stood at t, facing its way)."""
+    yaw = float(v1.planar_yaw(np.asarray(pose)[3:7]))
+    a = np.asarray(robot_xy, float)
+    b = np.asarray(pose[:2], float)+CLEAR_AHEAD_M*np.array([math.cos(yaw), math.sin(yaw)])
+    d = b-a
+    for w in np.asarray(walkers_xy, float):
+        s = np.clip((w-a)@d/max(d@d, 1e-12), 0., 1.)
+        if np.linalg.norm(w-(a+s*d)) < CLEAR_M:
+            return False
+    return True
+
+
+def side_opening(geometry, xy, yaw):
+    """+1 (left) or -1 (right): a side with `SIDE_OPENING_M` of room across the body at its centre and 0.3 m ahead of
+    and behind it, or None (`StandoffDriver._opening`)."""
+    along = np.array([math.cos(yaw), math.sin(yaw)])
+    room = {side: min(geometry.free_distance(np.asarray(xy, float)+t*along, yaw+side*math.pi/2, limit=1.5)
+                      for t in (-.3, 0., .3)) for side in (1, -1)}
+    side = max(room, key=room.get)
+    return side if room[side] >= SIDE_OPENING_M else None
+
+
+def side_step_tape(geometry, pose, trail, previous, frames=SIDE_FRAMES):
+    """The side step's executed commands (frames, 5, 3) from `pose`, planned on a kinematic robot over the walls
+    (`geometry.free_distance`), backing along `trail` (the recorded positions before t, most recent first), through
+    the continuous block's rate limits once per 100 ms (as `contrast_tape`). Returns (tape, whether an opening was
+    found)."""
+    lower, upper, delta = BLOCKS['continuous']
+    xy, yaw = np.asarray(pose[:2], float).copy(), float(v1.planar_yaw(np.asarray(pose)[3:7]))
+    crumbs, kept = [], None
+    for q in np.asarray(trail, float):                  # thinned to 0.1 m
+        if kept is None or np.linalg.norm(q-kept) >= .1:
+            crumbs.append(q)
+            kept = q
+    phase, travelled, went, side, facing = 'back', 0., 0., None, None
+    out, last = np.empty((frames, v1.FRAME_STEPS, 3), np.float32), np.asarray(previous, np.float32)
+    for f in range(frames):
+        if phase == 'back':
+            side = side_opening(geometry, xy, yaw) if travelled >= .3 else None
+            while crumbs and np.linalg.norm(crumbs[0]-xy) < .15:
+                crumbs.pop(0)
+            if side is not None:
+                phase, facing = 'turn', yaw+side*math.pi/2
+            elif travelled >= SIDE_BACK_MAX_M or not crumbs:
+                phase = 'hold'
+        if phase == 'back':
+            target = next((c for c in crumbs if np.linalg.norm(c-xy) >= .4), crumbs[-1])
+            error = math.atan2(target[1]-xy[1], target[0]-xy[0])-(yaw+math.pi)
+            command = (-.25, 0., float(np.clip(1.5*math.atan2(math.sin(error), math.cos(error)), -.45, .45)))
+        elif phase == 'turn':
+            error = math.atan2(math.sin(facing-yaw), math.cos(facing-yaw))
+            if abs(error) < .12:
+                phase = 'go'
+            command = (0., 0., float(np.clip(2*error, -.8, .8)))
+        if phase == 'go':
+            command = (.3, 0., 0.) if went < SIDE_IN_M else (0., 0., 0.)
+            phase = 'go' if went < SIDE_IN_M else 'hold'
+        if phase == 'hold':
+            command = (0., 0., 0.)
+        last = np.clip(np.clip(np.asarray(command, np.float32), lower, upper), last-delta, last+delta)
+        out[f] = last
+        c, s = math.cos(yaw), math.sin(yaw)
+        step = np.array([c*last[0]-s*last[1], s*last[0]+c*last[1]])*.1
+        xy, yaw = xy+step, yaw+float(last[2])*.1
+        travelled += float(np.linalg.norm(step)) if phase == 'back' else 0.
+        went += float(np.linalg.norm(step)) if phase == 'go' else 0.
+    return out, side is not None
+
+
 def unit_spec(root, meta):
     from go2nav.eval.mission import episode_spec
-    episode = 0 if meta['kind'] in ('free', 'transfer', 'giveway') else v1.EPISODES[meta['kind']]
-    spec, _ = episode_spec(v1.SET, meta['maze'], episode, root=v1.mazes_root(root))
+    episode = 0 if meta['kind'] in ('free', 'transfer', 'giveway', 'standoff', 'standoff_b') else v1.EPISODES[meta['kind']]
+    spec, _ = episode_spec(meta.get('set', v1.SET), meta['maze'], episode, root=v1.mazes_root(root))
     return spec
 
 
@@ -224,7 +319,8 @@ def unit_labels(args):
     error, states = replay(spec, placement, pose, recorded, keep={t for t, _ in rows})
     replays = np.cumsum(error > REPLAY_TOLERANCE_M) == 0          # every frame up to here replayed
     out = {key: [] for key in ('t', 'mover', 'xy_t', 'target', 'persistence', 'constant_velocity', 'waiting',
-                               'moving', 'previous', 'replayed', 'cf_executed', *(f'cf_{c}' for c in CONTRAST))}
+                               'moving', 'previous', 'replayed', 'cf_executed', *(f'cf_{c}' for c in CONTRAST),
+                               'clear_retreat', 'clear_hold', 'clear_side', 'clear_hold_long', 'side_found')}
     for t, k in rows:
         p = pose[t]
         velocity = (recorded[t, k]-recorded[t-VELOCITY_FRAMES, k])/(VELOCITY_FRAMES*.1)
@@ -244,9 +340,27 @@ def unit_labels(args):
                          **{name: contrast_tape(c, previous, H[-1]) for name, c in CONTRAST.items()})
             for name, tape in tapes.items():
                 out[f'cf_{name}'].append(body_frame(p, branch(states[t], p, tape, clearance)[0][:, k]))
+            xy = body_frame(p, recorded[t, k])
+            if xy[0] > 0 and abs(xy[1]) < GIVE_WAY_HALF_WIDTH_M and np.linalg.norm(xy) < GIVE_WAY_M:
+                for name, command in (('retreat', LONG_RETREAT), ('hold', CONTRAST['hold'])):
+                    walkers_at, robot_at = branch(states[t], p, contrast_tape(command, previous, LONG_FRAMES),
+                                                  clearance, horizons=(LONG_FRAMES,))
+                    out[f'clear_{name}'].append(float(way_clear(walkers_at[0], robot_at[0], p)))
+                tape, found = side_step_tape(geometry, p, pose[t::-1, :2], previous)
+                for name, tape_ in (('side', tape), ('hold_long', contrast_tape(CONTRAST['hold'], previous, SIDE_FRAMES))):
+                    walkers_at, robot_at = branch(states[t], p, tape_, clearance, horizons=(SIDE_FRAMES,))
+                    out[f'clear_{name}'].append(float(way_clear(walkers_at[0], robot_at[0], p)))
+                out['side_found'].append(float(found))
+            else:
+                for name in ('retreat', 'hold', 'side', 'hold_long'):
+                    out[f'clear_{name}'].append(np.nan)
+                out['side_found'].append(np.nan)
         else:
             for name in ('executed', *CONTRAST):
                 out[f'cf_{name}'].append(np.full((len(H), 2), np.nan))
+            for name in ('retreat', 'hold', 'side', 'hold_long'):
+                out[f'clear_{name}'].append(np.nan)
+            out['side_found'].append(np.nan)
     out = {key: np.asarray(v) for key, v in out.items()}
     out.update(polite=np.full(len(rows), placement[0].get('polite', True)),
                replay_error=np.asarray([error[t] for t, _ in rows]))
@@ -328,7 +442,18 @@ def usable(steps, t):
     return np.array([valid[s-3:s+HORIZONS[-1]].all() for s in t], bool)
 
 
-def lewm_features(model, root, data, device):
+def unit_obs(obs_root, path, chunk, device):
+    """The frames' other sensors (P15, `data.observations`) for a model that takes them: (len(chunk), 1, obs_dim), or
+    None without an `obs_root`."""
+    import torch
+    if obs_root is None:
+        return None
+    from go2nav.data.observations import FILE
+    obs = np.load(Path(obs_root)/str(path)/FILE, mmap_mode='r')
+    return torch.from_numpy(np.asarray(obs[chunk], np.float32)).to(device)[:, None]
+
+
+def lewm_features(model, root, data, device, obs_root=None):
     """Per window of `data` (labels): `zh` (W, history, D) z of frames t-3..t, `true` (W, len(HORIZONS), D) and, per
     tape of `TAPES`, the rollout to each horizon (W, len(HORIZONS), D), as float16; and `ok` (W,) the usable windows
     (`usable`; the others are zeros). With a grid (P4b), D is the whole state's: [CLS] and the grid tokens,
@@ -362,7 +487,8 @@ def lewm_features(model, root, data, device):
                 chunk = needed[s:s+512]
                 x = torch.from_numpy(np.ascontiguousarray(frames[chunk])).to(device)
                 with autocast():
-                    z[torch.from_numpy(chunk).to(device)] = model.encode(normalise_frames(x)[:, None])[:, 0].float()
+                    z[torch.from_numpy(chunk).to(device)] = model.encode(
+                        normalise_frames(x)[:, None], unit_obs(obs_root, path, chunk, device))[:, 0].float()
             tt = torch.from_numpy(t).to(device)
             zh = torch.stack([z[tt+k] for k in range(1-n, 1)], 1)
             blocks = action_blocks(steps['executed'], cmean, cstd).to(device)
@@ -381,7 +507,7 @@ def lewm_features(model, root, data, device):
     return out
 
 
-def hjepa_features(model, root, data, device, level=2):
+def hjepa_features(model, root, data, device, level=2, obs_root=None):
     """As `lewm_features`, for an H-JEPA's upper `level` (period p frames, `context` states): `zh` (W, context, D) its
     states at t-(context-1)p..t, and `true` and each tape's rollout (the level's own predictor, one step per p frames,
     each transition's macro-action from its p command blocks) at the horizons that are multiples of p (zeros at the
@@ -419,7 +545,7 @@ def hjepa_features(model, root, data, device, level=2):
                 chunk = needed[s:s+512]
                 x = torch.from_numpy(np.ascontiguousarray(frames[chunk])).to(device)
                 with autocast():
-                    encoded = model.level1.encode(normalise_frames(x)[:, None])[:, 0]
+                    encoded = model.level1.encode(normalise_frames(x)[:, None], unit_obs(obs_root, path, chunk, device))[:, 0]
                 z[torch.from_numpy(chunk).to(device)] = encoded.float()
             tt = torch.from_numpy(t).to(device)
             states = model.states(torch.stack([z[tt+o] for o in offsets], 1), level).float()
@@ -601,26 +727,36 @@ def give_way(data, rows, predicted, j):
     return out
 
 
+V2_KINDS = ('explore', 'mission', 'free')   # corpus v2's validation kinds, before P14's stand-off units
+
+
+def unit_kinds(data):
+    """Each window's unit kind (the unit folder's name after the maze number)."""
+    return np.array([str(u).rsplit('/', 1)[-1].split('_', 1)[1] for u in data['units']])[data['unit']]
+
+
 def kinds(data):
     """Each window's split: `transfer` for transfer units, else `val`."""
-    kind = np.array([str(u).rsplit('_', 1)[-1] for u in data['units']])[data['unit']]
-    return np.where(kind == 'transfer', 'transfer', 'val')
+    return np.where(unit_kinds(data) == 'transfer', 'transfer', 'val')
 
 
-def probe(root, world_model, train, evaluation, out, *, updates=UPDATES, device='cuda:0', level=1):
+def probe(root, world_model, train, evaluation, out, *, updates=UPDATES, device='cuda:0', level=1, obs_root=None):
     """Fit the heads on `train`'s windows and score them on `evaluation`'s (see the module docstring); results.json
     in `out`, with the latents cached per labels file. `level` > 1: `world_model` is an H-JEPA checkpoint and the
-    heads read that level's states (`hjepa_features`), at the horizons it reaches."""
+    heads read that level's states (`hjepa_features`), at the horizons it reaches. `obs_root` (P15): the frames' other
+    sensors, for a model that takes them. Scores are per split: `val`, `transfer`, and `val_v2` (the `val` windows of
+    corpus v2's own kinds, `V2_KINDS`, comparable with the models probed before P14)."""
     import torch
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     if level == 1:
         from go2nav.models.lewm import load_world_model
-        model, features = load_world_model(world_model, device), lewm_features
+        model = load_world_model(world_model, device)
+        features = lambda *a: lewm_features(*a, obs_root=obs_root)
     else:
         from go2nav.models.hjepa import load_hjepa
         model = load_hjepa(world_model, device)
-        features = lambda *a: hjepa_features(*a, level=level)
+        features = lambda *a: hjepa_features(*a, level=level, obs_root=obs_root)
     sets = {}
     for name, path in (('train', train), ('eval', evaluation)):
         data = dict(np.load(path))
@@ -631,6 +767,7 @@ def probe(root, world_model, train, evaluation, out, *, updates=UPDATES, device=
     (dtrain, ftrain), (deval, feval) = sets['train'], sets['eval']
     rtrain, reval = np.flatnonzero(ftrain['ok'].numpy()), np.flatnonzero(feval['ok'].numpy())
     split = kinds(deval)[reval]
+    v2 = np.isin(unit_kinds(deval)[reval], V2_KINDS)
     gpu = lambda f, rows, key, j: head_inputs(f['zh'][rows].to(device), (f['zh'][rows, -1] if j is None
                                                                          else f[key][rows, j]).to(device))
     reached = ftrain.get('horizons', list(range(len(HORIZONS))))
@@ -639,7 +776,7 @@ def probe(root, world_model, train, evaluation, out, *, updates=UPDATES, device=
     for head, fit in (('ridge', lambda x, y: fit_ridge(x, y, dtrain['unit'][rtrain])),
                       ('mlp', lambda x, y: fit_mlp(x, y, updates=updates))):
         for source in ('true', 'rollout'):
-            rows_out = {s: [] for s in ('val', 'transfer')}
+            rows_out = {s: [] for s in ('val', 'transfer', 'val_v2')}
             for j in (None, *reached):
                 if j is None and source == 'rollout':
                     continue
@@ -651,7 +788,7 @@ def probe(root, world_model, train, evaluation, out, *, updates=UPDATES, device=
                     p = {tape: start+predict(gpu(feval, reval, tape, j)).cpu().numpy()
                          for tape in ((key,) if source == 'true' or j is None else TAPES)}
                 for s in rows_out:
-                    m = split == s
+                    m = (split == 'val') & v2 if s == 'val_v2' else split == s
                     entry = dict(horizon_s=0. if j is None else HORIZONS[j]/10,
                                  **score(deval, reval[m], p[key][m], j))
                     if source == 'rollout' and j is not None:
@@ -686,10 +823,11 @@ def main():
     p.add_argument('--updates', type=int, default=UPDATES)
     p.add_argument('--device', default='cuda:0')
     p.add_argument('--level', type=int, default=1, help='an H-JEPA checkpoint\'s upper level (2: 1.6 s)')
+    p.add_argument('--obs-root', help='the frames\' other sensors (P15), for a model that takes them')
     args = parser.parse_args()
     if args.command == 'probe':
         probe(args.root, args.world_model, args.train, args.eval, args.out, updates=args.updates, device=args.device,
-              level=args.level)
+              level=args.level, obs_root=args.obs_root)
     if args.command == 'labels':
         print(json.dumps(labels(args.root, args.out, roles=args.roles, stride=args.stride, workers=args.workers),
                          indent=1))

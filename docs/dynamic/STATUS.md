@@ -1441,3 +1441,76 @@ The stand-off and per-km figures are given for one walker / two walkers.
   - All three suites had no contact stops, so Phase D must have none.
 - **Not comparable:** the polite and four-walker suites have no cameras-only pair on no-slip physics. P8's fixed record
   (70 of 80) was run before no-slip and without the range sensor, so 65 is not read against it.
+
+## P14: data that contain the decision (8 November)
+
+Plan and pilots: PLAN P14. Branch `feature/phase-b-data`.
+
+- **Range scans for corpus v2**, cast offline for all 5,200 units (`go2nav_lewm_v2_range`). Against the units' free-ray
+  labels the beams agree to a median of 0.7 cm, and a unit's live scans equal the offline cast exactly.
+- **Stand-off units:** 1,300 units of 900 frames (kinds `standoff` on the tree mazes and `standoff_b` on family B's
+  corpus set), one to three walkers, 40% reactive, 40% walkers that do not yield, 20% polite, with the live range sensor
+  and the no-slip pass. The driver took five revisions (PLAN P14).
+- **The data gate passed.**
+
+| | Result | Gate |
+|---|---|---|
+| Stand-offs resolved within 10 s | 22.1% of 1,376 | at least 20% |
+| Robot moved at least 1 m away | 27.9% | at least 20% |
+| Stand-off frames, walkers that do not yield / reactive | 74% / 25% | at least 15% each |
+| Stand-off frames, families A / B | 46% / 54% | at least 15% each |
+| Contact stops, `standoff` / `standoff_b` | 3.8% / 2.2% of units | at most 5% |
+
+- Corpus v2 before the top-up: 3,740 stand-offs over 6.7 hours, 2.6% resolved within 10 s.
+- 198 units ended pinned. In the first full collection, 102 of 171 pinned units were dead ends with a walker that does
+  not yield at the mouth, which no move resolves.
+- The corpus is 6,500 units and 4,963,265 windows of 12 frames.
+
+## P15: phase C does not test the thesis (9 November)
+
+Plan, gates and the leakage analysis: PLAN P15. The review: `docs/REVIEW_2026-11-09.md`. Checks:
+`outputs/phase_c/review_2026-11-09/RESULTS.txt`.
+
+**The gates as written** (val; the give-way figures are the level-1 ridge readout at 1.6 / 3.2 s):
+
+| Model | Give-way AUC (0.80) | Way clear, 12.8-s level (0.75) | Contact (0.9) | Own motion | Walkers (0.216 m) |
+|---|---|---|---|---|---|
+| `go2_3level_v2` [corpus v2, before the stand-off units] | 0.44 / 0.50 | 0.73 | 0.90 | fails | 0.175 |
+| The control [the same model with the stand-off units] | 0.44 / 0.48 | 0.75 | 0.91 | fails | 0.131 |
+| `go2_3level_c` at 20k [phase C's model: ring, proprioception, heads] | 0.77 / 0.71 | 0.76 | 0.93 | passes | 0.429 |
+| `go2_3level_c` at 40k | 0.73 / 0.61 | 0.77 | not scored | not scored | 0.424 |
+
+No model passes the give-way gate on both splits, and the ceiling from the simulator's state is 0.95.
+
+**`go2_3level_c` learned its command history.** One input permuted across 960 validation frames:
+
+| Share of the latent's variance set by | `go2_3level_c`, 40k | The control |
+|---|---|---|
+| Camera image | 0.04 | 1.00 |
+| Range ring | 0.11 | none |
+| The 1.5-s applied-command history (proprioception token) | 0.89 | none |
+
+- The history recorded at frame t+1 holds the command of step t, so the inverse-dynamics loss is solved by copying:
+  0.168 in the control and 0.0029 here at step 49,000.
+- One step predicted with shuffled actions costs 0.82 against 0.0076 with the true ones (the control: 0.105 and 0.040).
+  Levels 2 and 3 are almost pure action codes (level 2: 1.81 and 0.015).
+- The health checks pass, because they set no upper limit on sensitivity to actions.
+
+**The gates do not isolate prediction.**
+
+| Gate | What predicts nothing scores (val) |
+|---|---|
+| Give-way | a classifier on the command history alone 0.77 / 0.73; the walker's distance alone 0.91 / 0.90, and 0.87 / 0.83 on transfer |
+| Way clear | the same readout without the rollout: within 0.02 of the rollout's in every model |
+| Contact | "in contact now" 0.92; 84% of contacts 0.8 s ahead are already contacts |
+| Own motion | trivial once the commands are an input |
+
+- `go2_3level_c`'s rise on the give-way gate is the command history: a robot that has stood still is usually facing a
+  waiting walker.
+- The slope of the predicted reaction on the true one (`outputs/phase_c/leakage_and_budget.py`) is between -0.03 and
+  0.09 in every model, where 1 is correct. By that measure the control and `go2_3level_v2` do not predict the reaction,
+  and the stand-off data did not change it.
+
+**Read.** `go2_3level_c` is void as a test of the thesis, and stopping it at about 50,000 of 60,000 steps was approved.
+The thesis's base case, a planner on the model, has never been run. Next: measures that isolate prediction (PLAN P16),
+the planner and its cost on the true model (P17), then the planner in missions (P18).

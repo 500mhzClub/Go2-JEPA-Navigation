@@ -51,7 +51,8 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 REPO = Path(__file__).resolve().parents[2]
 CONTROL_STATS = REPO/'data/training/control_norm_stats.json'
 CONTROL_STATS_3 = REPO/'data/training/control_norm_stats_corpus_v2.json'
-COMMAND_AXES = {2: [0, 2], 3: [0, 1, 2]}   # the command components (forward, lateral, yaw) an action block holds
+COMMAND_AXES = {2: [0, 2], 3: [0, 1, 2]}
+RANGE_BEAMS = 720                         # `perception.range.BEAMS`; the observation layout is `data.observations`'   # the command components (forward, lateral, yaw) an action block holds
 
 
 @dataclass(frozen=True)
@@ -83,10 +84,18 @@ class LeWMConfig:
     frozen_encoder: bool = False    # the encoder and [CLS] projector never train and stay in eval mode (P4c)
     mover_head: bool = False        # a training-only head reading walkers per grid column from the state (P4d)
     free_head: bool = False         # a head reading the free distance round the robot from the state (P6)
+    range_sectors: int = 0          # P15: the range ring as this many sector tokens in the encoder (0: no ring)
+    proprio_dim: int = 0            # P15: a proprioception token from this many values a frame (0: none)
 
     @property
     def action_dim(self):
         return self.block_steps*self.command_dim
+
+    @property
+    def obs_dim(self):
+        """Values a frame of `observations` (`data.observations`) carries for this model: the ring and its mask if
+        `range_sectors`, then the proprioception (0: frames only)."""
+        return (2*RANGE_BEAMS if self.range_sectors else 0)+self.proprio_dim if self.range_sectors or self.proprio_dim else 0
 
     @property
     def tokens(self):
@@ -201,11 +210,14 @@ class ViTEncoder(nn.Module):
     def forward(self, pixels):
         return self.tokens(pixels)[:, 0]
 
-    def tokens(self, pixels):
+    def tokens(self, pixels, extra=None):
         """(B, 3, H, W) to the final layer's normalised tokens (B, 1 + H/p * W/p, width): [CLS], then the patches in
-        row-major order (the world models use only [CLS]; the patches are for probes)."""
+        row-major order (the world models use only [CLS]; the patches are for probes); then `extra` (B, k, width), the
+        other sensors' tokens (`ObservationTokens`, with their own position embeddings), if given."""
         x = self.patch_embed(self.patches(pixels))
         x = torch.cat((self.cls_token.expand(len(x), -1, -1), x), dim=1)+self.position
+        if extra is not None:
+            x = torch.cat((x, extra.to(x.dtype)), dim=1)
         recompute = self.training and torch.is_grad_enabled()
         for i, block in enumerate(self.blocks):
             if recompute and i < self.checkpoint_blocks:
@@ -213,6 +225,36 @@ class ViTEncoder(nn.Module):
             else:
                 x = block(x)
         return self.norm(x)
+
+
+class ObservationTokens(nn.Module):
+    """P15: the non-camera inputs of a frame (`data.observations`: the ring, its mask, then proprioception; (N, obs_dim))
+    as tokens for the ViT (N, k, width). The ring (2 channels: log range, mask) goes through three circular 1-D
+    convolutions (strides 1, 2, 2) and is average-pooled into `range_sectors` sectors, one token each; the
+    proprioception through an MLP into one token. Each token has its own learned position embedding."""
+
+    def __init__(self, config):
+        super().__init__()
+        w, self.sectors, self.proprio = config.width, config.range_sectors, config.proprio_dim
+        if self.sectors:
+            conv = lambda i, o, k, s: nn.Conv1d(i, o, k, stride=s, padding=k//2, padding_mode='circular')
+            self.ring = nn.Sequential(conv(2, 32, 9, 1), nn.GELU(), conv(32, 64, 9, 2), nn.GELU(), conv(64, w, 5, 2))
+            self.ring_position = nn.Parameter(torch.zeros(1, self.sectors, w))
+            nn.init.trunc_normal_(self.ring_position, std=.02)
+        if self.proprio:
+            self.body = nn.Sequential(nn.Linear(self.proprio, w), nn.GELU(), nn.Linear(w, w))
+            self.body_position = nn.Parameter(torch.zeros(1, 1, w))
+            nn.init.trunc_normal_(self.body_position, std=.02)
+
+    def forward(self, obs):
+        obs, tokens = obs.float(), []
+        if self.sectors:
+            ring = torch.stack((obs[:, :RANGE_BEAMS], obs[:, RANGE_BEAMS:2*RANGE_BEAMS]), 1)
+            x = F.adaptive_avg_pool1d(self.ring(ring), self.sectors).transpose(1, 2)
+            tokens.append(x+self.ring_position)
+        if self.proprio:
+            tokens.append(self.body(obs[:, -self.proprio:])[:, None]+self.body_position)
+        return torch.cat(tokens, 1)
 
 
 # -- the official modules ----------------------------------------------------------------------------------------------
@@ -366,6 +408,7 @@ class LeWorldModel(nn.Module):
         super().__init__()
         self.config = config
         self.encoder = ViTEncoder(config)
+        self.observations = ObservationTokens(config) if config.obs_dim else None
         self.projector = MLP(config.width, config.projector_hidden, config.latent)
         self.action_encoder = Embedder(config.action_dim, config.action_smoothed_dim, config.latent, config.action_mlp_scale)
         self.predictor = ARPredictor(num_frames=config.history, depth=config.predictor_depth,
@@ -413,13 +456,25 @@ class LeWorldModel(nn.Module):
         torch.manual_seed(int(seed))
         return cls(config)
 
-    def encode(self, pixels):
+    def embed(self, pixels, obs=None):
+        """Normalised frames (N, 3, H, W), with their observations (N, obs_dim) if the model takes them, to z (N, D)
+        (no grid)."""
+        if (self.observations is None) != (obs is None):
+            raise ValueError('this model takes observations with its frames' if obs is None else
+                             'this model takes frames only')
+        extra = None if obs is None else self.observations(obs)
+        return self.projector(self.encoder.tokens(pixels, extra)[:, 0])
+
+    def encode(self, pixels, obs=None):
         """Normalised frames (B, T, 3, H, W) to the state: z (B, T, D), or with a grid (B, T, 1+G, D), [CLS]'s z then
         the grid tokens in row-major order (the patch tokens average-pooled to the grid, each through `grid_projector`,
-        or as they are without one). `cls` takes [CLS]'s z from either."""
+        or as they are without one). `cls` takes [CLS]'s z from either. With `ObservationTokens` (P15), `obs`
+        (B, T, obs_dim) are the frames' other sensors."""
         b = pixels.size(0)
         if not self.config.grid:
-            return self.projector(self.encoder(pixels.flatten(0, 1))).unflatten(0, (b, -1))
+            return self.embed(pixels.flatten(0, 1), None if obs is None else obs.flatten(0, 1)).unflatten(0, (b, -1))
+        if obs is not None:
+            raise ValueError('observations are not combined with a grid')
         tokens = self.encoder.tokens(pixels.flatten(0, 1))
         (rows, cols), (gr, gc) = (size//self.config.patch for size in self.config.image_hw), self.config.grid
         pooled = tokens[:, 1:].reshape(len(tokens), gr, rows//gr, gc, cols//gc, -1).mean((2, 4)).flatten(1, 2)

@@ -25,7 +25,10 @@ from dataclasses import asdict, dataclass
 import torch
 from torch import nn
 
-from go2nav.models.lewm import MLP, ARPredictor, LeWMConfig, LeWorldModel, losses as level1_losses
+from torch.nn import functional as F
+
+from go2nav.models.lewm import (MLP, MOTION_SCALE_PER_STEP, ARPredictor, LeWMConfig, LeWorldModel, body_motion,
+                                losses as level1_losses)
 from go2nav.models.norm import LayerNorm
 
 
@@ -43,17 +46,19 @@ class UpperConfig:
     predictor_head_dim: int = 64
     predictor_mlp: int = 2048
     predictor_dropout: float = .1
+    rollout_steps: int = 0       # P15: also an autoregressive rollout of this many steps from the context (0: none)
 
     @property
     def crop(self):
-        """States per training sample: the context and the one it predicts."""
-        return self.context+1
+        """States per training sample: the context and the one it predicts, or the context and the rollout's."""
+        return self.context+max(1, self.rollout_steps)
 
 
 @dataclass(frozen=True)
 class HJEPAConfig:
     level1: LeWMConfig = LeWMConfig()
     upper: tuple = (UpperConfig(stride=16, context=3), UpperConfig(stride=8, context=2))
+    heads: bool = False          # P15: the stop-gradient heads (`Heads`)
 
     @property
     def periods(self):
@@ -69,15 +74,44 @@ class HJEPAConfig:
         return (self.upper[-1].crop-1)*self.periods[-1]+1 if self.upper else self.level1.history
 
     def to_dict(self):
-        return dict(level1=asdict(self.level1), upper=[asdict(u) for u in self.upper])
+        return dict(level1=asdict(self.level1), upper=[asdict(u) for u in self.upper], heads=self.heads)
 
     @classmethod
     def from_dict(cls, d):
         level1 = dict(d['level1'])
-        for key in ('image_hw', 'inverse_spans', 'inverse_span_weights'):
+        for key in ('image_hw', 'inverse_spans', 'inverse_span_weights', 'grid'):
             if key in level1:
                 level1[key] = tuple(level1[key])
-        return cls(level1=LeWMConfig(**level1), upper=tuple(UpperConfig(**u) for u in d['upper']))
+        return cls(level1=LeWMConfig(**level1), upper=tuple(UpperConfig(**u) for u in d['upper']),
+                   heads=bool(d.get('heads', False)))
+
+
+CONTACT_M = .10                                  # `data.head_labels.CONTACT_M`
+MOTION_SCALE_LEVEL2 = (.5, .5, .8)               # m, m, rad: the spread of 1.6-s body-frame motion
+
+
+class Heads(nn.Module):
+    """P15's heads, read from the latent with stop-gradient (they never shape it; docs/dynamic/PLAN.md P15):
+    - `contact`: whether the body outline is within `CONTACT_M` of a wall or walker at this frame (a logit), from a
+      level-1 z; the gate reads it on the model's 0.8-s rollout;
+    - `presence`: a walker within 2 m, in the camera's view and in the ring's line of sight (two logits), from a z;
+    - `motion`: the body-frame motion (dx, dy, dyaw) over one step, from [z_t, z_(t+1) - z_t], over
+      `MOTION_SCALE_PER_STEP`;
+    - `motion2`: the same over one level-2 step (1.6 s), from level-2 states, over `MOTION_SCALE_LEVEL2`."""
+
+    def __init__(self, latent1, latent2, hidden=512):
+        super().__init__()
+        self.contact = MLP(latent1, hidden, 1)
+        self.presence = MLP(latent1, hidden, 2)
+        self.motion = MLP(2*latent1, hidden, 3)
+        self.motion2 = MLP(2*latent2, hidden, 3)
+
+    @staticmethod
+    def pairs(states):
+        return torch.cat((states[:, :-1], states[:, 1:]-states[:, :-1]), -1)
+
+    def run(self, head, x):
+        return head(x.flatten(0, -2)).unflatten(0, x.shape[:-1])
 
 
 class UpperLevel(nn.Module):
@@ -131,6 +165,7 @@ class HJEPA(nn.Module):
             levels.append(UpperLevel(u, latent, action))
             latent, action = u.latent, u.macro
         self.upper = nn.ModuleList(levels)
+        self.heads = Heads(config.level1.latent, config.upper[0].latent) if config.heads else None
 
     @classmethod
     def seeded(cls, seed, config=HJEPAConfig()):
@@ -156,13 +191,43 @@ class HJEPA(nn.Module):
         return [list(self.level1.parameters())]+[list(u.parameters()) for u in self.upper]
 
 
+def upper_rollout(level, states, macros, steps):
+    """The autoregressive rollout from a crop's first `context` states: (B, steps, D), the states after them."""
+    n = level.config.context
+    sequence = states[:, :n]
+    for k in range(steps):
+        sequence = torch.cat((sequence, level.predict(sequence[:, -n:], macros[:, k:k+n])[:, -1:]), 1)
+    return sequence[:, n:]
+
+
 def upper_terms(level, states, macros, sigreg, *, generator=None):
-    """One upper level's unweighted terms on a crop: states (B, crop, D), macros (B, crop-1, macro)."""
-    pred = level.predict(states[:, :-1], macros)
-    return dict(pred=(pred-states[:, 1:]).pow(2).mean(),
-                sigreg=sigreg(states.float().transpose(0, 1), generator),
-                inverse=(level.infer(states)-macros.detach()).pow(2).mean(),
-                action_sigreg=sigreg(macros.float().transpose(0, 1), generator))
+    """One upper level's unweighted terms on a crop: states (B, crop, D), macros (B, crop-1, macro). The
+    teacher-forced prediction covers the first context + 1 states; with `rollout_steps` (P15), `rollout` is the MSE
+    of the autoregressive rollout over the rest."""
+    n, steps = level.config.context, level.config.rollout_steps
+    pred = level.predict(states[:, :n], macros[:, :n])
+    terms = dict(pred=(pred-states[:, 1:n+1]).pow(2).mean(),
+                 sigreg=sigreg(states.float().transpose(0, 1), generator),
+                 inverse=(level.infer(states)-macros.detach()).pow(2).mean(),
+                 action_sigreg=sigreg(macros.float().transpose(0, 1), generator))
+    if steps:
+        terms['rollout'] = (upper_rollout(level, states, macros, steps)-states[:, n:n+steps]).pow(2).mean()
+    return terms
+
+
+def head_terms(model, z1, poses1, labels, states2, poses2):
+    """The heads' losses (P15), all on detached inputs: z1 (B, T, D1) level-1 z of the windows with their planar poses
+    (B, T, 3) and `labels` (clearance (B, T), presence (B, T, 2)); states2 (B, c, D2) level-2 states of the clips with
+    their poses (B, c, 3)."""
+    h, z1, states2 = model.heads, z1.detach(), states2.detach()
+    contact = (labels['clearance'] < CONTACT_M).float()
+    scale1 = torch.tensor(MOTION_SCALE_PER_STEP, device=z1.device)
+    scale2 = torch.tensor(MOTION_SCALE_LEVEL2, device=z1.device)
+    return dict(
+        contact=F.binary_cross_entropy_with_logits(h.run(h.contact, z1)[..., 0].float(), contact),
+        presence=F.binary_cross_entropy_with_logits(h.run(h.presence, z1).float(), labels['presence'].float()),
+        motion=(h.run(h.motion, h.pairs(z1)).float()-body_motion(poses1.float(), 1)/scale1).pow(2).mean(),
+        motion2=(h.run(h.motion2, h.pairs(states2)).float()-body_motion(poses2.float(), 1)/scale2).pow(2).mean())
 
 
 def losses(model, batch, *, level1, upper, sigreg, generator=None):
@@ -171,14 +236,18 @@ def losses(model, batch, *, level1, upper, sigreg, generator=None):
       crops of states (Bu, crop, 3, H, W);
     - batch['actions']: per level, level 1's action blocks (B1, T - 1, A1), then for each upper level the level-1 blocks
       spanning its crops' transitions (Bu, (crop - 1) x period, A1).
+    - batch['obs'] (P15, a model with `ObservationTokens`): per level, the frames' other sensors (..., obs_dim);
+    - batch['poses'] and batch['labels'] (P15, a model with heads): level 1's and level 2's planar poses (B, T, 3), and
+      level 1's head labels (`data.head_labels`: clearance (B1, T), presence (B1, T, 2)).
     `level1`: keyword arguments of `models.lewm.losses` (rollout_steps, lam, inverse_weight); `upper`: per upper level a
-    dict of weights (sigreg, inverse, action_sigreg). Returns the terms per level and `loss`, their weighted sum."""
-    frames, actions = batch['frames'], batch['actions']
+    dict of weights (sigreg, inverse, action_sigreg, and rollout, default 1). Returns the terms per level and `loss`,
+    their weighted sum."""
+    frames, actions, obs = batch['frames'], batch['actions'], batch.get('obs')
     if frames[0].size(1) != model.config.level1.history+level1['rollout_steps']:
         raise ValueError('level 1 frames must be history + rollout_steps')
-    # One encoder pass over every level's frames.
+    # One encoder pass over every level's frames (with their other sensors, P15).
     flat = torch.cat([f.flatten(0, 1) for f in frames])
-    z_all = model.level1.projector(model.level1.encoder(flat))
+    z_all = model.level1.embed(flat, None if obs is None else torch.cat([o.flatten(0, 1) for o in obs]))
     parts, start = [], 0
     for f in frames:
         n = f.size(0)*f.size(1)
@@ -193,9 +262,15 @@ def losses(model, batch, *, level1, upper, sigreg, generator=None):
         macros = model.macros(actions[k+1], level)
         t = upper_terms(model.upper[k], states, macros, sigreg, generator=generator)
         t['loss'] = t['pred']+weights['sigreg']*t['sigreg']+weights['inverse']*t['inverse'] \
-            + weights['action_sigreg']*t['action_sigreg']
+            + weights['action_sigreg']*t['action_sigreg']+weights.get('rollout', 1.)*t.get('rollout', 0.)
         terms |= {f'l{level}/{key}': v for key, v in t.items()}
         total = total+t['loss']
+        if k == 0:
+            states2 = states
+    if model.heads is not None:
+        h = head_terms(model, parts[0], batch['poses'][0], batch['labels'], states2, batch['poses'][1])
+        terms |= {f'heads/{key}': v for key, v in h.items()}
+        total = total+sum(h.values())          # stop-gradient: these move the heads only
     terms['loss'] = total
     return terms
 
