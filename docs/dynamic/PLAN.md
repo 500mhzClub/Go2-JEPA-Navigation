@@ -1137,6 +1137,24 @@ the others) and how near it is. So a model that predicted the reaction would pas
 contrast of the model's own rollouts, not a classifier on its state, so it is a harder test than this ceiling
 (`outputs/phase_c/give_way_ceiling.py`).
 
+**Why the control and `go2_3level_v2` miss the reaction** (9 November, from the gate runs' cached probe features;
+`outputs/phase_c/leakage_and_budget.py`). Validation give-way windows, levels 1 and 2, 1.6 and 3.2 s.
+- The readout's predicted contrast (tape minus hold) does not depend on the walker's true reaction. Regressed on the
+  true contrast and on the robot's own displacement under the tape, the response coefficient is -0.03 to 0.05. The
+  leak coefficient is +0.12 to +0.34, and it alone explains R2 0.58-0.79. The model moves the walker with the robot, by
+  a quarter to a third of the robot's displacement, whether the walker reacts or not. For example, the control at
+  level 1, 3.2 s, under retreat: -0.030 m for walkers that do not react, -0.033 m for those that do; their truth is
+  -0.296 m, because a reacting walker follows the robot.
+- Without any readout, the size of the latent contrast |z_tape - z_hold| does not separate reacting walkers from
+  the rest: AUC 0.40-0.55.
+- The rollout's latent error is the same where the walker reacts as where it does not (control, level 1, 1.6 s: 0.34
+  against 0.33 of the latent's change). The reaction is too small a part of the latent change to show in the loss.
+- The stand-off data did not change any of this (the control against `go2_3level_v2`).
+
+So the latent's response to an action is the robot's own motion and the scene's, never the walker's. The objective
+does not pay for the reaction, as it did not pay for the robot's own motion before inverse dynamics. Correction to
+the hypothesis of 8 November: the leak is a walker drawn along with the robot, not one reported relative to it.
+
 If gate 1 fails on these data, the thesis has a clean negative result: the self-supervised predictor does not learn
 the reaction even when it is observed. The next choice is then supervision on predicted states (P4d's labels on
 rollouts) or route 1. The record will say which, and why.
