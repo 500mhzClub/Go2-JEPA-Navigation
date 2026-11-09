@@ -887,6 +887,408 @@ contain the decision) is set out on its own branch.
 GPU: about 3 hours for the reference measure, then about 4.5 hours for the other reference suites before phase D. At
 most 6 world-model missions at once, EGL_DEVICE_ID=1, mazes 50-89 of family A still held.
 
+### P14. Review phase B: data that contain the decision (proposed 8 November; preparation approved 8 November)
+
+**Why.** In corpus v2, when a walker waited near the robot, the robot held or turned in place in 93% of the next 1.6 s
+(P4f). The stand-offs that end every failed mission with walkers that do not yield (P11) were almost never resolved in
+the data. A model that learns only from observation cannot learn from that what a retreat or a step aside leads to. This
+phase records those outcomes, and adds the range sensor to everything the model will see. Nothing in it changes how the
+robot is controlled. Branch `feature/phase-b-data`.
+
+**1. Range scans for corpus v2, cast offline** (`go2nav.data.range_backfill`; approved and running 8 November as
+preparation). Every frame of corpus v2's 5,200 units gets the scan the range sensor would have given, from the recorded
+pose, the walkers' recorded positions and the maze's walls. The output is written to `go2nav_lewm_v2_range`; the corpus
+is never touched. Check against the units' own truth labels (`free_rays.npy`): on 24 units the forward and backward beams
+differ from the labels by a median of 0.7 cm, 2.1 cm at the 95th percentile.
+
+**2. A family B training set** (`configs/mazes/loops_rooms_corpus_v1.yaml`; preparation). 1,300 layouts with loops and
+rooms on 5×4 grids, the corpus mazes' size: lewm_train 0-1199, lewm_val 1200-1299. It excludes every family B evaluation
+layout and the held-out family C.
+
+**3. The stand-off driver** (`StandoffDriver`, kind `standoff`). It extends `GiveWayDriver`; its encounters are
+stand-offs:
+- **Approach.** It faces the nearest walker in sight, then either walks to 0.6-1.1 m from it or stops in its path and
+  lets it come.
+- **Wait.** It holds for 2-30 s, drawn log-uniform, so both short and long stand-offs occur.
+- **Resolve,** chosen at random:
+  - retreat along its own path, 0.3-3 m (35%);
+  - step aside into the side with most room (20%);
+  - turn away and walk off, 1-3 m (20%);
+  - hold on, 5-20 s (15%);
+  - advance (10%).
+- **Safety.** Every command passes the free driver's stand-off rule on the true walls and walkers, so the driver never
+  touches anything.
+- **Role.** The driver only makes sure the outcomes are observed. No model is trained to imitate it.
+
+**Revised in four pilots** (7 November, collection approved; 48 units each, mazes 0-23 of both families; each set
+aside on the data drive, `_set_aside_standoff_*`). The first 69 units of the collection as designed met the gate on
+nothing: against walkers that do not yield, 43 stand-offs, none resolved, none with the robot 1 m away. Such a walker
+follows a robot that only backs off (both moved 0.4 m and stayed 0.62 m apart), so in a corridor the move that lets it
+pass is to get out of its lane at a junction. The driver now:
+- **gives way** (35%): back along its own path at 0.25 m/s to the first side opening (0.3-4 m), line up with the
+  opening's middle, turn to it at 0.8 rad/s and go 1.0-1.5 m into it at 0.30 m/s;
+- waits 1-6 s before resolving (corpus v2 already holds 6.7 h of stand-offs in which nothing happens; *hold on* keeps
+  long ones), and retreats at 0.10 or 0.20 m/s; resolutions: give way .35, retreat .15, aside .15, walk off .15,
+  hold .10, advance .10;
+- **unsticks:** a driver commanding motion that has not got 0.20 m from where it was 6 s ago, with a walker within
+  0.8 m, gives way (alternately walks off), and an escape step is kept 1.5 s. 86% of pilot 2's stand-off frames were the
+  driver stuck under its own stand-off rule, turning in place for up to 60 s or stepping back and forth;
+- **ends a pinned unit:** stuck three times on one spot (between two walkers that do not yield, or a walker and a
+  wall: walkers that never give up make that permanent), the unit ends ('PINNED', frames kept).
+Free starts also use the layout's own pitch now (they used 1.3 m, so on family B the robot could start against a wall),
+and the stand-off units run the no-slip pass (P13 item 6).
+
+| Pilot | Resolved within 10 s, stand-offs | Same, frames | Robot moved 1 m away | Contact stops |
+|---|---|---|---|---|
+| First 69 units (family A) | - | 7.9% | 4.3% | 1 |
+| 1: give way | - | 8.6% | 9.2% | 1 |
+| 2: faster | - | 3.7% | 15% | 0 |
+| 3: unstick | 21% | 12% | 26% | 1 |
+| 4: no progress, pinned | 20% | 5.7% | 31% | 2 (4%) |
+
+**End to end, one unit** (8 November, scratch root; family B maze 5, two reactive walkers): 900 frames, no contact,
+40% of the frames in stand-off segments. Its live range scans equal the offline cast at the same recorded poses
+exactly (largest difference 0.0 m), so item 1's backfill is the live sensor. Its walkers passed or waited beyond 0.70
+m, so the audit counted no stand-offs in it.
+
+**4. A stand-off top-up** (`collect --kinds standoff`).
+- **Units:** 1,200 training and 100 validation units of 900 frames each.
+- **Layouts:** half on corpus v2's family A mazes (lewm_sets_v1, 5×4 trees), half on family B (loops_rooms_corpus_v1).
+- **Walkers:** one to three per unit, 40% of units reactive, 40% non-yielding, 20% polite.
+- **Recorded:** everything corpus v2 records, plus `range.npz` from the live sensor, plus each walker's internal state
+  (waiting, behaviour, yielding, patience) as labels for probes.
+- **Compute:** about 8 hours of collection on the CPU, rendering on the R9700. It runs after the phase A reference
+  suites, or beside them with fewer workers if the first minutes stay healthy.
+
+**Gate on the data, set before collection, read before any training.** A stand-off window is a walker standing still
+for at least 1 s within 0.70 m with the robot ahead of its last heading.
+- At least 20% of stand-offs resolve within 10 s: the walker is out of the stand-off and more than 1.0 m from the
+  robot. **Amended 7 November after the pilots** (approved; it first read "at least 25% of stand-off frames"). Counted by
+  frames, a few long stand-offs decide the share: 12% and 6% in pilots 3 and 4, whose drivers differ only in how they
+  get unstuck, against 21% and 20% counted per stand-off. What a world model can learn from is the number of distinct
+  resolutions it sees, not how long the unresolved waits last. `standoff_audit.gate` checks the amended conditions.
+- At least 20% of stand-offs see the robot move at least 1 m away from where it stood, further from the walker.
+
+Corpus v2 against the gate (`go2nav.data.standoff_audit`, all 5,200 units; `outputs/phase_a/standoff_audit_v2.json`):
+
+| Corpus v2 | Stand-offs | Stand-off frames | Resolved within 10 s | Robot moved 1 m away |
+|---|---|---|---|---|
+| All | 3,740 | 241,193 (6.7 h) | 2.6% | 4.1% |
+| Walkers that do not yield | 3,374 | 98% of them | 0.9% | 2.2% |
+| Polite walkers | 366 | 2% | 88% (they turn back) | 22% |
+
+The corpus already holds 6.7 hours of stand-offs with walkers that do not yield, and under 1% of them resolve: the model
+has watched stand-offs in which nothing happens. The give-way top-up's retreats (0.1-0.3 m) did not change that.
+- Every walker behaviour is drawn for at least 15% of the units, and both layout families supply at least 15% of the
+  stand-off frames. Non-yielding and reactive walkers each supply at least 15% of the stand-off frames. Polite walkers
+  stop 0.8 m away and turn back after 3 s, and yielding reactive ones wait 0.40 m short of the robot's outline (a
+  centre about 0.95 m away), so under the 0.70-m definition they make few stand-off frames by design.
+- Contact stops in at most 5% of units, as corpus v2's gate.
+
+If the gate fails, the driver's weights change and a small top-up runs again, measured the same way. No training starts
+on data that fails it. The collection runs with pilot 4's driver (2de1826); pilot 4's 48 units are its first.
+
+**Collected 7-8 November.**
+
+The first full collection, at ed0cbb5 with 1,300 units, failed the gate:
+
+- 18.7% of its 1,623 stand-offs were resolved, against the 20% the gate requires.
+- Non-yielding walkers' stand-offs resolved 15.6% of the time, reactive walkers' 24%.
+- 127 non-yielding units ended pinned. They held 542 of the 1,192 non-yielding stand-offs, and 5% of those resolved.
+- 102 of the 171 pinned units ended in a dead end with a non-yielding walker at its mouth. That walker never turns back, so no move can resolve the stand-off.
+
+The fifth revision was approved on 8 November (89ef678). When the driver is stuck and every way out with 1 m of room runs into a walker within 1.3 m, it is now pinned at once rather than after three tries. The 527 non-yielding units were set aside in `_set_aside_standoff_ny_ed0cbb5` and recollected; pilot 5 (mazes 0-59) was their first 51.
+
+On the same 527 units, the revision resolved the same number of stand-offs (186) out of fewer recorded (945 against 1,192). It records fewer hopeless repeats; it adds no resolutions. Contact stops fell from 17 to 3.
+
+The reactive and polite units stay at ed0cbb5. The revision changes nothing there until a driver is stuck with a walker at the robot. A reactive walker turns back after its patience, so a later collection with reactive walkers should limit the rule to walkers that do not yield.
+
+**The gate on the corpus: passed.**
+
+| | Result | Gate |
+|---|---|---|
+| Stand-offs resolved within 10 s | 22.1% of 1,376 | ≥20% |
+| Robot moved ≥1 m away | 27.9% | ≥20% |
+| Stand-off frames, non-yielding / reactive | 74% / 25% | ≥15% each |
+| Stand-off frames, families A / B | 46% / 54% | ≥15% each |
+| Contact stops, `standoff` / `standoff_b` | 25/650 (3.8%) / 14/650 (2.2%) | ≤5% |
+
+198 units ended pinned.
+
+Indexed 8 November: 6,500 units and 4,963,265 windows of 12 frames; the 31 October index is kept as `index_12_pre_p14.*`.
+
+In the corpus audit, two of corpus v2's accepted shortfalls now pass:
+
+- 38,194 rest-start windows;
+- an obstacle in view in 23.7% of frames.
+
+The lateral share is 9.5% of blocks, against its gate of 10%; it was accepted at 8.9%.
+
+**Compute.** Preparation (items 1-2): CPU, under an hour. The driver and the collector: about a day of building. The
+collection: about 8 CPU-hours. Mazes 50-89 of family A and all of family C stay unused.
+
+### P15. Review phase C: a model that predicts the interaction (proposed 8 November; approved 8 November: proprioception from the IMU and the commands, heads with stop-gradient, family C untouched)
+
+**Why.** P14 gives data in which a stand-off's outcome follows the robot's choice. Phase C asks whether a
+self-supervised predictor learns that outcome. Corpus v2's models scored AUC 0.19-0.40 on the give-way contrast,
+inverted, against a privileged ceiling of 0.87. This phase decides the thesis (docs/REVIEW_2026-11-07.md). Branch
+`feature/phase-b-data` until P14 merges.
+
+**0. Control** (approved and running, 8 November). `go2_3level_v2`, unchanged, on corpus v2 plus the stand-off units,
+with their clips at the upper levels (configs/hjepa/go2_3level_p14_control.yaml). It is scored on the gates below. It
+separates the effect of the data from that of the new inputs.
+
+**1. Model: `go2_3level_c`.** H-JEPA as `go2_3level_v2`, levels at 100 ms, 1.6 s and 12.8 s, trained jointly. Upper
+gradients flow into level 1, and nothing is frozen.
+- **Range input.** Each frame's 720-beam ring (`range.npz`: P14's own units, and corpus v2's backfill in
+  `go2nav_lewm_v2_range`) goes into a small 1-D convolution with circular padding, pooled into 8 sectors of 45°. The
+  sectors become 8 tokens in the ViT's sequence, with their own position embeddings, so [CLS] attends to the camera
+  and the ring together. Invalid beams read as the maximum range, with a mask channel.
+- **Proprioception.** The corpus has no joint states. One more token carries what an IMU and the policy give the
+  real robot:
+  - body angular velocity (`twist`);
+  - projected gravity (from the pose's orientation);
+  - the applied command history (`applied_history`).
+
+  The base's linear velocity is left out, since hardware has no direct sensor for it. Adding joint states would mean
+  recollecting the corpus (about 20 CPU-hours).
+- **Rollouts at the upper levels.** Level 2 (1.6 s) adds a 6-step autoregressive rollout loss to the teacher-forced
+  one, as level 1 already has with 8 steps. The loss averages every step from 1 to 6, so it covers the 2-6 steps of
+  the review, at one fixed shape for the compiled loss; its weight equals the teacher-forced loss's. Level 3 (12.8 s)
+  stays teacher-forced: a 257-frame clip holds only its 3 states, and longer clips would cut the stand-off units
+  (900 frames) to a few clips each.
+- **Heads, with stop-gradient.** They read the latent and never shape it, so the representation stays
+  self-supervised:
+  - contact at the frame (the gate reads the head on the model's 0.8-s rollout);
+  - the robot's own motion over one step and over 1.6 s;
+  - walker presence (a walker within 2 m, in view).
+
+  Their labels are privileged and used in training only, from the recorded pose, walls and walkers:
+  - contact means the body outline's true clearance falls under 0.10 m (a rectangle of 0.70 x 0.32 m);
+  - the number of positives is counted before training, and reported: about 8% of frames in a sample of 30 units.
+
+  Built 8 November (`data.observations`, `data.head_labels`, `models.lewm.ObservationTokens`, `models.hjepa.Heads`,
+  configs/hjepa/go2_3level_c.yaml). The give-way probe now replays reactive walkers and family B's pitch, so the
+  stand-off validation units are labelled: 11,425 windows from 353 units.
+
+**2. Gates.** Fixed before any model is scored, offline, on the validation units (both families) and the transfer
+units. Family C stays untouched until phase D's held-out missions:
+1. **Give-way.** P4e's probe (`mover_probe.give_way`), with labels for the new stand-off validation units. The
+   retreat-minus-hold contrast must rank the walkers that respond with AUC ≥ 0.80, at 1.6 s and at 3.2 s.
+   - At the 12.8-s level: whether the robot's way is clear after a 2-3 m retreat (from `branch`, with a retreat tape
+     of that length), AUC ≥ 0.75.
+2. **Contact.** The contact head, AUC ≥ 0.9 at 0.8 s.
+3. **Own motion at standstill.** The one-step motion head's bias on held frames (zero command) stays under 1 mm a
+   frame. P10 found 3-4 mm.
+4. **Walkers.** Localisation no worse than LeWM v2's 0.216 m.
+
+L1 health and action sensitivity must not fall below `go2_3level_v2`'s. The control is scored the same way.
+
+**How each gate is read** (`eval.phase_c_gates`, written 8 November before any model is scored):
+- **Splits.** `val` is the validation units of both families, every kind but transfer. `transfer` is the held-out
+  looks.
+- **Gate 1, give-way.** It passes if one rollout readout (ridge or MLP) at one level (1 or 2) reaches retreat AUC
+  ≥ 0.80 at both 1.6 s and 3.2 s, on `val` and on `transfer`.
+- **Gate 1, the 12.8-s part (revised 8 November, before any model was scored).** From a give-way window, the
+  kinematic robot makes the side step (`mover_probe.side_step_tape`), the move P14's driver uses against a walker that
+  does not yield:
+  - it backs along its own recorded path at 0.25 m/s to the first side opening (at least 0.3 m and at most 2.5 m
+    back);
+  - it turns to face the opening and goes 1 m in;
+  - it holds.
+
+  After 25.6 s (two level-3 steps), the way is clear if no walker is within 0.5 m of the segment from where the robot
+  ends to 1 m ahead of where it stood (`mover_probe.way_clear`).
+  - The model's input: level 3's states at t - 12.8 s and t, and two steps of its predictor under the side step's
+    macro-actions.
+  - Read by ridge and MLP readouts fitted on the training units' labels.
+  - It passes at AUC ≥ 0.75 on both splits by one readout.
+  - Reported beside it: the same readouts on the state at t alone, and the base rates.
+
+  **Why it was revised.** The gate first used a straight 2.56-m retreat over 12.8 s. A straight retreat is the wrong
+  move against a walker that does not yield, because the walker follows it. On 80 validation units the straight
+  retreat cleared the way where holding did not in 10% of such walkers' windows; the side step does so in 28% (36%
+  clear, against 12% after holding). The straight retreat's label is kept and reported.
+- **Gate 2, contact.** Windows every fifth frame, with 4 frames of history and 0.8 s after. The contact head reads the
+  model's 8-step rollout under the executed commands, against contact at t + 0.8 s. It needs AUC ≥ 0.9 on both splits.
+  - The control has no heads, so it is read by readouts fitted on frozen latents. With stop-gradient heads that is
+    the same test.
+- **Gate 3, own motion at standstill.** On windows whose action blocks at t - 1 and t are zero, the norm of the mean
+  planar error of the one-step motion head must stay under 1 mm a frame, on `val`.
+  - The same head must also beat a zero prediction where the robot moves (skill above 0). A smoke run showed that an
+    untrained head reading almost zero everywhere has a 0.09-mm bias.
+  - This check was added 8 November, before any model was scored.
+- **Gate 4, walkers.** The probe's MLP localisation at h = 0 (median error), on corpus v2's own validation kinds, which
+  are the windows LeWM v2's 0.216 m was measured on.
+- **Health.** Level 1's L2 and the upper levels' H2 pass, from `evaluation.json`.
+
+**Before data: `go2_3level_v2`, 8 November** (corpus v2 without P14's units; the gates' first run on a trained model).
+It fails the give-way gate (retreat AUC 0.40-0.59 on every readout and level), the 12.8-s gate (0.73 val, 0.59
+transfer, no better than the state at t alone: 0.73, 0.56), contact (0.90 val, 0.68 transfer) and own motion (skill
+-0.27). It passes walkers (0.175 m) and health. Its rollout heads move the walker where it does not respond: the
+spurious response is 0.17 m at 3.2 s.
+
+**The give-way gate can be passed** (checked 8 November, after the first score, before the control's and phase C's).
+The same label, fitted from the simulator's state at t in the give-way windows (the walker's position, velocity, speed,
+whether it waits, the previous command) instead of a latent, scores retreat AUC 0.95/0.95 (1.6/3.2 s) on val and
+0.94/0.91 on transfer with a logistic fit, and 0.98/0.97 and 0.98/0.95 with an MLP. Adding the walker's type changes
+nothing. Most of it is whether the walker is waiting for the robot (92% of waiting walkers respond to a retreat, 19% of
+the others) and how near it is. So a model that predicted the reaction would pass by a wide margin. The gate reads the
+contrast of the model's own rollouts, not a classifier on its state, so it is a harder test than this ceiling
+(`outputs/phase_c/give_way_ceiling.py`).
+
+**Why the control and `go2_3level_v2` miss the reaction** (9 November, from the gate runs' cached probe features;
+`outputs/phase_c/leakage_and_budget.py`). Validation give-way windows, levels 1 and 2, 1.6 and 3.2 s.
+- The readout's predicted contrast (tape minus hold) does not depend on the walker's true reaction. Regressed on the
+  true contrast and on the robot's own displacement under the tape, the response coefficient is -0.03 to 0.05. The
+  leak coefficient is +0.12 to +0.34, and it alone explains R2 0.58-0.79. The model moves the walker with the robot, by
+  a quarter to a third of the robot's displacement, whether the walker reacts or not. For example, the control at
+  level 1, 3.2 s, under retreat: -0.030 m for walkers that do not react, -0.033 m for those that do; their truth is
+  -0.296 m, because a reacting walker follows the robot.
+- Without any readout, the size of the latent contrast |z_tape - z_hold| does not separate reacting walkers from
+  the rest: AUC 0.40-0.55.
+- The rollout's latent error is the same where the walker reacts as where it does not (control, level 1, 1.6 s: 0.34
+  against 0.33 of the latent's change). The reaction is too small a part of the latent change to show in the loss.
+- The stand-off data did not change any of this (the control against `go2_3level_v2`).
+
+So the latent's response to an action is the robot's own motion and the scene's, never the walker's. The objective
+does not pay for the reaction, as it did not pay for the robot's own motion before inverse dynamics. Correction to
+the hypothesis of 8 November: the leak is a walker drawn along with the robot, not one reported relative to it.
+
+If gate 1 fails on these data, the thesis has a clean negative result: the self-supervised predictor does not learn
+the reaction even when it is observed. The next choice is then supervision on predicted states (P4d's labels on
+rollouts) or route 1. The record will say which, and why.
+
+**3. Order and compute.**
+1. Build and test: about a day, beside the control.
+2. A 30-minute smoke run measures throughput and memory under the 85% cap. The 9 extra tokens a frame add about 5%
+   to the encoder.
+3. Training: about 15-16 h for 60k steps. It starts when the control finishes, since the R9700 holds one of them.
+4. Probes on the CPU.
+
+**4. Result: the run is void as a test of the thesis (review of 9 November, `docs/REVIEW_2026-11-09.md`; approved).**
+- **`go2_3level_c` learned its command history.** Permuting one input across 960 validation frames, the 1.5-s
+  applied-command history in the proprioception token sets 89% of the latent's variance, the camera 4%, the ring 11%
+  (the control: the camera 100%). The history recorded at frame t+1 holds the command of step t, so the
+  inverse-dynamics loss is solved by copying (0.168 in the control, 0.0029 here), and walker localisation went from
+  0.13 m to 0.43 m. The health checks pass on such a model.
+- **The gates do not isolate prediction.** The give-way AUC is matched by a classifier on the command history alone
+  (0.77 / 0.73 on val) and passed by the walker's distance alone (0.91 / 0.90 val, 0.87 / 0.83 transfer). (P16's first
+  scores add: with the command history held constant the model still ranks responders at 1.6 s, as well as the walker's
+  distance does, so part of its score came from the scene.) The 12.8-s
+  readout scores the same without its rollout. "In contact now" scores 0.92 on the contact gate. The valid measure is
+  the leakage script's slope of the predicted reaction on the true one: between -0.03 and 0.09 in every model.
+- **What stands.** The control and `go2_3level_v2` do not predict the reaction, and the stand-off data did not change
+  that. `go2_3level_c` says nothing either way. Stopping it at about 50,000 steps was approved; its 20k and 40k
+  checkpoints and their gate runs are kept. This is not the clean negative result this section promised, and the
+  thesis's base case, a planner on the model, is still untried.
+- The review's next steps replace phases D and E's order: P16, P17 and P18 below, each its own piece.
+
+### P16. Measures that isolate prediction (review step 2; approved 9 November)
+
+**Why.** P15's gates were fixed before scoring but never checked against a model that predicts nothing. Every later
+model is judged by these measures, so they come first. Branch `feature/prediction-measures`, cut from
+`feature/phase-b-data` (phase A is merged; phase B was not yet).
+
+**1. Nulls and a ceiling beside every score** (`go2nav/eval/measures.py`). Fitted on the training units' labels,
+scored on the same windows as the model:
+- **scene-blind:** a readout on the robot's applied-command history and the tape alone;
+- **present-only:** the model's own readout on its states at t, with no rollout and no tape;
+- **ceiling:** a readout on the simulator's state at t (`outputs/phase_c/give_way_ceiling.py`, moved into the package).
+
+**The pass mark is one rule for every AUC** (`half_gap`): the model closes at least half the gap between its best null
+and the ceiling, on val and on transfer. No bar is a chosen number.
+
+**2. The reaction, read by its slope on matched windows** (`reaction`). *Revised later on 9 November, before any model was
+scored.* The text first approved read the slope inside a "stand-off stratum" (the walker still and within
+1 m, the robot's commands zero for 1.5 s). Counted on the labels, that stratum cannot carry it: 93-98% of its windows
+respond to a retreat alike, so the slope would rest on the few that do not, and transfer holds 85 windows.
+- **Matched windows:** give-way windows where the robot's applied commands were zero over the last 1.5 s and just
+  before t, whatever the walker does. The command history and every tape are then identical from window to window, so
+  a scene-blind model's predicted contrast is a constant, and whatever varies in a model's contrast comes from the
+  scene. Val: 1,329 windows from 81 units, 76% responding to a retreat at 1.6 s (81% at 3.2 s). Transfer: 172 from 30
+  units, 51% (56%).
+- **Slope:** the predicted contrast (the readout on the tape's rollout minus on hold's) regressed on the true one with
+  an intercept; 1 for a correct model; 95% interval over units.
+- **Offset:** the intercept's size in metres, what the model moves every walker by whether it reacts or not (P15's
+  leak); 0 for a correct model.
+- **Pass:** for the retreat tape, at 1.6 and 3.2 s, on val and transfer, the slope's interval lies above 0.5 and the
+  offset is under 5 cm (the size that counts as a response), by one readout (ridge or MLP) at one level (1 or 2).
+- **Reported:** the same for the advance tape (41 responding windows on val at 1.6 s, too few to decide), and the AUC
+  of the contrast's size for whether the walker responds, whose null is 0.5 by construction and whose ceiling is a
+  classifier on the simulator's state.
+
+**3. Decisions, read as the advantage of one tape over another in the same state.**
+- **The side step over holding, at 25.6 s** (`advantage`): the label is "the side step leaves the way clear and
+  holding does not" (P15's `clear_side` and `clear_hold_long`; 16% of val windows and 17% of transfer). One readout is
+  fitted on both tapes' rollouts against each tape's own outcome, so it tells them apart only through the rollout; the
+  score is its value under the side step minus under hold. Nulls: scene-blind (the side step's tape is planned on the
+  true walls, so it carries some of the scene, and the null shows how much) and present-only (no tape: 0.5 by
+  construction). Ceiling: the same fit on the simulator's state at t with the tape. It sees the nearest walker only, so
+  a model can pass it.
+- **New contacts within 0.8 s** (`new_contacts`): only windows not in contact at t (1.4% of val windows become
+  contacts, 2.3% of transfer). The model's head, or readouts, on the rollout under the executed commands. Nulls:
+  present-only (the same reader, and readouts fitted for the future label, on the state at t) and scene-blind (the
+  command history and the executed commands). The ceiling is 1: under the executed commands the future is set by the
+  present, up to the walkers' draws.
+- **Reported beside the advantage:** a critic on the state (one readout per tape on the states at t). If it matches
+  the rollout, the predictor adds nothing and the decision can still be read from the state.
+
+**4. A health check with an upper limit** (`training.lewm.validate`, `training.hjepa`).
+- `input_shares`: how much of the latent each input sets, by permuting one input across the validation batch
+  (the review's check, in the package).
+- `action_share`: the share of the latent one step's action sets (one step predicted with shuffled actions against
+  the true ones, over twice the latent's variance). Camera-only models read 0.02-0.04 at every validation of their
+  runs; `go2_3level_c` read 0.27 at its first, 5,000 steps in, and 0.41 at 50,000. A run above 0.25
+  (`runtime.max_action_share`) stops after that step's checkpoint: it would have ended `go2_3level_c` 19 hours earlier.
+
+**5. First scores:** `go2_3level_v2`, the control and `go2_3level_c`'s 40k checkpoint, the reaction from their cached
+probe features. They are expected to fail; they show what each measure reads on models whose behaviour is known.
+
+**Compute.** About a day of building. The side step's tapes are planned once per labels file on the CPU
+(`measures tapes`). Scoring a model: minutes for the reaction; the advantage and the contact windows are encoded again
+on the GPU.
+
+**6. First scores (9 November; STATUS P16).** No model passes any measure, and the measures read as intended.
+- **Reaction:** no readout of any model has one cell with the slope's interval above 0.5. Level 1, ridge, retreat at
+  1.6 s on val: `go2_3level_v2` 0.03, the control -0.04, `go2_3level_c` at 40k 0.07.
+- **New contacts:** the rollout scores what the state at t scores, in every model (skill 0.00-0.14).
+- **The advantage measure cannot be used as built.** Its ceiling (0.76 val, 0.72 transfer) does not clear its
+  scene-blind null (0.76, 0.73): the side step's tape, planned on the true walls, tells as much as the nearest walker's
+  state adds. `half_gap` now gives no skill where the ceiling is within 0.05 of the null (added after these scores; no
+  verdict changes). Proposed, not applied: the ceiling becomes 1, as for contacts, since the label is the replay's own
+  outcome. P17's planner on the true model is the real ceiling for decisions.
+- **A correction to the review.** On matched windows, where the command history is constant, `go2_3level_c` still
+  ranks the walkers that respond at 1.6 s (AUC 0.82 on both splits; the walker's distance alone scores 0.84 and 0.89).
+  So part of its rise on P15's gate came from the scene, not only from the command history. Its predicted reaction is
+  4-7% of the true one, on top of 3-4 cm applied to every walker. The verdict on the run is unchanged.
+
+### P17. The planner and its cost, first on the true model (review step 3; approved 9 November, set out in full before it starts)
+
+**Why.** The cost, the critic and the planner have never been built, and no agent has shown what the suites with walkers
+that do not yield allow. With the true model in the planner, a failure is the cost's, the horizon's or the test bed's,
+never the prediction's.
+- **Planner:** MPPI over command tapes within the locomotion policy's range.
+- **Model:** the kinematic robot and the walkers' own scripts (`mover_probe.branch`). No learned part.
+- **Intrinsic cost:** the body outline's clearance under a margin, progress along the route to the next waypoint, and
+  time. Three terms, fixed.
+- **Offline:** on the stand-off validation windows, whether the planner's choice leaves the way clear after 25.6 s,
+  against holding (12% with walkers that do not yield) and the scripted side step (36%), at horizons of 1.6, 6.4 and
+  25.6 s. This says what horizon, or what critic at the rollout's end, the decision needs.
+- **Closed loop:** kinematic missions on the validation layouts with the true map's route. They give the upper bound for
+  each suite: polite, reactive, four walkers, and walkers that do not yield.
+- CPU only, 1-2 days. The loop is the start of the review's fast ring world (step 5).
+
+### P18. The planner in missions where the model already suffices (review step 4; approved 9 November, set out in full before it starts)
+
+- P17's planner and cost in place of the selection stages (`planning/selection.py`, the recovery family, the latches),
+  with the router, the map, visual odometry and the dispatch reflex kept.
+- The robot's own motion from the control's level 1 through its decoder; clearance from the range ring at the frame,
+  moved by the predicted motion.
+- **Suites:** static, polite (80) and four walkers (40), against P13's references with the same sensor. Bars and the
+  count of tuned constants on the decision path are written here before any mission runs.
+- 2-3 days of building, about 12 GPU-hours of missions.
+
 ## Compute and order
 
 | Phase | Compute |

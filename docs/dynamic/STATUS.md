@@ -1441,3 +1441,149 @@ The stand-off and per-km figures are given for one walker / two walkers.
   - All three suites had no contact stops, so Phase D must have none.
 - **Not comparable:** the polite and four-walker suites have no cameras-only pair on no-slip physics. P8's fixed record
   (70 of 80) was run before no-slip and without the range sensor, so 65 is not read against it.
+
+## P14: data that contain the decision (8 November)
+
+Plan and pilots: PLAN P14. Branch `feature/phase-b-data`.
+
+- **Range scans for corpus v2**, cast offline for all 5,200 units (`go2nav_lewm_v2_range`). Against the units' free-ray
+  labels the beams agree to a median of 0.7 cm, and a unit's live scans equal the offline cast exactly.
+- **Stand-off units:** 1,300 units of 900 frames (kinds `standoff` on the tree mazes and `standoff_b` on family B's
+  corpus set), one to three walkers, 40% reactive, 40% walkers that do not yield, 20% polite, with the live range sensor
+  and the no-slip pass. The driver took five revisions (PLAN P14).
+- **The data gate passed.**
+
+| | Result | Gate |
+|---|---|---|
+| Stand-offs resolved within 10 s | 22.1% of 1,376 | at least 20% |
+| Robot moved at least 1 m away | 27.9% | at least 20% |
+| Stand-off frames, walkers that do not yield / reactive | 74% / 25% | at least 15% each |
+| Stand-off frames, families A / B | 46% / 54% | at least 15% each |
+| Contact stops, `standoff` / `standoff_b` | 3.8% / 2.2% of units | at most 5% |
+
+- Corpus v2 before the top-up: 3,740 stand-offs over 6.7 hours, 2.6% resolved within 10 s.
+- 198 units ended pinned. In the first full collection, 102 of 171 pinned units were dead ends with a walker that does
+  not yield at the mouth, which no move resolves.
+- The corpus is 6,500 units and 4,963,265 windows of 12 frames.
+
+## P15: phase C does not test the thesis (9 November)
+
+Plan, gates and the leakage analysis: PLAN P15. The review: `docs/REVIEW_2026-11-09.md`. Checks:
+`outputs/phase_c/review_2026-11-09/RESULTS.txt`.
+
+**The gates as written** (val; the give-way figures are the level-1 ridge readout at 1.6 / 3.2 s):
+
+| Model | Give-way AUC (0.80) | Way clear, 12.8-s level (0.75) | Contact (0.9) | Own motion | Walkers (0.216 m) |
+|---|---|---|---|---|---|
+| `go2_3level_v2` [corpus v2, before the stand-off units] | 0.44 / 0.50 | 0.73 | 0.90 | fails | 0.175 |
+| The control [the same model with the stand-off units] | 0.44 / 0.48 | 0.75 | 0.91 | fails | 0.131 |
+| `go2_3level_c` at 20k [phase C's model: ring, proprioception, heads] | 0.77 / 0.71 | 0.76 | 0.93 | passes | 0.429 |
+| `go2_3level_c` at 40k | 0.73 / 0.61 | 0.77 | not scored | not scored | 0.424 |
+
+No model passes the give-way gate on both splits, and the ceiling from the simulator's state is 0.95.
+
+**`go2_3level_c` learned its command history.** One input permuted across 960 validation frames:
+
+| Share of the latent's variance set by | `go2_3level_c`, 40k | The control |
+|---|---|---|
+| Camera image | 0.04 | 1.00 |
+| Range ring | 0.11 | none |
+| The 1.5-s applied-command history (proprioception token) | 0.89 | none |
+
+- The history recorded at frame t+1 holds the command of step t, so the inverse-dynamics loss is solved by copying:
+  0.168 in the control and 0.0029 here at step 49,000.
+- One step predicted with shuffled actions costs 0.82 against 0.0076 with the true ones (the control: 0.105 and 0.040).
+  Levels 2 and 3 are almost pure action codes (level 2: 1.81 and 0.015).
+- The health checks pass, because they set no upper limit on sensitivity to actions.
+
+**The gates do not isolate prediction.**
+
+| Gate | What predicts nothing scores (val) |
+|---|---|
+| Give-way | a classifier on the command history alone 0.77 / 0.73; the walker's distance alone 0.91 / 0.90, and 0.87 / 0.83 on transfer |
+| Way clear | the same readout without the rollout: within 0.02 of the rollout's in every model |
+| Contact | "in contact now" 0.92; 84% of contacts 0.8 s ahead are already contacts |
+| Own motion | trivial once the commands are an input |
+
+- `go2_3level_c`'s rise on the give-way gate is matched by the command history alone: a robot that has stood still is
+  usually facing a waiting walker. P16's first scores correct this in part: with the history held constant the model
+  still ranks responders at 1.6 s, so some of the rise came from the scene.
+- The slope of the predicted reaction on the true one (`outputs/phase_c/leakage_and_budget.py`) is between -0.03 and
+  0.09 in every model, where 1 is correct. By that measure the control and `go2_3level_v2` do not predict the reaction,
+  and the stand-off data did not change it.
+
+**Read.** `go2_3level_c` is void as a test of the thesis, and stopping it at about 50,000 of 60,000 steps was approved.
+The thesis's base case, a planner on the model, has never been run. Next: measures that isolate prediction (PLAN P16),
+the planner and its cost on the true model (P17), then the planner in missions (P18).
+
+## P16: measures that isolate prediction, and their first scores (9 November)
+
+Plan: PLAN P16. Branch `feature/prediction-measures`, cut from `feature/phase-b-data`. Code: `go2nav/eval/measures.py`,
+`training.lewm.input_shares` and `action_share`. Scores: `outputs/measures/{v2,control,c40k}/measures.json`
+(`outputs/measures/scores.sh`; 11-14 minutes a model on the R9700).
+
+**Built.**
+- Every AUC is read beside its nulls (scene-blind, present-only) and a ceiling, and passes by one rule: the model closes
+  half the gap from its best null to the ceiling, on val and on transfer.
+- The reaction is read on matched windows: give-way windows where the robot's commands were zero for 1.5 s, so the
+  command history and the tapes are identical and a scene-blind model's contrast is a constant. Val 1,329 windows,
+  transfer 172.
+- Validation reports how much of the latent each input sets and how much one step's action sets. A run above 0.25 on
+  the second stops. `go2_3level_c` [phase C's model] read 0.27 at its first validation; camera-only models 0.02-0.04.
+
+**First scores.** `go2_3level_v2` [camera only, before the stand-off data], the control [the same with the stand-off
+data] and `go2_3level_c` at 40k. None passes any measure.
+
+*The reaction to a retreat, matched windows, level 1, ridge readout* (slope: 1 is correct, and the bar is an interval
+above 0.5):
+
+| Model | Slope at 1.6 s, val / transfer | Slope at 3.2 s, val / transfer | Offset at 1.6 s (m) | AUC at 1.6 s, val / transfer |
+|---|---|---|---|---|
+| `go2_3level_v2` | 0.03 / 0.01 | 0.05 / 0.02 | 0.01 / 0.01 | 0.51 / 0.42 |
+| The control | -0.04 / -0.01 | -0.04 / -0.03 | 0.01 / 0.01 | 0.41 / 0.57 |
+| `go2_3level_c`, 40k | 0.07 / 0.04 | 0.02 / 0.02 | 0.04 / 0.03 | 0.82 / 0.82 |
+| Ceiling (the simulator's state) | 1 | 1 | 0 | 0.98 / 0.99 |
+
+- No readout of any model, at either level, has one cell with the slope's interval above 0.5. The largest lower bound
+  anywhere is 0.14.
+- **A correction to the review.** `go2_3level_c` ranks the walkers that respond at 1.6 s (AUC 0.82 on both splits)
+  with the command history held constant, about as well as the walker's distance alone (0.84 and 0.89). So part of its
+  rise on P15's gate came from the scene, most likely the ring, and not only from the command history. The size is
+  what is missing: it moves a responding walker 5.6 cm and the others 3.0 cm, where the truth is 12.6 cm and 0. At
+  3.2 s the ranking fades (0.59 on val).
+
+*New contacts within 0.8 s* (windows not in contact at t; AUC, val / transfer):
+
+| Model | The rollout | The state at t (present-only) | Scene-blind | Skill |
+|---|---|---|---|---|
+| `go2_3level_v2` | 0.82 / 0.74 | 0.81 / 0.72 | 0.68 / 0.61 | 0.02 / 0.07 |
+| The control | 0.83 / 0.76 | 0.82 / 0.73 | 0.68 / 0.61 | 0.05 / 0.14 |
+| `go2_3level_c`, 40k | 0.85 / 0.81 | 0.85 / 0.83 | 0.68 / 0.61 | 0.00 / -0.10 |
+
+- The rollout tells no more about a coming contact than the present state does, in any model. P15's contact gate
+  (0.90-0.95) was read on windows of which 84% were already contacts.
+
+*The side step's advantage over holding, 25.6 s on* (AUC, val / transfer):
+
+| | The rollout | A critic on the state | Scene-blind | Ceiling |
+|---|---|---|---|---|
+| `go2_3level_v2` | 0.66 / 0.80 | 0.63 / 0.72 | 0.76 / 0.73 | 0.76 / 0.72 |
+| The control | 0.70 / 0.72 | 0.65 / 0.70 | 0.76 / 0.73 | 0.76 / 0.72 |
+| `go2_3level_c`, 40k | 0.71 / 0.71 | 0.68 / 0.73 | 0.76 / 0.73 | 0.76 / 0.72 |
+
+- **This measure cannot be used as built.** Its ceiling does not clear its scene-blind null. The side step's tape is
+  planned on the true walls (whether an opening was found, how far back), and that tells as much as the nearest walker's
+  state adds to it.
+- On val no model's rollout reaches what the tape alone gives.
+- Proposed, not applied: the ceiling becomes 1, as for contacts, since the label is the replay's own outcome. P17's
+  planner on the true model is the real ceiling for decisions.
+
+*Inputs:* `go2_3level_c` at 40k reads image 0.04, ring 0.11, proprioception 0.88 through the package's check, as in the
+review. The camera-only models read image 1.0.
+
+**Read.**
+- The three models fail for a measured reason on each line: no reaction in size, no contact beyond the present, no
+  advantage beyond the tape.
+- The measures separate what P15's gates mixed: a ranking that follows the scene (phase C, 1.6 s) from a reaction of
+  the right size (no model).
+- Next: P17, the planner and its cost on the true model.

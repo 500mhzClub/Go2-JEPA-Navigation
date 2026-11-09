@@ -1,0 +1,24 @@
+# P15 (review phase C, approved 8 November): go2_3level_v2 with the range ring (8 sector tokens), a proprioception token
+# (IMU and the applied commands: data.observations), a 6-step autoregressive rollout at level 2 (1.6 s; level 3's
+# 257-frame clip holds only its 3 states) and the stop-gradient heads (contact, walker presence, own motion at 100 ms and
+# 1.6 s, on data.head_labels). Trained on corpus v2 with the P14 stand-off units, their clips at the upper levels too.
+name: go2_3level_c
+seed: 2026110801
+level1:
+  model: {size: tiny, history: 4, command_dim: 3, inverse_dynamics: true, inverse_spans: [1, 8],
+          inverse_span_weights: [1, 3], range_sectors: 8, proprio_dim: 51}
+  objective: {rollout_steps: 8, sigreg_weight: 0.08, inverse_weight: 100.}
+upper:
+  - {stride: 16, context: 3, rollout_steps: 6, sigreg_weight: 0.16, inverse_weight: 50., action_sigreg_weight: 0.005,
+     rollout_weight: 1.}
+  - {stride: 8, context: 2, sigreg_weight: 0.16, inverse_weight: 50., action_sigreg_weight: 0.005}
+heads: true
+sigreg: {projections: 1024, knots: 17}
+data: {mazes_per_batch: 16, windows_per_maze: 8, clips_per_maze: 8, upper_kinds: [mission, explore, standoff, standoff_b]}
+# The other sensors and the head labels are read from beside the corpus (CORPUS_obs, CORPUS_heads) unless data.obs_root
+# and data.heads_root name them; the run of 8-9 November named them by their paths on the development machine.
+optimiser: {lr: 5.0e-5, weight_decay: 1.0e-3, warmup_steps: 2000, steps: 60000, grad_clip: 1.0}
+# Runtime as go2_3level_v2 (0.85 s/step, about 19 GB with 8 ViT blocks checkpointed); a 30-minute smoke run measures it
+# with the 9 extra tokens a frame before the full run.
+runtime: {compile: max-autotune-no-cudagraphs, checkpoint_blocks: 8, memory_fraction: 0.85, workers: 10, prefetch: 2,
+          log_every: 100, validate_every: 5000, checkpoint_every: 1000, milestone_every: 10000}

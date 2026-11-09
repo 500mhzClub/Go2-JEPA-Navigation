@@ -19,6 +19,10 @@ atomically (DIR/checkpoint.pt), and rerunning the same command resumes from it w
 **Validation** (every `validate_every` steps, at the end, and `evaluate`):
 - level 1, exactly as `training.lewm.validate` on the same fixed windows (gates L1 health and L2 action sensitivity),
   and on the held-out look;
+  with level 1's `action_share` (the share of the latent one step's action sets) and, for a model with other sensors,
+  `input_shares` (how much of the latent each input sets; `training.lewm.input_shares`). A run whose `action_share`
+  passes `runtime.max_action_share` (default 0.25; P16) stops after that step's checkpoint: its latent is mostly its
+  own commands (`go2_3level_c` read 0.27 at its first validation; camera-only models read 0.02-0.04);
 - each upper level, on fixed clips of the validation mazes' mission and explore units: the teacher-forced prediction
   loss, SIGReg, inverse dynamics and state health (z spread, effective rank) (gate H1); and the last transition's
   prediction error with the true macro-action, against a shuffled one (permuted across clips) and persistence (the
@@ -44,15 +48,16 @@ import yaml
 
 from go2nav.data.hjepa_dataset import HJEPABatches, clip_crops, upper_layout
 from go2nav.data.lewm_dataset import Corpus, keyed_rng
-from go2nav.models.hjepa import HJEPA, HJEPAConfig, UpperConfig, export_level1, losses, save_hjepa
+from go2nav.models.hjepa import HJEPA, HJEPAConfig, UpperConfig, export_level1, losses, save_hjepa, upper_rollout
 from go2nav.models.lewm import SIGReg, normalise_frames
 from go2nav.training.common import sha256_file, write_lineage
-from go2nav.training.lewm import (EVAL_STEPS, TRANSFER_WINDOWS, VALIDATION_SEED, VALIDATION_WINDOWS, atomic_save,
-                                  keyed_seed, load_config, model_config as level1_config, schedule, validate)
+from go2nav.training.lewm import (EVAL_STEPS, MAX_ACTION_SHARE, TRANSFER_WINDOWS, VALIDATION_SEED, VALIDATION_WINDOWS,
+                                  atomic_save, keyed_seed, load_config, model_config as level1_config, schedule,
+                                  validate)
 
 REPO = Path(__file__).resolve().parents[2]
 UPPER_VALIDATION_CLIPS = 1024
-LOSS_WEIGHTS = ('sigreg_weight', 'inverse_weight', 'action_sigreg_weight')
+LOSS_WEIGHTS = ('sigreg_weight', 'inverse_weight', 'action_sigreg_weight', 'rollout_weight')
 MAX_NONFINITE = 20
 MEMORY_FRACTION = .85
 
@@ -61,7 +66,7 @@ def model_config(config):
     upper = tuple(UpperConfig(**{k: v for k, v in u.items() if k not in LOSS_WEIGHTS}) for u in config['upper'])
     level1 = level1_config(dict(model=config['level1']['model']))
     level1 = replace(level1, **{k: tuple(v) for k, v in asdict(level1).items() if isinstance(v, list)})
-    return HJEPAConfig(level1=level1, upper=upper)
+    return HJEPAConfig(level1=level1, upper=upper, heads=bool(config.get('heads', False)))
 
 
 def weights(config):
@@ -69,15 +74,21 @@ def weights(config):
     objective = config['level1']['objective']
     level1 = dict(rollout_steps=objective['rollout_steps'], lam=objective['sigreg_weight'],
                   inverse_weight=objective.get('inverse_weight', 0.))
-    upper = [dict(sigreg=u['sigreg_weight'], inverse=u['inverse_weight'], action_sigreg=u['action_sigreg_weight'])
-             for u in config['upper']]
+    upper = [dict(sigreg=u['sigreg_weight'], inverse=u['inverse_weight'], action_sigreg=u['action_sigreg_weight'],
+                  rollout=u.get('rollout_weight', 1.)) for u in config['upper']]
     return level1, upper
 
 
 def to_device(batch, device):
     """uint8 frames to normalised (B, T, 3, H, W) floats, everything on the device."""
-    return dict(frames=[normalise_frames(f.to(device, non_blocking=True)) for f in batch['frames']],
-                actions=[a.to(device, non_blocking=True) for a in batch['actions']])
+    out = dict(frames=[normalise_frames(f.to(device, non_blocking=True)) for f in batch['frames']],
+               actions=[a.to(device, non_blocking=True) for a in batch['actions']])
+    for key in ('obs', 'poses'):     # float16 sensors to float32 (autocast does not mix float16 inputs on every device)
+        if key in batch:
+            out[key] = [x.to(device, non_blocking=True).float() for x in batch[key]]
+    if 'labels' in batch:
+        out['labels'] = {k: v.to(device, non_blocking=True) for k, v in batch['labels'].items()}
+    return out
 
 
 def health(states):
@@ -104,19 +115,24 @@ def validate_upper(model, corpus, indices, *, device, seed=VALIDATION_SEED, batc
     last = [[] for _ in model.upper]
     count = 0
     for start in range(0, len(indices), batch):
-        frames, actions = clip_crops(corpus, indices[start:start+batch], rng, layout)
+        frames, actions, extras = clip_crops(corpus, indices[start:start+batch], rng, layout, extras=True)
         b = len(frames[0])
         order = torch.randperm(b, generator=shuffle).to(device)
         for k, level in enumerate(model.upper):
             with torch.autocast(device.type, dtype=torch.bfloat16, enabled=device.type == 'cuda'):
-                z1 = model.level1.encode(normalise_frames(frames[k].to(device)))
-                states = model.states(z1, k+2).float()
-                macros = model.macros(actions[k].to(device), k+2).float()
+                obs = None if extras['obs'] is None else extras['obs'][k].to(device).float()
+                z1 = model.level1.encode(normalise_frames(frames[k].to(device)), obs)
+                all_states = model.states(z1, k+2).float()
+                all_macros = model.macros(actions[k].to(device), k+2).float()
+                n = level.config.context          # the teacher-forced crop: the context and the state after it
+                states, macros = all_states[:, :n+1], all_macros[:, :n]
                 pred = level.predict(states[:, :-1], macros).float()
                 shuffled = macros.clone()
                 shuffled[:, -1] = macros[order, -1]
                 pred_shuffled = level.predict(states[:, :-1], shuffled).float()[:, -1]
                 inverse = level.infer(states).float()
+                if level.config.rollout_steps:
+                    rolled = upper_rollout(level, all_states, all_macros, level.config.rollout_steps).float()
             target = states[:, -1]
             s = sums[k]
             s['pred'] += float((pred-states[:, 1:]).pow(2).mean())*b
@@ -125,6 +141,10 @@ def validate_upper(model, corpus, indices, *, device, seed=VALIDATION_SEED, batc
             s['last_true'] += float((pred[:, -1]-target).pow(2).mean())*b
             s['last_shuffled'] += float((pred_shuffled-target).pow(2).mean())*b
             s['last_persistence'] += float((states[:, -2]-target).pow(2).mean())*b
+            if level.config.rollout_steps:
+                s['rollout'] += float((rolled-all_states[:, n:n+level.config.rollout_steps]).pow(2).mean())*b
+                s['rollout_persistence'] += float((all_states[:, n-1:n]-all_states[:, n:n+level.config.rollout_steps])
+                                                  .pow(2).mean())*b
             last[k].append(target.cpu())
         count += b
     out = {}
@@ -137,15 +157,19 @@ def validate_upper(model, corpus, indices, *, device, seed=VALIDATION_SEED, batc
     return out
 
 
-def validation_sets(corpus_root, config, upper_kinds=('mission', 'explore')):
-    """Level 1's validation and held-out-look windows, and the upper levels' validation clips, with fixed indices."""
+def validation_sets(corpus_root, config, upper_kinds=('mission', 'explore'), obs_root=None):
+    """Level 1's validation and held-out-look windows, and the upper levels' validation clips, with fixed indices.
+    `obs_root` (P15): the frames' other sensors, for a model that takes them."""
     history, dim = config.level1.history, config.level1.command_dim
     length = history+EVAL_STEPS
+    obs = dict(obs_root=obs_root) if config.level1.obs_dim else {}
+    if config.level1.obs_dim and obs_root is None:
+        raise ValueError('this model takes observations: give their root')
     validation = Corpus(corpus_root, length=length, roles=('lewm_val',), kinds=('explore', 'mission', 'free'),
-                        command_dim=dim)
-    transfer = Corpus(corpus_root, length=length, roles=('lewm_val',), kinds=('transfer',), command_dim=dim)
+                        command_dim=dim, **obs)
+    transfer = Corpus(corpus_root, length=length, roles=('lewm_val',), kinds=('transfer',), command_dim=dim, **obs)
     clips = Corpus(corpus_root, length=config.clip_length, roles=('lewm_val',), kinds=tuple(upper_kinds),
-                   command_dim=dim)
+                   command_dim=dim, **obs)
     return dict(validation=(validation, validation.fixed(VALIDATION_WINDOWS, VALIDATION_SEED)),
                 transfer=(transfer, transfer.fixed(TRANSFER_WINDOWS, VALIDATION_SEED)),
                 clips=(clips, clips.fixed(UPPER_VALIDATION_CLIPS, VALIDATION_SEED)))
@@ -174,18 +198,24 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     mconfig = model_config(config)
     level1_weights, upper_weights = weights(config)
     dim = mconfig.level1.command_dim
+    extras = {}    # P15: the other sensors, and for the heads the poses and labels
+    beside = lambda key, suffix: data.get(key) or str(corpus_root)+suffix    # by default, beside the corpus
+    if mconfig.level1.obs_dim:
+        extras['obs_root'] = beside('obs_root', '_obs')
+    if mconfig.heads:
+        extras |= dict(poses=True, heads_root=beside('heads_root', '_heads'))
     windows = Corpus(corpus_root, length=mconfig.level1.history+level1_weights['rollout_steps'], roles=('lewm_train',),
-                     command_dim=dim)
+                     command_dim=dim, **extras)
     clips = Corpus(corpus_root, length=mconfig.clip_length, roles=('lewm_train',), kinds=tuple(data['upper_kinds']),
-                   command_dim=dim)
-    sets = validation_sets(corpus_root, mconfig, data['upper_kinds'])
+                   command_dim=dim, **{k: v for k, v in extras.items() if k != 'heads_root'})
+    sets = validation_sets(corpus_root, mconfig, data['upper_kinds'], obs_root=extras.get('obs_root'))
 
     model = HJEPA.seeded(seed, mconfig).to(device).train()
     model.level1.encoder.checkpoint_blocks = runtime.get('checkpoint_blocks', 0)
     sigreg = SIGReg(knots=config['sigreg'].get('knots', 17), num_proj=config['sigreg']['projections']).to(device)
     optimiser = torch.optim.AdamW(model.parameters(), lr=optim['lr'], weight_decay=optim['weight_decay'], fused=True)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(optim['warmup_steps'], optim['steps']))
-    first, nonfinite, skipped = 0, 0, []
+    first, nonfinite, skipped, mostly_action = 0, 0, [], None
     checkpoint = out/'checkpoint.pt'
     if checkpoint.exists():
         state = torch.load(checkpoint, map_location='cpu', weights_only=False)
@@ -193,7 +223,8 @@ def train(config, corpus_root, out, *, device='cuda:0'):
         optimiser.load_state_dict(state['optimiser'])
         scheduler.load_state_dict(state['scheduler'])
         torch.set_rng_state(state['rng_cpu'])
-        torch.cuda.set_rng_state(state['rng_cuda'], device)
+        if state.get('rng_cuda') is not None:
+            torch.cuda.set_rng_state(state['rng_cuda'], device)
         first, skipped = state['step']+1, state['skipped']
         rows = [json.loads(line) for line in (out/'metrics.jsonl').read_text().splitlines() if line.strip()] \
             if (out/'metrics.jsonl').exists() else []
@@ -253,13 +284,24 @@ def train(config, corpus_root, out, *, device='cuda:0'):
                                   l1_rank=round(row['validation']['effective_rank'], 1),
                                   **{f'{k}_h2': v['h2_action_sensitivity'] for k, v in row['upper'].items()},
                                   **{f'{k}_rank': round(v['effective_rank'], 1) for k, v in row['upper'].items()},
-                                  **{f'{k}_pred': round(v['pred'], 4) for k, v in row['upper'].items()})), flush=True)
+                                  **{f'{k}_pred': round(v['pred'], 4) for k, v in row['upper'].items()},
+                                  action_share=round(row['validation']['action_share'], 3),
+                                  **({'input_shares': row['validation']['input_shares']}
+                                     if 'input_shares' in row['validation'] else {}))), flush=True)
+            if row['validation']['action_share'] > runtime.get('max_action_share', MAX_ACTION_SHARE):
+                mostly_action = row['validation']['action_share']
         if (step+1) % runtime['checkpoint_every'] == 0 or last:
             atomic_save(dict(model=model.state_dict(), optimiser=optimiser.state_dict(), scheduler=scheduler.state_dict(),
-                             step=step, skipped=skipped, rng_cpu=torch.get_rng_state(), rng_cuda=torch.cuda.get_rng_state(device)),
+                             step=step, skipped=skipped, rng_cpu=torch.get_rng_state(), rng_cuda=torch.cuda.get_rng_state(device) if device.type == 'cuda' else None),
                         checkpoint)
         if (step+1) % runtime['milestone_every'] == 0:
             save_hjepa(out/f'hjepa_step{step+1}.pt', model, extra=dict(step=step+1))
+        if mostly_action is not None:       # P16: stopped after the checkpoint, so the run can be examined
+            save_hjepa(out/f'hjepa_stopped_step{step+1}.pt', model, extra=dict(step=step+1))
+            log.close()
+            raise RuntimeError(f'stopped at step {step}: one step\'s action sets {mostly_action:.2f} of the latent '
+                               f'(limit {runtime.get("max_action_share", MAX_ACTION_SHARE)}); the latent is mostly '
+                               'the action (docs/dynamic/PLAN.md P16)')
     log.close()
     if step != optim['steps']-1:
         raise RuntimeError(f'training stopped at step {step} of {optim["steps"]}')
@@ -276,11 +318,11 @@ def train(config, corpus_root, out, *, device='cuda:0'):
     return final
 
 
-def evaluate(checkpoint, corpus_root, *, device='cuda:0'):
+def evaluate(checkpoint, corpus_root, *, device='cuda:0', obs_root=None):
     from go2nav.models.hjepa import load_hjepa
     device = torch.device(device)
     model = load_hjepa(checkpoint, device)
-    return evaluate_all(model, validation_sets(corpus_root, model.config), device)
+    return evaluate_all(model, validation_sets(corpus_root, model.config, obs_root=obs_root), device)
 
 
 def main():
@@ -295,11 +337,12 @@ def main():
     e.add_argument('checkpoint', type=Path)
     e.add_argument('--corpus', required=True, type=Path)
     e.add_argument('--out', type=Path)
+    e.add_argument('--obs-root', type=Path, help='the frames\' other sensors (P15), for a model that takes them')
     a = p.parse_args()
     if a.command == 'train':
         print(train(load_config(a.config, a.set), a.corpus, a.out))
     else:
-        text = json.dumps(evaluate(a.checkpoint, a.corpus), indent=1)
+        text = json.dumps(evaluate(a.checkpoint, a.corpus, obs_root=a.obs_root), indent=1)
         if a.out:
             a.out.write_text(text+'\n')
         print(text)
