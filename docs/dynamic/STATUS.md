@@ -1383,3 +1383,61 @@ reversing arcs, not during a retreat.
 model's readouts: the robot is blind to the walker at the range where it waits, and boxed in where it stops. The project review
 (`docs/REVIEW_2026-11-07.md`) takes this with P6-P10 and proposes the next plan: range sensing as an observation, data that
 contain the decision, and the world model as the decision-maker. PLAN P12's sketch is superseded by it.
+
+## P13: observations that can show the problem (8 November)
+
+**Built** (approved 7 November; every registered maze set still regenerates byte for byte, and the defaults leave the
+working setup unchanged):
+- a range sensor modelled on the Go2's L1: a 720-beam ring from 0.05 to 20 m (`--range-sensor`);
+- reactive walkers (`--obstacle-reactive`);
+- layout families: family B, `loops_rooms_v1`, with 30 layouts; family C, `offices_v1`, held out for good;
+- per-mission measures: path, leg times, stand-off seconds, and contact stops by kind and per km.
+
+Two faults surfaced in the first reference runs and were fixed before the run below.
+
+1. **Ghost trails** (d7bf7f2). The range returns added walkers to the map, but nothing ever cleared them. Every walker
+   that passed behind or beside the robot left a permanent trail of occupied cells.
+   - The first run was stopped by the stop rule: 13 contact stops in 40 missions, against P8's 1. It is set aside.
+   - The beams now clear the cells they pass through.
+2. **Zero did not mean zero** (82a24c5, item 6). At a zero command the robot slid about 1 mm/s and turned 0.24 rad a
+   minute.
+   - A robot held still beside a waiting walker drifted 15-33 cm into the walker or a wall. That accounts for all 5
+     contact stops of the restarted run, after 150-340 s held. That run is set aside too.
+   - Most of the slide is the simulator: a rigid stance with no policy slides 0.67 mm/s.
+   - The rigid solver's no-slip pass (`--noslip`, 10 iterations) cuts the held drift to 0.015 mm/s. Tracking is
+     unchanged (lattice 87/90) and physics runs 9% slower. No retraining was needed.
+
+**The reference** (`configs/experiments/noslip_reference.yaml`). C5 with the hand planner, every run with no-slip, 6
+missions at once on the R9700, stop rule checked every 20 missions: no suite came near it.
+
+| Validation mazes | Round trips | Timeouts | Contact stops | Pose losses | Contacts per km | Median stand-off (s) |
+|---|---|---|---|---|---|---|
+| Walkers that do not yield, range sensor (`rsn_rude_*`, 80) | 7 | 73 | 0 | 0 | 0 | 413 / 433 |
+| The same, cameras only (`camn_rude_*`, 80; P8's cohorts on the same physics) | 6 | 67 | 5 | 2 | 2.4 / 17.1 | 401 / 417 |
+| P8's run, cameras only, before no-slip (`wm_rude_hand_*`, 80) | 8 | 27 | 14 | 31 | | |
+| Polite walkers, range sensor (`rsn_obst1/2_c5`, 80) | 65 | 15 | 0 | 0 | 0 | 0 |
+| Four walkers, range sensor (`rsn_obst4_c5`, 40) | 21 | 16 | 0 | 3 | 0 | 0 |
+
+The stand-off and per-km figures are given for one walker / two walkers.
+
+- **Most of P8's failures with walkers that do not yield were the slide.**
+  - Pose losses: 31 in P8's run, 2 on the same physics with no-slip.
+  - Contact stops: 14 in P8's run, 5 with no-slip.
+  - Those missions now time out instead (27 timeouts, now 67).
+- **The range sensor removes the rest of the contacts and pose losses, and none of the timeouts.** On paired mazes
+  and physics, with walkers that do not yield:
+  - contact stops: 0 with the range sensor against 5;
+  - pose losses: 0 against 2;
+  - round trips: 7 against 6.
+
+  Every failure is now a timeout that ends in a stand-off, with a median of 400-430 s of the mission spent in one.
+- **The limit is the decision, not perception.** The robot can now see the waiting walker all round, and stays safe
+  beside it. What it lacks is a decision that gets it out of the way. This is the review's diagnosis, and Phase D's
+  task.
+- **Phase D's references.**
+  - Walkers that do not yield: 7 of 80, so Phase D's bar is 17 or more, with wins at least twice the losses.
+  - Polite walkers (the fixed record): 65 of 80, to be held within 3.
+  - Four walkers: 21 of 40. The 3 pose losses are the only failures besides timeouts.
+  - All three suites had no contact stops, so Phase D must have none.
+- **Not comparable:** the polite and four-walker suites have no cameras-only pair on no-slip physics. P8's fixed record
+  (70 of 80) was run before no-slip and without the range sensor, so 65 is not read against it.
