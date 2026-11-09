@@ -1256,8 +1256,10 @@ on the GPU.
 - **The advantage measure cannot be used as built.** Its ceiling (0.76 val, 0.72 transfer) does not clear its
   scene-blind null (0.76, 0.73): the side step's tape, planned on the true walls, tells as much as the nearest walker's
   state adds. `half_gap` now gives no skill where the ceiling is within 0.05 of the null (added after these scores; no
-  verdict changes). Proposed, not applied: the ceiling becomes 1, as for contacts, since the label is the replay's own
-  outcome. P17's planner on the true model is the real ceiling for decisions.
+  verdict changes). **Agreed 9 November and applied:** the ceiling is 1, as for contacts, since the label is the
+  replay's own outcome; the state readout stays in the report. Under it the first scores' skills are -0.41 / 0.25
+  (`go2_3level_v2`, val / transfer), -0.28 / -0.06 (the control) and -0.20 / -0.09 (`go2_3level_c`), against a pass
+  mark of 0.5: no verdict changes. P17's planner on the true model is the real ceiling for decisions.
 - **A correction to the review.** On matched windows, where the command history is constant, `go2_3level_c` still
   ranks the walkers that respond at 1.6 s (AUC 0.82 on both splits; the walker's distance alone scores 0.84 and 0.89).
   So part of its rise on P15's gate came from the scene, not only from the command history. Its predicted reaction is

@@ -24,10 +24,11 @@ and the ceiling, on `val` and on `transfer`.
    way clear and holding does not". One readout is fitted on both tapes' rollouts against each tape's own outcome, so
    it can tell them apart only through the rollout; the model's score is its value under the side step minus under
    hold. Nulls: **scene-blind** (the same fit on the command history and the tape alone; the side step's tape is planned
-   on the true walls, so it carries some of the scene) and **present-only** (no tape: 0.5 by construction). Ceiling:
-   the same fit on the simulator's state at t with the tape. Beside them, a **critic on the state**: one readout per
-   tape on the states at t; where it matches the rollout, the predictor adds nothing, though the decision can still be
-   read from the state.
+   on the true walls, so it carries some of the scene) and **present-only** (no tape: 0.5 by construction). The ceiling
+   is 1: the label is the replay's own outcome (agreed 9 November, after the first scores: the same fit on the
+   simulator's state at t with the tape, still reported as `state_readout`, did not clear the scene-blind null).
+   Beside them, a **critic on the state**: one readout per tape on the states at t; where it matches the rollout, the
+   predictor adds nothing, though the decision can still be read from the state.
 3. **New contacts** (`new_contacts`): windows not in contact at t, whether the body outline is within 0.10 m of a wall
    or walker 0.8 s on. The model: its head (or readouts) on the rollout under the executed commands. Nulls:
    **present-only** (the same reader, and readouts fitted for the future label, on the state at t) and **scene-blind**
@@ -328,7 +329,7 @@ def advantage(ftrain, feval, dtrain, deval, htrain, heval, *, device='cpu', upda
         rollout=(lambda f, d, h, rows: {k: rich(f, k) for k in ('side', 'hold')}, True),
         critic_on_state=(lambda f, d, h, rows: {k: plain(f, k) for k in ('side', 'hold')}, False),
         scene_blind=(lambda f, d, h, rows: {k: blind(f, h, rows, k) for k in ('side', 'hold')}, True),
-        ceiling=(lambda f, d, h, rows: {k: privileged(f, d, rows, k) for k in ('side', 'hold')}, True))
+        state_readout=(lambda f, d, h, rows: {k: privileged(f, d, rows, k) for k in ('side', 'hold')}, True))
     report = dict(train_windows=int(len(rows_t)), eval_windows=int(len(rows_e)),
                   side_only={s: round(float(label[split == s].mean()), 3) for s in SPLITS},
                   hold_only={s: round(float((~y_e['side'] & y_e['hold'])[split == s].mean()), 3) for s in SPLITS})
@@ -340,8 +341,7 @@ def advantage(ftrain, feval, dtrain, deval, htrain, heval, *, device='cpu', upda
         best[name] = {s: max((e[s] for e in report[name].values() if e[s] is not None), default=None) for s in SPLITS}
     report['present_only'] = {s: .5 for s in SPLITS}        # no tape, so no difference between the tapes
     report['best'] = best
-    report['skill'] = {s: half_gap(best['rollout'][s], max(best['scene_blind'][s] or .5, .5), best['ceiling'][s])
-                       for s in SPLITS}
+    report['skill'] = {s: half_gap(best['rollout'][s], max(best['scene_blind'][s] or .5, .5), 1.) for s in SPLITS}
     report['rollout_over_critic'] = {s: None if None in (best['rollout'][s], best['critic_on_state'][s])
                                      else round(best['rollout'][s]-best['critic_on_state'][s], 3) for s in SPLITS}
     report['pass'] = all(report['skill'][s]['passed'] for s in SPLITS)
