@@ -1342,6 +1342,12 @@ time (`planning.sampling.MODELS`; `eval.kinematic_missions --model, --max-speed,
   figure the world-model work is judged against: what predicting the walkers' reactions is worth to this planner.
 - The model steps the walkers at 100 ms where the world steps them at 2 ms, and lags the world by about 4 mm a second.
 
+**6. Results (10 November; STATUS P17).** With walkers that do not yield the upper bound is about 72 of 80, against
+the hand reference's 7. A 6.4-s horizon suffices when the terminal distance counts the walkers (69; 48 without), or a
+25.6-s horizon without (72). The ladder at 6.4 s: frozen walkers 47-49, velocity 64, the simulator's rules 69, the
+truth 69; contact stops 9-13, 7, 0, 0. Capped at 0.2 m/s: 53. Without the cell proposals: 66, so item 2's claim that
+plain proposals cannot find the manoeuvre was wrong. Polite 80 of 80, four walkers 38-40 of 40, reactive 80 of 80.
+
 **Dropped from the outline:** the offline score on the corpus's stand-off windows. Those units have no goal, so the
 cost's progress term has nothing to measure there; the missions answer the same question in closed loop.
 

@@ -1587,3 +1587,84 @@ review. The camera-only models read image 1.0.
 - The measures separate what P15's gates mixed: a ranking that follows the scene (phase C, 1.6 s) from a reaction of
   the right size (no model).
 - Next: P17, the planner and its cost on the true model.
+
+## P17: the planner and its cost on the true model (10 November)
+
+Plan: PLAN P17. Branch `feature/planner-true-model`. Code: `go2nav/sim/kinematic.py` (a kinematic world with the
+simulator's own walkers and the missions' task), `go2nav/planning/fields.py`, `go2nav/planning/sampling.py` (a sampling
+planner with a three-term cost in seconds), `go2nav/eval/kinematic_missions.py`. Runs: `outputs/planner_true/`
+(`runs.sh`, `ladder.sh`; CPU only, 49 runs in under two hours). Validation mazes 10-29, as P13's references.
+
+**What it is.** No learned part. The robot knows the layout, tracks its commands perfectly and walks at up to
+0.4 m/s; a round trip takes it about 45 s where the hand reference in Genesis takes 120-190 s. Every figure below is a
+bound on what the cost and the planner allow, not a forecast of missions.
+
+**1. Walkers that do not yield (80 missions): the horizon and the terminal distance.** The planner's model is the
+truth, future draws included. Round trips:
+
+| Horizon | Terminal distance through the walls alone | With the walkers as obstacles where the tape leaves them |
+|---|---|---|
+| 1.6 s | 42 | 51 |
+| 6.4 s | 48 | 69 |
+| 25.6 s | 72 | 71 |
+
+- **The upper bound is about 72 of 80.** The hand reference makes 7.
+- **The decision needs either a long horizon or a terminal cost that counts the walkers.** At 6.4 s the walkers'
+  terminal distance is worth 21 round trips (48 to 69), and brings the result within 3 of the best. It is the simplest
+  critic: the time to go if the world froze at the horizon.
+- **The short-sighted planner fails as the hand reference does:** it holds in front of the walker until the time runs
+  out (36 timeouts at 1.6 s, 31 of them with the way sealed at the end).
+- **Few missions are impossible.** At 25.6 s, 8 or 9 time out and 1 or 2 of them end pinned (the way sealed and at most
+  two cells in reach). At shorter horizons 8 to 10 end pinned: the planner walks into what it could have avoided.
+- No contact stops from 6.4 s up. About a third of the round trips pass within 10 cm of something (the planner's
+  floor is 8 cm).
+
+**2. The other suites, the true model.**
+
+| Suite | 1.6 s, static | 6.4 s, walkers | 25.6 s, walkers | Hand reference |
+|---|---|---|---|---|
+| Still mazes (40) | | 40 (6.4 s, static) | | |
+| Polite walkers (80) | 72 | 80 | 80 | 65 |
+| Four polite walkers (40) | 32 | 38 | 40 | 21 |
+| Reactive walkers (80) | | 80 | | none run |
+
+**3. The ladder: what each kind of knowledge about the walkers is worth** (the `walkers` terminal distance; round
+trips, with contact stops in brackets):
+
+| The walkers in the planner's model | Not yielding, 6.4 s | Not yielding, 25.6 s | Polite, 6.4 s | Four, 6.4 s |
+|---|---|---|---|---|
+| Frozen, where the ring last saw them | 49 (9) | 43 (4) | 73 (1) | 29 (3) |
+| Frozen, all of them | 47 (13) | 45 (5) | 73 (1) | 29 (2) |
+| Carried on at their velocity | 64 (7) | 60 (8) | 77 (3) | 38 (2) |
+| The simulator's rules, fresh dice | 69 (0) | 66 (0) | 80 (0) | 38 (0) |
+| The truth, dice included | 69 (0) | 71 (0) | 80 (0) | 38 (0) |
+
+- **Velocity is the large step:** 47 to 64 with walkers that do not yield, 29 to 38 with four walkers. A tracker gives
+  it.
+- **Knowing how walkers react is worth about 5 round trips in 80 and every contact stop** (64 to 69; contacts 7 to 0).
+  This is the step a learned model of the reaction would supply. Its value to this planner is safety first.
+- **Seeing round corners is worth nothing measurable,** and foreknowledge of the walkers' draws nothing at 6.4 s and 5
+  at 25.6 s.
+
+**4. The handicaps** (the true model, the `walkers` terminal distance):
+
+| | Not yielding, 6.4 s | Not yielding, 25.6 s | Polite, 6.4 s | Polite, 25.6 s |
+|---|---|---|---|---|
+| As above | 69 | 71 | 80 | 80 |
+| Robot capped at 0.2 m/s | 53 | 66 | 77 | 80 |
+| No walk-to-a-cell proposals | 66 | 69 | 80 | 80 |
+| Capped at 0.2 m/s, walkers frozen where the ring saw them | 30 (12 contact stops) | | 64 | |
+
+- **Speed is part of the short-horizon result** (69 to 53 at 6.4 s) and little of the long one (71 to 66).
+- **The cell proposals matter little** (3 and 2 round trips). PLAN's claim that plain proposals could not find the way
+  out was wrong: with the walkers' terminal distance, the target-following and Gaussian tapes nearly suffice.
+- **The last row is the nearest to what the hand reference knows,** except the map and perfect tracking: 30 of 80
+  against the reference's 7 with walkers that do not yield, and 64 of 80 against its 65 with polite ones.
+
+**Read.**
+- The suites with walkers that do not yield are solvable: about 72 of 80, against 7.
+- The limit is the decision's cost, as the reviews said, and it is now a number: a terminal cost that counts the
+  walkers, or a 25-s horizon.
+- For the world-model work the order of value is: the walkers' velocity, then their reactions (mostly for contacts),
+  then nothing else measured here.
+- Next: P18, the cost in missions; then the same ladder with a learned model in the middle rows.
