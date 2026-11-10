@@ -1445,12 +1445,18 @@ the missions finished in both runs, about a third changed outcome, and the same 
 - **Paired comparison and the bar's state** (`go2nav/eval/compare.py`): two cohorts mission by mission (gains, losses,
   the exact sign test), and whether a bar is secured, out of reach or open while a suite runs.
 
-**3. The scatter, measured before anything else is read.** `cost2r_obst1_c5` repeats `cost2_obst1_c5` on the same
-code (40 missions, one polite walker). The share of missions whose outcome differs between the two is the scatter a
-change must exceed. It took the place of the queued still and four-walker reruns.
+**3. The scatter: none. A mission repeats exactly.** `cost2r_obst1_c5` repeated `cost2_obst1_c5` on the same code (40
+missions, one polite walker, 6 at once): the same 34 round trips and every outbound path the same length to the last
+digit. What follows from it:
+- every mission whose outcome changes between two versions was changed by the code, so gains and losses are counted,
+  not tested;
+- **a mission in which the replay changes no choice need not be run again:** it would be the same mission. A change
+  is run only on the missions whose recorded decisions it alters, once those were recorded with their inputs;
+- a suite's bar still stands for the whole set: 80 missions are a sample of mazes, though not of runs.
 
-**4. The development set,** chosen once the polite rerun and its repeat are in: the missions that fail in the fixed
-code, and a sample of those that pass, about 18, in cohorts of 6.
+**4. The development set** (`dev_obst1_c5`, `dev_obst2_c5`; 24 missions, about an hour): the 18 polite-walker
+missions that fail on the fixed code (9 with no route left on the map, 9 out of time), and 6 the fix mended, to see
+they stay mended. Its first run is on the code as it is, to record the decisions' inputs.
 
 **5. Not built: tier 2.** The controller's map is built from depth images, so the harness on the kinematic world needs
 either depth images cast from the geometry or a map updated from the truth. The pose and map oracles exist
