@@ -3,7 +3,7 @@
 A mission run with `--decision cost` saves `decision_inputs.npz`: everything `cost.select` was given at each plan (the
 forecasts, the waypoint or scan heading, the range returns, the reflex's obstacle cells, the flags). `replay` gives the
 same inputs to the code as it is now and reports where the choice differs from the one the mission made. It takes
-seconds where a suite takes hours. It is one step, open loop: it shows that a choice changes at the states a mission
+about a minute for a suite, a mission to a core, where the suite takes hours. It is one step, open loop: it shows that a choice changes at the states a mission
 passed through, not what the mission would then have done.
 
     python -m go2nav.eval.replay RUN [RUN ...] [--where STATUS]     # RUN: a mission's folder, or a cohort's
@@ -11,6 +11,8 @@ passed through, not what the mission would then have done.
 import argparse
 import collections
 import json
+import os
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -79,11 +81,12 @@ def main():
     parser.add_argument('--where', help='only the plans made under this route status')
     args = parser.parse_args()
     total, changes = 0, collections.Counter()
-    for run in (r for path in args.runs for r in runs_of(path)):
-        out = replay(run, args.where)
-        total += out['plans']
-        changes.update(out['changes'])
-        print(f"{run.name}: {out['changed']} of {out['plans']} plans change")
+    runs = [r for path in args.runs for r in runs_of(path)]
+    with ProcessPoolExecutor(min(len(runs), os.cpu_count() or 1) or 1) as pool:      # a mission a core
+        for run, out in zip(runs, pool.map(replay, runs, [args.where]*len(runs))):
+            total += out['plans']
+            changes.update(out['changes'])
+            print(f"{run.name}: {out['changed']} of {out['plans']} plans change")
     print(f'all: {sum(changes.values())} of {total} plans change')
     for (was, now), count in changes.most_common(12):
         print(f'  {count:6d}  {was} -> {now}')
