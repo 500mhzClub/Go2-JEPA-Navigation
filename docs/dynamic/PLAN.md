@@ -1256,28 +1256,103 @@ on the GPU.
 - **The advantage measure cannot be used as built.** Its ceiling (0.76 val, 0.72 transfer) does not clear its
   scene-blind null (0.76, 0.73): the side step's tape, planned on the true walls, tells as much as the nearest walker's
   state adds. `half_gap` now gives no skill where the ceiling is within 0.05 of the null (added after these scores; no
-  verdict changes). Proposed, not applied: the ceiling becomes 1, as for contacts, since the label is the replay's own
-  outcome. P17's planner on the true model is the real ceiling for decisions.
+  verdict changes). **Agreed 9 November and applied:** the ceiling is 1, as for contacts, since the label is the
+  replay's own outcome; the state readout stays in the report. Under it the first scores' skills are -0.41 / 0.25
+  (`go2_3level_v2`, val / transfer), -0.28 / -0.06 (the control) and -0.20 / -0.09 (`go2_3level_c`), against a pass
+  mark of 0.5: no verdict changes. P17's planner on the true model is the real ceiling for decisions.
 - **A correction to the review.** On matched windows, where the command history is constant, `go2_3level_c` still
   ranks the walkers that respond at 1.6 s (AUC 0.82 on both splits; the walker's distance alone scores 0.84 and 0.89).
   So part of its rise on P15's gate came from the scene, not only from the command history. Its predicted reaction is
   4-7% of the true one, on top of 3-4 cm applied to every walker. The verdict on the run is unchanged.
 
-### P17. The planner and its cost, first on the true model (review step 3; approved 9 November, set out in full before it starts)
+### P17. The planner and its cost, first on the true model (review step 3; approved 9 November; set out 9 November before any run)
 
 **Why.** The cost, the critic and the planner have never been built, and no agent has shown what the suites with walkers
 that do not yield allow. With the true model in the planner, a failure is the cost's, the horizon's or the test bed's,
-never the prediction's.
-- **Planner:** MPPI over command tapes within the locomotion policy's range.
-- **Model:** the kinematic robot and the walkers' own scripts (`mover_probe.branch`). No learned part.
-- **Intrinsic cost:** the body outline's clearance under a margin, progress along the route to the next waypoint, and
-  time. Three terms, fixed.
-- **Offline:** on the stand-off validation windows, whether the planner's choice leaves the way clear after 25.6 s,
-  against holding (12% with walkers that do not yield) and the scripted side step (36%), at horizons of 1.6, 6.4 and
-  25.6 s. This says what horizon, or what critic at the rollout's end, the decision needs.
-- **Closed loop:** kinematic missions on the validation layouts with the true map's route. They give the upper bound for
-  each suite: polite, reactive, four walkers, and walkers that do not yield.
-- CPU only, 1-2 days. The loop is the start of the review's fast ring world (step 5).
+never the prediction's. Branch `feature/planner-true-model`.
+
+**1. A kinematic world** (`go2nav/sim/kinematic.py`). No rendering, no physics engine, the CPU only.
+- **The robot** moves exactly as commanded: the request passes the continuous block's bounds and rate limits once per
+  100 ms, as in missions, and is integrated at 2 ms. It tracks perfectly, which the real robot does not.
+- **The walkers** are the simulator's own (`sim.obstacles`: polite, not yielding, reactive), stepped every 2 ms against
+  the robot's pose, from the placement a mission of the same set, maze, episode and count draws. Their walks replay the
+  missions' draws; their meetings with the robot differ, since the robot does.
+- **Contact** ends the mission, as in missions: the body outline (0.70 by 0.32 m) touching a wall or a walker.
+- **The task** is the missions' own (`planning.mission.RoundTripMission` on the true position): the beacon, then home,
+  each held within 4 cm for a second at a zero command, inside 480 s.
+
+**2. The planner** (`go2nav/planning/sampling.py`): a sampling planner over command tapes, replanned every 0.4 s.
+- **Proposals.** Plain MPPI draws Gaussian noise round one tape, and cannot find a manoeuvre of 20 s (back out, turn
+  into a branch, wait, return). So beside Gaussian perturbations of the last plan, the proposals include tapes that
+  walk to a nearby cell (any within three passages), wait there 2, 5, 10 or 20 s, and then make for the target, driving
+  forwards or backing; a hold; and a straight approach near the target. They are a prior over tapes, built from the
+  layout's distances alone. They hold no rule about walkers: which tape runs is the cost's choice.
+- **The model** predicts the robot's path from the tape, and the walkers by stepping copies of them against that path,
+  at 100 ms. The copies carry the walkers' random generators, so the model also knows their future draws. That makes
+  the result an upper bound, generous on two counts: perfect tracking and foreknowledge.
+- **The intrinsic cost,** in seconds, three terms, fixed for every run:
+  - time: each step not yet at the target;
+  - clearance: up to 2 s a second as the outline's clearance falls from 0.20 m to 0.08 m; under 0.08 m a tape is
+    discarded. The floor is 0.08 m because a walker that does not yield stops 0.10 m from the outline, and 0.057 m is
+    what squeezing past one in a 1.22-m passage would leave;
+  - progress: the distance still to walk from where the tape ends, at 0.3 m/s.
+- **The terminal distance is the variable under test** (the review's "what critic does the decision need"):
+  - `static`: the distance through the walls alone;
+  - `walkers`: the distance with the walkers, where the tape leaves them, as obstacles. A sealed way costs 200 s more.
+    It is a critic in the simplest form: the time to go if the world froze at the horizon.
+
+**3. Runs.** Validation mazes 10-29, two episodes each, as P13's reference suites.
+- **Walkers that do not yield** (80 missions: one and two walkers): horizons 1.6, 6.4 and 25.6 s, each with both
+  terminal distances. Six runs.
+- **Polite walkers** (80) and **four walkers** (40): the configuration that does best above, and the cheapest.
+- **Reactive walkers** (80), if their cost allows: a reactive walker's step takes 50 times a plain one's.
+
+**4. What is read.** No pass mark: this piece measures.
+- Round trips per suite and configuration, beside P13's hand reference (7 of 80; 65 of 80; 21 of 40). The best is the
+  suite's upper bound.
+- Which horizon and which terminal distance the stand-off needs: the smallest configuration within 3 round trips of
+  the best.
+- Timeouts that end pinned (the robot in a dead end with a walker that does not yield at its mouth): what no planner
+  can resolve.
+- The lowest clearance each mission kept, and the seconds spent with a walker waiting on the robot.
+
+**5. A ladder of models and two handicaps** (approved 9 November, after the first two runs; set out before any of
+its runs). The first runs with walkers that do not yield gave 42 and 51 of 80 at a 1.6-s horizon, against the hand
+reference's 7: the kinematic planner knows the map, tracks perfectly and walks at 0.4 m/s, so it often finishes before
+it meets a walker. The bound is generous in ways that are not prediction. These runs take the advantages away one at a
+time (`planning.sampling.MODELS`; `eval.kinematic_missions --model, --max-speed, --no-cells`).
+
+| Run | The walkers in the planner's model | What the step up to the next run measures |
+|---|---|---|
+| `frozen_seen` | where the range ring last saw them in its line of sight; unseen ones absent | seeing round corners |
+| `frozen` | all of them, where they are now | their velocity |
+| `velocity` | carried on at their velocity, stopping at walls | how they react to the robot: what a learned model must supply |
+| `fresh` | the simulator's own rules, with new dice each plan | knowing their future draws |
+| `true` | the simulator's own, dice included (item 2) | |
+
+- **The ladder:** each model at horizons of 6.4 and 25.6 s with the `walkers` terminal distance, on the three suites
+  (walkers that do not yield 80, polite 80, four walkers 40).
+- **Slow robot:** the true model with forward commands capped at 0.2 m/s, near the reference's pace, on the first two
+  suites at both horizons. It shows how much of a result is finishing early.
+- **No cell proposals:** the true model without the walk-to-a-cell tapes, same runs. It shows whether the cost and the
+  Gaussian proposals alone find the way out of a stand-off.
+- **Slow and ring-only:** `frozen_seen` at 0.2 m/s and 6.4 s on the first two suites: the nearest the kinematic world
+  comes to what the hand reference knows, except the map.
+- **Read:** round trips and contact stops per run, as a table. No pass mark. The step from `velocity` to `fresh` is the
+  figure the world-model work is judged against: what predicting the walkers' reactions is worth to this planner.
+- The model steps the walkers at 100 ms where the world steps them at 2 ms, and lags the world by about 4 mm a second.
+
+**6. Results (10 November; STATUS P17).** With walkers that do not yield the upper bound is about 72 of 80, against
+the hand reference's 7. A 6.4-s horizon suffices when the terminal distance counts the walkers (69; 48 without), or a
+25.6-s horizon without (72). The ladder at 6.4 s: frozen walkers 47-49, velocity 64, the simulator's rules 69, the
+truth 69; contact stops 9-13, 7, 0, 0. Capped at 0.2 m/s: 53. Without the cell proposals: 66, so item 2's claim that
+plain proposals cannot find the manoeuvre was wrong. Polite 80 of 80, four walkers 38-40 of 40, reactive 80 of 80.
+
+**Dropped from the outline:** the offline score on the corpus's stand-off windows. Those units have no goal, so the
+cost's progress term has nothing to measure there; the missions answer the same question in closed loop.
+
+**Compute.** CPU only. A plan takes 0.1-0.5 s with plain walkers; a mission 1-8 minutes; a run of 80 missions under an
+hour on 28 processes.
 
 ### P18. The planner in missions where the model already suffices (review step 4; approved 9 November, set out in full before it starts)
 
