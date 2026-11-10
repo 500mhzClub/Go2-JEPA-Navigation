@@ -108,6 +108,7 @@ class NavigationController:
                  walker_memory=None, pose_carry=None, vacate=False, decision='rules'):
         if decision not in ('rules', 'cost'):
             raise ValueError("decision is 'rules' or 'cost'")
+        self.decision_inputs = []  # what `planning.cost.select` was given at each plan (eval.replay)
         self.forecaster, self.decision = forecaster, decision  # 'cost': `planning.cost.select` in place of the stages (P18)
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
         if pose_carry is not None:  # 'model' or 'c1' (`perception.carried`)
@@ -323,10 +324,14 @@ class NavigationController:
             prediction = self.forecaster.forecast(context, prefix, pulse=self.planner.pulse, **lattice)
             if self.decision == 'cost':
                 self.planner.backup_plan = False
-                selected = cost.select(prediction, list(self.planner.candidates), goal_body, scan_error,
-                                       self._range_points(frame), arrival_radius_m=self.planner.arrival_radius_m,
-                                       target=self.planner.exact_terminal_target, pulse=self.planner.pulse,
-                                       cells=None if self.latest_obstacles is None else self.latest_obstacles.cells)
+                inputs = dict(prediction=prediction, goal_body=goal_body, scan_error=scan_error,
+                              points=self._range_points(frame), target=self.planner.exact_terminal_target,
+                              pulse=self.planner.pulse,
+                              cells=None if self.latest_obstacles is None else self.latest_obstacles.cells)
+                self.decision_inputs.append(dict(inputs, frame=frame.frame))  # for eval.replay
+                selected = cost.select(inputs.pop('prediction'), list(self.planner.candidates), inputs.pop('goal_body'),
+                                       inputs.pop('scan_error'), inputs.pop('points'),
+                                       arrival_radius_m=self.planner.arrival_radius_m, **inputs)
             else:
                 selected = self.planner.select(prediction, goal_body, scan_error, snapshot, registered.position,
                                                registered.rotation, generation=generation)

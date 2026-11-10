@@ -1424,6 +1424,49 @@ often every candidate was discarded.
 
 **Compute.** The smoke: 36 minutes. The suites: about 240 missions, 8-10 hours at 6 at once.
 
+### P19. Evaluating a change sooner (approved 10 November)
+
+**Why.** P18's first fix took a 7-hour suite to find and a 3-hour suite to test, and the result could not be read: on
+the missions finished in both runs, about a third changed outcome, and the same code had never been run twice. Branch
+`feature/faster-evaluation`, stacked on `feature/planner-in-missions`.
+
+**1. Tiers, cheapest first.** A change goes up a tier only when it passes the one below.
+
+| Tier | What | Time | Shows |
+|---|---|---|---|
+| 1 | Recorded decisions decided again (`go2nav/eval/replay.py`) | seconds | that a choice changes at the states missions passed through; one step, open loop |
+| 2 | The mission harness on the kinematic world (not built; see 5) | minutes | the decision with the route and the map; not the forecast or odometry |
+| 3 | A development set in Genesis: missions that fail and a sample that pass (item 4) | about 45 minutes | the real mission, where it matters |
+| 4 | The full suites, once for a change that survives | hours | the bar |
+
+**2. Built.**
+- **Replay.** A mission with `--decision cost` saves `decision_inputs.npz`: everything `cost.select` was given at each
+  plan. `python -m go2nav.eval.replay RUN...` decides them again with the code as it is and lists the choices that change.
+- **Paired comparison and the bar's state** (`go2nav/eval/compare.py`): two cohorts mission by mission (gains, losses,
+  the exact sign test), and whether a bar is secured, out of reach or open while a suite runs.
+
+**3. The scatter, measured before anything else is read.** `cost2r_obst1_c5` repeats `cost2_obst1_c5` on the same
+code (40 missions, one polite walker). The share of missions whose outcome differs between the two is the scatter a
+change must exceed. It took the place of the queued still and four-walker reruns.
+
+**4. The development set,** chosen once the polite rerun and its repeat are in: the missions that fail in the fixed
+code, and a sample of those that pass, about 18, in cohorts of 6.
+
+**5. Not built: tier 2.** The controller's map is built from depth images, so the harness on the kinematic world needs
+either depth images cast from the geometry or a map updated from the truth. The pose and map oracles exist
+(`controllers/truth_oracles.py`); the size of the rest is not yet known.
+
+**6. Tried and dropped: ending a mission early when the robot stands.** Failures take 57% of a suite's wall time, but
+many of them keep moving, and some round trips stand for minutes first. On 241 missions of P18:
+
+| Ended after standing within 0.15 m for | Simulated time saved | Round trips lost |
+|---|---|---|
+| 60 s | 22% | 10 of 177 |
+| 120 s | 16% | 8 |
+| 180 s | 12% | 4 |
+
+It would change what a round trip is for little time, so it is not done.
+
 ## Compute and order
 
 | Phase | Compute |
