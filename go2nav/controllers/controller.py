@@ -24,6 +24,10 @@ it passes the dispatch check, the mission and the committed-prefix check; otherw
 images the map is built from and replaces the map's cells; `prediction_oracle` gives the planner every obstacle's true
 future positions in place of the tracker's; `walker_mode='truth'` gives it every walker's true position, no speeds.
 
+`decision='cost'` (PLAN P18): the plan's action is chosen by `planning.cost.select`, an intrinsic cost on the
+forecasts and the range sensor's returns, in place of `Planner.select`'s stages; the route, the map, the mission and
+the dispatch check are unchanged.
+
 With no forecaster the controller is the model-free C2: the planner's reactive selection replaces forecasting and
 scoring (`Planner.select_reactive`).
 
@@ -45,7 +49,7 @@ from go2nav.perception.registration import FloorRegistration
 from go2nav.perception.tracks import ObstacleTracker
 from go2nav.perception.visual_odometry import VisualOdometry
 from go2nav.perception.visual_support import SupportedView
-from go2nav.planning import grid
+from go2nav.planning import cost, grid
 from go2nav.planning.actions import ACTIONS, COMMIT_TICKS, PERIOD_NS, translating
 from go2nav.planning.dispatch import PASSED, CommitmentLedger, ScheduledCommand, dispatch_check
 from go2nav.planning.mission import RoundTripMission
@@ -101,8 +105,10 @@ class NavigationController:
                  deadlock_escape=False, terminal_burst=False, obstacle_prediction=False, footprint_clearing=False,
                  candidates=ACTIONS, truth=None, pose_oracle=False, map_oracle=None, prediction_oracle=False,
                  mover_trails=False, give_way=False, close_up=False, walker_finder=None, walker_mode='shadow',
-                 walker_memory=None, pose_carry=None, vacate=False):
-        self.forecaster = forecaster
+                 walker_memory=None, pose_carry=None, vacate=False, decision='rules'):
+        if decision not in ('rules', 'cost'):
+            raise ValueError("decision is 'rules' or 'cost'")
+        self.forecaster, self.decision = forecaster, decision  # 'cost': `planning.cost.select` in place of the stages (P18)
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
         if pose_carry is not None:  # 'model' or 'c1' (`perception.carried`)
             self.odometry = CarriedOdometry(Carrier(pose_carry, forecaster), max_path_m=MAX_CARRIED_PATH_M)
@@ -315,8 +321,15 @@ class NavigationController:
                                   dict(self.registered_poses), tuple(self.ledger.commitments))
             lattice = {} if self.planner.candidates == ACTIONS else dict(candidates=self.planner.candidates)
             prediction = self.forecaster.forecast(context, prefix, pulse=self.planner.pulse, **lattice)
-            selected = self.planner.select(prediction, goal_body, scan_error, snapshot, registered.position,
-                                           registered.rotation, generation=generation)
+            if self.decision == 'cost':
+                self.planner.backup_plan = False
+                selected = cost.select(prediction, list(self.planner.candidates), goal_body, scan_error,
+                                       self._range_points(frame), arrival_radius_m=self.planner.arrival_radius_m,
+                                       pulse=self.planner.pulse,
+                                       cells=None if self.latest_obstacles is None else self.latest_obstacles.cells)
+            else:
+                selected = self.planner.select(prediction, goal_body, scan_error, snapshot, registered.position,
+                                               registered.rotation, generation=generation)
             forecast_xy = np.asarray(prediction)[:, :, :2].tolist()
         plan = ScheduledCommand.prepare(selected['action'], observed_ns=now,
                                         pulse=self.planner.pulse and translating(selected['action']))
