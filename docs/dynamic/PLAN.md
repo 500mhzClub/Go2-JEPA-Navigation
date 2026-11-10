@@ -1401,7 +1401,28 @@ suite's first 20 missions):
 No contact stops in any suite. Reported beside round trips: timeouts, pose losses, the time of a round trip, and how
 often every candidate was discarded.
 
-**Compute.** The smoke: about half an hour. The suites: about 240 missions, 8-10 hours at 6 at once.
+**6. The smoke passed, and one defect was fixed before the suites** (10 November).
+
+| | Round trips | Crashes | Contact stops |
+|---|---|---|---|
+| Still mazes (6) | 5 | 0 | 0 |
+| One polite walker (6) | 5 | 0 | 0 |
+
+- Round trips took 94-160 s. The hand reference's four clean round trips on the same six missions with a polite walker
+  took 116-149 s; it also took 458 s on one and timed out on one.
+- **The still failure (maze 12, episode 1): a reverse pulse.** Seven centimetres behind and beside the beacon, the cost
+  chose a 100-ms reverse for 1,043 plans. The forecast credits it with a centimetre; the robot does not move.
+  - Fixed at cb447c0, before any suite mission: a reverse pulse is not a candidate, and the turn towards the waypoint
+    counts in full where it was weighted down within 0.3 m (five constants where there were six).
+  - Counting the turn in full was tried first and is not enough: with a perfect forecast too, a centimetre back changes
+    the bearing to a point 7 cm away more than a 100-ms turn does.
+- **The polite failure (maze 11, episode 0):** the beacon was reached; on the way home the route was lost and the
+  robot turned and backed in arcs round a waypoint 0.3 m beside it until the time ran out. Not changed. The hand
+  reference needed 458 s on the same mission.
+- The suites started at 08:05 on cb447c0. The two smoke missions that finished after the fix was committed had started
+  on the code before it.
+
+**Compute.** The smoke: 36 minutes. The suites: about 240 missions, 8-10 hours at 6 at once.
 
 ## Compute and order
 
