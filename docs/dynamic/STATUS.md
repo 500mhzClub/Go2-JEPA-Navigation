@@ -1668,3 +1668,49 @@ trips, with contact stops in brackets):
 - For the world-model work the order of value is: the walkers' velocity, then their reactions (mostly for contacts),
   then nothing else measured here.
 - Next: P18, the cost in missions; then the same ladder with a learned model in the middle rows.
+
+## P18: the decision by an intrinsic cost, in missions (10 November)
+
+Plan: PLAN P18. Branch `feature/planner-in-missions`. Code: `go2nav/planning/cost.py` (`--decision cost`), called from
+`go2nav/controllers/controller.py` in place of `Planner.select`. Config: `configs/experiments/cost_decision.yaml`.
+Forecaster `go2_v2_walkers` (the working setup's). Validation mazes 10-29, Genesis, 6 missions at once, 08:05-15:20.
+
+**1. Result: the cost equals the hand planner in still mazes and falls short of it with polite walkers.**
+
+| Suite | Cost decision | Hand reference | Bar | |
+|---|---|---|---|---|
+| Still mazes (40) | 37 | 37 (`rsn_still_c5`, run beside it) | within 3 | passes |
+| Polite walkers (80) | 52 (one walker 30 of 40, two 22 of 40) | 65 | at least 62 | **fails** |
+| Four walkers (40) | 18 | 21 | at least 18 | passes, at the bar |
+
+- No crash and no contact stop in 200 missions. One pose loss (two walkers).
+- A round trip's median time: 121 s in still mazes (the reference 117 s), 152 s with one walker, 189 s with two, 224 s
+  with four.
+- Every candidate was discarded in 214 of 109,628 plans (0.2%).
+
+**2. Why missions failed: two causes, one of them the cost's own defect.**
+
+| Suite | Failures | Stood on a frontier waypoint (100 plans or more) | No route left on the map |
+|---|---|---|---|
+| Still mazes | 3 | 2 | 0 |
+| Polite walkers | 28 | 18 | 11 |
+| Four walkers | 22 | 6 | 20 |
+
+(A mission can show both.)
+
+- **Standing on a frontier waypoint: a defect of P18's cost.** The time to go is nothing inside the arrival radius.
+  That is right at the beacon and at home. At a waypoint on a frontier (the edge of what the map has seen) it makes
+  holding free, the route does not change while the robot holds, and the robot stands there until the time runs out:
+  up to 1,150 plans of 1,197. The hand planner's stages moved it on; PLAN P18 item 1 removed them without putting
+  anything in their place. It accounts for 18 of the 28 polite failures, so the bar's miss by 10 is within it.
+- **No route left on the map** grows with the number of walkers (20 of 22 failures with four). The map and the route
+  are the hand harness's and were not changed here; the hand reference loses missions the same way (21 of 40).
+- The smoke's polite failure (turning in arcs beside a waypoint) is neither of these and was not counted apart.
+
+**3. What it shows.** A cost of two terms and five constants does the hand planner's work where the model suffices,
+once it is told what arriving means. It is not yet shown with walkers: the polite bar failed, and the cause found is
+not the walkers. Nothing here tests walkers that do not yield; P17 says that needs the horizon or the end cost.
+
+**4. Next, not done:** nothing to go inside the arrival radius only when the waypoint is the mission's target; at any
+other waypoint the cost stays the distance and turn, so the robot keeps moving for the route to change. Then the polite
+suites again against the same bar (about 3 hours).
