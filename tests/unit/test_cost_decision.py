@@ -21,9 +21,9 @@ def forecast(candidates=LATTICE, pulse=False):
     return out
 
 
-def choose(goal=(1., 0.), scan=None, points=None, cells=None, pulse=False):
+def choose(goal=(1., 0.), scan=None, points=None, cells=None, pulse=False, target=True):
     return cost.select(forecast(pulse=pulse), list(LATTICE), np.asarray(goal, float), scan, points,
-                       arrival_radius_m=.02, pulse=pulse, cells=cells)
+                       arrival_radius_m=.02, target=target, pulse=pulse, cells=cells)
 
 
 def test_in_the_open_it_walks_to_the_waypoint_and_turns_to_one_beside_it():
@@ -36,6 +36,7 @@ def test_in_the_open_it_walks_to_the_waypoint_and_turns_to_one_beside_it():
 
 def test_it_holds_on_the_waypoint_and_turns_to_a_scan_heading():
     assert choose(goal=(.005, .005))['action'] == 'hold'
+    assert choose(goal=(.01, -.02), target=False)['action'] != 'hold'      # not the mission's target: it does not stand
     assert command(choose(goal=(0., 0.), scan=1.)['action']) == (0., 0., .45)
     assert command(choose(goal=(0., 0.), scan=-1.)['action']) == (0., 0., -.45)
     assert choose(goal=(0., 0.), scan=.0)['action'] == 'hold'

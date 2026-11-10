@@ -3,7 +3,9 @@ base: configs/working.yaml
 description: 'docs/dynamic/PLAN.md, P18. The working setup with the range sensor and the no-slip pass, as P13''s references
   (noslip_reference.yaml), with decision: cost: planning.cost.select chooses each plan''s action in place of Planner.select''s
   stages. cost_smoke_* are the smoke test (mazes 10-12); cost_still_c5 pairs with rsn_still_c5 (the hand reference in still
-  mazes, run here: P13 ran none), cost_obst1/2_c5 with rsn_obst1/2_c5 and cost_obst4_c5 with rsn_obst4_c5.'
+  mazes, run here: P13 ran none), cost_obst1/2_c5 with rsn_obst1/2_c5 and cost_obst4_c5 with rsn_obst4_c5.
+  cost2_* are the same suites after the frontier-waypoint fix (STATUS P18); cost2_stall_c5 is its smoke: six missions
+  that stood on a frontier waypoint in the first suites, with two walkers.'
 cohorts:
 - name: cost_smoke_still_c5
   set: validation
@@ -148,6 +150,45 @@ cohorts:
   episodes: *id007
   noslip: 'on'
 - name: cost_obst4_c5
+  set: validation
+  obstacles: 4
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
+- name: cost2_stall_c5
+  set: validation
+  obstacles: 2
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: [[12, 0], [13, 1], [25, 0], [25, 1], [26, 0], [29, 1]]
+  noslip: 'on'
+- name: cost2_obst1_c5
+  set: validation
+  obstacles: 1
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
+- name: cost2_obst2_c5
+  set: validation
+  obstacles: 2
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
+- name: cost2_still_c5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
+- name: cost2_obst4_c5
   set: validation
   obstacles: 4
   walker_mode: held

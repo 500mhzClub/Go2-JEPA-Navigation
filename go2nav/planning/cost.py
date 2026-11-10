@@ -7,7 +7,10 @@ prefix ticks, the candidate's commit, then zero), the waypoint in the body frame
 next point, or zero with a `scan_error`, the heading to turn to), and the range sensor's returns at the frame as
 body-frame points. The cost of a candidate, over its ticks after the prefix:
 - **to go:** from the pose it ends at, the distance to the waypoint over `V_REF` plus the turn towards it over
-  `W_REF`; nothing within the arrival radius. With a `scan_error`: the turn left to that heading over `W_REF`.
+  `W_REF`; nothing within the arrival radius of the mission's target (`target`: the waypoint is the beacon or home).
+  At any other waypoint the distance and turn count however near it is: the first suites zeroed them there too, which
+  made holding free on a frontier waypoint, where the route does not change while the robot holds (18 of 28 polite
+  failures; docs/dynamic/STATUS.md P18). With a `scan_error`: the turn left to that heading over `W_REF`.
   The turn was first weighted down within 0.3 m of the waypoint; it is now counted in full, one constant fewer;
 - **a reverse pulse is not a candidate.** In the terminal approach a plan runs for 100 ms (`pulse`). The lattice's
   reverse, 0.10 m/s, is then a centimetre: the forecast credits it with motion and the robot does not make it. The
@@ -51,7 +54,7 @@ def reflex_clear(action, cells, pulse):
     return True
 
 
-def select(prediction, candidates, goal_body, scan_error, points, *, arrival_radius_m, pulse=False, cells=None):
+def select(prediction, candidates, goal_body, scan_error, points, *, arrival_radius_m, target=True, pulse=False, cells=None):
     """The candidate chosen by the cost: a selection record with `action`, `action_index`, `requested_command` and one
     row per candidate. `points`: the range returns (n, 2 or 3) in the body frame, or None; `cells`: the latest
     obstacle cells of the dispatch check (1-cm body cells), or None to leave the reflex out."""
@@ -74,7 +77,7 @@ def select(prediction, candidates, goal_body, scan_error, points, *, arrival_rad
         offset = np.asarray(goal_body, float)-end
         distance = np.linalg.norm(offset, axis=1)
         turn = np.abs(wrap(np.arctan2(offset[:, 1], offset[:, 0])-heading))
-        to_go = np.where(distance > arrival_radius_m, distance/V_REF+turn/W_REF, 0.)
+        to_go = np.where((distance > arrival_radius_m) | (not target), distance/V_REF+turn/W_REF, 0.)
     stopped = np.array([cells is not None and not reflex_clear(a, cells, pulse) for a in candidates])
     absent = np.array([bool(pulse and command(a)[0] < 0) for a in candidates])     # a reverse pulse is no action
     discarded = breached | stopped | absent

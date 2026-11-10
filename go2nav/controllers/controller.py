@@ -325,7 +325,7 @@ class NavigationController:
                 self.planner.backup_plan = False
                 selected = cost.select(prediction, list(self.planner.candidates), goal_body, scan_error,
                                        self._range_points(frame), arrival_radius_m=self.planner.arrival_radius_m,
-                                       pulse=self.planner.pulse,
+                                       target=self.planner.exact_terminal_target, pulse=self.planner.pulse,
                                        cells=None if self.latest_obstacles is None else self.latest_obstacles.cells)
             else:
                 selected = self.planner.select(prediction, goal_body, scan_error, snapshot, registered.position,
