@@ -1711,6 +1711,20 @@ Forecaster `go2_v2_walkers` (the working setup's). Validation mazes 10-29, Genes
 once it is told what arriving means. It is not yet shown with walkers: the polite bar failed, and the cause found is
 not the walkers. Nothing here tests walkers that do not yield; P17 says that needs the horizon or the end cost.
 
-**4. Next, not done:** nothing to go inside the arrival radius only when the waypoint is the mission's target; at any
-other waypoint the cost stays the distance and turn, so the robot keeps moving for the route to change. Then the polite
-suites again against the same bar (about 3 hours).
+**4. The fix and its rerun** (6e2ea85; cohorts `cost2_*`). Nothing to go inside the arrival radius only when the
+waypoint is the mission's target; at any other waypoint the distance and turn count however near.
+
+| Suite | Before | After | Gains | Losses | Bar |
+|---|---|---|---|---|---|
+| Six two-walker missions that stood (the fix's smoke) | 0 | 4 | | | |
+| One polite walker (40) | 30 | 34 | 8 | 4 | |
+| Two polite walkers (40) | 22 | 28 | 7 | 1 | |
+| Polite walkers (80) | 52 | 62 | 15 | 5 | at least 62: passes, at the bar |
+
+- No crash and no contact stop. The hand reference makes 65.
+- **A mission repeats exactly.** `cost2r_obst1_c5` ran the one-walker suite again on the same code: the same 34 round
+  trips, the same 6 failures, and every outbound path the same length to the last digit. So the 5 losses are the fix's
+  doing, not scatter: it mends 15 missions and breaks 5.
+- **Not run on the fixed code:** still mazes and four walkers (37 of 40 and 18 of 40 before it). The queued reruns gave
+  way to the repeat (approved 10 November).
+- **The 18 failures left:** 9 with no route left on the map, 9 out of time (6 of them on the way home).
