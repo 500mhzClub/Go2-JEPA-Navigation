@@ -7,9 +7,12 @@ prefix ticks, the candidate's commit, then zero), the waypoint in the body frame
 next point, or zero with a `scan_error`, the heading to turn to), and the range sensor's returns at the frame as
 body-frame points. The cost of a candidate, over its ticks after the prefix:
 - **to go:** from the pose it ends at, the distance to the waypoint over `V_REF` plus the turn towards it over
-  `W_REF` (the turn counted in full beyond `NEAR_M` from the waypoint and in proportion nearer, so that a robot beside
-  its target turns to it and one on it stands still); nothing within the arrival radius. With a `scan_error`: the turn
-  left to that heading over `W_REF`;
+  `W_REF`; nothing within the arrival radius. With a `scan_error`: the turn left to that heading over `W_REF`.
+  The turn was first weighted down within 0.3 m of the waypoint; it is now counted in full, one constant fewer;
+- **a reverse pulse is not a candidate.** In the terminal approach a plan runs for 100 ms (`pulse`). The lattice's
+  reverse, 0.10 m/s, is then a centimetre: the forecast credits it with motion and the robot does not make it. The
+  smoke's one failure (10 November) was 1,043 such plans in a row, 7 cm behind and beside the beacon. This is a fact
+  about the commands the robot has, not a rule about what to do;
 - **clearance:** `CLEARANCE_RATE` seconds a second as the body outline's clearance to the returns falls from `SOFT_M`
   to `FLOOR_M`; under the floor the candidate is discarded. A robot already under the floor may still move wherever
   its clearance does not fall further;
@@ -20,7 +23,7 @@ body-frame points. The cost of a candidate, over its ticks after the prefix:
 The cheapest candidate is chosen; of equal ones, the one that moves the base least, then turns least (so a scan turns
 on the spot and a tie with hold holds). If every candidate is discarded, hold.
 
-Six constants: `V_REF`, `W_REF`, `NEAR_M`, `FLOOR_M`, `SOFT_M`, `CLEARANCE_RATE`.
+Five constants: `V_REF`, `W_REF`, `FLOOR_M`, `SOFT_M`, `CLEARANCE_RATE`.
 """
 import numpy as np
 
@@ -28,7 +31,7 @@ from go2nav.planning import dispatch
 from go2nav.planning.actions import COMMIT_TICKS, PREFIX_TICKS, command
 from go2nav.sim.kinematic import rectangle_gap
 
-V_REF, W_REF, NEAR_M = .3, .45, .3
+V_REF, W_REF = .3, .45
 FLOOR_M, SOFT_M, CLEARANCE_RATE = .10, .25, 2.
 DISCARD, TICK_S, RETURNS_AGE_S = 1e4, .1, .1
 
@@ -71,9 +74,10 @@ def select(prediction, candidates, goal_body, scan_error, points, *, arrival_rad
         offset = np.asarray(goal_body, float)-end
         distance = np.linalg.norm(offset, axis=1)
         turn = np.abs(wrap(np.arctan2(offset[:, 1], offset[:, 0])-heading))
-        to_go = np.where(distance > arrival_radius_m, distance/V_REF+np.minimum(1., distance/NEAR_M)*turn/W_REF, 0.)
+        to_go = np.where(distance > arrival_radius_m, distance/V_REF+turn/W_REF, 0.)
     stopped = np.array([cells is not None and not reflex_clear(a, cells, pulse) for a in candidates])
-    discarded = breached | stopped
+    absent = np.array([bool(pulse and command(a)[0] < 0) for a in candidates])     # a reverse pulse is no action
+    discarded = breached | stopped | absent
     total = to_go+soft+DISCARD*discarded
     hold = candidates.index('hold')
     moved = np.array([float(np.hypot(*command(a)[:2])) for a in candidates])

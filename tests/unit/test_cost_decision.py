@@ -66,3 +66,8 @@ def test_what_the_reflex_would_stop_is_not_chosen():
     assert rows['cmd+0.45+0.00+0.00']['reflex_would_stop'] and not rows['hold']['reflex_would_stop']
     assert not translating(result['action']) or command(result['action'])[0] < 0
     assert set(rows['hold']) >= {'utility_m', 'eligible', 'cost_s'} and result['selection_objective'] == 'intrinsic_cost_seconds'
+
+
+def test_beside_the_waypoint_it_turns_to_it_and_does_not_back_up():
+    result = choose(goal=(-.05, -.05), pulse=True)                          # 7 cm behind and to the right
+    assert command(result['action']) == (0., 0., -.45)
