@@ -324,14 +324,18 @@ class NavigationController:
             prediction = self.forecaster.forecast(context, prefix, pulse=self.planner.pulse, **lattice)
             if self.decision == 'cost':
                 self.planner.backup_plan = False
+                swept, at = self.planner.uncovered(prediction, snapshot, registered.position, registered.rotation)
                 inputs = dict(prediction=prediction, goal_body=goal_body, scan_error=scan_error,
                               points=self._range_points(frame), target=self.planner.exact_terminal_target,
                               pulse=self.planner.pulse,
-                              cells=None if self.latest_obstacles is None else self.latest_obstacles.cells)
+                              cells=None if self.latest_obstacles is None else self.latest_obstacles.cells,
+                              uncovered=[bool(c) and translating(a) for c, a in zip(swept, self.planner.candidates)])
                 self.decision_inputs.append(dict(inputs, frame=frame.frame))  # for eval.replay
                 selected = cost.select(inputs.pop('prediction'), list(self.planner.candidates), inputs.pop('goal_body'),
                                        inputs.pop('scan_error'), inputs.pop('points'),
                                        arrival_radius_m=self.planner.arrival_radius_m, **inputs)
+                if selected['coverage_wanted'] is not None:
+                    self.planner.want_coverage(swept[list(self.planner.candidates).index(selected['coverage_wanted'])], at)
             else:
                 selected = self.planner.select(prediction, goal_body, scan_error, snapshot, registered.position,
                                                registered.rotation, generation=generation)

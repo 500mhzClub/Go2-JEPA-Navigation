@@ -501,6 +501,23 @@ class Planner:
                                    predicted_tracks=[t.id for t in moving])
         return result
 
+    def uncovered(self, prediction, snapshot, position, rotation):
+        """For `planning.cost` (PLAN P18): per candidate, the unobserved cells its forecast would sweep
+        (`selection.footprint_extension`, as `require_floor_coverage` reads it; empty when it sweeps none)."""
+        B = np.asarray(snapshot.map_from_initial)
+        observed = snapshot.floor | snapshot.occupied
+        rows = sel.footprint_extension(np.asarray(prediction), B@position, B@rotation,
+                                       observed if self.coverage_fix else snapshot.floor, list(self.candidates))
+        return [[tuple(c) for c in r['added_cells'] if tuple(c) not in observed] or
+                ([None] if r['leaves_map_bounds'] else []) for r in rows], (B@position)[:2]
+
+    def want_coverage(self, cells, position_map):
+        """Ask the route for a view of the nearest of the unobserved cells a wanted translation would sweep."""
+        cells = [c for c in cells if c is not None]
+        if self.coverage_target is None and cells:
+            self.coverage_target = min(cells, key=lambda c: (float(np.linalg.norm(centre(c)-position_map)), c))
+            self.coverage_view_status = 'TRANSLATION_REQUIRES_COVERAGE'
+
     def select_reactive(self, goal_body, scan_error, snapshot, position, rotation, prefix):
         """C2's action (`planning.reactive`; no forecast), then the recovery stages that apply to it."""
         snapshot = self._remembering(snapshot)

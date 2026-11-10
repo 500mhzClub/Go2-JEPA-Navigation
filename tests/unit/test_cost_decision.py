@@ -102,3 +102,22 @@ def test_paired_cohorts_and_a_bar_read_before_the_end():
     assert compare.sign_test(9, 0) < .01 < compare.sign_test(7, 4)
     assert compare.bar(52, 66, 80, 62)['state'] == 'open' and compare.bar(47, 66, 80, 62)['state'] == 'out of reach'
     assert compare.bar(62, 70, 80, 62)['state'] == 'secured'
+
+
+def test_a_look_around_turns_on_the_spot_though_an_arc_is_forecast_to_turn_further():
+    p = forecast()
+    arc = list(LATTICE).index('cmd+0.45+0.00+0.45')
+    yaw = np.arctan2(p[arc, :, 2], p[arc, :, 3])+.02*(np.arange(HORIZONS) >= PREFIX_TICKS)      # the arc reads 0.02 rad on
+    p[arc, :, 2], p[arc, :, 3] = np.sin(yaw), np.cos(yaw)
+    chosen = cost.select(p, list(LATTICE), np.zeros(2), 1., None, arrival_radius_m=.02)
+    assert command(chosen['action']) == (0., 0., .45)
+
+
+def test_floor_not_yet_seen_is_not_walked_on_and_is_asked_for():
+    unseen = [translating(a) and command(a)[0] > 0 for a in LATTICE]                             # all the floor ahead
+    chosen = cost.select(forecast(), list(LATTICE), np.array([1., 0.]), None, None, arrival_radius_m=.02, uncovered=unseen)
+    assert not translating(chosen['action']) or command(chosen['action'])[0] < 0
+    assert command(chosen['coverage_wanted']) == (.45, 0., 0.)
+    seen = cost.select(forecast(), list(LATTICE), np.array([1., 0.]), None, None, arrival_radius_m=.02,
+                       uncovered=[False]*len(LATTICE))
+    assert command(seen['action']) == (.45, 0., 0.) and seen['coverage_wanted'] is None

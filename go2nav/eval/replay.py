@@ -33,6 +33,7 @@ def save(path, rows, candidates, arrival_radius_m):
         goal_body=np.array([r['goal_body'] for r in rows], np.float64),
         scan_error=np.array([np.nan if r['scan_error'] is None else r['scan_error'] for r in rows], np.float64),
         target=np.array([r['target'] for r in rows], bool), pulse=np.array([r['pulse'] for r in rows], bool),
+        uncovered=np.array([np.zeros(len(candidates), bool) if r.get('uncovered') is None else r['uncovered'] for r in rows]),
         no_points=np.array([r['points'] is None for r in rows]), no_cells=np.array([r['cells'] is None for r in rows]),
         points=points, points_at=points_at, cells=cells, cells_at=cells_at, candidates=np.array(candidates),
         arrival_radius_m=arrival_radius_m)
@@ -48,6 +49,7 @@ def load(path):
                    goal_body=z['goal_body'][k], scan_error=None if np.isnan(scan) else scan,
                    points=None if z['no_points'][k] else z['points'][z['points_at'][k]:z['points_at'][k+1]],
                    arrival_radius_m=float(z['arrival_radius_m']), target=bool(z['target'][k]), pulse=bool(z['pulse'][k]),
+                   uncovered=z['uncovered'][k] if 'uncovered' in z.files else None,
                    cells=None if z['no_cells'][k] else {tuple(int(v) for v in c)
                                                          for c in z['cells'][z['cells_at'][k]:z['cells_at'][k+1]]})
 

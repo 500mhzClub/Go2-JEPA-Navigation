@@ -7,7 +7,8 @@ description: 'docs/dynamic/PLAN.md, P18. The working setup with the range sensor
   cost2_* are the same suites after the frontier-waypoint fix (STATUS P18); cost2_stall_c5 is its smoke: six missions
   that stood on a frontier waypoint in the first suites, with two walkers. cost2r_obst1_c5 repeats cost2_obst1_c5 on the
   same code, to measure how much a suite''s result scatters from run to run. dev_obst1_c5 and dev_obst2_c5 are the
-  development set (PLAN P19): every polite-walker mission that fails on 6e2ea85 and three the fix mended.'
+  development set (PLAN P19): every polite-walker mission that fails on 6e2ea85 and three the fix mended. dev2_* are the same missions after the second round of fixes (look-arounds on the spot,
+  floor not yet seen).'
 cohorts:
 - name: cost_smoke_still_c5
   set: validation
@@ -215,6 +216,22 @@ cohorts:
   episodes: [[13, 0], [14, 0], [15, 0], [20, 1], [21, 1], [22, 1], [11, 1], [16, 1], [26, 1]]
   noslip: 'on'
 - name: dev_obst2_c5
+  set: validation
+  obstacles: 2
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: [[10, 0], [11, 1], [13, 0], [17, 0], [21, 0], [22, 0], [23, 0], [23, 1], [25, 1], [26, 1], [27, 0], [29, 1], [12, 0], [14, 0], [25, 0]]
+  noslip: 'on'
+- name: dev2_obst1_c5
+  set: validation
+  obstacles: 1
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: [[13, 0], [14, 0], [15, 0], [20, 1], [21, 1], [22, 1], [11, 1], [16, 1], [26, 1]]
+  noslip: 'on'
+- name: dev2_obst2_c5
   set: validation
   obstacles: 2
   walker_mode: held
