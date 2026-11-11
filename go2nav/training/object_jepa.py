@@ -10,7 +10,9 @@ target counts where that track is seen at the target step. Every window's slots 
 **Loss:** the squared error of each object's predicted position at the step after every history step
 (teacher-forced), plus that of the second step after t0 from the first predicted one (a 2-step rollout, Terver et
 al.), its walls looked up again at the predicted position. With probability `mask_probability` a window masks one
-object present through the history (C-JEPA's object masking; `mask_probability: 0` is run M1).
+object present through the history (C-JEPA's object masking; `mask_probability: 0` is run M1) in the teacher-forced
+pass; the rollout starts from an unmasked pass (the first M0 rolled out the masked guess, which tripled its rollout
+error).
 
 **Validation** (`validate`, `DIR/validation.jsonl`): fixed val windows rolled out 16 steps (6.4 s) under the recorded
 commands; the median error at 1.6, 3.2 and 6.4 s against the tracker's later positions of the same track, beside
@@ -169,6 +171,9 @@ def losses(model, split, w, history, masked):
     predicted = base+delta
     target, count = torch.nan_to_num(position[:, 1:history+1]), seen[:, 1:history+1] & present[:, :history]
     teacher = ((predicted-target).pow(2).sum(-1)*count).sum()/count.sum().clamp(min=1)
+    if masked is not None and masked.any():                                     # the rollout starts unmasked: masking
+        predicted = torch.nan_to_num(position[:, :history]) + \
+            model(objects, w['robot'][:, :history], w['actions'][:, :history])     # is for the history (C-JEPA)
     first = predicted[:, -1]                                                     # step t0+1, from the true history
     alive = present[:, history-1]
     new = object_features(first, alive, alive, split.object_walls(w, first))

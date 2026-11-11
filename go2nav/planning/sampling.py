@@ -21,7 +21,8 @@ plan), `velocity`, `frozen` and `frozen_seen` (`SimpleModel`: walkers that do no
 `ring_velocity` (`RingModel`, P20: the same two, with the walkers and their velocities taken from the range ring by
 `perception.ring_walkers`; the mission hands such a model every frame's scan through `observe`), or
 `ring_model:<path>` (P21: the learned ring world model, `planning.ring_model.LearnedRingModel`, rolled out under each
-tape: it is also told each frame's request through `record`, and given the tapes).
+tape: it is also told each frame's request through `record`, and given the tapes), or `objects:<path>` (P22: the
+object-level predictor over the ring tracker's objects, `planning.object_model.ObjectModel`, likewise).
 
 **Cost,** in seconds:
 - time: 0.1 s for each step further than `ARRIVE_M` from the target;
@@ -185,6 +186,9 @@ def make_model(name, seed=0):
     if name.startswith('ring_model:'):
         from go2nav.planning.ring_model import LearnedRingModel
         return LearnedRingModel(name.partition(':')[2])
+    if name.startswith('objects:'):
+        from go2nav.planning.object_model import ObjectModel
+        return ObjectModel(name.partition(':')[2])
     if name not in MODELS:
         raise ValueError(f'the model is one of {MODELS} or ring_model:<path>')
     if name.startswith('ring_'):
