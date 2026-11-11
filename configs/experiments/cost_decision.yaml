@@ -12,7 +12,8 @@ description: 'docs/dynamic/PLAN.md, P18. The working setup with the range sensor
   development set (a mission repeats exactly, so with dev2_* they make the two suites); cost3_still_c5 and cost3_obst4_c5
   are the still mazes and four walkers. The third round (the turn to the arrival disk; floor that cannot be viewed is
   not waited for): cost4_still_c5 is the still suite again and term_obst1_c5 the four one-walker missions that failed
-  at the target or before unviewable floor.'
+  at the target or before unviewable floor. cost4_obst1_c5, cost4_obst2_c5 and cost4_obst4_c5 are the walker suites on
+  the third round.'
 cohorts:
 - name: cost_smoke_still_c5
   set: validation
@@ -288,4 +289,28 @@ cohorts:
   range_sensor: 'on'
   decision: cost
   episodes: [[12, 0], [17, 1], [26, 1], [29, 0]]
+  noslip: 'on'
+- name: cost4_obst1_c5
+  set: validation
+  obstacles: 1
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
+- name: cost4_obst2_c5
+  set: validation
+  obstacles: 2
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
+- name: cost4_obst4_c5
+  set: validation
+  obstacles: 4
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
   noslip: 'on'
