@@ -1728,3 +1728,55 @@ waypoint is the mission's target; at any other waypoint the distance and turn co
 - **Not run on the fixed code:** still mazes and four walkers (37 of 40 and 18 of 40 before it). The queued reruns gave
   way to the repeat (approved 10 November).
 - **The 18 failures left:** 9 with no route left on the map, 9 out of time (6 of them on the way home).
+
+**5. The second round, and the suites on it** (88169d5 on `feature/faster-evaluation`; cohorts `dev_*`, `dev2_*`,
+`rest_*`, `cost3_*`; 10-11 November). The 18 failures left were read from their recorded plans (the development set of
+PLAN P19: those 18 and 6 missions the first fix mended).
+
+- **Look-arounds drove about.** 5,117 of 8,269 look-around plans (62%) moved the base; failing robots walked 60-74 m
+  in a 15-m maze. The cost counted the turn alone, and forecasts of an arc and of a turn on the spot differ a little
+  in heading. A look-around now also counts the distance the candidate ends from where it started.
+- **Frontiers were not looked at on the way home.** The hand stage that asks for a view of unobserved floor went
+  with the others, so the robot moved to and fro within 10 cm of a frontier waypoint for about 1,000 plans. A
+  candidate that would sweep unobserved floor is now discarded, and when the cheapest candidate is lost to that the
+  route is asked for a view of the floor (`Planner.uncovered`, `want_coverage`; the route's own coverage views).
+
+| Suite | First suites | After the first fix | After the second round | Hand reference | Bar | |
+|---|---|---|---|---|---|---|
+| Development set (24) | | 6 | 16 | | | |
+| Still mazes (40) | 37 | not run | 35 | 37 | at least 34 | passes |
+| One polite walker (40) | 30 | 34 | 32 | 35 | | |
+| Two polite walkers (40) | 22 | 28 | 31 | 30 | | |
+| Polite walkers (80) | 52 | 62 | 63 | 65 | at least 62 | passes |
+| Four walkers (40) | 18 | not run | 27 | 21 | at least 18 | passes |
+
+- No crash and no contact stop in 160 missions. The polite suites are `rest_*` (56 missions) with `dev2_*` (24): a
+  mission repeats exactly, so the development set was not run twice.
+- **Every bar is met, the polite one by one mission.** With four walkers the cost makes 6 round trips more than the
+  hand reference.
+- **The development set overstated the gain.** It went from 6 to 16, which with the other 56 polite missions unchanged
+  would have been 72 of 80. Of those 56, all round trips before, 9 failed: against the first fix the round gains 12
+  polite missions and loses 11. A set made of failures cannot show what a change breaks.
+- **A round trip takes longer:** a median of 135 s in still mazes (121 s in the first suites; the reference 118 s),
+  185 s with one walker (the reference 147 s), 248 s with two (187 s), 222 s with four (223 s).
+
+**The 35 failures, each by what the robot did for most of the mission** (300 plans, two minutes, or more):
+
+| | Still | One walker | Two walkers | Four walkers | All |
+|---|---|---|---|---|---|
+| The route cut, or nothing left to explore | 0 | 4 | 9 | 13 | 26 |
+| Stood a few centimetres from the target | 4 | 2 | 0 | 0 | 6 |
+| Stood before floor it could not get a view of | 1 | 2 | 0 | 0 | 3 |
+
+- **The route cut (26):** the robot stands 1 to 1.7 m from where it is going while the route alternates between
+  "cut" and "nothing left to explore", usually to the end of the mission. It is the walker suites' only failure
+  beyond the two below, and the hand reference fails the same way; which missions it takes differs between the two
+  (one walker: the cost loses 8 the reference makes and makes 5 it loses). Not looked into further here: what stands
+  in the route was not checked against the walkers' true positions.
+- **Stood at the target (6): the cost's defect.** The arrival radius is 2 cm and the forecast is good to about a
+  centimetre. A hold forecast to drift into the disk cost nothing, so the robot stood 2.3 cm out (two missions);
+  elsewhere the bearing of a target 3-4 cm off swung on a forecast a few millimetres to the side, so every move read
+  worse than holding. All five still-maze failures are this or the next.
+- **Stood before unviewable floor (3): the second round's defect.** When the route finds no viewpoint for the floor
+  asked for, the discard stays and nothing else is asked for: one mission never left the start, in the still suite
+  and with one walker alike.
