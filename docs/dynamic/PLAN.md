@@ -1354,15 +1354,75 @@ cost's progress term has nothing to measure there; the missions answer the same 
 **Compute.** CPU only. A plan takes 0.1-0.5 s with plain walkers; a mission 1-8 minutes; a run of 80 missions under an
 hour on 28 processes.
 
-### P18. The planner in missions where the model already suffices (review step 4; approved 9 November, set out in full before it starts)
+### P18. The decision by an intrinsic cost, in missions (review step 4; approved 9 November; set out 10 November before any mission)
 
-- P17's planner and cost in place of the selection stages (`planning/selection.py`, the recovery family, the latches),
-  with the router, the map, visual odometry and the dispatch reflex kept.
-- The robot's own motion from the control's level 1 through its decoder; clearance from the range ring at the frame,
-  moved by the predicted motion.
-- **Suites:** static, polite (80) and four walkers (40), against P13's references with the same sensor. Bars and the
-  count of tuned constants on the decision path are written here before any mission runs.
-- 2-3 days of building, about 12 GPU-hours of missions.
+**Why.** The world model's prediction has never chosen an action except through the hand planner's stages. This piece
+puts a cost in their place where the model already suffices: still mazes and polite walkers. Branch
+`feature/planner-in-missions`, stacked on `feature/planner-true-model` (approved).
+
+**1. What changes: one function** (`go2nav/planning/cost.py`, `--decision cost`). At each plan the controller has the
+forecasts of the 25 lattice candidates over 0.8 s, the waypoint from the route, and the range sensor's returns.
+`cost.select` scores each candidate in seconds and takes the cheapest:
+- **to go:** from the pose the forecast ends at, the distance to the waypoint at 0.3 m/s plus the turn towards it at
+  0.45 rad/s; nothing inside the arrival radius. When the route asks for a look around, the turn left to that heading;
+- **clearance:** up to 2 s a second as the body outline's clearance to the returns falls from 0.25 m to 0.10 m; under
+  0.10 m the candidate is discarded, unless the robot is already nearer and the candidate does not go nearer still;
+- **the reflex, looked ahead to:** a candidate the dispatch check would stop is discarded, so the cost does not choose
+  what will be vetoed.
+
+Six constants. `Planner.select` and its stages are not called: scoring, the clearance checks, the turn latches, the
+terminal rules, the stopping projection, floor coverage, route-turn memory, the deadlock escape, the scripted backup
+(`planning/selection.py`, 826 lines, and the stage half of `planning/planner.py`).
+
+**2. What stays.** The forecaster (the working setup's, `go2_v2_walkers`: the reference's own, so the decision is the
+only change; the control has no fitted motion decoder), the route and its waypoint (`Planner.route`, `objective`:
+frontiers, look-arounds, close-up), the map, visual odometry, the mission, and the dispatch check as a reflex.
+
+**3. Differences from P17's planner,** all forced by what a mission gives:
+- the horizon is the forecaster's 0.8 s and the tapes are the lattice's constant commands, since that is what the
+  model forecasts today;
+- progress is read to the route's waypoint, not through a distance field: the robot does not know the layout;
+- clearance is read against the returns at the frame: walkers stand still in the model (P17's `frozen_seen`).
+
+**4. Smoke** (`configs/experiments/cost_decision.yaml`; 6 missions at once on the R9700): mazes 10-12, two episodes
+each, in still mazes (`cost_smoke_still_c5`), then with one polite walker (`cost_smoke_obst1_c5`).
+- **To go on:** no crash, no contact stop, and at least 4 of the 6 still missions make the round trip.
+- Otherwise the piece stops there, and the record says what the failures were.
+
+**5. Suites, only after the smoke** (the script stops itself under the stop rule: a crash or a contact stop in 5 of a
+suite's first 20 missions):
+
+| Suite | Cost | Hand reference, same sensor and physics | Bar |
+|---|---|---|---|
+| Still mazes (40) | `cost_still_c5` | `rsn_still_c5`, run here (P13 ran none) | within 3 of the reference |
+| Polite walkers (80) | `cost_obst1_c5`, `cost_obst2_c5` | 65 of 80 | at least 62 |
+| Four walkers (40) | `cost_obst4_c5` | 21 of 40 | at least 18 |
+
+No contact stops in any suite. Reported beside round trips: timeouts, pose losses, the time of a round trip, and how
+often every candidate was discarded.
+
+**6. The smoke passed, and one defect was fixed before the suites** (10 November).
+
+| | Round trips | Crashes | Contact stops |
+|---|---|---|---|
+| Still mazes (6) | 5 | 0 | 0 |
+| One polite walker (6) | 5 | 0 | 0 |
+
+- Round trips took 94-160 s. The hand reference's four clean round trips on the same six missions with a polite walker
+  took 116-149 s; it also took 458 s on one and timed out on one.
+- **The still failure (maze 12, episode 1): a reverse pulse.** Seven centimetres behind and beside the beacon, the cost
+  chose a 100-ms reverse for 1,043 plans. The forecast credits it with a centimetre; the robot does not move.
+  - Fixed at cb447c0, before any suite mission: a reverse pulse is not a candidate, and the turn towards the waypoint
+    counts in full where it was weighted down within 0.3 m (five constants where there were six).
+  - Counting the turn in full was tried first and is not enough: with a perfect forecast too, a centimetre back changes
+    the bearing to a point 7 cm away more than a 100-ms turn does.
+- **The polite failure (maze 11, episode 0):** the beacon was reached; on the way home the route was lost and the
+  robot turned and backed in arcs round a waypoint 0.3 m beside it until the time ran out. Not changed. The hand
+  reference needed 458 s on the same mission.
+- The suites started at 08:05 on cb447c0. The two smoke missions that finished after the fix was committed had started
+  on the code before it.
+
+**Compute.** The smoke: 36 minutes. The suites: about 240 missions, 8-10 hours at 6 at once.
 
 ## Compute and order
 

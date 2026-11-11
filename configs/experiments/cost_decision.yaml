@@ -1,0 +1,207 @@
+name: The decision by an intrinsic cost
+base: configs/working.yaml
+description: 'docs/dynamic/PLAN.md, P18. The working setup with the range sensor and the no-slip pass, as P13''s references
+  (noslip_reference.yaml), with decision: cost: planning.cost.select chooses each plan''s action in place of Planner.select''s
+  stages. cost_smoke_* are the smoke test (mazes 10-12); cost_still_c5 pairs with rsn_still_c5 (the hand reference in still
+  mazes, run here: P13 ran none), cost_obst1/2_c5 with rsn_obst1/2_c5 and cost_obst4_c5 with rsn_obst4_c5.
+  cost2_* are the same suites after the frontier-waypoint fix (STATUS P18); cost2_stall_c5 is its smoke: six missions
+  that stood on a frontier waypoint in the first suites, with two walkers. cost2r_obst1_c5 repeats cost2_obst1_c5 on the
+  same code, to measure how much a suite''s result scatters from run to run.'
+cohorts:
+- name: cost_smoke_still_c5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes:
+  - &id001
+    - 10
+    - 0
+  - &id002
+    - 10
+    - 1
+  - &id003
+    - 11
+    - 0
+  - &id004
+    - 11
+    - 1
+  - &id005
+    - 12
+    - 0
+  - &id006
+    - 12
+    - 1
+  noslip: 'on'
+- name: cost_smoke_obst1_c5
+  set: validation
+  obstacles: 1
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes:
+  - *id001
+  - *id002
+  - *id003
+  - *id004
+  - *id005
+  - *id006
+  noslip: 'on'
+- name: cost_still_c5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: &id007
+  - *id001
+  - *id002
+  - *id003
+  - *id004
+  - *id005
+  - *id006
+  - - 13
+    - 0
+  - - 13
+    - 1
+  - - 14
+    - 0
+  - - 14
+    - 1
+  - - 15
+    - 0
+  - - 15
+    - 1
+  - - 16
+    - 0
+  - - 16
+    - 1
+  - - 17
+    - 0
+  - - 17
+    - 1
+  - - 18
+    - 0
+  - - 18
+    - 1
+  - - 19
+    - 0
+  - - 19
+    - 1
+  - - 20
+    - 0
+  - - 20
+    - 1
+  - - 21
+    - 0
+  - - 21
+    - 1
+  - - 22
+    - 0
+  - - 22
+    - 1
+  - - 23
+    - 0
+  - - 23
+    - 1
+  - - 24
+    - 0
+  - - 24
+    - 1
+  - - 25
+    - 0
+  - - 25
+    - 1
+  - - 26
+    - 0
+  - - 26
+    - 1
+  - - 27
+    - 0
+  - - 27
+    - 1
+  - - 28
+    - 0
+  - - 28
+    - 1
+  - - 29
+    - 0
+  - - 29
+    - 1
+  noslip: 'on'
+- name: rsn_still_c5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  episodes: *id007
+  noslip: 'on'
+- name: cost_obst1_c5
+  set: validation
+  obstacles: 1
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
+- name: cost_obst2_c5
+  set: validation
+  obstacles: 2
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
+- name: cost_obst4_c5
+  set: validation
+  obstacles: 4
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
+- name: cost2_stall_c5
+  set: validation
+  obstacles: 2
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: [[12, 0], [13, 1], [25, 0], [25, 1], [26, 0], [29, 1]]
+  noslip: 'on'
+- name: cost2_obst1_c5
+  set: validation
+  obstacles: 1
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
+- name: cost2_obst2_c5
+  set: validation
+  obstacles: 2
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
+- name: cost2_still_c5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
+- name: cost2_obst4_c5
+  set: validation
+  obstacles: 4
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
+- name: cost2r_obst1_c5
+  set: validation
+  obstacles: 1
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
