@@ -7,7 +7,10 @@ with no walker in the maze (`sim.kinematic.Geometry.wall_ranges`).
   least `MIN_BEAMS` gives one walker: a circle of the walkers' radius fitted to its points (Gauss-Newton from the
   nearest point pushed one radius along its beam).
 - **Tracking** (`Tracker`): each frame's detections are joined to the nearest track within `GATE_M`. A track's velocity
-  is the least-squares slope of its positions over the last `WINDOW_S` (zero until it spans `MIN_SPAN_S`). A track
+  is the least-squares slope of its positions over the last `WINDOW_S` (zero until it spans `MIN_SPAN_S`). The window
+  was 0.5 s at first: a walker that stopped beside the robot was still read as walking on for half a second, and the
+  planner drove into it (all 14 walker contacts of the first gate suite). At 0.3 s, contacts with walkers that do not
+  yield fall from 15 to 10 in 80 missions; at 0.2 s the noise costs round trips (STATUS P20). A track
   with no detection stays where it was last seen, at rest, until that place has been in the sensor's line of sight and
   empty for `EMPTY_FRAMES` frames, as P17's `frozen_seen` model forgets.
 """
@@ -19,7 +22,7 @@ from go2nav.perception.range import AZIMUTHS, BEAMS, MOUNT_BODY_M
 from go2nav.sim.obstacles import RADIUS_M
 
 MARGIN_M, STEP_M, MIN_BEAMS = .06, .25, 3
-GATE_M, WINDOW_S, MIN_SPAN_S, EMPTY_FRAMES = .4, .5, .2, 3
+GATE_M, WINDOW_S, MIN_SPAN_S, EMPTY_FRAMES = .4, .3, .15, 3
 
 
 def mount_of(xy, yaw):
