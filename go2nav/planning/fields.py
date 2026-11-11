@@ -57,6 +57,8 @@ class Fields:
 
     def with_walkers(self, target, walkers):
         walkers = np.round(np.asarray(walkers, float).reshape(-1, 2)/QUANTUM_M)*QUANTUM_M
+        inside = ((walkers > self.low-WALKER_M) & (walkers < self.nodes[-1, -1]+WALKER_M)).all(1)
+        walkers = walkers[inside]                  # one outside the layout closes no node (a placeholder slot)
         if not len(walkers):
             return self.static(target)
         key = (tuple(np.round(np.asarray(target, float), 3)), tuple(map(tuple, walkers)))

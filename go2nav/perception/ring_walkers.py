@@ -5,7 +5,8 @@ privileged. The inputs are a frame's scan (`perception.range`), the robot's pose
 - **Detection** (`detect`, `detect_batch`): a valid return whose point lies more than `MARGIN_M` from every wall is a
   walker's. Such beams are grouped while they are neighbours (the ring closes on itself) and their ranges differ by
   less than `STEP_M`; a group of at least `MIN_BEAMS` gives one walker: a circle of the walkers' radius fitted to its
-  points (Gauss-Newton from the nearest point pushed one radius along its beam). The rule was first a range shorter
+  points (Gauss-Newton from the nearest point pushed one radius along its beam; at most `FIT_POINTS` of them, evenly
+  spaced along the group, so a long group costs no more than a short one). The rule was first a range shorter
   than the walls' cast range by the margin; casting the walls costs 1.5 ms a scan, and P21 reads walkers from
   thousands of predicted scans a plan, so both the tracker and P21 use the wall-distance lookup.
 - **Tracking** (`Tracker`): each frame's detections are joined to the nearest track within `GATE_M`. A track's velocity
@@ -25,7 +26,7 @@ from go2nav.sim.obstacles import RADIUS_M
 
 MARGIN_M, STEP_M, MIN_BEAMS = .06, .25, 3
 GATE_M, WINDOW_S, MIN_SPAN_S, EMPTY_FRAMES = .4, .3, .15, 3
-FIT_STEPS = 4
+FIT_STEPS, FIT_POINTS = 4, 32
 
 
 def mount_of(xy, yaw):
@@ -62,10 +63,12 @@ def detect_batch(ranges, valid, poses, wall_clearance):
         return out, found
     starts = np.concatenate(([0], np.cumsum(sizes)[:-1]))
     place = np.arange(len(key))-starts[inverse]                             # each beam's index in its group
-    width = int(sizes[kept].max())
+    stride = -(-sizes//FIT_POINTS)                                          # ceil: at most FIT_POINTS a group
+    take = kept[inverse] & (place % stride[inverse] == 0)
+    slot = place//stride[inverse]
+    width = int(min(sizes[kept].max(), FIT_POINTS))
     pts = np.full((len(groups), width, 2), np.nan)
-    take = kept[inverse] & (place < width)
-    pts[inverse[take], place[take]] = points[rows[take], beams[take]]
+    pts[inverse[take], slot[take]] = points[rows[take], beams[take]]
     pts, owner = pts[kept], groups[kept]//(BEAMS+1)
     mask = ~np.isnan(pts[..., 0])
     seen_from = origin[owner][:, None]
@@ -79,8 +82,11 @@ def detect_batch(ranges, valid, poses, wall_clearance):
         distance = np.maximum(np.linalg.norm(offset, axis=-1), 1e-9)
         jacobian = np.where(mask[..., None], -offset/distance[..., None], 0.)
         residual = np.where(mask, RADIUS_M-distance, 0.)
-        normal = np.einsum('gli,glj->gij', jacobian, jacobian)+1e-9*np.eye(2)
-        centre = centre+np.linalg.solve(normal, np.einsum('gli,gl->gi', jacobian, residual)[..., None])[..., 0]
+        jx, jy = jacobian[..., 0], jacobian[..., 1]
+        a, b, d = (jx*jx).sum(1)+1e-9, (jx*jy).sum(1), (jy*jy).sum(1)+1e-9
+        rx, ry = (jx*residual).sum(1), (jy*residual).sum(1)
+        det = a*d-b*b
+        centre = centre+np.stack(((d*rx-b*ry)/det, (a*ry-b*rx)/det), 1)
     found = np.bincount(owner, minlength=count)
     out = np.full((count, int(found.max()), 2), np.nan)
     slot = np.arange(len(owner))-np.searchsorted(owner, owner)              # owner is sorted (keys are)

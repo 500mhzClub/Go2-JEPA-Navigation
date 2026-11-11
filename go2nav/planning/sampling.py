@@ -19,7 +19,9 @@ block's limits, at 100 ms. The walkers' part is one of `MODELS`: `true` (copies 
 that path, random generators included, so the model knows their future draws), `fresh` (the same with new dice each
 plan), `velocity`, `frozen` and `frozen_seen` (`SimpleModel`: walkers that do not react), or `ring_frozen` and
 `ring_velocity` (`RingModel`, P20: the same two, with the walkers and their velocities taken from the range ring by
-`perception.ring_walkers`; the mission hands such a model every frame's scan through `observe`).
+`perception.ring_walkers`; the mission hands such a model every frame's scan through `observe`), or
+`ring_model:<path>` (P21: the learned ring world model, `planning.ring_model.LearnedRingModel`, rolled out under each
+tape: it is also told each frame's request through `record`, and given the tapes).
 
 **Cost,** in seconds:
 - time: 0.1 s for each step further than `ARRIVE_M` from the target;
@@ -180,8 +182,11 @@ class RingModel:
 
 
 def make_model(name, seed=0):
+    if name.startswith('ring_model:'):
+        from go2nav.planning.ring_model import LearnedRingModel
+        return LearnedRingModel(name.partition(':')[2])
     if name not in MODELS:
-        raise ValueError(f'the model is one of {MODELS}')
+        raise ValueError(f'the model is one of {MODELS} or ring_model:<path>')
     if name.startswith('ring_'):
         return RingModel(name)
     return TrueModel(fresh=name == 'fresh', seed=seed) if name in ('true', 'fresh') else SimpleModel(name)
@@ -307,7 +312,8 @@ class Planner:
         walls = self.fields.wall_clearance(kin.body_points(xy, yaw)).min(-1)                    # (K, T)
         breach = walls < FLOOR_M
         alive = np.where(breach.any(1), breach.argmax(1)+1, frames)          # frames worth stepping the walkers for
-        walkers = self.model.walkers(snapshot, xy, yaw, alive, self.geometry)
+        extra = dict(requested=requested) if getattr(self.model, 'takes_tapes', False) else {}
+        walkers = self.model.walkers(snapshot, xy, yaw, alive, self.geometry, **extra)
         clearance = walls
         if walkers.shape[2]:
             gap = kin.rectangle_gap(walkers, xy[:, :, None], yaw[:, :, None]).min(-1)-moving.RADIUS_M

@@ -58,7 +58,8 @@ def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, term
             break
         if observes:
             planner.model.observe(frame*FRAME_S, world.scan(), world.xy, world.yaw, world.geometry)
-            tracked += tracking_errors(planner.model.tracker, world)
+            if hasattr(planner.model, 'tracker'):
+                tracked += tracking_errors(planner.model.tracker, world)
         if state['hold_required']:
             requested, queue = np.zeros(3, np.float32), []
         else:
@@ -71,6 +72,8 @@ def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, term
                 kind_chosen = 'cell' if kind_chosen.startswith('cell') else ('gaussian' if kind_chosen.startswith('gaussian') else kind_chosen)
                 chosen[kind_chosen] = chosen.get(kind_chosen, 0)+1
             requested = queue.pop(0)
+        if hasattr(planner.model, 'record'):
+            planner.model.record(requested)
         world.step(requested)
         if world.contact is not None:
             break
@@ -94,7 +97,7 @@ def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, term
                 minimum_clearance_m=round(float(world.minimum_clearance), 3),
                 waiting_s=round(world.waiting_frames*FRAME_S, 1), sealed_end_s=sealed_s, reachable_cells=reachable,
                 plans=plans, plan_s=round(spent/max(plans, 1), 3), wall_s=round(spent, 1), chosen=chosen,
-                replan_frames=REPLAN_FRAMES, **({'tracking': tracking_summary(tracked)} if observes else {}))
+                replan_frames=REPLAN_FRAMES, **({'tracking': tracking_summary(tracked)} if tracked else {}))
 
 
 def tracking_errors(tracker, world):
@@ -195,7 +198,8 @@ def main():
     r.add_argument('--terminal', choices=('static', 'walkers'), required=True)
     r.add_argument('--workers', type=int)
     r.add_argument('--seed', type=int, default=0)
-    r.add_argument('--model', default='true', help='the walkers\' part of the planner\'s model (planning.sampling.MODELS)')
+    r.add_argument('--model', default='true', help='the walkers\' part of the planner\'s model (planning.sampling.MODELS, '
+                   'or ring_model:<path> for a trained ring world model)')
     r.add_argument('--max-speed', type=float, help='the fastest forward command the planner asks for (default: 0.4)')
     r.add_argument('--no-cells', action='store_true', help='without the walk-to-a-cell proposals')
     s = sub.add_parser('summary')
