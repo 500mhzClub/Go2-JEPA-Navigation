@@ -64,3 +64,18 @@ def test_a_ring_model_plans_from_what_the_ring_showed():
     still.tracker = model.tracker
     assert np.allclose(still.walkers(None, np.zeros((1, 5, 2)), np.zeros((1, 5)), np.full(1, 5), w.geometry)[0, 4, 0],
                        model.tracker.state()[0][0])
+
+
+def test_a_random_tape_is_random_but_keeps_off_the_walls():
+    from go2nav.data import ring_corpus as rc
+    from go2nav.planning.fields import Fields
+    from go2nav.planning.sampling import FLOOR_M, integrate
+    w = world(0)
+    fields, start = Fields(w.geometry), dict(xy=w.xy, yaw=w.yaw, executed=w.executed)
+    rng = np.random.default_rng(0)
+    tapes = [rc.random_tape(rng, 15, start, fields) for _ in range(40)]
+    moving_ = [t for t in tapes if np.abs(t).sum()]
+    assert 20 < len(moving_) < 40 and len({t.tobytes() for t in moving_}) == len(moving_)
+    for tape in moving_:
+        xy, yaw = integrate(start, tape[None])
+        assert fields.wall_clearance(kin.body_points(xy, yaw)).min() >= FLOOR_M
