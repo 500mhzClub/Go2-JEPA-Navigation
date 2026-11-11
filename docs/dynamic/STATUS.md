@@ -1802,5 +1802,20 @@ PLAN P19: those 18 and 6 missions the first fix mended).
 - Replayed through the changed cost, the still suite's recorded plans change in 4,390 of 18,110 cases: the long holds
   of the four stand-offs (782 to 1,011 plans each) all become moves, and 5 to 30 plans change in most other missions,
   at the two arrivals.
-- **Not yet run on the third round:** the walker suites (`cost4_obst1_c5`, `cost4_obst2_c5`, `cost4_obst4_c5`;
-  started 05:55 on 11 November). The bars are met on the second round whatever they give.
+
+**The walker suites on the third round** (`cost4_obst1_c5`, `cost4_obst2_c5`, `cost4_obst4_c5`; 05:52-11:19 on 11
+November). No crash and no contact stop.
+
+| Suite | Second round | Third round | Hand reference | Bar |
+|---|---|---|---|---|
+| One polite walker (40) | 32 | 33 | 35 | |
+| Two polite walkers (40) | 31 | 31 | 30 | |
+| Polite walkers (80) | 63 | 64 | 65 | at least 62 |
+| Four walkers (40) | 27 | 18 | 21 | at least 18 |
+
+- **Every bar is still met, four walkers at the bar.** The round is not a clear gain: it makes every still-maze round
+  trip and loses 9 with four walkers (2 gains, 11 losses). The 11 losses were not diagnosed.
+- **The 38 walker failures:** 27 with the route cut or nothing left to explore (3 with one walker, 6 with two, 18
+  with four), 8 standing at the target (4, 2, 2), 1 with every candidate discarded, 2 others. Standing at the target
+  is not gone with walkers (2 on the second round's walker suites); why was not looked into.
+- **Recommended for merging:** the second round (`feature/faster-evaluation`); this branch left unmerged.
