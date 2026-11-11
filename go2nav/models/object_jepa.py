@@ -17,7 +17,12 @@ ones: interactions within a step); each token keeps a learned per-slot embedding
 the embedding marks an object's identity, not its place.
 
 **Output:** each object's displacement to the next step (`head`), from the last position the predictor was shown:
-its position at that step, or for a masked object its first one. **Object masking** (`mask`): a masked object's
+its position at that step, or for a masked object its first one. With `residual` (run M2 on) the head's output is a
+correction to the object carried on at its velocity (`advance`), the object's token also holds that velocity (the
+tracker's in the history, the last predicted step's in a rollout), and the head starts at zero: the model starts as
+constant velocity and learns what departs from it. The first runs (M0, M1) predicted the whole displacement and lost
+to constant velocity at 1.6 s, the known result of trajectory prediction (Schoeller et al. 2020, arXiv 1903.07933).
+**Object masking** (`mask`): a masked object's
 tokens after the first history step are replaced by a projection of its first token plus a learned embedding, so the
 predictor must infer where it is from the others and the robot's actions (C-JEPA).
 
@@ -35,6 +40,7 @@ from go2nav.models.lewm import MLP, ARPredictor, Embedder
 from go2nav.planning.wall_raster import grid_offsets
 
 STEP_FRAMES = 4
+STEP_S = STEP_FRAMES*.1
 OBJECT_GRID, OBJECT_SPACING, ROBOT_GRID, ROBOT_SPACING, CLIP_M = 5, .25, 7, .3, 1.
 COMMAND_SCALE = np.maximum(np.abs(BLOCKS['continuous'][0]), np.abs(BLOCKS['continuous'][1])).astype(np.float32)
 OBJECT_DIM = 4+OBJECT_GRID**2
@@ -53,6 +59,7 @@ class ObjectConfig:
     mlp: int = 512
     dropout: float = .1
     hidden: int = 256
+    residual: bool = False
 
     def to_dict(self):
         return asdict(self)
@@ -62,10 +69,12 @@ def offsets(size, spacing, device=None):
     return torch.as_tensor(grid_offsets(size, spacing), dtype=torch.float32, device=device)
 
 
-def object_features(xy, seen, present, walls):
-    """xy (..., 2), seen and present (...,) bool, walls (..., OBJECT_GRID**2) to (..., OBJECT_DIM)."""
+def object_features(xy, seen, present, walls, velocity=None):
+    """xy (..., 2), seen and present (...,) bool, walls (..., OBJECT_GRID**2) to (..., OBJECT_DIM); with `velocity`
+    (..., 2) (m/s, a residual model's) appended."""
     keep = present[..., None].float()
-    return torch.cat((torch.nan_to_num(xy)*keep, seen[..., None].float(), keep, walls.clamp(max=CLIP_M)*keep), -1)
+    parts = (torch.nan_to_num(xy)*keep, seen[..., None].float(), keep, walls.clamp(max=CLIP_M)*keep)
+    return torch.cat(parts if velocity is None else (*parts, velocity*keep), -1)
 
 
 def robot_features(xy, yaw, walls):
@@ -84,7 +93,7 @@ class ObjectJEPA(nn.Module):
         super().__init__()
         self.config = config
         d = config.dim
-        self.object_in = MLP(OBJECT_DIM, config.hidden, d)
+        self.object_in = MLP(OBJECT_DIM+(2 if config.residual else 0), config.hidden, d)
         self.robot_in = MLP(ROBOT_DIM, config.hidden, d)
         self.action_in = Embedder(ACTION_DIM, 16, d)
         self.predictor = ARPredictor(num_frames=config.history, depth=config.depth, heads=config.heads,
@@ -93,6 +102,14 @@ class ObjectJEPA(nn.Module):
         self.mask_token = nn.Parameter(torch.zeros(d))
         self.mask_proj = nn.Linear(d, d)
         self.head = nn.Sequential(nn.Linear(d, config.hidden), nn.GELU(), nn.Linear(config.hidden, 2))
+        if config.residual:
+            nn.init.zeros_(self.head[-1].weight)
+            nn.init.zeros_(self.head[-1].bias)
+
+    def advance(self, delta, velocity):
+        """The displacement to the next step: the head's output, and for a residual model the object carried on at
+        `velocity` (..., 2) for one step besides."""
+        return delta+velocity*STEP_S if self.config.residual else delta
 
     def embed(self, objects, robot):
         """objects (B, T, S, OBJECT_DIM), robot (B, T, ROBOT_DIM) to tokens (B, T, 1+S, d)."""
@@ -126,12 +143,16 @@ class ObjectJEPA(nn.Module):
         objects, robot = objects.clone(), robot.clone()
         present = objects[:, -1, :, 3] > .5
         position = objects[:, -1, :, :2]
+        velocity = objects[:, -1, :, OBJECT_DIM:OBJECT_DIM+2] if self.config.residual else None
         out = []
         for k in range(steps):
             delta = self.forward(objects[:, -h:], robot[:, -h:], actions[:, k:k+h])[:, -1]
-            position = position+delta
+            move = self.advance(delta, velocity)
+            position = position+move
             out.append(position)
-            new = object_features(position, present, present, walls(position))
+            if self.config.residual:
+                velocity = move/STEP_S
+            new = object_features(position, present, present, walls(position), velocity)
             objects = torch.cat((objects, new[:, None]), 1)
             robot = torch.cat((robot, future_robot[:, k:k+1]), 1)
         return torch.stack(out, 1)

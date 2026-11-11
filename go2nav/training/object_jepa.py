@@ -8,15 +8,17 @@ the slots whose track at t0 is the same track at the step (so a slot reused by a
 target counts where that track is seen at the target step. Every window's slots are shuffled.
 
 **Loss:** the squared error of each object's predicted position at the step after every history step
-(teacher-forced), plus that of the second step after t0 from the first predicted one (a 2-step rollout, Terver et
-al.), its walls looked up again at the predicted position. With probability `mask_probability` a window masks one
+(teacher-forced), plus that of the steps after it rolled out on the model's own predictions, to `rollout` steps after
+t0 (2 by default, Terver et al.; run M4 takes 6, since the measures read 16), each object's walls looked up again at
+its predicted position. With probability `mask_probability` a window masks one
 object present through the history (C-JEPA's object masking; `mask_probability: 0` is run M1) in the teacher-forced
 pass; the rollout starts from an unmasked pass (the first M0 rolled out the masked guess, which tripled its rollout
 error).
 
 **Validation** (`validate`, `DIR/validation.jsonl`): fixed val windows rolled out 16 steps (6.4 s) under the recorded
 commands; the median error at 1.6, 3.2 and 6.4 s against the tracker's later positions of the same track, beside
-carrying each object on at its displacement over the last step. Labels are not read: this is the training's own
+carrying each object on at the tracker's velocity (M0 and M1's own validation files used its displacement over the
+last step, a weaker baseline). Labels are not read: this is the training's own
 check; PLAN P22's measures are `eval.object_measures`.
 """
 import argparse
@@ -29,11 +31,11 @@ import numpy as np
 import torch
 import yaml
 
-from go2nav.models.object_jepa import (OBJECT_GRID, OBJECT_SPACING, ROBOT_GRID, ROBOT_SPACING, STEP_FRAMES,
+from go2nav.models.object_jepa import (OBJECT_GRID, OBJECT_SPACING, ROBOT_GRID, ROBOT_SPACING, STEP_FRAMES, STEP_S,
                                        ObjectConfig, ObjectJEPA, actions_input, object_features, offsets,
                                        robot_features)
 
-DEFAULTS = dict(seed=2026111104, model={}, data=dict(batch=512, mask_probability=.5),
+DEFAULTS = dict(seed=2026111104, model={}, data=dict(batch=512, mask_probability=.5, rollout=2),
                 optimiser=dict(lr=3e-4, weight_decay=1e-3, warmup=500, steps=20000, grad_clip=1.),
                 runtime=dict(log_every=100, validate_every=2000, checkpoint_every=1000, validation_windows=8192))
 VALIDATION_STEPS, REPORT = 16, (4, 8, 16)
@@ -110,13 +112,15 @@ class Split:
         self.requested = torch.as_tensor(np.load(packed/f'{split}_requested.npy'), device=device)
         starts = np.load(packed/f'{split}_starts.npy')
         files = sorted((corpus/split).glob('*.npz'))
-        xy, seen, ids, layout = [], [], [], []
+        xy, seen, ids, layout, velocity = [], [], [], [], []
         for k, f in enumerate(files):
             with np.load(corpus/'objects'/split/f.name) as data:
                 xy.append(data['xy']), seen.append(data['seen']), ids.append(data['id'])
+                velocity.append(data['velocity'])
             maze = json.loads(f.with_suffix('.json').read_text())['maze']
             layout.append(np.full(starts[k+1]-starts[k], rasters.index[maze], np.int64))
         self.xy = torch.as_tensor(np.concatenate(xy), device=device)
+        self.velocity = torch.as_tensor(np.concatenate(velocity), device=device)
         self.seen = torch.as_tensor(np.concatenate(seen), device=device)
         self.id = torch.as_tensor(np.concatenate(ids), device=device)
         self.layout = torch.as_tensor(np.concatenate(layout), device=device)
@@ -136,6 +140,7 @@ class Split:
         same = (self.id[frame] == self.id[t0][:, None]) & (self.id[t0][:, None] >= 0)
         seen = self.seen[frame] & same
         position = to_body(world)
+        velocity = rotate(self.velocity[frame], -heading[:, None, None])*seen[..., None]                 # the tracker's
         grid = rotate(offsets(OBJECT_GRID, OBJECT_SPACING, self.device), heading[:, None])               # (B, G, 2)
         walls = self.rasters.lookup(layout, torch.nan_to_num(world)[..., None, :]+grid[:, None, None])
         robot_world, robot_yaw = self.pose[frame, :2], self.pose[frame, 2]
@@ -149,8 +154,10 @@ class Split:
             take = lambda x: torch.gather(x, 2, order[:, None, :, None].expand(-1, x.shape[1], -1, *x.shape[3:])
                                           if x.dim() == 4 else order[:, None, :].expand(-1, x.shape[1], -1))
             position, walls, same, seen = take(position), take(walls), take(same), take(seen)
-        return dict(position=position, walls=walls, present=same, seen=seen, robot=robot_features(robot_xy, robot_rel,
-                    robot_walls), actions=actions_input(commands), layout=layout, origin=origin, heading=heading)
+            velocity = take(velocity)
+        return dict(position=position, walls=walls, present=same, seen=seen, velocity=velocity,
+                    robot=robot_features(robot_xy, robot_rel, robot_walls), actions=actions_input(commands),
+                    layout=layout, origin=origin, heading=heading)
 
     def object_walls(self, w, position):
         """The walls round objects at body-frame positions (B, S, 2) of windows `w`."""
@@ -159,29 +166,42 @@ class Split:
         return self.rasters.lookup(w['layout'], world[..., None, :]+grid[:, None])
 
 
-def losses(model, split, w, history, masked):
-    """Teacher-forced and 2-step rollout squared errors (metres squared) over the counted objects."""
+def losses(model, split, w, history, masked, rollout=2):
+    """Teacher-forced and `rollout`-step rollout squared errors (metres squared) over the counted objects."""
     position, present, seen = w['position'], w['present'], w['seen']
-    objects = object_features(position[:, :history], seen[:, :history], present[:, :history], w['walls'][:, :history])
+    residual = model.config.residual
+    speed = w['velocity'][:, :history] if residual else torch.zeros_like(position[:, :history])
+    objects = object_features(position[:, :history], seen[:, :history], present[:, :history], w['walls'][:, :history],
+                              speed if residual else None)
     delta = model(objects, w['robot'][:, :history], w['actions'][:, :history], masked)
-    base = torch.nan_to_num(position[:, :history])
-    if masked is not None:
-        base = torch.where(masked[:, None, :, None] & (torch.arange(history, device=base.device) > 0)[None, :, None, None],
-                           base[:, :1].expand_as(base), base)
-    predicted = base+delta
+    shown = torch.nan_to_num(position[:, :history])
+    base, carried = shown, speed
+    if masked is not None:                       # a masked object is predicted from its first step, carried on from there
+        steps = torch.arange(history, device=shown.device)[None, :, None, None]
+        late = masked[:, None, :, None] & (steps > 0)
+        base = torch.where(late, shown[:, :1]+speed[:, :1]*STEP_S*steps, shown)
+        carried = torch.where(late, speed[:, :1].expand_as(speed), speed)
+    predicted = base+model.advance(delta, carried)
     target, count = torch.nan_to_num(position[:, 1:history+1]), seen[:, 1:history+1] & present[:, :history]
     teacher = ((predicted-target).pow(2).sum(-1)*count).sum()/count.sum().clamp(min=1)
     if masked is not None and masked.any():                                     # the rollout starts unmasked: masking
-        predicted = torch.nan_to_num(position[:, :history]) + \
-            model(objects, w['robot'][:, :history], w['actions'][:, :history])     # is for the history (C-JEPA)
-    first = predicted[:, -1]                                                     # step t0+1, from the true history
+        clean = model(objects, w['robot'][:, :history], w['actions'][:, :history])  # is for the history (C-JEPA)
+        predicted = shown+model.advance(clean, speed)
+    at = predicted[:, -1]                                                        # step t0+1, from the true history
     alive = present[:, history-1]
-    new = object_features(first, alive, alive, split.object_walls(w, first))
-    objects2 = torch.cat((objects[:, 1:], new[:, None]), 1)
-    delta2 = model(objects2, w['robot'][:, 1:history+1], w['actions'][:, 1:history+1])[:, -1]
-    second = first+delta2
-    count2 = seen[:, history+1] & alive
-    roll = ((second-torch.nan_to_num(position[:, history+1])).pow(2).sum(-1)*count2).sum()/count2.sum().clamp(min=1)
+    moving = (at-shown[:, -1])/STEP_S if residual else None
+    window, error, counted = objects, 0., 0
+    for k in range(1, rollout):                                                  # steps t0+2 .. t0+rollout, on its own
+        new = object_features(at, alive, alive, split.object_walls(w, at), moving)
+        window = torch.cat((window[:, 1:], new[:, None]), 1)
+        move = model.advance(model(window, w['robot'][:, k:k+history], w['actions'][:, k:k+history])[:, -1], moving)
+        at = at+move
+        if residual:
+            moving = move/STEP_S
+        count_k = seen[:, history+k] & alive
+        error = error+((at-torch.nan_to_num(position[:, history+k])).pow(2).sum(-1)*count_k).sum()
+        counted = counted+count_k.sum()
+    roll = error/torch.as_tensor(counted, device=at.device).clamp(min=1)
     return teacher+roll, dict(teacher=teacher, rollout=roll)
 
 
@@ -194,11 +214,12 @@ def validate(model, split, starts, history, batch=2048):
     for i in range(0, len(starts), batch):
         w = split.window(starts[i:i+batch], history, VALIDATION_STEPS)
         h = history
-        objects = object_features(w['position'][:, :h], w['seen'][:, :h], w['present'][:, :h], w['walls'][:, :h])
+        objects = object_features(w['position'][:, :h], w['seen'][:, :h], w['present'][:, :h], w['walls'][:, :h],
+                                  w['velocity'][:, :h] if model.config.residual else None)
         predicted = model.rollout(objects, w['robot'][:, :h], w['actions'], w['robot'][:, h:],
                                   lambda p: split.object_walls(w, p), VALIDATION_STEPS)
-        now, before = torch.nan_to_num(w['position'][:, h-1]), torch.nan_to_num(w['position'][:, h-2])
-        velocity = torch.where((w['present'][:, h-2] & w['seen'][:, h-2])[..., None], now-before, torch.zeros_like(now))
+        now = torch.nan_to_num(w['position'][:, h-1])
+        velocity = w['velocity'][:, h-1]*STEP_S                                  # a step's worth of the tracker's velocity
         for k in REPORT:
             counted = w['seen'][:, h-1+k] & w['present'][:, h-1]
             truth = torch.nan_to_num(w['position'][:, h-1+k])
@@ -234,7 +255,7 @@ def train(corpus, out, config):
     mazes = sorted({json.loads(p.read_text())['maze'] for split in ('train', 'val')
                     for p in (Path(corpus)/split).glob('*.json')})
     rasters = Rasters(Path(corpus)/'objects'/'rasters', mazes, device)
-    train_split = Split(corpus, 'train', rasters, device, STEP_FRAMES*(h+1)+1)
+    train_split = Split(corpus, 'train', rasters, device, STEP_FRAMES*(h-1+data['rollout'])+1)
     val_split = Split(corpus, 'val', rasters, device, STEP_FRAMES*(h-1+VALIDATION_STEPS)+1)
     pick = torch.as_tensor(np.random.default_rng(config['seed']).choice(len(val_split.windows),
                                                                         run['validation_windows'], replace=False))
@@ -255,14 +276,14 @@ def train(corpus, out, config):
         generator.manual_seed(config['seed']*1_000_003+step)
         starts = train_split.windows[torch.randint(len(train_split.windows), (data['batch'],), device=device,
                                                    generator=generator)]
-        w = train_split.window(starts, h, 2, generator)
+        w = train_split.window(starts, h, data['rollout'], generator)
         masked = None
         if data['mask_probability'] > 0:
             through = w['present'][:, :h].all(1)                                         # (B, S)
             choice = torch.rand(through.shape, device=device, generator=generator)*through
             one = torch.nn.functional.one_hot(choice.argmax(-1), through.shape[1]).bool() & through
             masked = one & (torch.rand(len(starts), 1, device=device, generator=generator) < data['mask_probability'])
-        total, terms = losses(model, train_split, w, h, masked)
+        total, terms = losses(model, train_split, w, h, masked, data['rollout'])
         optimiser.zero_grad(set_to_none=True)
         total.backward()
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), optim['grad_clip'])

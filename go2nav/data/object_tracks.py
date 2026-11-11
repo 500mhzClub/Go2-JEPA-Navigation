@@ -8,7 +8,8 @@ layout only. Tracks are held in `SLOTS` slots (`perception.ring_walkers.Slots`: 
 takes a free slot or the slot of the remembered track seen longest ago).
 
 Per episode, CORPUS/objects/<split>/<index>.npz: `xy` (T, SLOTS, 2) float32 world positions (NaN where the slot is
-empty), `seen` (T, SLOTS) bool (detected this frame, not only remembered), `id` (T, SLOTS) int32 (-1 empty). Per
+empty), `seen` (T, SLOTS) bool (detected this frame, not only remembered), `id` (T, SLOTS) int32 (-1 empty), and
+`velocity` (T, SLOTS, 2) float32, the tracker's own (m/s, world frame; zero for a remembered track). Per
 layout, CORPUS/objects/rasters/<maze>.npz: the walls' distance on a `RASTER_M` grid (`planning.wall_raster`).
 """
 import argparse
@@ -36,6 +37,7 @@ def track_episode(npz, meta, mazes_root):
         ranges, pose = data['ranges'].astype(np.float32), data['pose'].astype(np.float64)
     frames = len(pose)
     xy = np.full((frames, SLOTS, 2), np.nan, np.float32)
+    velocity = np.zeros((frames, SLOTS, 2), np.float32)
     seen = np.zeros((frames, SLOTS), bool)
     ids = np.full((frames, SLOTS), -1, np.int32)
     tracker, slots, dropped = rw.Tracker(), rw.Slots(SLOTS), 0
@@ -43,9 +45,9 @@ def track_episode(npz, meta, mazes_root):
         position, yaw = pose[t, :2], float(pose[t, 2])
         found = rw.detect(ranges[t], ranges[t] > 0, position, yaw, fields.wall_clearance)
         tracker.update(t*kin.FRAME_S, found, rw.mount_of(position, yaw), geometry)
-        xy[t], seen[t], ids[t], left_out = slots.update(tracker, t)
+        xy[t], seen[t], ids[t], left_out, velocity[t] = slots.update(tracker, t)
         dropped += left_out
-    return dict(xy=xy, seen=seen, id=ids), dict(dropped=dropped, maze=meta['maze'], spec=spec)
+    return dict(xy=xy, seen=seen, id=ids, velocity=velocity), dict(dropped=dropped, maze=meta['maze'], spec=spec)
 
 
 def _job(args):
@@ -56,7 +58,9 @@ def _job(args):
     meta = json.loads((Path(corpus)/split/f'{index:05d}.json').read_text())
     raster = out/'rasters'/f"{meta['maze']:04d}.npz"
     if target.exists() and raster.exists():
-        return 0
+        with np.load(target) as done:
+            if 'velocity' in done.files:
+                return 0
     os.environ.setdefault('OMP_NUM_THREADS', '1')
     arrays, info = track_episode(Path(corpus)/split/f'{index:05d}.npz', meta, mazes_root)
     if not raster.exists():

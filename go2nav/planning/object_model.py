@@ -47,8 +47,9 @@ class ObjectModel:
     def observe(self, t, scan, xy, yaw, geometry):
         found = ring_walkers.detect(*scan, xy, yaw, self.fields.wall_clearance)
         self.tracker.update(t, found, ring_walkers.mount_of(xy, yaw), geometry)
-        position, seen, ids, _ = self.slots.update(self.tracker, self.frame)
-        self.frames.append(dict(xy=position, seen=seen, id=ids, pose=np.array([*xy, yaw], float), requested=None))
+        position, seen, ids, _, velocity = self.slots.update(self.tracker, self.frame)
+        self.frames.append(dict(xy=position, seen=seen, id=ids, velocity=velocity, pose=np.array([*xy, yaw], float),
+                                requested=None))
         self.frames = self.frames[-(STEP_FRAMES*(self.history-1)+1):]
         self.frame += 1
 
@@ -66,9 +67,13 @@ class ObjectModel:
             present = (f['id'] == now['id']) & (now['id'] >= 0)
             world = np.where(present[:, None], f['xy'], 0.)
             walls = self.raster.context(world, np.full(len(world), heading), OBJECT_GRID, OBJECT_SPACING)
+            speed = None
+            if self.model.config.residual:                       # the tracker's velocity, turned into the start frame
+                turned = to_body(f['velocity'], np.zeros(2), heading)*(f['seen'] & present)[:, None]
+                speed = torch.as_tensor(turned, dtype=torch.float32)
             objects.append(object_features(torch.as_tensor(to_body(world, origin, heading), dtype=torch.float32),
                                            torch.as_tensor(f['seen'] & present), torch.as_tensor(present),
-                                           torch.as_tensor(walls, dtype=torch.float32)))
+                                           torch.as_tensor(walls, dtype=torch.float32), speed))
             yaw = float(f['pose'][2])
             rw = self.raster.context(f['pose'][None, :2], np.array([yaw]), ROBOT_GRID, ROBOT_SPACING)[0]
             robot.append(robot_features(torch.as_tensor(to_body(f['pose'][:2], origin, heading), dtype=torch.float32),

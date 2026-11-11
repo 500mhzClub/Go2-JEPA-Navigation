@@ -1,0 +1,6 @@
+# P22 M4: M2 trained on rollouts of 6 steps (2.4 s) where 2: the measures read rollouts of 16, and M2's smoke lost to
+# constant velocity at 1.6 s through accumulated error. 10,000 steps (three times the passes a step).
+name: object_m4
+model: {residual: true}
+data: {mask_probability: 0., rollout: 6}
+optimiser: {steps: 10000}

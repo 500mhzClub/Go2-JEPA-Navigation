@@ -155,8 +155,8 @@ class Slots:
         self.ids, self.last_seen = [None]*count, [-1]*count
 
     def update(self, tracker, frame):
-        """Returns xy (count, 2) with NaN in empty slots, seen (count,) bool, id (count,) int, and how many tracks
-        were left out."""
+        """Returns xy (count, 2) with NaN in empty slots, seen (count,) bool, id (count,) int, how many tracks were
+        left out, and the tracks' velocities (count, 2) (zero for a remembered track and an empty slot)."""
         alive = {track['id']: track for track in tracker.tracks}
         self.ids = [i if i in alive else None for i in self.ids]
         left_out = 0
@@ -174,12 +174,13 @@ class Slots:
             self.ids[k], self.last_seen[k] = track_id, frame
         count = len(self.ids)
         xy, seen, ids = np.full((count, 2), np.nan), np.zeros(count, bool), np.full(count, -1)
+        velocity = np.zeros((count, 2))
         for k, track_id in enumerate(self.ids):
             if track_id is None:
                 continue
             track = alive[track_id]
-            xy[k], seen[k], ids[k] = track['xy'], bool(track['history']), track_id
+            xy[k], seen[k], ids[k], velocity[k] = track['xy'], bool(track['history']), track_id, track['velocity']
             if seen[k]:
                 self.last_seen[k] = frame
-        return xy, seen, ids, left_out
+        return xy, seen, ids, left_out, velocity
 
