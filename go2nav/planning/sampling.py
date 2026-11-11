@@ -164,10 +164,14 @@ class RingModel:
     walkers are not read."""
 
     def __init__(self, kind):
-        self.kind, self.tracker = kind, ring_walkers.Tracker()
+        self.kind, self.tracker, self.fields = kind, ring_walkers.Tracker(), None
+
+    def bind(self, fields):
+        """The layout's wall distances (`planning.fields.Fields`), given by the planner."""
+        self.fields = fields
 
     def observe(self, t, scan, xy, yaw, geometry):
-        found = ring_walkers.detect(*scan, geometry.wall_ranges(xy, yaw), xy, yaw)
+        found = ring_walkers.detect(*scan, xy, yaw, self.fields.wall_clearance)
         self.tracker.update(t, found, ring_walkers.mount_of(xy, yaw), geometry)
 
     def walkers(self, snapshot, xy, yaw, frames, geometry=None):
@@ -190,6 +194,8 @@ class Planner:
         self.geometry, self.fields, self.terminal = geometry, Fields(geometry), terminal
         self.frames = int(round(horizon_s/FRAME_S))
         self.model = make_model(model, seed) if isinstance(model, str) else model
+        if hasattr(self.model, 'bind'):
+            self.model.bind(self.fields)
         self.speeds = SPEEDS if max_speed is None else tuple(v*max_speed/SPEEDS[0] for v in SPEEDS)
         self.max_speed, self.use_cells = max_speed, cells
         self.rng = np.random.default_rng(seed)
