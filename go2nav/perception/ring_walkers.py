@@ -144,3 +144,42 @@ class Tracker:
         """(positions (n, 2), velocities (n, 2)) of the tracks."""
         xy = np.array([t['xy'] for t in self.tracks], float).reshape(-1, 2)
         return xy, np.array([t['velocity'] for t in self.tracks], float).reshape(-1, 2)
+
+
+class Slots:
+    """The tracker's tracks in a fixed number of slots, for the object-level predictor (docs/dynamic/PLAN.md P22): a
+    track keeps its slot for its life; a new one takes a free slot, else the slot of the remembered track seen longest
+    ago, else it is left out (every slot holds a track seen this frame)."""
+
+    def __init__(self, count):
+        self.ids, self.last_seen = [None]*count, [-1]*count
+
+    def update(self, tracker, frame):
+        """Returns xy (count, 2) with NaN in empty slots, seen (count,) bool, id (count,) int, and how many tracks
+        were left out."""
+        alive = {track['id']: track for track in tracker.tracks}
+        self.ids = [i if i in alive else None for i in self.ids]
+        left_out = 0
+        for track_id in sorted(alive):
+            if track_id in self.ids:
+                continue
+            if None in self.ids:
+                k = self.ids.index(None)
+            else:
+                stale = [k for k, i in enumerate(self.ids) if not alive[i]['history']]
+                if not stale:
+                    left_out += 1
+                    continue
+                k = min(stale, key=lambda j: self.last_seen[j])
+            self.ids[k], self.last_seen[k] = track_id, frame
+        count = len(self.ids)
+        xy, seen, ids = np.full((count, 2), np.nan), np.zeros(count, bool), np.full(count, -1)
+        for k, track_id in enumerate(self.ids):
+            if track_id is None:
+                continue
+            track = alive[track_id]
+            xy[k], seen[k], ids[k] = track['xy'], bool(track['history']), track_id
+            if seen[k]:
+                self.last_seen[k] = frame
+        return xy, seen, ids, left_out
+
