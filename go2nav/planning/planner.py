@@ -151,6 +151,7 @@ class Planner:
         self.frontier_visits = routing.CommittedFrontierVisits()
         self.coverage_views = routing.CoverageViews()
         self.coverage_target, self.coverage_view_status, self.coverage_generation = None, None, 0
+        self.unviewable, self.unviewable_generation = set(), 0  # planning.cost: requested floor no viewpoint was found for
         self.view_recovery = None          # set by a translation veto at dispatch
         self.view_body = None              # the supported view's body-frame position during a visual view recovery
         self.weak_trigger = None           # that recovery's start time (for the route-turn memory)
@@ -503,13 +504,26 @@ class Planner:
 
     def uncovered(self, prediction, snapshot, position, rotation):
         """For `planning.cost` (PLAN P18): per candidate, the unobserved cells its forecast would sweep
-        (`selection.footprint_extension`, as `require_floor_coverage` reads it; empty when it sweeps none)."""
+        (`selection.footprint_extension`, as `require_floor_coverage` reads it; empty when it sweeps none), and the
+        map position. The cells are what a translation waits for a view of, so none is returned that the route
+        cannot show: while a request is with the route (`coverage_target`) every list is empty, and a request the
+        route found no viewpoint for is withdrawn and its cell left out for the rest of the leg. Without these the
+        robot stood for a whole mission before floor it could not get a view of (3 of the 35 failures of 11
+        November; docs/dynamic/STATUS.md P18)."""
         B = np.asarray(snapshot.map_from_initial)
+        at = (B@position)[:2]
+        if self.unviewable_generation != self.coverage_generation:
+            self.unviewable, self.unviewable_generation = set(), self.coverage_generation
+        if self.coverage_target is not None and self.coverage_view_status == 'NO_REACHABLE_UNTRIED_COVERAGE_VIEWPOINT':
+            self.unviewable.add(self.coverage_target)
+            self.coverage_target = None
+        if self.coverage_target is not None:
+            return [[] for _ in self.candidates], at
         observed = snapshot.floor | snapshot.occupied
         rows = sel.footprint_extension(np.asarray(prediction), B@position, B@rotation,
                                        observed if self.coverage_fix else snapshot.floor, list(self.candidates))
-        return [[tuple(c) for c in r['added_cells'] if tuple(c) not in observed] or
-                ([None] if r['leaves_map_bounds'] else []) for r in rows], (B@position)[:2]
+        return [[c for c in map(tuple, r['added_cells']) if c not in observed and c not in self.unviewable] or
+                ([None] if r['leaves_map_bounds'] else []) for r in rows], at
 
     def want_coverage(self, cells, position_map):
         """Ask the route for a view of the nearest of the unobserved cells a wanted translation would sweep."""

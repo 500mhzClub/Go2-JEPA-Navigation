@@ -42,6 +42,22 @@ def test_it_holds_on_the_waypoint_and_turns_to_a_scan_heading():
     assert choose(goal=(0., 0.), scan=.0)['action'] == 'hold'
 
 
+def test_a_few_centimetres_from_the_target_it_closes_in_though_the_forecast_is_a_centimetre_out():
+    def pulses(shift):                              # the perfect pulses, every forecast displaced by the same error
+        p = forecast(pulse=True)
+        p[:, PREFIX_TICKS:, :2] += shift
+        return p
+    go = lambda goal, shift: cost.select(pulses(shift), list(LATTICE), np.asarray(goal, float), None, None,
+                                         arrival_radius_m=.02, pulse=True)
+    near = go((.022, .009), (.006, .006))           # 2.4 cm off; the hold is forecast to drift into the 2-cm disk
+    assert command(near['action'])[0] > 0           # it was free, and the robot stood (still maze 14/0)
+    ahead = go((.039, 0.), (0., -.007))             # 3.9 cm ahead; the forecasts end 7 mm to the side
+    assert command(ahead['action'])[0] > 0          # the bearing of the centre swung 15 degrees, and it stood (20/1)
+    rows = {r['action']: r for r in ahead['candidates']}
+    assert abs(rows['hold']['to_go_s']-math.hypot(.039, .007)/cost.V_REF) < 1e-6      # its line crosses the disk: no turn
+    assert command(go((0., .3), (0., 0.))['action'])[2] > 0                  # further off and abeam: it turns to it
+
+
 def test_returns_ahead_stop_the_walk_and_not_the_turn():
     wall = np.array([[.35+.14, y, 0.] for y in np.arange(-.5, .51, .02)])  # a wall 14 cm off the nose
     result = choose(points=wall)
