@@ -74,10 +74,23 @@ def random_tape(rng, frames, start, fields):
     return hold
 
 
-def episode(mazes_root, index, split, stop_at=None):
-    """One episode's arrays and record (see the module docstring). With `stop_at`, the episode is replayed up to that
-    frame and (world, planner) are returned as they stand before the frame is observed: the replay is exact, since
-    every draw comes from the episode's own generators (P22's counterfactual measure branches from there)."""
+def replay_world(mazes_root, meta, requested, frame):
+    """The world of a recorded episode as it stood before `frame` was observed: its layout, home pose and walkers
+    (`meta`, the episode's record) stepped under its recorded requests. Exact whatever the planner or the tracker has
+    become since the corpus was built: the world depends on the requests and the walkers' own seeds only. (Replaying
+    the episode's planner is not exact once its code changes: P21's faster detection moved tracks by millimetres and
+    replays then left the record. P22's counterfactual measure branches from this.)"""
+    from go2nav.eval.mission import episode_spec
+    from go2nav.sim import kinematic as kin
+    spec, record = episode_spec(SET, meta['maze'], meta['home_episode'], root=Path(mazes_root))
+    world = kin.World(spec, record['home_se2_world'], meta['placement'])
+    for t in range(frame):
+        world.step(requested[t])
+    return world
+
+
+def episode(mazes_root, index, split):
+    """One episode's arrays and record (see the module docstring)."""
     from go2nav.eval.mission import episode_spec
     from go2nav.perception.ring_walkers import mount_of
     from go2nav.planning.sampling import REPLAN_FRAMES, Planner
@@ -109,8 +122,6 @@ def episode(mazes_root, index, split, stop_at=None):
     targets = interventions = 0
     t = 0
     for t in range(frames):
-        if t == stop_at:
-            return world, planner
         scan = world.scan()
         planner.model.observe(t*kin.FRAME_S, scan, world.xy, world.yaw, world.geometry)
         if target is None or np.linalg.norm(world.xy-target) < REACHED_M or (t-since)*kin.FRAME_S > GIVE_UP_S:

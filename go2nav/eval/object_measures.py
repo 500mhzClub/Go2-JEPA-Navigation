@@ -15,7 +15,8 @@ model's position, of the ring tracker's walker carried on at its velocity (`plan
 robot at t0.
 
 **reaction** (b): val windows with a walker in sight within 1.5 m of the robot (at most 2 an episode). The episode
-is replayed exactly to the window (`data.ring_corpus.episode`, `stop_at`) and branched under two tapes: hold for
+is replayed exactly to the window (`data.ring_corpus.replay_world`: the recorded requests through the world) and
+branched under two tapes: hold for
 6.4 s, and back away at 0.2 m/s for 2 s then hold. The difference in that walker's true position between the
 branches, against the model's predicted difference, at 1.6, 3.2 and 6.4 s: the slope with its 95% interval over
 episodes (`eval.measures.slope`). Windows with a contact in either branch are left out. Carrying a walker on at its
@@ -128,7 +129,9 @@ def _reaction_window(args):
     meta = json.loads((CORPUS/'val'/f'{index:05d}.json').read_text())
     with np.load(CORPUS/'val'/f'{index:05d}.npz') as d:
         ranges, pose, requested, waiting = d['ranges'].astype(np.float32), d['pose'], d['requested'], d['waiting']
-    world, _ = rc.episode(MAZES, index, 'val', stop_at=t0)
+    world = rc.replay_world(MAZES, meta, requested, t0)
+    if not np.allclose(pose[t0], [*world.xy, world.yaw], atol=1e-4):
+        raise RuntimeError(f'episode {index}: the replay left the record at frame {t0}')
     geometry, fields, model, _ = _setup(meta, model_path)
     for t in range(t0+1):
         model.observe(t*.1, (ranges[t], ranges[t] > 0), pose[t, :2], float(pose[t, 2]), geometry)
