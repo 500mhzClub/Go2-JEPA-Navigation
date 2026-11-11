@@ -294,6 +294,10 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         if controller is not None:
             save(out/'planning.json', controller.planning)
             save(out/'mission.json', controller.mission_rows)
+            if controller.decision_inputs:
+                from go2nav.eval import replay
+                replay.save(out/'decision_inputs.npz', controller.decision_inputs, list(controller.planner.candidates),
+                            controller.planner.arrival_radius_m)
             save(out/'poses.json', [dict(frame=p['frame'], visual_pose=p['visual'], registered_pose=p['registered'])
                                     for p in controller.poses])
             if walker_mode != 'off':

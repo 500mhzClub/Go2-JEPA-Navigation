@@ -72,3 +72,52 @@ def test_what_the_reflex_would_stop_is_not_chosen():
 def test_beside_the_waypoint_it_turns_to_it_and_does_not_back_up():
     result = choose(goal=(-.05, -.05), pulse=True)                          # 7 cm behind and to the right
     assert command(result['action']) == (0., 0., -.45)
+
+
+def test_recorded_decisions_replay_to_the_same_choice(tmp_path):
+    from go2nav.eval import replay
+    rng = np.random.default_rng(0)
+    rows, made = [], []
+    for k in range(12):
+        row = dict(prediction=forecast(pulse=k == 3), goal_body=rng.uniform(-1, 1, 2), scan_error=1. if k == 5 else None,
+                   points=None if k == 0 else np.column_stack([rng.uniform(.5, 1.5, (30, 2)), np.zeros(30)]),
+                   target=bool(k % 2), pulse=k == 3, cells=None if k < 2 else {(60+k, 3), (61, -4)})
+        chosen = cost.select(row['prediction'], list(LATTICE), row['goal_body'], row['scan_error'], row['points'],
+                             arrival_radius_m=.02, target=row['target'], pulse=row['pulse'], cells=row['cells'])
+        rows.append(dict(row, frame=4*k))
+        made.append(dict(frame=4*k, action=chosen['action'], route_status='OBSERVED_FLOOR_ROUTE_TO_FRONTIER', selection={}))
+    made[7]['action'] = 'hold' if made[7]['action'] != 'hold' else 'cmd+0.15+0.00+0.00'       # one the code no longer makes
+    replay.save(tmp_path/'decision_inputs.npz', rows, list(LATTICE), .02)
+    (tmp_path/'planning.json').write_text(__import__('json').dumps(made))
+    out = replay.replay(tmp_path)
+    assert out['plans'] == 12 and out['changed'] == 1 and replay.runs_of(tmp_path) == [tmp_path]
+
+
+def test_paired_cohorts_and_a_bar_read_before_the_end():
+    from go2nav.eval import compare
+    a = {(10, 0): True, (10, 1): False, (11, 0): False, (11, 1): True, (12, 0): True}
+    b = {(10, 0): True, (10, 1): True, (11, 0): True, (11, 1): False, (13, 0): True}
+    out = compare.paired(a, b)
+    assert out['missions'] == 4 and out['gains'] == [(10, 1), (11, 0)] and out['losses'] == [(11, 1)] and out['p'] == 1.
+    assert compare.sign_test(9, 0) < .01 < compare.sign_test(7, 4)
+    assert compare.bar(52, 66, 80, 62)['state'] == 'open' and compare.bar(47, 66, 80, 62)['state'] == 'out of reach'
+    assert compare.bar(62, 70, 80, 62)['state'] == 'secured'
+
+
+def test_a_look_around_turns_on_the_spot_though_an_arc_is_forecast_to_turn_further():
+    p = forecast()
+    arc = list(LATTICE).index('cmd+0.45+0.00+0.45')
+    yaw = np.arctan2(p[arc, :, 2], p[arc, :, 3])+.02*(np.arange(HORIZONS) >= PREFIX_TICKS)      # the arc reads 0.02 rad on
+    p[arc, :, 2], p[arc, :, 3] = np.sin(yaw), np.cos(yaw)
+    chosen = cost.select(p, list(LATTICE), np.zeros(2), 1., None, arrival_radius_m=.02)
+    assert command(chosen['action']) == (0., 0., .45)
+
+
+def test_floor_not_yet_seen_is_not_walked_on_and_is_asked_for():
+    unseen = [translating(a) and command(a)[0] > 0 for a in LATTICE]                             # all the floor ahead
+    chosen = cost.select(forecast(), list(LATTICE), np.array([1., 0.]), None, None, arrival_radius_m=.02, uncovered=unseen)
+    assert not translating(chosen['action']) or command(chosen['action'])[0] < 0
+    assert command(chosen['coverage_wanted']) == (.45, 0., 0.)
+    seen = cost.select(forecast(), list(LATTICE), np.array([1., 0.]), None, None, arrival_radius_m=.02,
+                       uncovered=[False]*len(LATTICE))
+    assert command(seen['action']) == (.45, 0., 0.) and seen['coverage_wanted'] is None

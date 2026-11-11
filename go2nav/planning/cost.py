@@ -10,7 +10,10 @@ body-frame points. The cost of a candidate, over its ticks after the prefix:
   `W_REF`; nothing within the arrival radius of the mission's target (`target`: the waypoint is the beacon or home).
   At any other waypoint the distance and turn count however near it is: the first suites zeroed them there too, which
   made holding free on a frontier waypoint, where the route does not change while the robot holds (18 of 28 polite
-  failures; docs/dynamic/STATUS.md P18). With a `scan_error`: the turn left to that heading over `W_REF`.
+  failures; docs/dynamic/STATUS.md P18). With a `scan_error`, a look around from where the robot stands: the turn
+  left to that heading over `W_REF`, plus the distance the candidate ends from where it started over `V_REF`. The
+  first suites counted the turn alone, and the robot drove about while it looked: forecasts of an arc and of a turn
+  on the spot differ a little in heading, and whichever read nearer won (round trips of 60-70 m in a 15-m maze);
   The turn was first weighted down within 0.3 m of the waypoint; it is now counted in full, one constant fewer;
 - **a reverse pulse is not a candidate.** In the terminal approach a plan runs for 100 ms (`pulse`). The lattice's
   reverse, 0.10 m/s, is then a centimetre: the forecast credits it with motion and the robot does not make it. The
@@ -19,6 +22,11 @@ body-frame points. The cost of a candidate, over its ticks after the prefix:
 - **clearance:** `CLEARANCE_RATE` seconds a second as the body outline's clearance to the returns falls from `SOFT_M`
   to `FLOOR_M`; under the floor the candidate is discarded. A robot already under the floor may still move wherever
   its clearance does not fall further;
+- **floor not yet seen:** a candidate that would sweep floor the map has not observed is discarded (`uncovered`:
+  `planning.selection.footprint_extension`, the hand harness's rule that a translation must not sweep unobserved
+  floor). Like the reflex it is kept, and the cost looks ahead to it. When the cheapest candidate is lost to it, the
+  record names it (`coverage_wanted`), and the controller asks the route for a view of that floor, as the hand
+  planner's stage did; without this the route's frontiers were never looked at on the way home;
 - **the reflex:** a candidate the dispatch check would stop is discarded too (`planning.dispatch`: the 0.45-m disk
   swept by the command over its commit, the returns' age and the stopping allowance must be clear of the latest
   obstacle cells). The reflex is kept by decision; the cost only looks ahead to it, so that it does not choose what
@@ -54,10 +62,12 @@ def reflex_clear(action, cells, pulse):
     return True
 
 
-def select(prediction, candidates, goal_body, scan_error, points, *, arrival_radius_m, target=True, pulse=False, cells=None):
+def select(prediction, candidates, goal_body, scan_error, points, *, arrival_radius_m, target=True, pulse=False, cells=None,
+           uncovered=None):
     """The candidate chosen by the cost: a selection record with `action`, `action_index`, `requested_command` and one
     row per candidate. `points`: the range returns (n, 2 or 3) in the body frame, or None; `cells`: the latest
-    obstacle cells of the dispatch check (1-cm body cells), or None to leave the reflex out."""
+    obstacle cells of the dispatch check (1-cm body cells), or None to leave the reflex out; `uncovered`: per
+    candidate, whether it would sweep floor not yet observed, or None."""
     p = np.asarray(prediction, float)
     xy, yaw = p[:, PREFIX_TICKS:, :2], np.arctan2(p[:, PREFIX_TICKS:, 2], p[:, PREFIX_TICKS:, 3])
     count = len(candidates)
@@ -72,7 +82,7 @@ def select(prediction, candidates, goal_body, scan_error, points, *, arrival_rad
     soft = np.clip((SOFT_M-clearance)/(SOFT_M-FLOOR_M), 0., 1.).sum(1)*TICK_S*CLEARANCE_RATE
     end, heading = xy[:, -1], yaw[:, -1]
     if scan_error is not None:
-        to_go = np.abs(wrap(scan_error-heading))/W_REF
+        to_go = np.abs(wrap(scan_error-heading))/W_REF+np.linalg.norm(end, axis=1)/V_REF
     else:
         offset = np.asarray(goal_body, float)-end
         distance = np.linalg.norm(offset, axis=1)
@@ -80,16 +90,22 @@ def select(prediction, candidates, goal_body, scan_error, points, *, arrival_rad
         to_go = np.where((distance > arrival_radius_m) | (not target), distance/V_REF+turn/W_REF, 0.)
     stopped = np.array([cells is not None and not reflex_clear(a, cells, pulse) for a in candidates])
     absent = np.array([bool(pulse and command(a)[0] < 0) for a in candidates])     # a reverse pulse is no action
-    discarded = breached | stopped | absent
-    total = to_go+soft+DISCARD*discarded
+    unseen = np.zeros(count, bool) if uncovered is None else np.asarray(uncovered, bool)
     hold = candidates.index('hold')
     moved = np.array([float(np.hypot(*command(a)[:2])) for a in candidates])
-    best = min(range(count), key=lambda i: (round(float(total[i]), 6), moved[i], abs(command(candidates[i])[2])))
-    if discarded.all():
-        best = hold
+
+    def cheapest(discarded):
+        total = to_go+soft+DISCARD*discarded
+        best = min(range(count), key=lambda i: (round(float(total[i]), 6), moved[i], abs(command(candidates[i])[2])))
+        return (hold if discarded.all() else best), total
+    wanted, _ = cheapest(breached | stopped | absent)
+    discarded = breached | stopped | absent | unseen
+    best, total = cheapest(discarded)
     rows = [dict(action=a, utility_m=-float(total[i]), cost_s=float(total[i]), to_go_s=float(to_go[i]),
                  clearance_s=float(soft[i]), lowest_clearance_m=float(clearance[i].min()), breached=bool(breached[i]),
-                 reflex_would_stop=bool(stopped[i]), eligible=bool(not discarded[i])) for i, a in enumerate(candidates)]
+                 reflex_would_stop=bool(stopped[i]), sweeps_unobserved=bool(unseen[i]),
+                 eligible=bool(not discarded[i])) for i, a in enumerate(candidates)]
     return dict(action=candidates[best], action_index=best, requested_command=command(candidates[best]), candidates=rows,
                 waypoint_body_xy_m=np.asarray(goal_body, float).tolist(), clearance_now_m=None if np.isinf(now) else now,
-                all_discarded=bool(discarded.all()), selection_objective='intrinsic_cost_seconds')
+                all_discarded=bool(discarded.all()),
+                coverage_wanted=candidates[wanted] if unseen[wanted] else None, selection_objective='intrinsic_cost_seconds')
