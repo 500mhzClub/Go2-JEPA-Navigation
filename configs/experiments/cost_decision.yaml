@@ -10,7 +10,9 @@ description: 'docs/dynamic/PLAN.md, P18. The working setup with the range sensor
   development set (PLAN P19): every polite-walker mission that fails on 6e2ea85 and three the fix mended. dev2_* are the same missions after the second round of fixes (look-arounds on the spot,
   floor not yet seen). The suites on that code (88169d5): rest_obst1_c5 and rest_obst2_c5 are the polite-walker missions outside the
   development set (a mission repeats exactly, so with dev2_* they make the two suites); cost3_still_c5 and cost3_obst4_c5
-  are the still mazes and four walkers.'
+  are the still mazes and four walkers. The third round (the turn to the arrival disk; floor that cannot be viewed is
+  not waited for): cost4_still_c5 is the still suite again and term_obst1_c5 the four one-walker missions that failed
+  at the target or before unviewable floor.'
 cohorts:
 - name: cost_smoke_still_c5
   set: validation
@@ -271,4 +273,19 @@ cohorts:
   range_sensor: 'on'
   decision: cost
   episodes: *id007
+  noslip: 'on'
+- name: cost4_still_c5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: *id007
+  noslip: 'on'
+- name: term_obst1_c5
+  set: validation
+  obstacles: 1
+  walker_mode: held
+  range_sensor: 'on'
+  decision: cost
+  episodes: [[12, 0], [17, 1], [26, 1], [29, 0]]
   noslip: 'on'
