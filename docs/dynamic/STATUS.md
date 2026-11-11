@@ -1919,3 +1919,38 @@ good to about 2-4 round trips.
 from-scratch JEPAs in worlds with independently moving objects (docs/REVIEW_2026-11-11.md). The review of
 11 November stopped this line; R1 to R4 were not run. Next: P22 (object-level dynamics in the ring world) and P23
 (self-supervised slots on the Go2's camera), in parallel.
+
+## P22: first runs, and the second review's measurements (11 November)
+
+Plan: PLAN P22 and its item 7. Branch `feature/object-dynamics`. Code: `data/object_tracks.py`,
+`models/object_jepa.py`, `training/object_jepa.py`, `planning/object_model.py`, `eval/object_measures.py`,
+`planning/wall_raster.py`. Runs: `outputs/object_dynamics/`, `outputs/review_1111/`.
+
+**1. M0 and M1 lose to constant velocity at 1.6 s.** Training validation (8,192 val windows, 16-step rollouts under
+the recorded commands; median error in metres against the tracker's later positions):
+
+| | 1.6 s | 3.2 s | 6.4 s |
+|---|---|---|---|
+| M1 (no object masking), 20,000 steps | 0.070 | 0.179 | 0.411 |
+| M0 (object masking), 14,000 steps | 0.075 | 0.190 | 0.425 |
+| Carried on at the last step's displacement | 0.052 | 0.322 | 0.930 |
+
+Masking makes no difference to this error so far. Both predicted the whole displacement; M2 on predict a correction
+to constant velocity (PLAN P22 item 7).
+
+**2. The measurements of the second review** (docs/REVIEW_2026-11-11_second.md has the tables): the walkers are
+near-deterministic (the best deterministic predictor errs 0.00, 0.00 and 0.18 m at 1.6, 3.2 and 6.4 s); the robot's
+choice moves a nearby walker by more than 5 cm in 17%, 32% and 41% of close encounters; and the planner suites'
+room for a walker model is largest with four walkers that do not yield (the tracker 13 of 40 with 16 contact stops,
+the true model 29 with none) and nearly absent where the layout has loops.
+
+**3. Two faults found.**
+- Replaying a corpus episode through its planner is not exact once the planner's code has changed: P21's faster
+  detection moved tracks by millimetres and replays left the record. `data.ring_corpus.replay_world` replays the
+  recorded requests through the world instead; `eval.object_measures` checks the pose on every window. Nothing had
+  been scored with the planner replay.
+- P23's slot trainer hits illegal memory accesses on the GPU within about 100 steps (GPU page faults in the kernel
+  log; no reset). Twelve training steps on the CPU run clean, so it is not the code's indexing. Ruled out: the data
+  (no non-finite value in 700 feature files), the memory cap, the second device, the fused GRU kernel, loader
+  processes, pinned copies. Turning the fused attention kernels off let a bare loop run 400 steps three times, and
+  the trainer still faulted. Not explained; to be retried alone on the card. No model is trained on the CPU.

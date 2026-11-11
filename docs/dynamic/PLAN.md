@@ -1662,6 +1662,21 @@ is the tape's, as for every other model.
 
 **Compute.** Tracking the corpus about 10 minutes on 28 cores; training under an hour; a suite minutes.
 
+**7. Revised 11 November** (docs/REVIEW_2026-11-11_second.md; approved). P22 is ego-conditioned trajectory prediction
+on engineered tracks, not a JEPA: it is the ceiling for what object-level dynamics can give the planner.
+- **Runs:** M2, the prediction as a correction to the object carried on at its velocity (the tracker's velocity in
+  each token; the head starts at zero); M3, M2 with object masking; M4, M2 trained on six-step rollouts. M0 and M1
+  predicted the whole displacement and lost to constant velocity at 1.6 s. Then a variant that weights the frames
+  inside a random tape (Tang et al. 2022).
+- **(a) restated:** no worse than the tracker's constant velocity at 1.6 s and at most half its error at 3.2 and
+  6.4 s, over all scored walkers and over those waiting on the robot. The floor, measured: the best deterministic
+  predictor errs 0.00, 0.00 and 0.18 m.
+- **(b)** as set, now read for every run (ten minutes on the CPU), from a replay of the recorded requests.
+- **(c) restated:** the primary suite is four walkers that do not yield (40 missions), on four planner seeds, where
+  the room is (the tracker 13 round trips and 16 contact stops on seed 0, the true model 29 and 0). **Bar:** a mean at
+  least 6 round trips above the tracker's and at most half its contact stops. The run best by (a) is scored.
+- No model is trained on the CPU.
+
 ### P23. Self-supervised slots on the Go2's camera (stage 2; set out before any run)
 
 **Why.** Whether objects can be found without labels from the Go2's moving camera, so that P24 can replace the ring
@@ -1699,14 +1714,26 @@ commands), scored on P16's measures with their existing labels.
 **Compute.** Features about 1-2 GPU-hours; the slot model measured at its smoke (estimate 6-10 hours); the patch
 baseline 4-8 hours.
 
-### P24-P25 (set out when P22 and P23 report)
+**7. Revised 11 November** (the second review; approved). The slot model is to be a port of the official VideoSAUR
+code (martius-lab/videosaur, MIT), as this repository's LeWM is of its original, in place of the version written from
+memory; SlotContrast's loss is the first variant if slots do not keep their walker over time. Training is on the GPU
+only: the trainer's illegal memory accesses on this ROCm build are to be solved there (alone on the card first; the
+same steps run clean on the CPU, so it is not the code's indexing). The features took 6 minutes, not 1-2 hours.
 
-- **P24, joined in Genesis:** Genesis data with random interventions as P20's; P22's predictor over P23's slots, with
-  the ring tracker's objects for walkers outside the camera's view; P17's planner in missions on the built map.
-  Against P18's merged figures (40, 64, 18 of 40) and, with walkers that do not yield, the hand reference's 7 of 80.
-- **P25, generality and the contribution:** held-out families (loops and rooms, offices); MOVi as an outside check
-  on the slots; a learned end cost; and whether adapting the encoder improves the dynamics without losing the
-  pretrained geometry. H-JEPA decided after P24 (the review's section 5).
+### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
+
+- **P24, the predictor in Genesis on the harness's tracks.** The mission harness already tracks walkers (the hand
+  tracker on the built map; the earlier model's walker finder), so this does not wait for slots. First offline: the
+  ring world's predictor on the tracks of recorded missions, against constant velocity (the walkers' scripts are the
+  same code in both worlds). Then P17's planner in missions on the built map, with long tapes and the walker-aware
+  end cost. Against P18's merged figures (40, 64, 18 of 40) and, with walkers that do not yield, the hand reference's
+  7 of 80. Only after P22 passes (a).
+- **P25, a second world.** Zhu et al.'s bouncing-ball task rebuilt (64 x 64 frames; a ball the agent controls among
+  balls that move on their own): LeWM as ported here, and the object recipe. Their figures (LeWM 0-3%; with their
+  supervised targets 60-92%) are a reference, not a like-for-like comparison.
+- **P26, slots in place of the tracker, and after:** P22's predictor over P23's slots in Genesis; whether adapting the
+  encoder improves the dynamics without losing the pretrained geometry; a learned end cost; held-out families; the
+  H-JEPA decision (docs/REVIEW_2026-11-11.md section 5).
 
 ## Compute and order
 
