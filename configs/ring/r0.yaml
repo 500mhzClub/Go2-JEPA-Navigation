@@ -1,0 +1,6 @@
+# P21 R0 (docs/dynamic/PLAN.md): the ring world model as set out, trained on rollouts of 16 steps (1.6 s). 20,000 steps
+# of 128 windows (0.7 s a step on the R9700, about 4 hours): 2.6 million windows, two thirds of the frames once.
+name: ring_r0
+model: {}
+data: {batch: 128, rollout: 16}
+optimiser: {steps: 20000}
