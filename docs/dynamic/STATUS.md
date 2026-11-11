@@ -1774,9 +1774,33 @@ PLAN P19: those 18 and 6 missions the first fix mended).
   (one walker: the cost loses 8 the reference makes and makes 5 it loses). Not looked into further here: what stands
   in the route was not checked against the walkers' true positions.
 - **Stood at the target (6): the cost's defect.** The arrival radius is 2 cm and the forecast is good to about a
-  centimetre. A hold forecast to drift into the disk cost nothing, so the robot stood 2.3 cm out (two missions);
+  centimetre. A hold forecast to drift into the disk cost nothing, so the robot stood 2.3 cm out (three missions);
   elsewhere the bearing of a target 3-4 cm off swung on a forecast a few millimetres to the side, so every move read
   worse than holding. All five still-maze failures are this or the next.
 - **Stood before unviewable floor (3): the second round's defect.** When the route finds no viewpoint for the floor
   asked for, the discard stays and nothing else is asked for: one mission never left the start, in the still suite
   and with one walker alike.
+
+**6. The third round: the cost's two defects** (73076d2 on `feature/cost-terminal`; cohorts `term_obst1_c5`,
+`cost4_*`; 11 November).
+
+- **At the mission's target the turn points the robot at the arrival disk, not at its centre,** and there is none
+  inside the disk: a robot whose line of travel already crosses the disk has no turn left to make. The cost is no
+  longer zero for a candidate forecast to end inside the disk; the distance counts to the centre, and the mission
+  itself stops the robot once it measures it inside. No constant added.
+- **Floor that cannot be viewed is not waited for.** The discard of candidates that sweep unobserved floor is lifted
+  while a request for a view is with the route, and a request the route finds no viewpoint for is withdrawn and its
+  floor not asked for again on that leg (`Planner.uncovered`).
+
+| Check | Second round | Third round | Hand reference |
+|---|---|---|---|
+| Still mazes (40) | 35 | 40 | 37 |
+| The four one-walker missions that stood at the target or before unviewable floor | 0 | 4 | |
+
+- No crash and no contact stop. The still suite gains its 5 failures and loses nothing; a round trip's median is
+  137 s (135 s before; the reference 118 s) and the longest 254 s of the 480 allowed.
+- Replayed through the changed cost, the still suite's recorded plans change in 4,390 of 18,110 cases: the long holds
+  of the four stand-offs (782 to 1,011 plans each) all become moves, and 5 to 30 plans change in most other missions,
+  at the two arrivals.
+- **Not yet run on the third round:** the walker suites (`cost4_obst1_c5`, `cost4_obst2_c5`, `cost4_obst4_c5`;
+  started 05:55 on 11 November). The bars are met on the second round whatever they give.

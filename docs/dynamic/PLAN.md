@@ -1422,6 +1422,21 @@ often every candidate was discarded.
 - The suites started at 08:05 on cb447c0. The two smoke missions that finished after the fix was committed had started
   on the code before it.
 
+**7. The cost after three rounds of fixes** (10-11 November; the results are in STATUS P18). Items 1 and 2 above are
+as set out before any mission; what the suites changed:
+- **to go** is zero nowhere. At a waypoint that is not the mission's target the distance and the turn count however
+  near it is (round 1). At the target the turn is the one that points the robot at the arrival disk, and the mission
+  stops the robot inside it (round 3);
+- **a look-around** counts the turn left and the distance the candidate ends from where it started (round 2);
+- **floor not yet observed stays with the harness** (round 2; item 1 had removed floor coverage with the other
+  stages). A candidate that would sweep it is discarded, the cost looks ahead to that as it does to the reflex, and
+  the route is asked for a view of it; floor the route cannot show is not waited for (round 3);
+- **a reverse pulse is not a candidate** (item 6).
+
+Five constants: the two reference speeds and the three of the clearance term. What the hand harness still decides:
+the route and its waypoint, the views (panorama, frontiers, coverage), the map, the pose, the mission, the dispatch
+reflex, and that unobserved floor is looked at before it is walked on.
+
 **Compute.** The smoke: 36 minutes. The suites: about 240 missions, 8-10 hours at 6 at once.
 
 ### P19. Evaluating a change sooner (approved 10 November)
