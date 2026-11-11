@@ -17,7 +17,9 @@ and lateral commands.
 **Model** (P18 replaces the robot's part with a learned one): the robot's path is the tape's, through the continuous
 block's limits, at 100 ms. The walkers' part is one of `MODELS`: `true` (copies of the world's walkers stepped against
 that path, random generators included, so the model knows their future draws), `fresh` (the same with new dice each
-plan), `velocity`, `frozen` and `frozen_seen` (`SimpleModel`: walkers that do not react).
+plan), `velocity`, `frozen` and `frozen_seen` (`SimpleModel`: walkers that do not react), or `ring_frozen` and
+`ring_velocity` (`RingModel`, P20: the same two, with the walkers and their velocities taken from the range ring by
+`perception.ring_walkers`; the mission hands such a model every frame's scan through `observe`).
 
 **Cost,** in seconds:
 - time: 0.1 s for each step further than `ARRIVE_M` from the target;
@@ -32,6 +34,7 @@ import copy
 import numpy as np
 
 from go2nav.locomotion.safety import BLOCKS
+from go2nav.perception import ring_walkers
 from go2nav.planning.fields import Fields
 from go2nav.sim import kinematic as kin
 from go2nav.sim import obstacles as moving
@@ -78,7 +81,20 @@ def integrate(start, requested):
 
 
 RING_MOUNT_M = .30          # the range sensor's mount, ahead of the body's centre (`sim.range_sensor`)
-MODELS = ('true', 'fresh', 'velocity', 'frozen', 'frozen_seen')
+MODELS = ('true', 'fresh', 'velocity', 'frozen', 'frozen_seen', 'ring_frozen', 'ring_velocity')
+
+
+def carried(at, velocity, count, horizon, geometry):
+    """Walkers at `at` (n, 2) carried on at `velocity` (n, 2) for `horizon` frames, each stopping where a wall would
+    be within its radius: (count, horizon, n, 2), the same for every tape."""
+    path = at[None]+velocity[None]*(np.arange(1, horizon+1)*FRAME_S)[:, None, None]          # (T, n, 2)
+    if len(at) and velocity.any():
+        free = geometry.wall_distance(path) >= moving.RADIUS_M
+        reached = np.minimum.accumulate(free, 0)                       # until the first frame at a wall
+        last = np.maximum(reached.sum(0)-1, 0)                          # (n,) the last free frame
+        stopped = np.where(reached.any(0)[:, None], path[last, np.arange(len(at))], at)
+        path = np.where(reached[..., None], path, stopped[None])
+    return np.broadcast_to(path[None], (count, horizon, len(at), 2)).copy()
 
 
 class TrueModel:
@@ -139,20 +155,31 @@ class SimpleModel:
 
     def walkers(self, snapshot, xy, yaw, frames, geometry=None):
         at, velocity = self.believed(snapshot, geometry)
-        count, horizon = xy.shape[:2]
-        path = at[None]+velocity[None]*(np.arange(1, horizon+1)*FRAME_S)[:, None, None]          # (T, n, 2)
-        if len(at) and velocity.any():
-            free = geometry.wall_distance(path) >= moving.RADIUS_M
-            reached = np.minimum.accumulate(free, 0)                       # until the first frame at a wall
-            last = np.maximum(reached.sum(0)-1, 0)                          # (n,) the last free frame
-            stopped = np.where(reached.any(0)[:, None], path[last, np.arange(len(at))], at)
-            path = np.where(reached[..., None], path, stopped[None])
-        return np.broadcast_to(path[None], (count, horizon, len(at), 2)).copy()
+        return carried(at, velocity, *xy.shape[:2], geometry)
+
+
+class RingModel:
+    """Walkers that do not react, known from the range ring alone (P20): `ring_frozen` where the tracker has them,
+    `ring_velocity` carried on at the tracker's velocity. `observe` takes each frame's scan and pose; the snapshot's
+    walkers are not read."""
+
+    def __init__(self, kind):
+        self.kind, self.tracker = kind, ring_walkers.Tracker()
+
+    def observe(self, t, scan, xy, yaw, geometry):
+        found = ring_walkers.detect(*scan, geometry.wall_ranges(xy, yaw), xy, yaw)
+        self.tracker.update(t, found, ring_walkers.mount_of(xy, yaw), geometry)
+
+    def walkers(self, snapshot, xy, yaw, frames, geometry=None):
+        at, velocity = self.tracker.state()
+        return carried(at, velocity if self.kind == 'ring_velocity' else np.zeros_like(at), *xy.shape[:2], geometry)
 
 
 def make_model(name, seed=0):
     if name not in MODELS:
         raise ValueError(f'the model is one of {MODELS}')
+    if name.startswith('ring_'):
+        return RingModel(name)
     return TrueModel(fresh=name == 'fresh', seed=seed) if name in ('true', 'fresh') else SimpleModel(name)
 
 
