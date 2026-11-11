@@ -74,8 +74,10 @@ def random_tape(rng, frames, start, fields):
     return hold
 
 
-def episode(mazes_root, index, split):
-    """One episode's arrays and record (see the module docstring)."""
+def episode(mazes_root, index, split, stop_at=None):
+    """One episode's arrays and record (see the module docstring). With `stop_at`, the episode is replayed up to that
+    frame and (world, planner) are returned as they stand before the frame is observed: the replay is exact, since
+    every draw comes from the episode's own generators (P22's counterfactual measure branches from there)."""
     from go2nav.eval.mission import episode_spec
     from go2nav.perception.ring_walkers import mount_of
     from go2nav.planning.sampling import REPLAN_FRAMES, Planner
@@ -107,6 +109,8 @@ def episode(mazes_root, index, split):
     targets = interventions = 0
     t = 0
     for t in range(frames):
+        if t == stop_at:
+            return world, planner
         scan = world.scan()
         planner.model.observe(t*kin.FRAME_S, scan, world.xy, world.yaw, world.geometry)
         if target is None or np.linalg.norm(world.xy-target) < REACHED_M or (t-since)*kin.FRAME_S > GIVE_UP_S:
