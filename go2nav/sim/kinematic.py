@@ -7,6 +7,9 @@ a robot that moves exactly as commanded. No rendering and no physics engine.
 - **The walkers** are `sim.obstacles`' (polite, not yielding, reactive), built from a placement as `ObstacleField`
   builds them and stepped every 2 ms against the robot's position (reactive ones also its yaw and the other walkers),
   before the robot moves, as in a mission.
+- **The range ring** (P20): `World.scan` casts `sim.range_sensor`'s beams from the mount at the robot's pose against the
+  walls and the walkers, with the sensor's noise and limits, the body level at `BASE_Z_M`; `Geometry.wall_ranges` is
+  what each beam would read with no walker, without noise.
 - **Contact:** the body outline (`data.head_labels.OUTLINE_HALF_M`, 0.70 by 0.32 m) touching a wall box or a walker's
   cylinder; checked every 10 ms, it ends the episode.
 
@@ -21,10 +24,17 @@ import numpy as np
 from go2nav.data.head_labels import OUTLINE_HALF_M
 from go2nav.locomotion.safety import BLOCKS
 from go2nav.sim import obstacles as moving
+from go2nav.sim.range_sensor import RangeSensor
 
 DT_S, FRAME_S = .002, .1
 SUBSTEPS = round(FRAME_S/DT_S)
 CONTACT_EVERY = 5                      # substeps between contact checks (10 ms)
+BASE_Z_M = .30                         # the standing body's height, for the range ring
+
+
+def level(xy, yaw):
+    """A planar pose as the range sensor takes it: the base's position (3,) and its (w, x, y, z) quaternion."""
+    return (float(xy[0]), float(xy[1]), BASE_Z_M), (math.cos(yaw/2), 0., 0., math.sin(yaw/2))
 
 
 def outline_points(count_long=7, count_short=3):
@@ -69,6 +79,11 @@ class Geometry:
         layout = spec.get('evaluation_layout')
         self.pitch = moving.pitch_of(spec)
         self.neighbours = moving.passages(spec) if layout else {}
+        self.ring = RangeSensor(spec, noise_sigma_m=0.)
+
+    def wall_ranges(self, xy, yaw):
+        """(BEAMS,) what the range ring would read at a pose with no walker in the maze, without noise."""
+        return self.ring.true_distances(*level(xy, yaw))
 
     def wall_distance(self, points):
         """(...,) the distance of each point (..., 2) to the nearest wall's surface (0 inside one)."""
@@ -134,6 +149,7 @@ class World:
 
     def __init__(self, spec, start_se2, placement=()):
         self.geometry = Geometry(spec)
+        self.sensor = RangeSensor(spec)
         self.walkers = make_walkers(spec, placement)
         self.xy, self.yaw = np.array(start_se2[:2], float), float(start_se2[2])
         self.executed = np.zeros(3, np.float32)
@@ -146,6 +162,11 @@ class World:
 
     def clearance(self):
         return self.geometry.clearance(self.xy, self.yaw, self.walkers_xy())
+
+    def scan(self):
+        """This frame's range scan: (ranges_m (BEAMS,), valid (BEAMS,)), as `sim.range_sensor.RangeSensor.scan`."""
+        return self.sensor.scan(*level(self.xy, self.yaw), self.walkers_xy(), [moving.HEIGHT_M]*len(self.walkers),
+                                frame=self.frame)
 
     def step(self, requested):
         """One 100-ms frame under a requested command; returns the executed one."""

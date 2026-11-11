@@ -51,10 +51,14 @@ def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, term
                       max_speed=max_speed, cells=cells)
     requested, queue, plans, spent, sealed_s, chosen = np.zeros(3, np.float32), [], 0, 0., 0., {}
     frame = 0
+    observes, tracked = hasattr(planner.model, 'observe'), []
     while True:
         state = mission.advance(world.xy, frame=frame, requested=requested)
         if state['terminal'] is not None:
             break
+        if observes:
+            planner.model.observe(frame*FRAME_S, world.scan(), world.xy, world.yaw, world.geometry)
+            tracked += tracking_errors(planner.model.tracker, world)
         if state['hold_required']:
             requested, queue = np.zeros(3, np.float32), []
         else:
@@ -90,7 +94,36 @@ def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, term
                 minimum_clearance_m=round(float(world.minimum_clearance), 3),
                 waiting_s=round(world.waiting_frames*FRAME_S, 1), sealed_end_s=sealed_s, reachable_cells=reachable,
                 plans=plans, plan_s=round(spent/max(plans, 1), 3), wall_s=round(spent, 1), chosen=chosen,
-                replan_frames=REPLAN_FRAMES)
+                replan_frames=REPLAN_FRAMES, **({'tracking': tracking_summary(tracked)} if observes else {}))
+
+
+def tracking_errors(tracker, world):
+    """For each walker in the sensor's line of sight this frame: (the nearest track's distance or None when no track
+    is within 0.4 m, that track's velocity error, the walker's speed)."""
+    from go2nav.perception.ring_walkers import GATE_M, mount_of
+    origin, (at, velocity) = mount_of(world.xy, world.yaw), tracker.state()
+    rows = []
+    for xy, v in zip(world.walkers_xy(), world.walkers_velocity):
+        if not world.geometry.visible(origin, xy):
+            continue
+        distance = np.linalg.norm(at-xy, axis=1) if len(at) else np.array([np.inf])
+        k = int(distance.argmin())
+        found = bool(distance[k] <= GATE_M)
+        rows.append((float(distance[k]) if found else None, float(np.linalg.norm(velocity[k]-v)) if found else None,
+                     float(np.linalg.norm(v))))
+    return rows
+
+
+def tracking_summary(rows):
+    """Over a mission's walker-frames in sight: how many, how many with no track, and the tracks' mean position
+    error (m) and median and root-mean-square velocity error (m/s; the walker's velocity is the world's, over the last
+    frame)."""
+    found = [r for r in rows if r[0] is not None]
+    return dict(in_sight=len(rows), missed=len(rows)-len(found),
+                position_m=round(float(np.mean([r[0] for r in found])), 4) if found else None,
+                velocity_median_m_s=round(float(np.median([r[1] for r in found])), 4) if found else None,
+                velocity_rms_m_s=round(float(np.sqrt(np.mean([r[1]**2 for r in found]))), 4) if found else None,
+                speed_rms_m_s=round(float(np.sqrt(np.mean([r[2]**2 for r in found]))), 4) if found else None)
 
 
 def _job(args):

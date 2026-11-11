@@ -1488,6 +1488,74 @@ many of them keep moving, and some round trips stand for minutes first. On 241 m
 
 It would change what a round trip is for little time, so it is not done.
 
+### P20-P23. Back to the world model (approved 11 November)
+
+**The question.** Can a model learned from observation predict what the walkers will do, their reaction to the robot
+included, well enough that planning on it beats planning without it? P17 gives what that knowledge is worth to a
+planner (walkers that do not yield, 6.4 s, 80 missions: frozen 47-49 round trips, their velocity 64, their reactions
+69 and no contact stop). P16 gives what the models hold of it so far: nothing (a reaction slope of 0.03-0.07; no
+contact foreseen beyond the present state). The decision in missions is P18's cost, merged on 11 November (still
+mazes 40 of 40, polite walkers 64 of 80, four walkers 18 of 40); the planner is not worked on further.
+
+| Piece | What | Passes when |
+|---|---|---|
+| P20 | A fast ring world: P17's kinematic world with the range ring and no rendering, the planner fed from the ring alone, and a corpus driven by commands that are not scripted from privileged state | set out below |
+| P21 | The corrected model in the ring world, one change a run: no command history in the encoder; a token and a loss per sensor; next-scan prediction as an auxiliary with gradient; longer training rollouts | P17's planner on the model's rollouts makes at least 60 of 80 round trips with walkers that do not yield (6.4 s), with no more contact stops than the velocity row's 7; beside it P16's measures (reaction slope's interval above 0.5; contact skill at least half the gap; action share at most 0.25). Set out in full before its first run |
+| P22 | A learned end cost (a critic on time to go) in place of the hand distance field with walkers, then data collected by the model's own planner | only after P21 passes; set out then |
+| P23 | The winning design in Genesis, camera and ring, on the existing corpus; planned on through P18's cost | against P18's merged figures and, with walkers that do not yield, the hand reference's 7 of 80; set out then |
+
+- **Why the ring world first** (approved). A model in Genesis costs 15-25 GPU-hours and a suite 6 hours; P17 ran 49
+  suites in under two hours on the CPU. The risk is that what holds for a ring-only model does not hold with the
+  camera: P23 tests it.
+- **Left out:** further planner work (P18's 27 route-cut failures and the third round's loss with four walkers stay
+  undiagnosed); P16's advantage measure (unusable as built; round trips on the ladder take its place);
+  `go2_3level_c`, not retrained.
+- Each piece is its own branch and is merged before the next. The stop rule holds.
+
+### P20. A fast ring world (approved 11 November; set out before any run)
+
+Branch `feature/ring-world`. CPU only.
+
+**1. The ring in the kinematic world.** `sim.kinematic.World.scan` casts `sim.range_sensor`'s 720 beams from the
+mount at the robot's pose against the walls and the walkers, with the sensor's noise (1 cm) and range limits: the scan a
+mission in Genesis records, without the body's tilt.
+
+**2. Walkers from the ring** (`perception/ring_walkers.py`; engineered estimation, which the rule line allows). The
+layout is known, as it is to P17's planner, so the range each beam would read with no walker is known. Returns
+shorter than that by a margin are walkers; neighbouring ones are grouped and a circle of the walkers' radius is
+fitted to each group. A tracker joins detections from frame to frame, keeps each track's velocity over its last half
+second, and remembers a walker that goes out of sight where it was last seen until that place is seen empty. Nothing
+privileged enters: the scan, the pose, the layout.
+
+**3. The planner fed from the ring.** Two models for `planning.sampling` that take the tracker's walkers in place of
+the world's: `ring_frozen` (where the tracker has them) and `ring_velocity` (carried on at the tracker's velocity). The
+mission loop hands the model each frame's scan and pose (`observe`). This is the interface P21's learned model takes:
+its predicted scans go through the same extraction.
+
+**4. The corpus** (`data/ring_corpus.py`; out of tree). Episodes of 120 s in a new set of the validation mazes'
+family (`configs/mazes/ring_train_v1.yaml`: 200 layouts, new seeds, the shipped sets excluded), 0 to 4 walkers, each
+polite, not yielding or reactive. The robot walks to cells drawn at random under P17's planner at 1.6 s with
+`ring_frozen`, and at one plan in four executes a random smooth tape instead (0.4 to 2 s), whatever it leads to: the
+interventions. Per frame: the scan, the requested and executed commands, the pose; and, as labels for measures only,
+the walkers' positions, velocities and whether each waits on the robot. First build 3,000 episodes (3.6 million
+frames, about 5 GB).
+
+**5. Passes when** (walkers that do not yield, 80 missions, 6.4 s, the `walkers` terminal distance, as P17's ladder):
+
+| | Bar | P17's row beside it |
+|---|---|---|
+| `ring_frozen` | within 5 of `frozen_seen` | 49 round trips (9 contact stops) |
+| `ring_velocity` | at least 60 of 80 | velocity, all walkers, privileged: 64 (7) |
+| Speed | at least 1,000 missions an hour on 16 workers | P17: about 2,000 |
+
+Reported beside them: the same two models on the polite suite (P17: 73 and 77), the tracker's position and velocity
+errors against the truth, and the corpus's contents (frames with a walker in view, frames inside an intervention,
+walkers waiting on the robot, contacts).
+- If `ring_velocity` fails its bar the tracker is looked at once (its errors say where); if it still fails, the
+  piece stops and the record says what the ring does not carry.
+
+**Compute.** About 2 days of building; the gate's suites take minutes each; the corpus under an hour on 16 workers.
+
 ## Compute and order
 
 | Phase | Compute |

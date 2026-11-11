@@ -1804,3 +1804,73 @@ PLAN P19: those 18 and 6 missions the first fix mended).
   at the two arrivals.
 - **Not yet run on the third round:** the walker suites (`cost4_obst1_c5`, `cost4_obst2_c5`, `cost4_obst4_c5`;
   started 05:55 on 11 November). The bars are met on the second round whatever they give.
+
+## P20: a fast ring world (11 November)
+
+Plan: PLAN P20. Branch `feature/ring-world`. Code: `sim.kinematic` (`World.scan`, `Geometry.wall_ranges`),
+`perception/ring_walkers.py`, `planning.sampling` (`RingModel`: `ring_frozen`, `ring_velocity`),
+`eval.kinematic_missions` (the tracker's errors), `data/ring_corpus.py`. Runs: `outputs/ring_world/` (CPU only).
+
+**1. The gate: the planner fed from the ring alone.** P17's planner, walkers that do not yield and polite ones, 80
+missions each, 6.4 s, the `walkers` terminal distance. Round trips, contact stops in brackets:
+
+| The walkers in the planner's model | Not yielding | Polite | Bar (not yielding) | |
+|---|---|---|---|---|
+| `ring_frozen`: where the ring tracker has them | 44 (14) | 72 (0) | within 5 of 49 | passes, at the edge |
+| `ring_velocity`: carried on at the tracker's velocity | 62 (10) | 78 (2) | at least 60 | passes |
+| P17, `frozen_seen` (privileged: the true positions in sight) | 49 (9) | 73 (1) | | |
+| P17, `velocity` (privileged: every walker's true velocity) | 64 (7) | 77 (3) | | |
+
+- **The ring carries what velocity is worth.** From the scan, the pose and the known layout, `ring_velocity` comes
+  within 2 round trips of the privileged velocity row with walkers that do not yield, and passes it with polite ones.
+- **Speed:** 80 missions in 45 s (`ring_velocity`) to 95 s (`ring_frozen`) on 16 workers: 3,000 to 6,400 missions an
+  hour (bar 1,000). A plan takes 15 ms.
+- **The tracker** (walker-frames in the sensor's line of sight): no track for 0.5% of them (not yielding) to 1.8%
+  (polite); position error 4-6 mm; velocity error median 6-16 mm/s, root mean square 0.03-0.07 m/s.
+- `frozen_seen` rerun on this branch reproduces P17's suite mission for mission: the refactor of `SimpleModel` changed
+  nothing.
+
+**The tracker was looked at once.** The first `ring_velocity` suite (a 0.5-s velocity window) made 61 round trips
+with 15 contact stops. Every walker contact had the same history: the walker stopped beside the robot, the tracker
+read it as walking on at about 0.2 m/s for several frames, and the planner drove into it. The window is 0.3 s now:
+
+| Velocity window | Not yielding | Polite |
+|---|---|---|
+| 0.5 s | 61 (15) | 74 (6) |
+| 0.3 s (kept) | 62 (10) | 78 (2) |
+| 0.2 s | 58 (12) | 78 (2) |
+
+The window was chosen on the suite it is scored on; the validation mazes are the tuning set, so this is in line with
+P2b's rule, but the 0.3-s row is a tuned figure.
+
+- **For P21's bar:** the hand tracker on the ring itself has 10 contact stops with walkers that do not yield. P21's
+  contact bar (no more than the privileged velocity row's 7) asks a learned model to beat the engineered tracker on the
+  same input.
+
+**2. The corpus** (`data.ring_corpus`; built 11:55-12:19 on 28 cores, 4.5 GB, out of tree). Two changes from PLAN
+P20 item 4, both in the module's docstring:
+- **Mazes:** the world model's corpus layouts (`lewm_sets_v1`: train 0-1199, val 1200-1299) in place of 200 new
+  validation-family layouts. The 4 x 4 family has few topologies left, and the Genesis corpus is on these, which P23
+  needs. Neither split shares a topology with an evaluation set.
+- **Size:** random tapes are kept off the walls (they are known) but not off the walkers, so about half the episodes
+  end in a contact. The build is 5,000 episodes, where the plan said 3,000, for the same frames.
+
+| | Train | Val |
+|---|---|---|
+| Episodes (polite / not yielding / reactive / none) | 4,500 (1,347 / 1,377 / 1,358 / 418) | 500 (144 / 160 / 137 / 59) |
+| Frames (10 Hz) | 3,797,812 | 418,400 |
+| A walker in the sensor's line of sight | 52% | 49% |
+| Inside a random tape | 50% | 49% |
+| A walker waiting on the robot | 10% | 9% |
+| Ended in a walker contact | 2,412 episodes | 272 |
+| Ended against a wall | 22 | 2 |
+
+- Of the 2,684 walker contacts, 1,824 came during a random tape and 860 under the planner (which knows the walkers
+  only as frozen where the ring last saw them). 2,292 episodes ran the full 120 s; the median episode is 1,055 frames.
+- Every frame has the scan, the pose, the requested and executed commands; the walkers' true positions, velocities,
+  waiting and sight are stored as labels for measures only.
+
+**3. Read.** P20 passes. The ring carries what the walkers' velocity is worth to the planner (62 of 80 against 64
+with privileged velocity), missions run at thousands an hour on the CPU, and there is a corpus of 4.2 million frames
+in which half the commands are random with respect to the walkers. Next: P21, the learned model, set out before its
+first run.
