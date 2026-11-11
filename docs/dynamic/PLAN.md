@@ -1501,8 +1501,11 @@ mazes 40 of 40, polite walkers 64 of 80, four walkers 18 of 40); the planner is 
 |---|---|---|
 | P20 | A fast ring world: P17's kinematic world with the range ring and no rendering, the planner fed from the ring alone, and a corpus driven by commands that are not scripted from privileged state | set out below |
 | P21 | The corrected model in the ring world, one change a run: no command history in the encoder; a token and a loss per sensor; next-scan prediction as an auxiliary with gradient; longer training rollouts | P17's planner on the model's rollouts makes at least 60 of 80 round trips with walkers that do not yield (6.4 s), with no more contact stops than the velocity row's 7; beside it P16's measures (reaction slope's interval above 0.5; contact skill at least half the gap; action share at most 0.25). Set out in full before its first run |
-| P22 | A learned end cost (a critic on time to go) in place of the hand distance field with walkers, then data collected by the model's own planner | only after P21 passes; set out then |
-| P23 | The winning design in Genesis, camera and ring, on the existing corpus; planned on through P18's cost | against P18's merged figures and, with walkers that do not yield, the hand reference's 7 of 80; set out then |
+| P22 | (superseded 11 November) A learned end cost (a critic on time to go) in place of the hand distance field with walkers, then data collected by the model's own planner | only after P21 passes; set out then |
+| P23 | (superseded 11 November) The winning design in Genesis, camera and ring, on the existing corpus; planned on through P18's cost | against P18's merged figures and, with walkers that do not yield, the hand reference's 7 of 80; set out then |
+
+**Revised 11 November** (docs/REVIEW_2026-11-11.md, approved): P21 stopped after its first run, and the pieces after
+it are P22-P25 below. The learned end cost moves to P25; the Genesis piece is P24.
 
 - **Why the ring world first** (approved). A model in Genesis costs 15-25 GPU-hours and a suite 6 hours; P17 ran 49
   suites in under two hours on the CPU. The risk is that what holds for a ring-only model does not hold with the
@@ -1602,6 +1605,108 @@ kinematic world: the episode is replayed to the window and the walkers are stepp
 - the same suites with polite walkers, and the extraction's errors on predicted scans against the true walkers.
 
 **Compute.** About 2-4 GPU-hours to train a run; a suite of 80 missions 20-30 minutes on the GPU.
+
+**5. Outcome (11 November; STATUS P21).** R0 failed: 30 of 80 round trips with walkers that do not yield (50 contact
+stops) and 44 of 80 with polite ones (36), against the ring tracker's 59-62 (7-12) and 78. Its predicted scans hold
+34% of the walkers in sight 1.6 s ahead (the true scans 95%) and show about 11 walkers that are not there. The review
+of 11 November stopped the ring-scan line; R1 to R4 were not run.
+
+### P22. Object-level dynamics in the ring world (stage 1 of the review of 11 November; set out before any run)
+
+**Why.** Whether a self-supervised predictor over objects learns how walkers move and react to the robot from
+observation, and whether planning on it beats carrying them on at their velocity: the core question, with no
+perception in the way, exact counterfactuals and a known ladder. Branch `feature/object-dynamics`. CPU, with the
+GPU for training if it helps.
+
+**1. Objects:** the ring tracker (`perception.ring_walkers`, as in missions) run over every episode of P20's corpus,
+up to 6 tracks a frame. The tracker is engineered estimation from the scan, the pose and the layout; the walkers'
+true states are never an input or a target.
+
+**2. Tokens,** at steps of 0.4 s (four frames, the plan's period), in the robot's body frame at the step the
+prediction starts from:
+- an object token a track: its position, whether it is seen this frame or remembered, and the walls round it (the
+  walls' distance on a 5 x 5 grid 0.25 m apart, aligned with the robot);
+- a robot token: its displacement and turn over the last step (from the pose: odometry), and the walls round it (the
+  walls' distance on a 7 x 7 grid 0.3 m apart, aligned with the robot: a lookup, so a rollout can recompute it at
+  every predicted step, where casting the ring costs 1.5 ms a pose);
+- a step's action: its four requested commands (12 values), by AdaLN-zero, as `models.lewm.ARPredictor`;
+- 3 steps of history (0.8 s).
+
+**3. The predictor** (`models/object_jepa.py`): a transformer over the history's tokens, block-causal over steps
+(every token of a step sees every other: interactions), predicting each object's position at the next step. Trained
+teacher-forced plus a 2-step rollout (Terver et al.: longer is worse in simulation), with C-JEPA's object masking: in
+half the windows, one present object's history after its first step is replaced by a learned mask embedding added to
+a projection of its first-step token, so its motion must be inferred from the others and the robot's actions. The
+loss counts objects seen at the target step only. The targets are the tracker's, so nothing can collapse and no
+anti-collapse term is needed (P23's slots get SIGReg).
+
+**4. In the planner** (`planning.sampling`, an `objects:<path>` model): every tape rolled out 16 steps (6.4 s),
+positions interpolated to the frames and put back into the world frame by the pose at the plan; the robot's own path
+is the tape's, as for every other model.
+
+**5. Measures, in order, under the stop rule** (labels only to choose strata and to score):
+- (a) **Offline, val:** for walkers seen at the target step within 3 m, the median error of the predicted position
+  under the recorded commands at 1.6, 3.2 and 6.4 s, against carrying the tracker's walkers on at its velocity.
+  **Bar:** lower than that at 1.6 and 3.2 s, over all such walkers and over those waiting on the robot. If (a) fails,
+  (b) and (c) are not run.
+- (b) **The reaction, exact:** val windows with a walker within 1.5 m; the episode is replayed to the window and
+  branched under two tapes (hold for 6.4 s; back away at 0.2 m/s for 2 s, then hold); the true difference in that
+  walker's position between them against the model's predicted difference, at 1.6, 3.2 and 6.4 s. **Bar:** the
+  slope's 95% interval (bootstrap over episodes) above 0.5 at 1.6 s. Carrying on at a velocity has slope 0.
+- (c) **The planner:** walkers that do not yield, 80 missions, 6.4 s, the `walkers` terminal distance, on the four
+  planner seeds the ring tracker was scored on (60, 60, 59, 62 round trips; 12, 11, 11, 7 contact stops). **Bar:** a
+  mean of at least 60.25 round trips and at most 10 contact stops; the target is the scripts' row (66-69). Polite
+  walkers reported beside it.
+
+**6. Runs:** M0 as above; M1 without object masking (what the masking is worth).
+
+**Compute.** Tracking the corpus about 10 minutes on 28 cores; training under an hour; a suite minutes.
+
+### P23. Self-supervised slots on the Go2's camera (stage 2; set out before any run)
+
+**Why.** Whether objects can be found without labels from the Go2's moving camera, so that P24 can replace the ring
+tracker's objects with learned ones. Branch `feature/camera-slots`. GPU, offline, in parallel with P22.
+
+**1. Data:** corpus v2's primary-camera frames (224 x 168, 10 Hz): 600 `lewm_train` units and 100 `lewm_val` units
+with at least one walker (about 600,000 frames), the splits sharing no layout.
+
+**2. Features:** frozen DINOv2 ViT-S/14 (the weights already on this machine), 16 x 12 patch tokens of 384 a frame,
+stored as float16 out of tree. Level 1 of a later hierarchy sits above it (the review's section 5).
+
+**3. Slots,** VideoSAUR's recipe as C-JEPA trained its encoder (`models/slots.py`): patch features projected to 128;
+Slot Attention with 2 iterations and 6 slots; each frame's slots started from the last frame's through one
+transformer block, so a slot keeps its object; an MLP broadcast decoder whose per-slot masks rebuild the patch
+features, plus VideoSAUR's temporal-similarity loss (weight 0.25), and SIGReg on the slot latents (for P24 and a later
+hierarchy). Adam at 1e-4 with 2,000 steps of warm-up.
+
+**4. A slot's position,** engineered from observations: the image columns its mask covers, their bearings through the
+camera's intrinsics (`perception.cameras`), and the ring's nearest return over those bearings (corpus v2's
+backfilled scans), to a point in the body frame.
+
+**5. Measures** (labels only for scoring: the walkers' true positions, projected through the camera, and
+`mover_probe.in_view`):
+- **binding:** of walkers in view, the share for which one slot's mask covers at least half the walker's image
+  columns with a column IoU of at least 0.5;
+- **position:** that slot's position against the walker's true one;
+- both while the robot turns (above 0.3 rad/s) and otherwise.
+- **Bar:** on val, at least 90% of the walkers in view bound and at least 90% of those within 0.15 m; while turning,
+  no more than 10 points below.
+
+**6. Beside it, not gating:** the baseline the August review called mandatory, a DINO-WM-style predictor over every
+patch on the same features (Terver et al.'s settings: depth 6, AdaLN, 3 frames, a 2-step loss, the corpus's
+commands), scored on P16's measures with their existing labels.
+
+**Compute.** Features about 1-2 GPU-hours; the slot model measured at its smoke (estimate 6-10 hours); the patch
+baseline 4-8 hours.
+
+### P24-P25 (set out when P22 and P23 report)
+
+- **P24, joined in Genesis:** Genesis data with random interventions as P20's; P22's predictor over P23's slots, with
+  the ring tracker's objects for walkers outside the camera's view; P17's planner in missions on the built map.
+  Against P18's merged figures (40, 64, 18 of 40) and, with walkers that do not yield, the hand reference's 7 of 80.
+- **P25, generality and the contribution:** held-out families (loops and rooms, offices); MOVi as an outside check
+  on the slots; a learned end cost; and whether adapting the encoder improves the dynamics without losing the
+  pretrained geometry. H-JEPA decided after P24 (the review's section 5).
 
 ## Compute and order
 

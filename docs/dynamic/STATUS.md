@@ -1874,3 +1874,48 @@ P20 item 4, both in the module's docstring:
 with privileged velocity), missions run at thousands an hour on the CPU, and there is a corpus of 4.2 million frames
 in which half the commands are random with respect to the walkers. Next: P21, the learned model, set out before its
 first run.
+
+## P21: the ring world model, R0 (11 November)
+
+Plan: PLAN P21. Branch `feature/ring-model`. Code: `models/ring_jepa.py`, `training/ring_jepa.py`,
+`planning/ring_model.py`, `perception/ring_walkers.py` (batched detection), `data/ring_corpus.py` (`pack`). Runs:
+`outputs/ring_model/` (R0: 20,000 steps, 14:07-18:12; suites 18:12-19:25 on the GPU).
+
+**1. Result: R0 fails, below carrying walkers frozen.**
+
+| P17's planner, 80 missions, 6.4 s, seed 0 | Not yielding | Polite |
+|---|---|---|
+| R0 (walkers read from its predicted scans) | 30 (50 contact stops) | 44 (36) |
+| The ring tracker, `ring_velocity` | 60 (12); 59-62 over 4 seeds | 78 (1) |
+| The ring tracker, `ring_frozen` | 48 (7); 41-48 over 4 seeds | 72 |
+| Bar | at least 60, at most 10 contact stops | |
+
+A plan took 2.05 s (16 ms with the tracker).
+
+**2. Why.** Walkers read from R0's scans on 341 val windows with a walker in sight within 2 m, under the recorded
+commands (walkers found within 0.3 m of a true one, of those in sight; false detections a scan):
+
+| | Now | 0.1 s | 0.8 s | 1.6 s | 3.2 s |
+|---|---|---|---|---|---|
+| The true scan | 94%, 0.04 | 94% | 94% | 95% | 95% |
+| R0's predicted scan | 83%, 5.7 | 64%, 10 | 47%, 11 | 34%, 11 | 22%, 11 |
+
+- **The walls are blurred:** the decoded scan's error is 1 cm (median) under 1 m and 4 cm at 2-4 m, but its 95th
+  percentile is 52 cm at 2-4 m and 147 cm at 4-8 m. Returns 6 cm off a wall read as walkers; a margin of 20 cm still
+  leaves about 4 phantoms a scan.
+- **The walkers fade:** 83% held in the decoded present, 34% 1.6 s ahead. The planner missed most real walkers and
+  steered round phantoms.
+- **The validation misled.** Its error on the beams that changed fell to a quarter of persistence's (0.022 against
+  0.089 at 1.6 s, 0.029 against 0.100 at 3.2 s), but those beams are mostly walls moving with the robot: a walker is
+  a few percent of a scan, and the loss had no reason to keep it. The same failure as P4 to P4f and phase C, in a
+  different sensor.
+
+**3. The suite's own spread.** Detection changes that moved fitted centres by millimetres moved the tracker's suite by
+2 round trips, so it was scored on four planner seeds: `ring_velocity` 60, 60, 59, 62 (contact stops 12, 11, 11, 7),
+`ring_frozen` 48, 46, 41, 47, the privileged velocity 64 and 65, `frozen_seen` 49 and 46. One 80-mission suite is
+good to about 2-4 round trips.
+
+**4. Read and decision.** The ring-scan JEPA from scratch fails for the reason the literature reports for small
+from-scratch JEPAs in worlds with independently moving objects (docs/REVIEW_2026-11-11.md). The review of
+11 November stopped this line; R1 to R4 were not run. Next: P22 (object-level dynamics in the ring world) and P23
+(self-supervised slots on the Go2's camera), in parallel.
