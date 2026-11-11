@@ -1556,6 +1556,53 @@ walkers waiting on the robot, contacts).
 
 **Compute.** About 2 days of building; the gate's suites take minutes each; the corpus under an hour on 16 workers.
 
+### P21. The corrected model in the ring world (approved 11 November; set out before any run)
+
+Branch `feature/ring-model`. Data: P20's corpus (train 3.8 million frames, val 0.42 million).
+
+**1. The model** (`models/ring_jepa.py`): LeWM's recipe on the range ring.
+- **Encoder:** one scan a frame and nothing else: no command history, no pose. The 720 beams (log range and a validity
+  flag) go through a circular 1-D convolution and a small transformer to 24 sector tokens of 15 degrees each, so a
+  walker fills a token of its own rather than a share of one vector.
+- **Predictor:** LeWM's action-conditioned causal transformer (AdaLN) over 0.3 s of history (4 frames of 24 tokens),
+  conditioned at each step on that step's requested command, rolled out step by step.
+- **Losses:** the next-latent error over a K-step rollout, SIGReg on every frame's tokens, and the scan decoded from
+  every latent (encoded and predicted) against the true scan, with gradient into the latent (the next-scan auxiliary).
+
+**2. How the planner uses it** (`planning.sampling`, a `ring_model` model). For each tape the model rolls out over the
+horizon from the last 0.3 s of scans; the robot's pose along the tape is integrated as for every other model (the
+kinematic robot moves as told). Each predicted scan is compared with what the walls alone would give at that pose,
+and walkers are taken out by `perception.ring_walkers.detect`, the hand tracker's own code. The cost is unchanged.
+No simulator label enters the decision. (Not taken: a readout trained on the walkers' true positions.)
+
+**3. Runs,** one change each, all scored the same way:
+
+| Run | Change |
+|---|---|
+| R0 | As above, trained on rollouts of K = 16 steps (1.6 s) |
+| R1 | Rollouts of 64 steps (6.4 s) |
+| R2 | The scan decoder with no gradient into the latent |
+| R3 | One latent vector a frame in place of 24 sector tokens |
+| R4 (only if R0 and R1 lose the walkers beyond about 2 s) | A predictor step of 0.4 s (the commands of 4 frames as one action), so 6.4 s is 16 steps: the one-level form of a hierarchy |
+
+"A token and a loss per sensor" needs a second sensor; it moves to P23. A two-level H-JEPA is not planned: P17 says
+the decision needs walkers predicted over 6.4 s with the walker-aware end cost (69 of 80), and a 25.6-s horizon adds
+3; R4 tests the cheaper form first.
+
+**4. Passes when** (walkers that do not yield, 80 missions, 6.4 s, the `walkers` terminal distance):
+- at least 60 round trips, and no more than 10 contact stops (the ring tracker's on the same input; was 7, the
+  privileged velocity row's, changed on approval 11 November).
+
+Reported beside them, on val windows with a walker within 1.5 m of the robot (counterfactuals are exact in the
+kinematic world: the episode is replayed to the window and the walkers are stepped under each tape):
+- **the reaction:** the model's predicted difference in a walker's position between holding and backing away,
+  regressed on the true difference, at 1.6, 3.2 and 6.4 s; P16's bar, the slope's 95% interval above 0.5;
+- **contact foresight:** a contact within 0.8 s that is not one at t, read from the predicted scans' least clearance,
+  against the present scan's (P16's rule: half the gap from that null to 1);
+- the same suites with polite walkers, and the extraction's errors on predicted scans against the true walkers.
+
+**Compute.** About 2-4 GPU-hours to train a run; a suite of 80 missions 20-30 minutes on the GPU.
+
 ## Compute and order
 
 | Phase | Compute |
