@@ -148,6 +148,8 @@ into it (30 contact stops in 40 missions where the tracker has 11-16; STATUS P22
     on a mission's own core (a pass is tens of milliseconds), so suites run a mission to a core."""
     P_MIN, TOP = .1, 3
     KEEP = True     # also keep clear of each walker standing where it is and carried on at the tracker's velocity
+    EXPECT, W_STILL = False, .1   # price a contact by its probability over every future, a walker standing still among them
+    weights = groups = None
 
     def __init__(self, path, device='cpu'):
         from go2nav.training.object_modes import load_model
@@ -187,6 +189,20 @@ into it (30 contact stops in 40 missions where the tracker has 11-16; STATUS P22
     def walkers(self, snapshot, xy, yaw, frames, geometry=None, requested=None):
         count, horizon = xy.shape[:2]
         knots, p, present = self._futures(xy, yaw, requested)
+        if self.EXPECT:
+            from go2nav.planning.sampling import carried
+            s, m = p.shape[1:]
+            paths = to_frames(knots.reshape(count, s*m, knots.shape[3], 2).transpose(0, 2, 1, 3), horizon)
+            at = np.where(present[:, None], self.frames[-1]['xy'], FAR)
+            paths = np.concatenate((paths, carried(at, np.zeros_like(at), count, horizon, geometry)), 2)
+            live = present[None, :, None]
+            self.weights = np.concatenate(((p*(1-self.W_STILL)*live).reshape(count, s*m),
+                                           np.broadcast_to(self.W_STILL*present, (count, s))), 1)
+            self.groups = np.concatenate((np.repeat(np.arange(s), m), np.arange(s)))
+            best = np.take_along_axis(knots, p.argmax(-1)[..., None, None, None], 2)[:, :, 0, -1]
+            self.ends = np.where(present[None, :, None], best, FAR)
+            keep = np.concatenate((np.repeat(present, m), present))
+            return np.where(keep[None, None, :, None], paths, FAR)
         order = np.argsort(-p, -1)[..., :self.TOP]                                                    # (K, S, TOP)
         kept = np.take_along_axis(knots, order[..., None, None], 2)                                   # (K, S, TOP, steps+1, 2)
         likely = np.take_along_axis(p, order, -1) >= self.P_MIN

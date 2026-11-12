@@ -47,6 +47,7 @@ FRAME_S = kin.FRAME_S
 REPLAN_FRAMES, KNOT_FRAMES = 4, 8
 V_REF, ARRIVE_M, NEAR_M = .3, .03, .4
 FLOOR_M, SOFT_M, CLEARANCE_RATE, SEALED_S, DISCARD = .08, .20, 2., 200., 1e4
+CONTACT_S = 2000.          # what a contact costs a tape, times its probability (a model of several futures)
 HOPS, WAITS_S, SPEEDS, REVERSE_M_S = 3, (2., 5., 10., 20.), (.4, .25, .12), .25
 RING_M, RING, AT_CELL_M, TURN_GAIN, ALIGNED_RAD = .3, 16, .15, 2., .8
 GAUSSIANS, SIGMA = 16, (.12, .06, .25)
@@ -190,9 +191,11 @@ def make_model(name, seed=0):
     if name.startswith('objects:'):
         from go2nav.planning.object_model import ObjectModel
         return ObjectModel(name.partition(':')[2])
-    if name.startswith('modes:'):
+    if name.startswith('modes:') or name.startswith('expect:'):     # expect: a contact priced by its probability
         from go2nav.planning.object_model import ModesModel
-        return ModesModel(name.partition(':')[2])
+        model = ModesModel(name.partition(':')[2])
+        model.EXPECT = name.startswith('expect:')
+        return model
     if name not in MODELS:
         raise ValueError(f'the model is one of {MODELS} or ring_model:<path>')
     if name.startswith('ring_'):
@@ -323,7 +326,21 @@ class Planner:
         extra = dict(requested=requested) if getattr(self.model, 'takes_tapes', False) else {}
         walkers = self.model.walkers(snapshot, xy, yaw, alive, self.geometry, **extra)
         clearance = walls
-        if walkers.shape[2]:
+        weights, risk, expected_soft = getattr(self.model, 'weights', None), 0., 0.
+        if weights is not None and walkers.shape[2]:
+            # a model of several futures with probabilities: a contact is priced by its probability, not ruled out
+            gaps = kin.rectangle_gap(walkers, xy[:, :, None], yaw[:, :, None])-moving.RADIUS_M       # (K, T, n)
+            now = kin.rectangle_gap(walkers[:, 0], snapshot['xy'], snapshot['yaw'])-moving.RADIUS_M   # (K, n)
+            floor = np.minimum(FLOOR_M, now-.005)      # already under the floor: a tape may still not go nearer
+            hit = (gaps < floor[:, None]).any(1)                                                     # (K, n)
+            groups = self.model.groups
+            clear = np.ones(count)
+            for g in np.unique(groups):
+                clear = clear*(1.-np.clip((weights[:, groups == g]*hit[:, groups == g]).sum(1), 0., 1.))
+            risk = CONTACT_S*(1.-clear)
+            softs = np.clip((SOFT_M-gaps)/(SOFT_M-FLOOR_M), 0., 1.).sum(1)*FRAME_S*CLEARANCE_RATE     # (K, n)
+            expected_soft = (weights*softs).sum(1)
+        elif walkers.shape[2]:
             gap = kin.rectangle_gap(walkers, xy[:, :, None], yaw[:, :, None]).min(-1)-moving.RADIUS_M
             clearance = np.minimum(walls, gap)
         breach = clearance < FLOOR_M
@@ -346,7 +363,7 @@ class Planner:
         left = np.where(np.isfinite(left), left, 1e3)
         progress = left/V_REF+SEALED_S*sealed
         discard = np.where(breached, DISCARD*(2-first/frames), 0.)
-        total = time+soft+progress+discard
+        total = time+soft+progress+discard+risk+expected_soft
         return total, dict(time=time, clearance=soft, progress=progress, sealed=sealed, breached=breached,
                            minimum_clearance=np.where(counted, clearance, np.inf).min(1))
 
