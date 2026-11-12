@@ -3,8 +3,8 @@
     python -m go2nav.eval.object_measures offline --model PATH --out FILE [--every 8] [--workers N]
     python -m go2nav.eval.object_measures reaction --model PATH --out FILE [--windows 600] [--workers N]
 
-The model runs as the planner runs it (`planning.object_model.ObjectModel`, on the CPU here): the tracker over the
-recorded scans, a rollout under a tape. The walkers' true positions, sight and waiting are read only to choose what is
+The model runs as the planner runs it (`planning.object_model`, on the CPU here): the tracker over the recorded
+scans, its prediction under a tape (for a model of several futures, the likeliest). The walkers' true positions, sight and waiting are read only to choose what is
 scored and to score it.
 
 **offline** (a): every `every`-th frame t0 of every val episode, the recorded requests of the next 6.4 s as the tape
@@ -42,13 +42,14 @@ BACK_M_S, BACK_FRAMES, TAPE_FRAMES = .2, 20, 64
 def _setup(meta, model_path):
     from go2nav.eval.mission import episode_spec
     from go2nav.planning.fields import Fields
-    from go2nav.planning.object_model import ObjectModel
-    from go2nav.planning.sampling import RingModel
+    from go2nav.planning.sampling import RingModel, make_model
     from go2nav.sim import kinematic as kin
     spec, _ = episode_spec('lewm_sets_v1', meta['maze'], meta['home_episode'], root=MAZES)
     geometry = kin.Geometry(spec)
     fields = Fields(geometry)
-    model, ring = ObjectModel(model_path, device='cpu'), RingModel('ring_velocity')
+    spec = str(model_path)
+    model, ring = make_model(spec if ':' in spec else f'objects:{spec}'), RingModel('ring_velocity')
+    model.top = getattr(model, 'walkers_top', model.walkers)               # the likeliest future of each slot
     model.bind(fields), ring.bind(fields)
     return geometry, fields, model, ring
 
@@ -82,7 +83,7 @@ def _offline_episode(args):
         if t >= 8 and t % every == 0 and t+TAPE_FRAMES < frames and sight[t].any():
             tape = requested[t:t+TAPE_FRAMES][None]
             xy, yaw = pose[t+1:t+1+TAPE_FRAMES, :2][None], pose[t+1:t+1+TAPE_FRAMES, 2][None]
-            predicted = model.walkers(None, xy, yaw, None, geometry, requested=tape)[0]
+            predicted = model.top(None, xy, yaw, None, geometry, requested=tape)[0]
             now = model.frames[-1]
             at, velocity = ring.tracker.state()
             for j in np.flatnonzero(sight[t]):
@@ -157,7 +158,7 @@ def _reaction_window(args):
             return None
         true.append(np.array(path))
     xy, yaw = integrate(dict(xy=world.xy, yaw=world.yaw, executed=world.executed), tapes)
-    predicted = model.walkers(None, xy, yaw, None, geometry, requested=tapes)[:, :, k]
+    predicted = model.top(None, xy, yaw, None, geometry, requested=tapes)[:, :, k]
     return dict(episode=index, t0=t0, kind=meta['kind'], waiting=bool(waiting[t0, j]),
                 true=[(true[1][h-1]-true[0][h-1]).tolist() for h in HORIZONS],
                 predicted=[(predicted[1, h-1]-predicted[0, h-1]).tolist() for h in HORIZONS])
@@ -198,7 +199,7 @@ def main():
     sub = p.add_subparsers(dest='command', required=True)
     for name in ('offline', 'reaction'):
         s = sub.add_parser(name)
-        s.add_argument('--model', required=True, type=Path)
+        s.add_argument('--model', required=True, help='objects:PATH or modes:PATH (a bare path is objects:)')
         s.add_argument('--out', required=True, type=Path)
         s.add_argument('--workers', type=int)
     sub.choices['offline'].add_argument('--every', type=int, default=8)

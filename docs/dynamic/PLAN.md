@@ -1677,6 +1677,20 @@ on engineered tracks, not a JEPA: it is the ceiling for what object-level dynami
   least 6 round trips above the tracker's and at most half its contact stops. The run best by (a) is scored.
 - No model is trained on the CPU.
 
+**8. Several futures in one pass** (approved 12 November, after STATUS P22 of that day: one predicted future gave
+the planner no margin for what a walker hides, its pause timer and its kind, and a rollout of 16 passes a plan was
+too slow for suites). `models/object_modes.py`: from the same history tokens (the walls round an object on a wider
+grid) and a robot token for each of the tape's 16 steps, one transformer pass gives each object 6 futures over 6.4 s,
+corrections to constant velocity, each with a probability; trained with the nearest-mode loss of trajectory
+prediction (MTP, Cui et al. 2019), conditioned on the robot's plan as PiP (Song et al. 2020).
+- **In the planner** (`modes:<path>`): clearance against every future of probability 0.1 or more (the 3 likeliest at
+  most); the distance left at the end with each walker at its likeliest future. Two constants.
+- **Runs:** N0 (6 futures); N1 (one future: what the single pass over the whole horizon is worth by itself).
+- **Measures:** (a) and (b) on the likeliest future, the bars unchanged; reported beside them the nearest of the
+  futures and the share of walkers some likely future covers (within 0.15 m). (c) as item 7: four walkers that do
+  not yield, four seeds (the tracker: 13, 11, 14, 12 round trips; 16, 11, 16, 15 contact stops), a mean of at least
+  6 round trips more and at most half the contact stops; the suite with 1-2 walkers and the reactive one beside it.
+
 ### P23. Self-supervised slots on the Go2's camera (stage 2; set out before any run)
 
 **Why.** Whether objects can be found without labels from the Go2's moving camera, so that P24 can replace the ring

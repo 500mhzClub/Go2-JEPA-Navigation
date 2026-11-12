@@ -56,9 +56,11 @@ class ObjectModel:
     def record(self, requested):
         self.frames[-1]['requested'] = np.asarray(requested, np.float32)
 
-    def _tokens(self):
-        """The history's object and robot tokens, and the recorded actions of its steps before the last."""
+    def _tokens(self, grid=(OBJECT_GRID, OBJECT_SPACING), velocity=None):
+        """The history's object and robot tokens, and the recorded actions of its steps before the last. `grid`: the
+        walls' grid round an object; `velocity`: whether the tokens hold it (default: a residual model's do)."""
         h = self.history
+        velocity = self.model.config.residual if velocity is None else velocity
         picks = [self.frames[max(len(self.frames)-1-STEP_FRAMES*(h-1-k), 0)] for k in range(h)]
         now = picks[-1]
         origin, heading = now['pose'][:2], float(now['pose'][2])
@@ -66,9 +68,9 @@ class ObjectModel:
         for f in picks:
             present = (f['id'] == now['id']) & (now['id'] >= 0)
             world = np.where(present[:, None], f['xy'], 0.)
-            walls = self.raster.context(world, np.full(len(world), heading), OBJECT_GRID, OBJECT_SPACING)
+            walls = self.raster.context(world, np.full(len(world), heading), *grid)
             speed = None
-            if self.model.config.residual:                       # the tracker's velocity, turned into the start frame
+            if velocity:                                         # the tracker's velocity, turned into the start frame
                 turned = to_body(f['velocity'], np.zeros(2), heading)*(f['seen'] & present)[:, None]
                 speed = torch.as_tensor(turned, dtype=torch.float32)
             objects.append(object_features(torch.as_tensor(to_body(world, origin, heading), dtype=torch.float32),
@@ -123,3 +125,80 @@ class ObjectModel:
         out = a+(b-a)*frac[None, :, None, None]
         out[:, :, ~present] = FAR
         return out
+
+
+def to_frames(knots, horizon):
+    """Positions at 0.4-s knots (..., steps+1, n, 2), the first where the objects are now, to the frames (..., horizon,
+    n, 2), linearly."""
+    steps = knots.shape[-3]-1
+    f = np.arange(horizon)
+    lower, frac = (f+1)//STEP_FRAMES, ((f+1) % STEP_FRAMES)/STEP_FRAMES
+    a, b = knots[..., np.minimum(lower, steps), :, :], knots[..., np.minimum(lower+1, steps), :, :]
+    return a+(b-a)*frac[:, None, None]
+
+
+class ModesModel(ObjectModel):
+    """The several-futures predictor (`models.object_modes`; PLAN P22 item 8) in the planner: one pass a plan gives
+    each object `modes` futures under every tape. The planner keeps clear of every future of probability `P_MIN` or
+    more (the `TOP` likeliest at most, each a walker of its own in what `walkers` returns), and reads the distance left
+    at the end with each object at its likeliest future (`ends`, which `planning.sampling.Planner.costs` takes when a
+    model has it). `walkers_top` gives the likeliest future alone, for the measures. The model is small enough to run
+    on a mission's own core (a pass is tens of milliseconds), so suites run a mission to a core."""
+    P_MIN, TOP = .1, 3
+
+    def __init__(self, path, device='cpu'):
+        from go2nav.training.object_modes import load_model
+        self.device = torch.device(device)
+        self.model = load_model(path, self.device)
+        self.history = self.model.config.history
+        self.tracker, self.slots = ring_walkers.Tracker(), ring_walkers.Slots(self.model.config.slots)
+        self.frames, self.raster, self.fields, self.frame, self.ends = [], None, None, 0, None
+
+    @torch.no_grad()
+    def _futures(self, xy, yaw, requested):
+        """World positions (tapes, S, modes, steps+1, 2) from now on, probabilities (tapes, S, modes), present (S,)."""
+        from go2nav.models.object_modes import WIDE_GRID, WIDE_SPACING
+        count, horizon = xy.shape[:2]
+        steps = self.model.config.steps
+        objects, robot, past, origin, heading, present, now = self._tokens((WIDE_GRID, WIDE_SPACING), True)
+        requested = np.asarray(requested, np.float32)
+        frames = steps*STEP_FRAMES
+        padded = np.concatenate((requested[:, :frames], np.repeat(requested[:, -1:], max(frames-horizon, 0), 1)), 1)
+        blocks = actions_input(torch.as_tensor(padded.reshape(count, steps, STEP_FRAMES, 3)))        # (K, steps, 12)
+        before = actions_input(torch.as_tensor(np.asarray(past, np.float32)))                         # (H-1, 12)
+        history_actions = torch.cat((before[None].expand(count, -1, -1), blocks[:, :1]), 1)           # (K, H, 12)
+        future_actions = torch.cat((blocks[:, 1:], torch.zeros(count, 1, blocks.shape[-1])), 1)       # (K, steps, 12)
+        ends = np.minimum(np.arange(1, steps+1)*STEP_FRAMES-1, horizon-1)
+        future_world, future_yaw = xy[:, ends], yaw[:, ends]
+        rw = self.raster.context(future_world, future_yaw, ROBOT_GRID, ROBOT_SPACING)
+        future = robot_features(torch.as_tensor(to_body(future_world, origin, heading), dtype=torch.float32),
+                                torch.as_tensor(future_yaw-heading, dtype=torch.float32),
+                                torch.as_tensor(rw, dtype=torch.float32))
+        positions, p = self.model.futures(objects[None].expand(count, -1, -1, -1).to(self.device),
+                                          torch.cat((robot[None].expand(count, -1, -1), history_actions), -1).to(self.device),
+                                          torch.cat((future, future_actions), -1).to(self.device))
+        world = to_world(positions.cpu().numpy(), origin, heading)                                    # (K, S, M, steps, 2)
+        start = np.broadcast_to(np.where(present[:, None], now, 0.)[None, :, None, None], (*world.shape[:3], 1, 2))
+        return np.concatenate((start, world), 3), p.cpu().numpy(), present
+
+    def walkers(self, snapshot, xy, yaw, frames, geometry=None, requested=None):
+        count, horizon = xy.shape[:2]
+        knots, p, present = self._futures(xy, yaw, requested)
+        order = np.argsort(-p, -1)[..., :self.TOP]                                                    # (K, S, TOP)
+        kept = np.take_along_axis(knots, order[..., None, None], 2)                                   # (K, S, TOP, steps+1, 2)
+        likely = np.take_along_axis(p, order, -1) >= self.P_MIN
+        likely[..., 0] = True                                                                         # the likeliest always
+        likely &= present[None, :, None]
+        paths = to_frames(kept.reshape(count, -1, kept.shape[3], 2).transpose(0, 2, 1, 3), horizon)   # (K, horizon, S*TOP, 2)
+        flat = likely.reshape(count, -1)
+        paths = np.where(flat[:, None, :, None], paths, FAR)
+        self.ends = np.where(present[None, :, None], kept[:, :, 0, -1], FAR)                          # (K, S, 2)
+        return paths
+
+    def walkers_top(self, snapshot, xy, yaw, frames, geometry=None, requested=None):
+        """The likeliest future of each slot at the frames (tapes, horizon, S, 2)."""
+        count, horizon = xy.shape[:2]
+        knots, p, present = self._futures(xy, yaw, requested)
+        top = np.take_along_axis(knots, p.argmax(-1)[..., None, None, None], 2)[:, :, 0]              # (K, S, steps+1, 2)
+        return to_frames(top.transpose(0, 2, 1, 3), horizon)
+

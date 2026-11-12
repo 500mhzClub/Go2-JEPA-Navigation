@@ -22,7 +22,8 @@ plan), `velocity`, `frozen` and `frozen_seen` (`SimpleModel`: walkers that do no
 `perception.ring_walkers`; the mission hands such a model every frame's scan through `observe`), or
 `ring_model:<path>` (P21: the learned ring world model, `planning.ring_model.LearnedRingModel`, rolled out under each
 tape: it is also told each frame's request through `record`, and given the tapes), or `objects:<path>` (P22: the
-object-level predictor over the ring tracker's objects, `planning.object_model.ObjectModel`, likewise).
+object-level predictor over the ring tracker's objects, `planning.object_model.ObjectModel`, likewise), or
+`modes:<path>` (P22 item 8: several futures an object, `planning.object_model.ModesModel`).
 
 **Cost,** in seconds:
 - time: 0.1 s for each step further than `ARRIVE_M` from the target;
@@ -189,6 +190,9 @@ def make_model(name, seed=0):
     if name.startswith('objects:'):
         from go2nav.planning.object_model import ObjectModel
         return ObjectModel(name.partition(':')[2])
+    if name.startswith('modes:'):
+        from go2nav.planning.object_model import ModesModel
+        return ModesModel(name.partition(':')[2])
     if name not in MODELS:
         raise ValueError(f'the model is one of {MODELS} or ring_model:<path>')
     if name.startswith('ring_'):
@@ -332,9 +336,11 @@ class Planner:
         end = xy[:, -1]
         static = self.fields.value(self.fields.static(target), end)
         left, sealed = static.copy(), np.zeros(count, bool)
+        ends = getattr(self.model, 'ends', None)             # a model of several futures: each walker at its likeliest
+        ends = walkers[:, -1] if ends is None else ends
         if self.terminal == 'walkers' and walkers.shape[2]:
             for k in np.flatnonzero(~breached):
-                value = float(self.fields.value(self.fields.with_walkers(target, walkers[k, -1]), end[k:k+1])[0])
+                value = float(self.fields.value(self.fields.with_walkers(target, ends[k]), end[k:k+1])[0])
                 sealed[k] = not np.isfinite(value)
                 left[k] = static[k] if sealed[k] else value
         left = np.where(np.isfinite(left), left, 1e3)
