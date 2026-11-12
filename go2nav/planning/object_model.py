@@ -150,6 +150,7 @@ into it (30 contact stops in 40 missions where the tracker has 11-16; STATUS P22
     KEEP = True     # also keep clear of each walker standing where it is and carried on at the tracker's velocity
     EXPECT, W_STILL = False, .1   # price a contact by its probability over every future, a walker standing still among them
     weights = groups = None
+    STILL_FRAMES = 64
 
     def __init__(self, path, device='cpu'):
         from go2nav.training.object_modes import load_model
@@ -194,7 +195,9 @@ into it (30 contact stops in 40 missions where the tracker has 11-16; STATUS P22
             s, m = p.shape[1:]
             paths = to_frames(knots.reshape(count, s*m, knots.shape[3], 2).transpose(0, 2, 1, 3), horizon)
             at = np.where(present[:, None], self.frames[-1]['xy'], FAR)
-            paths = np.concatenate((paths, carried(at, np.zeros_like(at), count, horizon, geometry)), 2)
+            still = carried(at, np.zeros_like(at), count, horizon, geometry)
+            still[:, self.STILL_FRAMES:] = FAR                     # a walker stands where it is for so long at most
+            paths = np.concatenate((paths, still), 2)
             live = present[None, :, None]
             self.weights = np.concatenate(((p*(1-self.W_STILL)*live).reshape(count, s*m),
                                            np.broadcast_to(self.W_STILL*present, (count, s))), 1)

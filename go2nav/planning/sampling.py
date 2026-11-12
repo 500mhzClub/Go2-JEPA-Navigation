@@ -195,6 +195,9 @@ def make_model(name, seed=0):
         from go2nav.planning.object_model import ModesModel
         model = ModesModel(name.partition(':')[2])
         model.EXPECT = name.startswith('expect:')
+        import os                                             # development switches (STATUS P22)
+        model.W_STILL = float(os.environ.get('GO2NAV_W_STILL', model.W_STILL))
+        model.STILL_FRAMES = int(os.environ.get('GO2NAV_STILL_FRAMES', model.STILL_FRAMES))
         return model
     if name not in MODELS:
         raise ValueError(f'the model is one of {MODELS} or ring_model:<path>')
