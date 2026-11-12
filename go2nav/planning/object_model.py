@@ -142,9 +142,12 @@ class ModesModel(ObjectModel):
     each object `modes` futures under every tape. The planner keeps clear of every future of probability `P_MIN` or
     more (the `TOP` likeliest at most, each a walker of its own in what `walkers` returns), and reads the distance left
     at the end with each object at its likeliest future (`ends`, which `planning.sampling.Planner.costs` takes when a
-    model has it). `walkers_top` gives the likeliest future alone, for the measures. The model is small enough to run
+    model has it). With `KEEP`, clearance is also kept from each walker standing still and carried on at the tracker's
+velocity: without it the planner chose the tapes under which the model had a blocking walker move aside, and drove
+into it (30 contact stops in 40 missions where the tracker has 11-16; STATUS P22). `walkers_top` gives the likeliest future alone, for the measures. The model is small enough to run
     on a mission's own core (a pass is tens of milliseconds), so suites run a mission to a core."""
     P_MIN, TOP = .1, 3
+    KEEP = True     # also keep clear of each walker standing where it is and carried on at the tracker's velocity
 
     def __init__(self, path, device='cpu'):
         from go2nav.training.object_modes import load_model
@@ -193,6 +196,13 @@ class ModesModel(ObjectModel):
         flat = likely.reshape(count, -1)
         paths = np.where(flat[:, None, :, None], paths, FAR)
         self.ends = np.where(present[None, :, None], kept[:, :, 0, -1], FAR)                          # (K, S, 2)
+        if self.KEEP:
+            from go2nav.planning.sampling import carried
+            frame = self.frames[-1]
+            at = np.where(present[:, None], frame['xy'], FAR)
+            still = carried(at, np.zeros_like(at), count, horizon, geometry)
+            on = carried(at, np.where(present[:, None], frame['velocity'], 0.), count, horizon, geometry)
+            paths = np.concatenate((paths, still, on), 2)
         return paths
 
     def walkers_top(self, snapshot, xy, yaw, frames, geometry=None, requested=None):

@@ -2007,3 +2007,44 @@ single predicted future gives the planner no margin for them.
   mission finished: the known limit is 6 (20 October). The same suites with the model on the CPU pool took 3-4 s a
   plan (28 at once). A rollout of 16 passes a plan is too slow for suites either way.
 - The slot trainer's smoke faulted alone on the GPU too (2 page faults, before its first log): it is not the sharing.
+
+## P22: M5 passes (a); the several-futures predictor fails in the planner (12 November, afternoon)
+
+**1. Offline.** Median error (m), all walkers / waiting ones; the reaction's slope with its interval:
+
+| | 1.6 s | 3.2 s | 6.4 s | Waiting | Reaction at 1.6 / 3.2 / 6.4 s |
+|---|---|---|---|---|---|
+| The tracker's constant velocity | 0.054 | 0.272 | 0.776 | 0.052 / 0.184 / 0.469 | 0 |
+| M5 (six-step rollouts, distance loss) | 0.033 | 0.101 | 0.325 | 0.028 / 0.082 / 0.214 | 0.39 [0.30, 0.50] / 0.41 / 0.33 |
+| M6 (sixteen-step rollouts) | 0.072 | 0.161 | 0.337 | 0.059 / 0.116 / 0.239 | 0.40 [0.31, 0.49] / 0.43 / 0.37 |
+| N1 (one pass, one future) | 0.047 | 0.139 | 0.353 | 0.054 / 0.124 / 0.275 | 0.23 / 0.29 / 0.30 |
+| N0 (one pass, six futures; the likeliest) | 0.061 | 0.156 | 0.399 | 0.066 / 0.151 / 0.314 | 0.27 / 0.34 / 0.29 |
+| Bar (a) | 0.054 | 0.136 | 0.388 | 0.052 / 0.092 / 0.235 | interval above 0.5 |
+
+**M5 passes (a)** in both strata, the first learned model here to beat the hand tracker on a bar set beforehand. No
+run passes (b). N0's nearest future errs 0.031, 0.071 and 0.171 m, and a future of probability 0.1 or more lies within
+0.15 m of the walker for 87%, 69% and 42% of walkers.
+
+**2. In the planner** (four walkers that do not yield, 40 missions; round trips, contact stops):
+
+| | Seeds 0-3 |
+|---|---|
+| The true model | 29, 29, 28, 30; 0, 1, 0, 1 |
+| The ring tracker | 13, 11, 14, 12; 16, 11, 16, 15 |
+| N0 | 5, 3, 8, 6; 30, 31, 28, 31 |
+| N1 | 5, 4, 7, 6; 34, 32, 30, 31 |
+| N0, clearance also kept from each walker still and at the tracker's velocity (seeds 0, 1) | 6, 6; 15, 11 (19 and 21 timeouts) |
+| N1, the same | 7, 6; 10, 11 (21 and 22 timeouts) |
+
+With 1-2 walkers that do not yield N0 makes 49 and N1 54 (the tracker 59-62); reactive, 70 and 67 (74).
+- **Why:** traced on N1. A walker stands in front of the robot (one that does not yield waits there for ever). Under
+  some tapes the model has it move aside, as a polite walker would (0.26 m in 1.6 s; the truth 0.00), the planner
+  takes those tapes, and the robot drives into it. The planner waited in 498 plans where the tracker's waited in
+  10,849. Choosing the best of 50 tapes on a model selects the tapes its errors favour.
+- Keeping clearance from the engineered futures too brings contact stops back to the tracker's and round trips
+  below it: more futures seal more ways.
+- So a predictor better than constant velocity offline is worse than it in this planner, with one future or six. A
+  walker's kind is hidden, and the planner needs more than futures: what a wrong guess costs.
+
+**3. P23's fault found.** The slot trainer's illegal memory accesses were bf16 autocast in that model on this ROCm
+build: in float32 it ran 600 steps clean twice. It trains in full precision (started 15:10).
