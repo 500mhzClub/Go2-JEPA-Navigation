@@ -5,7 +5,8 @@
 A batch is `batch` clips of `frames` consecutive frames, each from a unit drawn at random and a start drawn within it,
 read from the float16 feature files (memory-mapped) in the training process itself (about 20 MB a step; no loader
 processes forked after the GPU is opened). Adam with linear warm-up then
-cosine decay, gradient clipping, bf16 autocast (SIGReg and the losses in float32). Resumable from DIR/checkpoint.pt.
+cosine decay, gradient clipping, in full precision: under bf16 autocast this model hit illegal memory accesses on
+this ROCm build within about 100 steps, alone on the card too; in float32 it ran 600 steps clean twice. Resumable from DIR/checkpoint.pt.
 Validation (`DIR/validation.jsonl`): the losses on fixed clips of the val units, and how much each slot covers (the
 mean largest slot's share of the patches, and the slots' entropy over patches), the sign of slots collapsing onto
 one or spreading over all. P23's measures are `eval.slot_measures`.
@@ -85,8 +86,8 @@ def validate(model, clips, objective, sigreg, device, batch=64):
     model.eval()
     sums, n, largest, entropy = {}, 0, 0., 0.
     for i in range(0, len(clips), batch):
-        x = clips[i:i+batch].to(device)
-        with torch.autocast('cuda', dtype=torch.bfloat16):
+        x = clips[i:i+batch].to(device).float()
+        with torch.autocast('cuda', dtype=torch.bfloat16, enabled=False):   # full precision: see the docstring
             _, terms = losses(model, x, sigreg=sigreg, similarity_weight=objective['similarity_weight'],
                               sigreg_weight=objective['sigreg_weight'], temperature=objective['temperature'])
             slots, _ = model(x)
@@ -140,9 +141,9 @@ def train(features, out, config):
     model.train()
     while step < optim['steps']:
         cpu = next(loader)
-        x = cpu.to(device)
+        x = cpu.to(device).float()
         generator.manual_seed(config['seed']*1_000_003+step)
-        with torch.autocast('cuda', dtype=torch.bfloat16):
+        with torch.autocast('cuda', dtype=torch.bfloat16, enabled=False):   # full precision: see the docstring
             total, terms = losses(model, x, sigreg=sigreg, similarity_weight=objective['similarity_weight'],
                                   sigreg_weight=objective['sigreg_weight'], temperature=objective['temperature'],
                                   generator=generator)
