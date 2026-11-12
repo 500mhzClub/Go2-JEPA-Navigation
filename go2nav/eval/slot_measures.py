@@ -51,10 +51,9 @@ def slot_columns(model, features, device):
     """Per frame, per slot, the set of image columns it holds (T lists of K sets)."""
     out, slots = [], None
     for i in range(0, len(features), CHUNK):
-        x = torch.as_tensor(np.asarray(features[i:i+CHUNK]), device=device)[None]
-        with torch.autocast(device.type, dtype=torch.bfloat16, enabled=device.type == 'cuda'):
-            s, _ = model(x, slots=slots)
-            _, _, masks = model.decode(s)
+        x = torch.as_tensor(np.asarray(features[i:i+CHUNK]), device=device)[None].float()   # full precision, as trained
+        s, _ = model(x, slots=slots)
+        _, _, masks = model.decode(s)
         slots = s[:, -1]
         owner = masks[0].float().argmax(1).cpu().numpy().reshape(-1, ROWS, COLUMNS)           # (T, rows, cols)
         for frame in owner:
