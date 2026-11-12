@@ -1,0 +1,3 @@
+# P22 N1: N0 with one future (what the single pass and the whole horizon are worth without the several futures).
+name: object_n1
+model: {modes: 1}

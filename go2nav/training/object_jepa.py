@@ -128,8 +128,9 @@ class Split:
                                                        if b-a >= frames]), device=device)
         self.rasters, self.device = rasters, device
 
-    def window(self, starts, history, after, generator=None):
-        """Tokens of windows starting at `starts` (B,): history steps, then `after` steps. Returns a dict of tensors."""
+    def window(self, starts, history, after, generator=None, object_grid=(OBJECT_GRID, OBJECT_SPACING)):
+        """Tokens of windows starting at `starts` (B,): history steps, then `after` steps. Returns a dict of tensors.
+        `object_grid`: the size and spacing of the walls' grid round each object."""
         steps = history+after
         frame = starts[:, None]+STEP_FRAMES*torch.arange(steps, device=self.device)                    # (B, T)
         t0 = frame[:, history-1]
@@ -141,7 +142,7 @@ class Split:
         seen = self.seen[frame] & same
         position = to_body(world)
         velocity = rotate(self.velocity[frame], -heading[:, None, None])*seen[..., None]                 # the tracker's
-        grid = rotate(offsets(OBJECT_GRID, OBJECT_SPACING, self.device), heading[:, None])               # (B, G, 2)
+        grid = rotate(offsets(*object_grid, self.device), heading[:, None])                              # (B, G, 2)
         walls = self.rasters.lookup(layout, torch.nan_to_num(world)[..., None, :]+grid[:, None, None])
         robot_world, robot_yaw = self.pose[frame, :2], self.pose[frame, 2]
         robot_grid = rotate(offsets(ROBOT_GRID, ROBOT_SPACING, self.device)[None, None], robot_yaw[..., None])
