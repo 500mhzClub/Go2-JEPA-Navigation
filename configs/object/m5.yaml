@@ -1,0 +1,6 @@
+# P22 M5: M4 (the correction, six-step rollouts) with the loss as the distance, not its square: M4 learned more of the
+# reaction than M2 (slope 0.35-0.40 against 0.22) and lost precision at 1.6 s (0.063 against 0.048 m), the squared error
+# of the far steps carrying the loss. 20,000 steps.
+name: object_m5
+model: {residual: true}
+data: {mask_probability: 0., rollout: 6, distance: true}

@@ -10,7 +10,7 @@ target counts where that track is seen at the target step. Every window's slots 
 **Loss:** the squared error of each object's predicted position at the step after every history step
 (teacher-forced), plus that of the steps after it rolled out on the model's own predictions, to `rollout` steps after
 t0 (2 by default, Terver et al.; run M4 takes 6, since the measures read 16), each object's walls looked up again at
-its predicted position. With probability `mask_probability` a window masks one
+its predicted position. With `distance` (M5 on) the error is the distance, not its square. With probability `mask_probability` a window masks one
 object present through the history (C-JEPA's object masking; `mask_probability: 0` is run M1) in the teacher-forced
 pass; the rollout starts from an unmasked pass (the first M0 rolled out the masked guess, which tripled its rollout
 error).
@@ -35,7 +35,7 @@ from go2nav.models.object_jepa import (OBJECT_GRID, OBJECT_SPACING, ROBOT_GRID, 
                                        ObjectConfig, ObjectJEPA, actions_input, object_features, offsets,
                                        robot_features)
 
-DEFAULTS = dict(seed=2026111104, model={}, data=dict(batch=512, mask_probability=.5, rollout=2),
+DEFAULTS = dict(seed=2026111104, model={}, data=dict(batch=512, mask_probability=.5, rollout=2, distance=False),
                 optimiser=dict(lr=3e-4, weight_decay=1e-3, warmup=500, steps=20000, grad_clip=1.),
                 runtime=dict(log_every=100, validate_every=2000, checkpoint_every=1000, validation_windows=8192))
 VALIDATION_STEPS, REPORT = 16, (4, 8, 16)
@@ -166,8 +166,10 @@ class Split:
         return self.rasters.lookup(w['layout'], world[..., None, :]+grid[:, None])
 
 
-def losses(model, split, w, history, masked, rollout=2):
-    """Teacher-forced and `rollout`-step rollout squared errors (metres squared) over the counted objects."""
+def losses(model, split, w, history, masked, rollout=2, distance=False):
+    """Teacher-forced and `rollout`-step rollout errors over the counted objects: squared (metres squared), or with
+    `distance` the distance itself (metres), so that far steps and rare large misses do not carry the loss."""
+    cost = (lambda e: (e.pow(2).sum(-1)+1e-8).sqrt()) if distance else (lambda e: e.pow(2).sum(-1))
     position, present, seen = w['position'], w['present'], w['seen']
     residual = model.config.residual
     speed = w['velocity'][:, :history] if residual else torch.zeros_like(position[:, :history])
@@ -183,7 +185,7 @@ def losses(model, split, w, history, masked, rollout=2):
         carried = torch.where(late, speed[:, :1].expand_as(speed), speed)
     predicted = base+model.advance(delta, carried)
     target, count = torch.nan_to_num(position[:, 1:history+1]), seen[:, 1:history+1] & present[:, :history]
-    teacher = ((predicted-target).pow(2).sum(-1)*count).sum()/count.sum().clamp(min=1)
+    teacher = (cost(predicted-target)*count).sum()/count.sum().clamp(min=1)
     if masked is not None and masked.any():                                     # the rollout starts unmasked: masking
         clean = model(objects, w['robot'][:, :history], w['actions'][:, :history])  # is for the history (C-JEPA)
         predicted = shown+model.advance(clean, speed)
@@ -199,7 +201,7 @@ def losses(model, split, w, history, masked, rollout=2):
         if residual:
             moving = move/STEP_S
         count_k = seen[:, history+k] & alive
-        error = error+((at-torch.nan_to_num(position[:, history+k])).pow(2).sum(-1)*count_k).sum()
+        error = error+(cost(at-torch.nan_to_num(position[:, history+k]))*count_k).sum()
         counted = counted+count_k.sum()
     roll = error/torch.as_tensor(counted, device=at.device).clamp(min=1)
     return teacher+roll, dict(teacher=teacher, rollout=roll)
@@ -283,7 +285,7 @@ def train(corpus, out, config):
             choice = torch.rand(through.shape, device=device, generator=generator)*through
             one = torch.nn.functional.one_hot(choice.argmax(-1), through.shape[1]).bool() & through
             masked = one & (torch.rand(len(starts), 1, device=device, generator=generator) < data['mask_probability'])
-        total, terms = losses(model, train_split, w, h, masked, data['rollout'])
+        total, terms = losses(model, train_split, w, h, masked, data['rollout'], data['distance'])
         optimiser.zero_grad(set_to_none=True)
         total.backward()
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), optim['grad_clip'])
