@@ -33,7 +33,10 @@ replayed exactly and branched 8 times with fresh dice. Median position error (m)
 | Carried on at the tracker's velocity (training validation) | 0.052 | 0.322 | 0.930 |
 | M1 (no object masking), final | 0.070 | 0.179 | 0.411 |
 
-So stochastic predictors are not what is missing here, and the achievable error is far below M0's and M1's.
+So the achievable error is far below M0's and M1's. **Corrected 12 November:** this was measured given each walker's
+hidden state (its pause timer, kind and target cell, which the branches copy). From observations the walkers are not
+deterministic: a paused walker restarts at a time no observer can see, and its kind is not visible. The first reading
+here, that stochastic predictors are not what is missing, was wrong (STATUS P22, 12 November).
 
 **2. The robot's choice matters often.** In 338 close encounters (a walker in sight within 1.5 m), holding against
 backing away moves the walker by more than 5 cm in 17% of them at 1.6 s, 32% at 3.2 s and 41% at 6.4 s (0.17, 0.27
@@ -95,7 +98,8 @@ difficulty is mostly a walker sealing the one route of a tree maze.
 - **Slots under camera motion:** SlotContrast (CVPR 2025, arXiv 2412.14295) is more consistent over time than
   VideoSAUR (video FG-ARI 82.9 against 73.9 on MOVi-E) and reports that camera motion remains hard; motion-guided
   discovery (MoTok, CVPR 2023) is the usual remedy.
-- **Stochastic JEPAs** (Branch-JEPA, arXiv 2607.05238, and others) are not needed here; they would be for real agents.
+- **Stochastic JEPAs** (Branch-JEPA, arXiv 2607.05238, and others): first read here as not needed; they are (see
+  the correction above).
 - **A second world:** Zhu et al.'s bouncing-ball task (arXiv 2609.04264), where LeWM plans at 0-3%. No code was
   found; it is simple to rebuild, so its figures are a reference, not a like-for-like comparison.
 

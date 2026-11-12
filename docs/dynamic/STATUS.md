@@ -1954,3 +1954,56 @@ the true model 29 with none) and nearly absent where the layout has loops.
   (no non-finite value in 700 feature files), the memory cap, the second device, the fused GRU kernel, loader
   processes, pinned copies. Turning the fused attention kernels off let a bare loop run 400 steps three times, and
   the trainer still faulted. Not explained; to be retried alone on the card. No model is trained on the CPU.
+
+## P22: M2 to M4, and the planner check (12 November)
+
+Runs: `outputs/object_dynamics/` (M2, M3, M4 trained 21:35-23:44 on 11 November; measures on the CPU).
+
+**1. (a) offline, 25,811 walker-windows (3,649 waiting): the correction to constant velocity works.** Median error (m):
+
+| | 1.6 s | 3.2 s | 6.4 s | Waiting: 1.6 / 3.2 / 6.4 s |
+|---|---|---|---|---|
+| The tracker's constant velocity | 0.054 | 0.272 | 0.776 | 0.052 / 0.184 / 0.469 |
+| Frozen | 0.313 | 0.562 | 0.964 | |
+| M0 (whole displacement, masking) | 0.066 | 0.167 | 0.392 | 0.045 / 0.123 / 0.323 |
+| M1 (whole displacement) | 0.069 | 0.169 | 0.395 | 0.047 / 0.125 / 0.337 |
+| M2 (correction to constant velocity) | 0.048 | 0.147 | 0.393 | 0.044 / 0.121 / 0.335 |
+| M3 (M2 with masking) | 0.049 | 0.149 | 0.397 | 0.045 / 0.119 / 0.322 |
+| M4 (M2, six-step rollouts, half the steps) | 0.063 | 0.157 | 0.375 | 0.059 / 0.130 / 0.317 |
+| Bar (a) | 0.054 | 0.136 | 0.388 | 0.052 / 0.092 / 0.235 |
+
+- M2 and M3 beat constant velocity at every horizon and miss the bar: by 1 cm at 3.2 s and half a centimetre at 6.4 s
+  over all walkers, by more among the waiting ones.
+- Object masking changes nothing (M3 against M2, M0 against M1).
+
+**2. (b) the reaction, 511 windows** (hold against back away; the slope of the predicted difference on the true one):
+
+| | 1.6 s | 3.2 s | 6.4 s |
+|---|---|---|---|
+| M2 | 0.22 [0.17, 0.28] | 0.21 [0.16, 0.26] | 0.12 [0.09, 0.16] |
+| M3 | 0.23 [0.18, 0.30] | 0.20 [0.16, 0.26] | 0.12 [0.08, 0.16] |
+| M4 | 0.35 [0.29, 0.43] | 0.41 [0.33, 0.49] | 0.35 [0.28, 0.42] |
+
+No run reaches the bar (an interval above 0.5). Longer training rollouts are what move it; the earlier models read
+0.03-0.07 on P16's version of this measure. M5 (M4 with the loss as a distance) and M6 (sixteen-step rollouts) are
+training.
+
+**3. (c) the planner: stopped under the stop rule, no better than the tracker.** Four walkers that do not yield:
+
+| | Round trips of 40 | Contact stops |
+|---|---|---|
+| The ring tracker, seeds 0-3 | 13, 11, 14, 12 | 16, 11, 16, 15 |
+| The true model, seed 0 | 29 | 0 |
+| M4, seed 0, the first 15 missions to end | 1 | 13 (the tracker had 11 by the same simulated time) |
+| M2, seed 0, the first 5 to end | 0 | 5 |
+
+Two contacts traced (M4): a walker that had paused started again while the robot closed on it (the model and constant
+velocity both had it still); and a stand-off 10 cm from a walker, where errors of 3 cm decide. The true model is exact
+in both. From observations a walker's future has several branches (its pause timer and its kind are hidden), and a
+single predicted future gives the planner no margin for them.
+
+**4. Faults of the night.**
+- The first planner suite ran 12 missions at once with the model on the GPU and livelocked for ten hours with no
+  mission finished: the known limit is 6 (20 October). The same suites with the model on the CPU pool took 3-4 s a
+  plan (28 at once). A rollout of 16 passes a plan is too slow for suites either way.
+- The slot trainer's smoke faulted alone on the GPU too (2 page faults, before its first log): it is not the sharing.
