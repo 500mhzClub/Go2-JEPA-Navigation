@@ -38,7 +38,8 @@ def placement_for(set_name, maze, episode_index, spec, episode, walkers, kind):
 
 
 def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, terminal, seed=0, frames=FRAMES,
-                model='true', max_speed=None, cells=True):
+                model='true', max_speed=None, cells=True, probe=None):
+    """`probe` (optional): called after each plan as probe(planner, world, snapshot, target); it must not change them."""
     from go2nav.eval.mission import episode_spec
     from go2nav.planning.mission import RoundTripMission
     from go2nav.planning.sampling import REPLAN_FRAMES, Planner
@@ -64,9 +65,11 @@ def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, term
             requested, queue = np.zeros(3, np.float32), []
         else:
             if not queue:
-                began = time.time()
-                tape, info = planner.plan(world.snapshot(), mission.target())
+                began, snapshot = time.time(), world.snapshot()
+                tape, info = planner.plan(snapshot, mission.target())
                 spent, plans = spent+time.time()-began, plans+1
+                if probe is not None:
+                    probe(planner, world, snapshot, mission.target())
                 queue = list(tape)
                 kind_chosen = info['chosen'].split('@')[0].split('_wait')[0]
                 kind_chosen = 'cell' if kind_chosen.startswith('cell') else ('gaussian' if kind_chosen.startswith('gaussian') else kind_chosen)

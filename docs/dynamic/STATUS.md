@@ -2090,3 +2090,41 @@ not yet the official port; 60,000 steps in full precision, 15:05-22:48; 100 val 
 - **Misses the bar narrowly on both counts**, from a null of 21%. Turning is not worse than straight for binding,
   so the robot's own motion does not break the slots; positions are worse while turning.
 - The slots share the image evenly (the largest holds 28% of the patches); no collapse.
+
+## P22: a memory of each walker fails; the model ties a walker's motion to the robot's (13 November)
+
+**1. N3** (N0 with each walker's memory: how long tracked, stood still, near the robot; how far walked in 10 s;
+`perception.ring_walkers.Memory`). Against the bars of items 9 and 10:
+
+| | N3 | The ring tracker | Bar |
+|---|---|---|---|
+| (a) likeliest future, all, 1.6 / 3.2 / 6.4 s (m) | 0.061 / 0.154 / 0.399 | 0.054 / 0.272 / 0.776 | 0.054 / 0.136 / 0.388 |
+| (b) reaction slope, 1.6 / 3.2 / 6.4 s | 0.26 / 0.36 / 0.37 | 0 | interval above 0.5 |
+| (c) four walkers that do not yield, seeds 0-3: round trips | 10, 7, 5, 4 (6.5) | 12.5 | above 12.5 |
+| contact stops | 17, 13, 20, 24 (18.5) | 14.5 | at most 14.5 |
+
+With 1-2 walkers (seed 0): polite 75 of 80 (the tracker 78), not yielding 38 (59-62), reactive 73 (74). N3 is N0 and
+N2 again: **fails all three**.
+
+**2. Why the memory did nothing** (CPU and GPU checks, `outputs/walker_memory/`):
+- The memory reads right: walkers held up 2-5 s show a median 2.3 s stood still.
+- The training targets carry the giving up: of slots stood still 2 s or more within 1.2 m of the robot, a polite
+  walker's track moves more than 0.15 m within 1.6 s 57% of the time (not yielding 8%), and the track is kept
+  98-100% of the time.
+- On val windows under their recorded tapes the chances are close to the truth (stood still 2-5 s: truly moves 0.37 /
+  0.52 by 1.6 / 3.2 s; N3 0.28 / 0.56; N0 0.22 / 0.50).
+- The same 927 stand-offs under the two tapes, the chance that the walker moves more than 0.15 m:
+
+| Walker held up 2-5 s | Truly, 1.6 / 3.2 s | N3, recorded tape | N3, robot holds |
+|---|---|---|---|
+| Polite (116) | 0.63-0.66 / 0.87-0.88 | 0.31 / 0.73 | 0.02 / 0.14 |
+| Not yielding (74) | 0.00-0.09 / 0.00-0.26 | 0.11 / 0.31 | 0.00 / 0.03 |
+
+(The truth differs a little between the tapes: under the recorded one the robot often clears the way.)
+- **Read:** the model learnt that a walker moves when the robot moves. A polite walker gives up on its own timer
+  whatever the robot does, but in the corpus three plans in four come from a planner that sees the walkers, and a
+  long hold beside a waiting walker is rare. The same confusion the other way would be the tapes the planner chooses
+  with walkers that do not yield (that the robot pushing on has a blocker step aside); item 10's last measure tests
+  it. The earlier stand-off table read the likeliest future only, which hid the recorded-tape result.
+
+**3. Next** (approved): PLAN P22 item 11, branched windows, and item 10's tape-optimism measure first.

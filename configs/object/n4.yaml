@@ -1,0 +1,6 @@
+# P22 item 11: N3 (the memory of each walker) with half of each batch branched windows (data.branches: one moment under
+# six random tapes), so that what the robot causes can be told from what a walker does anyway. The first half of the
+# train episodes' branches (the build was still running). 30,000 steps.
+name: object_n4
+model: {memory: true}
+data: {branches: 0.5, branch_episodes: 2250}

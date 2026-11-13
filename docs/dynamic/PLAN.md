@@ -1749,6 +1749,26 @@ the tapes the planner chooses, not from the hold tape.
 - **Then, if contacts with walkers that do not yield remain:** a measure of how often, among the planner's tapes, one
   has the model clear a blocked walker that truly stays (the planner selects that error), before any fix is chosen.
 
+**11. Branched windows** (approved 13 November, after item 10 failed its bars; STATUS P22 of that day). The memory
+changed nothing, and the reason was found: under the recorded tape the model gives a polite walker held up 2-5 s
+nearly the true chance of moving on (0.31 against 0.66 at 1.6 s; 0.73 against 0.88 at 3.2 s), under a hold next to
+none (0.02 against 0.63). It learnt that a walker moves when the robot does: three plans in four of the corpus come
+from a planner that sees the walkers, so their motions are correlated whichever causes which (Tang et al. 2022).
+- **The data** (`data/branches.py`): at each frame of the corpus at which a walker in sight is within 1.5 m (at most
+  one a second; 123,000 points in train), the world replayed exactly and the tracker with it, then six random tapes
+  of 6.4 s from the same state with the same walkers' dice (one in five a hold), the tracker run on each. About
+  740,000 train branches; CPU, about 5 hours on 26 cores; about 10 GB on the GPU when loaded.
+- **The measure first** (item 10's last bullet, `eval/tape_optimism.py`): in the suite with four walkers that do not
+  yield, at plans where a walker is held up by the robot, each tape's chance of contact as the expected cost reads it,
+  against the truth from an exact copy of the world; whether the chosen tape truly comes within the floor while the
+  model gave it under 0.1. For N3, the tracker and the true model, then for N4.
+- **Run N4:** N3 with half of each batch branched windows, from the first 2,250 train episodes (the build still
+  running); with the whole build if it helps.
+- **Measures and bars:** as items 9 and 10; and the stand-off tables under the hold and the recorded tapes, where N4
+  should give the polite walker held up 2-5 s a chance of moving on near the truth under both.
+- On a real robot the counterpart is exploration whose commands do not depend on the walkers; branching from one
+  state is what the simulator adds, to tell the two apart sooner.
+
 ### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
 
 - **P24, the predictor in Genesis on the harness's tracks.** The mission harness already tracks walkers (the hand

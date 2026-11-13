@@ -5,6 +5,9 @@ the ring tracker's objects, on the GPU.
 
 Windows, splits and the walls' rasters are `training.object_jepa`'s: `history` steps ending at the start step, then
 the model's `steps` after it; the targets are the tracker's later positions of the same track, where it is seen.
+With `data.branches` set (PLAN P22 item 11), that share of each batch is branched windows (the module
+`data.branches`: one moment of an episode under several random tapes), validated apart as `branch_...`;
+`data.branch_episodes`: only train episodes numbered below it.
 AdamW with warm-up and cosine decay. Resumable from DIR/checkpoint.pt; the weights at the end: DIR/model.pt.
 
 **Validation** (`DIR/validation.jsonl`, fixed val windows, the recorded commands as the tape): at 1.6, 3.2 and 6.4 s
@@ -22,9 +25,9 @@ import torch
 
 from go2nav.models.object_jepa import STEP_FRAMES, STEP_S, object_features
 from go2nav.models.object_modes import WIDE_GRID, WIDE_SPACING, ModesConfig, ObjectModes, carried, losses
-from go2nav.training.object_jepa import Rasters, Split, merged, schedule
+from go2nav.training.object_jepa import Branches, Rasters, Split, joined, merged, schedule
 
-DEFAULTS = dict(seed=2026111201, model={}, data=dict(batch=512),
+DEFAULTS = dict(seed=2026111201, model={}, data=dict(batch=512, branches=0., branch_episodes=None),
                 optimiser=dict(lr=3e-4, weight_decay=1e-3, warmup=500, steps=30000, grad_clip=1.),
                 runtime=dict(log_every=100, validate_every=2500, checkpoint_every=1000, validation_windows=8192))
 REPORT, P_MIN, COVER_M = (4, 8, 16), .1, .15
@@ -102,6 +105,14 @@ def train(corpus, out, config):
     pick = torch.as_tensor(np.random.default_rng(config['seed']).choice(len(val_split.windows),
                                                                         run['validation_windows'], replace=False))
     val_starts = val_split.windows[pick.to(device)]
+    share = data['branches']
+    if share:
+        branch_train = Branches(corpus, 'train', rasters, device, frames, data['branch_episodes'])
+        branch_val = Branches(corpus, 'val', rasters, device, frames)
+        pick = torch.as_tensor(np.random.default_rng(config['seed']).choice(
+            len(branch_val.windows), min(run['validation_windows'], len(branch_val.windows)), replace=False))
+        branch_starts = branch_val.windows[pick.to(device)]
+        (out/'branches.json').write_text(json.dumps(dict(train=len(branch_train.windows), val=len(branch_val.windows)))+'\n')
     optimiser = torch.optim.AdamW(model.parameters(), lr=optim['lr'], weight_decay=optim['weight_decay'])
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(optim['warmup'], optim['steps']))
     step, checkpoint = 0, out/'checkpoint.pt'
@@ -116,9 +127,14 @@ def train(corpus, out, config):
     model.train()
     while step < optim['steps']:
         generator.manual_seed(config['seed']*1_000_003+step)
-        starts = train_split.windows[torch.randint(len(train_split.windows), (data['batch'],), device=device,
+        branched = int(round(data['batch']*share))
+        starts = train_split.windows[torch.randint(len(train_split.windows), (data['batch']-branched,), device=device,
                                                    generator=generator)]
         w = train_split.window(starts, h, steps, generator, object_grid=(WIDE_GRID, WIDE_SPACING))
+        if branched:
+            starts = branch_train.windows[torch.randint(len(branch_train.windows), (branched,), device=device,
+                                                        generator=generator)]
+            w = joined(w, branch_train.window(starts, h, steps, generator, object_grid=(WIDE_GRID, WIDE_SPACING)))
         total, terms = losses(model, *inputs(w, h, model_config.memory))
         optimiser.zero_grad(set_to_none=True)
         total.backward()
@@ -134,7 +150,10 @@ def train(corpus, out, config):
             log.flush()
             sums, started, n = {}, time.time(), 0
         if step % run['validate_every'] == 0 or step == optim['steps']:
-            vlog.write(json.dumps(dict(step=step, **validate(model, val_split, val_starts)))+'\n')
+            report = validate(model, val_split, val_starts)
+            if share:
+                report.update({f'branch_{k}': v for k, v in validate(model, branch_val, branch_starts).items()})
+            vlog.write(json.dumps(dict(step=step, **report))+'\n')
             vlog.flush()
         if step % run['checkpoint_every'] == 0 or step == optim['steps']:
             partial = checkpoint.with_suffix('.tmp')

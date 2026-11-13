@@ -143,8 +143,8 @@ class Split:
         same = (self.id[frame] == self.id[t0][:, None]) & (self.id[t0][:, None] >= 0)
         seen = self.seen[frame] & same
         position = to_body(world)
-        velocity = rotate(self.velocity[frame], -heading[:, None, None])*seen[..., None]                 # the tracker's
-        memory = self.memory[frame]*same[..., None]
+        velocity = rotate(self.velocity[frame].float(), -heading[:, None, None])*seen[..., None]         # the tracker's
+        memory = self.memory[frame].float()*same[..., None]
         grid = rotate(offsets(*object_grid, self.device), heading[:, None])                              # (B, G, 2)
         walls = self.rasters.lookup(layout, torch.nan_to_num(world)[..., None, :]+grid[:, None, None])
         robot_world, robot_yaw = self.pose[frame, :2], self.pose[frame, 2]
@@ -168,6 +168,45 @@ class Split:
         world = rotate(position, w['heading'][:, None])+w['origin'][:, None]
         grid = rotate(offsets(OBJECT_GRID, OBJECT_SPACING, self.device), w['heading'][:, None])
         return self.rasters.lookup(w['layout'], world[..., None, :]+grid[:, None])
+
+
+class Branches(Split):
+    """One split's branched windows (`data.branches`) on the device in `Split`'s layout: each branch a segment of its
+    own whose one window starts at the segment's start, so the branch point is the history's last step. The tracker's
+    velocity and memory are held in half precision (a segment is mostly branch frames: about 10 GB for the train
+    split in full precision would be 13)."""
+
+    def __init__(self, corpus, split, rasters, device, frames, episodes=None):
+        """`episodes`: only the episodes numbered below it (a fixed part of a build still running)."""
+        from go2nav.data.branches import SEGMENT
+        if frames != SEGMENT:
+            raise ValueError(f'branched windows are {SEGMENT} frames; this model reads {frames}')
+        corpus = Path(corpus)
+        parts = {k: [] for k in ('pose', 'requested', 'xy', 'seen', 'id', 'velocity', 'memory', 'layout')}
+        for f in sorted((corpus/'branches'/split).glob('[0-9][0-9][0-9][0-9][0-9].npz')):
+            if episodes is not None and int(f.stem) >= episodes:
+                continue
+            with np.load(f) as d:
+                b = len(d['t0'])
+                if not b:
+                    continue
+                parts['requested'].append(np.concatenate((d['requested'], np.zeros((b, 1, 3), np.float32)), 1)
+                                          .reshape(b*SEGMENT, 3))
+                for k in ('pose', 'xy', 'seen', 'id'):
+                    parts[k].append(d[k].reshape(b*SEGMENT, *d[k].shape[2:]))
+                for k in ('velocity', 'memory'):
+                    parts[k].append(d[k].reshape(b*SEGMENT, *d[k].shape[2:]).astype(np.float16))
+            maze = json.loads((corpus/split/f'{f.stem}.json').read_text())['maze']
+            parts['layout'].append(np.full(b*SEGMENT, rasters.index[maze], np.int64))
+        for k, v in parts.items():
+            setattr(self, k, torch.as_tensor(np.concatenate(v), device=device))
+        self.windows = torch.arange(0, len(self.pose), SEGMENT, device=device)
+        self.rasters, self.device = rasters, device
+
+
+def joined(a, b):
+    """Two windows' dicts as one batch."""
+    return {k: torch.cat((a[k], b[k])) for k in a}
 
 
 def losses(model, split, w, history, masked, rollout=2, distance=False):

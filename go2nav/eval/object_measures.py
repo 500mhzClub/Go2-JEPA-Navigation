@@ -21,6 +21,8 @@ branched under two tapes: hold for
 branches, against the model's predicted difference, at 1.6, 3.2 and 6.4 s: the slope with its 95% interval over
 episodes (`eval.measures.slope`). Windows with a contact in either branch are left out. Carrying a walker on at its
 velocity predicts no difference (slope 0).
+
+The corpus and its layouts: `GO2NAV_RING_CORPUS` and `GO2NAV_MAZES_ROOT`, by default links under outputs/data.
 """
 import argparse
 from concurrent.futures import ProcessPoolExecutor
@@ -32,8 +34,9 @@ from pathlib import Path
 
 import numpy as np
 
-CORPUS = Path('/mnt/workspace_drive/go2nav_ring/corpus_v1')
-MAZES = Path('/mnt/workspace_drive/go2nav_lewm_v2/mazes')
+LINKS = Path(__file__).resolve().parents[2]/'outputs'/'data'      # local links to the data, not tracked
+CORPUS = Path(os.environ.get('GO2NAV_RING_CORPUS', LINKS/'ring_corpus_v1'))      # P20's corpus
+MAZES = Path(os.environ.get('GO2NAV_MAZES_ROOT', LINKS/'mazes'))               # the corpus's layouts
 HORIZONS = (16, 32, 64)                       # frames: 1.6, 3.2, 6.4 s
 MATCH_M, NEAR_M, CLOSE_M = .3, 3., 1.5
 BACK_M_S, BACK_FRAMES, TAPE_FRAMES = .2, 20, 64
