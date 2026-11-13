@@ -43,11 +43,11 @@ def load_config(path, overrides=()):
     return config
 
 
-def inputs(w, history):
+def inputs(w, history, memory=False):
     """A window's model inputs and targets: objects, robot, future_robot, target, counted."""
     h = history
     objects = object_features(w['position'][:, :h], w['seen'][:, :h], w['present'][:, :h], w['walls'][:, :h],
-                              w['velocity'][:, :h])
+                              w['velocity'][:, :h], w['memory'][:, :h] if memory else None)
     actions = torch.cat((w['actions'], torch.zeros_like(w['actions'][:, :1])), 1)          # none after the last step
     robot = torch.cat((w['robot'], actions), -1)
     alive = w['present'][:, h-1]
@@ -61,7 +61,7 @@ def validate(model, split, starts, batch=2048):
     rows = {k: dict(top=[], nearest=[], velocity=[], covered=[]) for k in REPORT if k <= c.steps}
     for i in range(0, len(starts), batch):
         w = split.window(starts[i:i+batch], c.history, c.steps, object_grid=(WIDE_GRID, WIDE_SPACING))
-        objects, robot, future, target, counted = inputs(w, c.history)
+        objects, robot, future, target, counted = inputs(w, c.history, c.memory)
         positions, p = model.futures(objects, robot, future)                               # (B, S, K, T, 2), (B, S, K)
         top = torch.gather(positions, 2, p.argmax(-1)[:, :, None, None, None].expand(-1, -1, 1, c.steps, 2))[:, :, 0]
         base = carried(objects, c.steps)
@@ -119,7 +119,7 @@ def train(corpus, out, config):
         starts = train_split.windows[torch.randint(len(train_split.windows), (data['batch'],), device=device,
                                                    generator=generator)]
         w = train_split.window(starts, h, steps, generator, object_grid=(WIDE_GRID, WIDE_SPACING))
-        total, terms = losses(model, *inputs(w, h))
+        total, terms = losses(model, *inputs(w, h, model_config.memory))
         optimiser.zero_grad(set_to_none=True)
         total.backward()
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), optim['grad_clip'])

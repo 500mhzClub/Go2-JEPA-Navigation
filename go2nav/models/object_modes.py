@@ -7,7 +7,8 @@ the ego's plan as PiP, Song et al. 2020): `modes` futures an object, each with a
 
 **Tokens** (body frame of the robot at the step the prediction starts from, steps of 0.4 s, as `models.object_jepa`):
 - over `history` steps, a robot token (position, heading, the walls round it, the requests of the step after it) and
-  an object token a slot (position, seen, present, the tracker's velocity, the walls round it on a wider grid,
+  an object token a slot (position, seen, present, the tracker's velocity, with `memory` what the walker has done
+  over its track's life (`perception.ring_walkers.Memory`), the walls round it on a wider grid,
   `WIDE_GRID` x `WIDE_GRID` at `WIDE_SPACING`: the predictor cannot look the walls up again along the way);
 - over the `steps` future steps, a robot token each: where the tape takes the robot.
 One transformer over all of them (every token sees every other), with learned embeddings for the step and for the
@@ -32,6 +33,7 @@ from go2nav.models.object_jepa import ACTION_DIM, ROBOT_DIM, STEP_S
 
 WIDE_GRID, WIDE_SPACING = 9, .3
 OBJECT_DIM = 4+WIDE_GRID**2+2
+MEMORY = 4                  # perception.ring_walkers.Memory.FEATURES (P22 item 10)
 EPSILON = .05
 
 
@@ -46,6 +48,7 @@ class ModesConfig:
     heads: int = 4
     mlp: int = 512
     hidden: int = 256
+    memory: bool = False
 
     def to_dict(self):
         return asdict(self)
@@ -56,7 +59,7 @@ class ObjectModes(nn.Module):
         super().__init__()
         self.config = config
         d = config.dim
-        self.object_in = MLP(OBJECT_DIM, config.hidden, d)
+        self.object_in = MLP(OBJECT_DIM+(MEMORY if config.memory else 0), config.hidden, d)
         self.robot_in = MLP(ROBOT_DIM+ACTION_DIM, config.hidden, d)
         self.step = nn.Parameter(torch.randn(1, config.history+config.steps, 1, d)*.02)
         self.place = nn.Parameter(torch.randn(1, 1, 1+config.slots, d)*.02)

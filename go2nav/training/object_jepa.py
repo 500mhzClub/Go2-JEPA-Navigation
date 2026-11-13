@@ -112,15 +112,17 @@ class Split:
         self.requested = torch.as_tensor(np.load(packed/f'{split}_requested.npy'), device=device)
         starts = np.load(packed/f'{split}_starts.npy')
         files = sorted((corpus/split).glob('*.npz'))
-        xy, seen, ids, layout, velocity = [], [], [], [], []
+        xy, seen, ids, layout, velocity, memory = [], [], [], [], [], []
         for k, f in enumerate(files):
             with np.load(corpus/'objects'/split/f.name) as data:
                 xy.append(data['xy']), seen.append(data['seen']), ids.append(data['id'])
                 velocity.append(data['velocity'])
+                memory.append(data['memory'] if 'memory' in data.files else np.zeros((*data['seen'].shape, 4), np.float32))
             maze = json.loads(f.with_suffix('.json').read_text())['maze']
             layout.append(np.full(starts[k+1]-starts[k], rasters.index[maze], np.int64))
         self.xy = torch.as_tensor(np.concatenate(xy), device=device)
         self.velocity = torch.as_tensor(np.concatenate(velocity), device=device)
+        self.memory = torch.as_tensor(np.concatenate(memory), device=device)
         self.seen = torch.as_tensor(np.concatenate(seen), device=device)
         self.id = torch.as_tensor(np.concatenate(ids), device=device)
         self.layout = torch.as_tensor(np.concatenate(layout), device=device)
@@ -142,6 +144,7 @@ class Split:
         seen = self.seen[frame] & same
         position = to_body(world)
         velocity = rotate(self.velocity[frame], -heading[:, None, None])*seen[..., None]                 # the tracker's
+        memory = self.memory[frame]*same[..., None]
         grid = rotate(offsets(*object_grid, self.device), heading[:, None])                              # (B, G, 2)
         walls = self.rasters.lookup(layout, torch.nan_to_num(world)[..., None, :]+grid[:, None, None])
         robot_world, robot_yaw = self.pose[frame, :2], self.pose[frame, 2]
@@ -155,8 +158,8 @@ class Split:
             take = lambda x: torch.gather(x, 2, order[:, None, :, None].expand(-1, x.shape[1], -1, *x.shape[3:])
                                           if x.dim() == 4 else order[:, None, :].expand(-1, x.shape[1], -1))
             position, walls, same, seen = take(position), take(walls), take(same), take(seen)
-            velocity = take(velocity)
-        return dict(position=position, walls=walls, present=same, seen=seen, velocity=velocity,
+            velocity, memory = take(velocity), take(memory)
+        return dict(position=position, walls=walls, present=same, seen=seen, velocity=velocity, memory=memory,
                     robot=robot_features(robot_xy, robot_rel, robot_walls), actions=actions_input(commands),
                     layout=layout, origin=origin, heading=heading)
 

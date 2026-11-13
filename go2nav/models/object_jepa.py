@@ -69,12 +69,16 @@ def offsets(size, spacing, device=None):
     return torch.as_tensor(grid_offsets(size, spacing), dtype=torch.float32, device=device)
 
 
-def object_features(xy, seen, present, walls, velocity=None):
-    """xy (..., 2), seen and present (...,) bool, walls (..., OBJECT_GRID**2) to (..., OBJECT_DIM); with `velocity`
-    (..., 2) (m/s, a residual model's) appended."""
+def object_features(xy, seen, present, walls, velocity=None, memory=None):
+    """xy (..., 2), seen and present (...,) bool, walls (..., OBJECT_GRID**2) to (..., OBJECT_DIM); with `memory`
+    (..., m) (P22 item 10) and `velocity` (..., 2) (m/s, a residual model's) appended, the velocity last."""
     keep = present[..., None].float()
-    parts = (torch.nan_to_num(xy)*keep, seen[..., None].float(), keep, walls.clamp(max=CLIP_M)*keep)
-    return torch.cat(parts if velocity is None else (*parts, velocity*keep), -1)
+    parts = [torch.nan_to_num(xy)*keep, seen[..., None].float(), keep, walls.clamp(max=CLIP_M)*keep]
+    if memory is not None:
+        parts.append(memory*keep)
+    if velocity is not None:
+        parts.append(velocity*keep)
+    return torch.cat(parts, -1)
 
 
 def robot_features(xy, yaw, walls):

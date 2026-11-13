@@ -1734,6 +1734,21 @@ memory; SlotContrast's loss is the first variant if slots do not keep their walk
 only: the trainer's illegal memory accesses on this ROCm build are to be solved there (alone on the card first; the
 same steps run clean on the CPU, so it is not the code's indexing). The features took 6 minutes, not 1-2 hours.
 
+**10. A memory of each walker** (approved 13 November, after item 9 failed its bar: the agreed next step, a model
+that can infer what it cannot see). Measured first, in 927 stand-offs under a hold tape (median metres moved at
+1.6 / 3.2 s): a polite walker that has waited 2-5 s truly moves 0.20 / 0.53 m (it gives up after 3 s and turns back),
+and every model predicts 0.01-0.05; a walker that does not yield truly stays, and every model has it stay (0.01-0.04).
+So the missing memory is how long a walker has been held up; and the contacts with walkers that do not yield come from
+the tapes the planner chooses, not from the hold tape.
+- **The memory** (`perception.ring_walkers.Memory`, engineered from the tracker and the robot's pose): per slot, how
+  long its track has lasted, stood still and been within 1.5 m of the robot, and how far it walked in the last 10 s.
+- **Run N3:** N0 with the memory in each object token.
+- **Measures:** the stand-off table above (the polite rows are what the memory is for); (a) and (b) as before; and the
+  planner (expected cost, item 9) on four walkers that do not yield (seeds 0-3), and on polite, 1-2 not yielding and
+  reactive walkers (seed 0). Same bars as item 9.
+- **Then, if contacts with walkers that do not yield remain:** a measure of how often, among the planner's tapes, one
+  has the model clear a blocked walker that truly stays (the planner selects that error), before any fix is chosen.
+
 ### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
 
 - **P24, the predictor in Genesis on the harness's tracks.** The mission harness already tracks walkers (the hand

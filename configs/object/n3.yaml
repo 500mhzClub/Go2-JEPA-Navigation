@@ -1,0 +1,4 @@
+# P22 N3 (PLAN P22 item 10): N0 with each walker's memory (how long tracked, stood still, near the robot; how far walked
+# in 10 s). 30,000 steps.
+name: object_n3
+model: {memory: true}

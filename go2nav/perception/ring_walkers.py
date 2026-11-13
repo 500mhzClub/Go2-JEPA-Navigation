@@ -184,3 +184,41 @@ class Slots:
                 self.last_seen[k] = frame
         return xy, seen, ids, left_out, velocity
 
+
+class Memory:
+    """What each slot's walker has done over its track's life, for the object-level predictor's memory (PLAN P22 item
+    10): engineered from the tracker's outputs and the robot's pose, nothing privileged. Per slot, each scaled to [0, 1]
+    by its cap: how long the track has lasted (`AGE_S`); how long it has stood still (tracker speed under `STILL_M_S`,
+    `STILL_CAP_S`); how long it has been within `NEAR_M` of the robot (`NEAR_CAP_S`); how far it has walked over the last
+    `PATH_S` (`PATH_CAP_M`). A polite walker gives up after 3 s of being held up, one that does not yield waits for
+    ever: these say how long that has been."""
+    FEATURES = 4
+    AGE_S, STILL_M_S, STILL_CAP_S, NEAR_M, NEAR_CAP_S, PATH_S, PATH_CAP_M = 30., .05, 20., 1.5, 20., 10., 3.
+
+    def __init__(self, count, frame_s=.1):
+        self.dt, self.ids = frame_s, [None]*count
+        self.age, self.still, self.near = np.zeros(count), np.zeros(count), np.zeros(count)
+        self.paths = [deque() for _ in range(count)]
+
+    def update(self, xy, seen, ids, velocity, robot_xy):
+        """The slots of a frame (from `Slots.update`) and the robot's position; returns (count, FEATURES)."""
+        for k, track_id in enumerate(ids):
+            if track_id < 0:
+                self.ids[k], self.age[k], self.still[k], self.near[k] = None, 0., 0., 0.
+                self.paths[k].clear()
+                continue
+            if self.ids[k] != track_id:                       # a new track in this slot
+                self.ids[k], self.age[k], self.still[k], self.near[k] = track_id, 0., 0., 0.
+                self.paths[k].clear()
+            self.age[k] += self.dt
+            self.still[k] = self.still[k]+self.dt if np.linalg.norm(velocity[k]) < self.STILL_M_S else 0.
+            self.near[k] = self.near[k]+self.dt if np.linalg.norm(xy[k]-robot_xy) < self.NEAR_M else 0.
+            path = self.paths[k]
+            path.append(np.array(xy[k], float))
+            while len(path) > round(self.PATH_S/self.dt):
+                path.popleft()
+        walked = np.array([float(np.linalg.norm(np.diff(np.array(p), axis=0), axis=1).sum()) if len(p) > 1 else 0.
+                           for p in self.paths])
+        return np.stack((np.minimum(self.age/self.AGE_S, 1.), np.minimum(self.still/self.STILL_CAP_S, 1.),
+                         np.minimum(self.near/self.NEAR_CAP_S, 1.), np.minimum(walked/self.PATH_CAP_M, 1.)), 1)
+
