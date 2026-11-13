@@ -2048,3 +2048,45 @@ With 1-2 walkers that do not yield N0 makes 49 and N1 54 (the tracker 59-62); re
 
 **3. P23's fault found.** The slot trainer's illegal memory accesses were bf16 autocast in that model on this ROCm
 build: in float32 it ran 600 steps clean twice. It trains in full precision (started 15:10).
+
+## P22: the expected-cost planner and N2; P23's first slots (12 November, evening)
+
+**1. P22 item 9 stops at its agreed limit.** The planner prices a contact by its probability over the predicted
+futures (`expect:<path>`, `CONTACT_S` 2,000 s), with a walker standing still among them at 10% and a tape already
+under the clearance floor free to move away. N2 is N0 with 4.8 s of history. Four walkers that do not yield, 40
+missions (round trips; contact stops; timeouts):
+
+| | Seed 0 | Seed 1 | Seed 2 | Seed 3 | Mean |
+|---|---|---|---|---|---|
+| The ring tracker | 13; 16; 11 | 11; 11; 16 | 14; 16; 8 | 12; 15; 13 | 12.5; 14.5 |
+| N0, expected cost | 8; 12; 20 | 8; 11; 21 | | | |
+| N2, expected cost | 3; 17; 20 | 5; 15; 20 | 7; 20; 13 | 7; 13; 20 | 5.5; 16.3 |
+| N2, without the still future | 6; 26; 8 | | | | |
+| The true model | 29; 0; 11 | 29; 1; 10 | 28; 0; 12 | 30; 1; 9 | 29; 0.5 |
+
+- **Fails the bar** (a mean above 12.5 round trips with at most 14.5 contact stops). With 1-2 walkers that do not
+  yield N2 makes 41 of 80 (the tracker 59-62); reactive, 70 (74).
+- Offline N2 is a little better than N0 (likeliest future 0.056, 0.135, 0.349 m; a likely future covers 91%, 78%
+  and 45% of walkers) and still worse than constant velocity at 1.6 s for walkers waiting on the robot (0.064
+  against 0.052); its reaction slope 0.25-0.29.
+- Without the engineered still future it has 26 contact stops, as N0 had 25: longer history did not teach the model
+  that a walker blocking the robot stays. With it the robot is pinned: a walker held up by it for a median 394 s
+  (N0), against 4.5 s under the tracker.
+- **Read:** as agreed before the runs, the suite says the hidden state is what matters (a walker's kind and its
+  pause), and further planner changes stop here. `CONTACT_S`, the still future's weight and the stand-off rule were
+  chosen on the suite they were scored on.
+
+**2. P23, the first slot model** (`outputs/camera_slots/s0`: this repository's implementation of VideoSAUR's recipe,
+not yet the official port; 60,000 steps in full precision, 15:05-22:48; 100 val units, 16,300 walker-frames in view):
+
+| | Bound | Of those, within 0.15 m | Median error |
+|---|---|---|---|
+| All | 84.9% | 81.7% | 0.038 m |
+| Turning (over 0.3 rad/s) | 88.8% | 75.8% | 0.041 m |
+| Straight | 82.9% | 85.0% | 0.037 m |
+| An untrained model (the null) | 21% | | |
+| Bar | 90% | 90% | |
+
+- **Misses the bar narrowly on both counts**, from a null of 21%. Turning is not worse than straight for binding,
+  so the robot's own motion does not break the slots; positions are worse while turning.
+- The slots share the image evenly (the largest holds 28% of the patches); no collapse.
