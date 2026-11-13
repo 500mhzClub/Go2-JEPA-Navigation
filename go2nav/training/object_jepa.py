@@ -176,14 +176,15 @@ class Branches(Split):
     velocity and memory are held in half precision (a segment is mostly branch frames: about 10 GB for the train
     split in full precision would be 13)."""
 
-    def __init__(self, corpus, split, rasters, device, frames, episodes=None):
-        """`episodes`: only the episodes numbered below it (a fixed part of a build still running)."""
+    def __init__(self, corpus, split, rasters, device, frames, episodes=None, folder='branches'):
+        """`episodes`: only the episodes numbered below it (a fixed part of a build still running); `folder`: the
+        corpus's folder of them (`data.planner_branches` writes 'planner_branches')."""
         from go2nav.data.branches import SEGMENT
         if frames != SEGMENT:
             raise ValueError(f'branched windows are {SEGMENT} frames; this model reads {frames}')
         corpus = Path(corpus)
         parts = {k: [] for k in ('pose', 'requested', 'xy', 'seen', 'id', 'velocity', 'memory', 'layout')}
-        for f in sorted((corpus/'branches'/split).glob('[0-9][0-9][0-9][0-9][0-9].npz')):
+        for f in sorted((corpus/folder/split).glob('[0-9][0-9][0-9][0-9][0-9].npz')):
             if episodes is not None and int(f.stem) >= episodes:
                 continue
             with np.load(f) as d:

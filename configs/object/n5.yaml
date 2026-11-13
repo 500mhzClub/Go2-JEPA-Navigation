@@ -1,0 +1,9 @@
+# P22 item 13: N4 fine-tuned on the states its own planner reaches. Half of each batch is windows branched from N4's
+# missions under the worked-out rule (data.planner_branches: at plans near walkers, its chosen tape and five of its
+# other proposals), a quarter random-tape branches (data.branches, the same episodes as N4) and a quarter the corpus.
+# 10,000 steps from N4's weights.
+name: object_n5
+init: outputs/object_dynamics/n4/model.pt
+model: {memory: true}
+data: {branches: 0.25, branch_episodes: 2250, planner_branches: 0.5}
+optimiser: {lr: 1.0e-4, warmup: 200, steps: 10000}

@@ -120,6 +120,85 @@ def test_fresh_dice_keep_the_rules_and_change_the_draws():
     assert np.allclose(fresh[0, 5], true[0, 5])                               # the same walk until the first draw
 
 
+def test_the_mixture_keeps_the_true_future_and_weighs_the_false_ones():
+    from go2nav.planning import sampling as s
+    w, _ = world(walkers=2)
+    for _ in range(30):
+        w.step((0., 0., 0.))
+    snapshot = w.snapshot()
+    xy, yaw = np.tile(snapshot['xy'], (3, 64, 1)), np.zeros((3, 64))
+    true = s.make_model('true').walkers(snapshot, xy, yaw, np.full(3, 64), w.geometry)
+    model = s.make_model('mix:still=0.1,ignore=0.2')
+    paths = model.walkers(snapshot, xy, yaw, np.full(3, 64), w.geometry)
+    assert paths.shape == (3, 64, 6, 2) and np.allclose(paths[:, :, :2], true)
+    assert np.allclose(paths[:, :, 2:4], snapshot['walkers_xy'])                  # standing where they are
+    assert np.allclose(model.weights[0], [.7, .7, .1, .1, .2, .2]) and list(model.groups) == [0, 1]*3
+    assert np.allclose(model.ends, true[:, -1])
+    noisy = s.make_model('mix:noise=0.03,still=0.1')
+    paths = noisy.walkers(snapshot, xy, yaw, np.full(3, 64), w.geometry)
+    assert paths.shape == (3, 64, 10, 2) and np.allclose(noisy.weights[0], [.225]*8+[.1]*2)
+    assert np.allclose(paths[:, 0, :8], np.tile(true[:, 0], (1, 4, 1)), atol=.01)     # near the truth at first
+    assert not np.allclose(paths[:, -1, :2], true[:, -1])                             # off it later
+    try:
+        s.make_model('mix:still=0.6,ignore=0.4')
+        assert False, 'the true future must keep some weight'
+    except ValueError:
+        pass
+
+
+def test_drawn_futures_through_the_true_rule_are_the_true_rule_when_there_is_one_future():
+    w, record = world(walkers=4)
+    for _ in range(40):
+        w.step((.2, 0., 0.))
+    snapshot, target = w.snapshot(), record['beacon_xy_world']
+    true = Planner(w.geometry, horizon_s=6.4, terminal='walkers', model='true')
+    drawn = Planner(w.geometry, horizon_s=6.4, terminal='walkers', model='mix:')
+    drawn.scenarios = 4
+    requested, _ = true.proposals(snapshot, target)
+    a, terms_a = true.costs(snapshot, target, requested)
+    b, terms_b = drawn.costs(snapshot, target, requested)
+    assert np.allclose(a, b) and (terms_a['breached'] == terms_b['breached']).all()
+    noisy = Planner(w.geometry, horizon_s=6.4, terminal='walkers', model='mix:noise=0.05')
+    noisy.scenarios = 8
+    c, _ = noisy.costs(snapshot, target, requested)
+    assert c.shape == a.shape and np.isfinite(c).all()
+    worked = Planner(w.geometry, horizon_s=6.4, terminal='walkers', model='mix:')
+    worked.exact = True
+    d, terms_d = worked.costs(snapshot, target, requested)
+    assert np.allclose(a, d) and (terms_a['breached'] == terms_d['breached']).all()
+    many = Planner(w.geometry, horizon_s=6.4, terminal='walkers', model='mix:noise=0.05')
+    many.scenarios, exact = 4000, Planner(w.geometry, horizon_s=6.4, terminal='walkers', model='mix:noise=0.05')
+    exact.exact = True
+    e, _ = many.costs(snapshot, target, requested)
+    f, _ = exact.costs(snapshot, target, requested)
+    assert np.corrcoef(e, f)[0, 1] > .95                       # the worked-out expectation is what many draws give
+    for name in ('true', 'velocity'):                          # a model of one future goes through the worked-out rule
+        usual, worked = (Planner(w.geometry, horizon_s=6.4, terminal='walkers', model=name) for _ in range(2))
+        worked.exact = True
+        g, terms_g = usual.costs(snapshot, target, requested)
+        h, terms_h = worked.costs(snapshot, target, requested)
+        assert np.allclose(g, h) and (terms_g['breached'] == terms_h['breached']).all()
+
+
+def test_the_contact_probe_reads_the_planners_own_futures_and_leaves_the_mission_as_it_was():
+    from go2nav.eval import contact_calibration as cc
+    kwargs = dict(walkers=4, kind='rude', horizon_s=6.4, terminal='walkers', model='mix:noise=0.03', frames=150)
+    plain = km.run_mission('validation', 12, 0, **kwargs)
+    probe = cc.Probe(near=50., every=10, limit=2)
+    probed = km.run_mission('validation', 12, 0, probe=probe, **kwargs)
+    timing = ('plan_s', 'wall_s')
+    assert {k: v for k, v in plain.items() if k not in timing} == {k: v for k, v in probed.items() if k not in timing}
+    assert len(probe.rows) == 2
+    for p in probe.rows:
+        assert len(p['chance']) == len(p['truth']) == len(p['true_cost']) == len(p['kinds']) > 10
+        assert all(0. <= c <= 1. for c in p['chance']) and p['chosen'] >= 0
+        assert p['true_cost'][p['chosen']] >= min(p['true_cost'])
+        assert np.allclose(np.sum(p['terms'], 0), p['cost'], atol=.05)                 # the terms make up the cost
+        assert np.allclose(np.sum(p['true_terms'], 0), p['true_cost'], atol=.05)
+    report = cc.summary([dict(probed, probes=probe.rows)])
+    assert report['probes'] == 2 and sum(b['tapes'] for b in report['bands']) == report['tapes']
+
+
 def test_a_ring_sees_only_what_is_in_its_line_of_sight():
     from go2nav.planning import sampling as s
     w, record = world(walkers=1)
