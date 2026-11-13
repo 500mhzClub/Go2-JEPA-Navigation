@@ -1,12 +1,16 @@
 """Frozen DINOv2 patch features of corpus v2's camera frames (docs/dynamic/PLAN.md P23 items 1-2).
 
     python -m go2nav.data.dino_features extract --corpus CORPUS --out OUT [--train 600] [--val 100] [--seed S]
+        [--scale 1]
 
 The encoder is DINOv2 ViT-S/14 (Oquab et al. 2023), loaded from the local torch hub cache and frozen: the frame
 (224 x 168, the corpus's primary-camera RGB) normalised with ImageNet's statistics, and the last layer's normalised
-patch tokens kept: 16 x 12 = 192 tokens of 384 a frame, row-major from the top-left, float16.
+patch tokens kept: 16 x 12 = 192 tokens of 384 a frame, row-major from the top-left, float16. With `scale` s, the frame
+is first upsampled s times (bicubic; 448 x 336 at 2): no new detail, but a patch spans s times fewer pixels, so the
+grid is 16s x 12s (P23's third run: the slots' columns give the walkers' bearings, and 16 columns span 4.9 degrees
+each).
 
-Units: `train` units of `lewm_train` and `val` of `lewm_val` drawn at random (`seed`) from those with at least one
+The same `seed` draws the same units at every scale. Units: `train` units of `lewm_train` and `val` of `lewm_val` drawn at random (`seed`) from those with at least one
 walker, so the two splits share no layout. Per unit, OUT/<role>/<unit>.npy (frames, 192, 384) float16, written
 atomically (a rerun skips what is done), and OUT/index.json: the units, their frame counts and the encoder.
 """
@@ -32,13 +36,15 @@ def load_encoder(device):
 
 
 @torch.no_grad()
-def encode(model, frames, device):
-    """Frames (N, 168, 224, 3) uint8 to patch tokens (N, 192, 384) float16."""
-    out = []
+def encode(model, frames, device, scale=1):
+    """Frames (N, 168, 224, 3) uint8 to patch tokens (N, 192 scale^2, 384) float16."""
+    out, batch = [], max(1, BATCH//scale**2)
     mean = torch.tensor(MEAN, device=device)[:, None, None]
     std = torch.tensor(STD, device=device)[:, None, None]
-    for i in range(0, len(frames), BATCH):
-        x = torch.as_tensor(np.asarray(frames[i:i+BATCH]), device=device).permute(0, 3, 1, 2).float()/255.
+    for i in range(0, len(frames), batch):
+        x = torch.as_tensor(np.asarray(frames[i:i+batch]), device=device).permute(0, 3, 1, 2).float()/255.
+        if scale > 1:
+            x = torch.nn.functional.interpolate(x, scale_factor=scale, mode='bicubic', align_corners=False).clamp(0., 1.)
         with torch.autocast(device.type, dtype=torch.bfloat16, enabled=device.type == 'cuda'):
             tokens = model.forward_features((x-mean)/std)['x_norm_patchtokens']
         out.append(tokens.half().cpu().numpy())
@@ -58,7 +64,7 @@ def select(corpus, role, count, seed):
     return sorted(rng.choice(eligible, min(count, len(eligible)), replace=False).tolist())
 
 
-def extract(corpus, out, *, train=600, val=100, seed=2026111103, device='cuda:0'):
+def extract(corpus, out, *, train=600, val=100, seed=2026111103, device='cuda:0', scale=1):
     corpus, out, device = Path(corpus), Path(out), torch.device(device)
     model = load_encoder(device)
     units = {'lewm_train': select(corpus, 'lewm_train', train, seed), 'lewm_val': select(corpus, 'lewm_val', val, seed)}
@@ -72,12 +78,12 @@ def extract(corpus, out, *, train=600, val=100, seed=2026111103, device='cuda:0'
             frames[path] = int(len(source))
             if target.exists():
                 continue
-            tokens = encode(model, source, device)
+            tokens = encode(model, source, device, scale)
             partial = target.with_name(target.stem+'.tmp.npy')
             np.save(partial, tokens)
             partial.rename(target)
-    index = dict(schema='go2nav_dino_features.v1', encoder=ENCODER, grid=GRID, dims=384, corpus=str(corpus), seed=seed,
-                 units=units, frames=frames)
+    index = dict(schema='go2nav_dino_features.v1', encoder=ENCODER, grid=(GRID[0]*scale, GRID[1]*scale), dims=384,
+                 corpus=str(corpus), seed=seed, scale=scale, units=units, frames=frames)
     (out/'index.json').write_text(json.dumps(index, indent=1)+'\n')
     return {role: (len(paths), sum(frames[p] for p in paths)) for role, paths in units.items()}
 
@@ -91,8 +97,9 @@ def main():
     e.add_argument('--train', type=int, default=600)
     e.add_argument('--val', type=int, default=100)
     e.add_argument('--seed', type=int, default=2026111103)
+    e.add_argument('--scale', type=int, default=1)
     a = p.parse_args()
-    print(json.dumps(extract(a.corpus, a.out, train=a.train, val=a.val, seed=a.seed)))
+    print(json.dumps(extract(a.corpus, a.out, train=a.train, val=a.val, seed=a.seed, scale=a.scale)))
 
 
 if __name__ == '__main__':

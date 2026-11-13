@@ -1,0 +1,8 @@
+# P23's second run: VideoSAUR's own choices (martius-lab/videosaur configs/videosaur/ytvis_dinov2.yml) on the same
+# DINOv2 ViT-S/14 features: the SlotMixer decoder, 7 slots of 64, 3 rounds on the first frame, no slot MLP, no input
+# position embedding, the input MLP twice the features wide, their slot initialisation, similarity 0.1 at temperature
+# 0.15 with similarities under 0 counting for nothing, no SIGReg, gradients clipped at 0.05.
+model: {decoder: mixer, slots: 7, dim: 64, first_iterations: 3, slot_mlp: false, input_position: false,
+        encoder_hidden: 768, videosaur_init: true, gru_from_normed: true}
+objective: {similarity_weight: 0.1, temperature: 0.15, threshold: 0.0, sigreg_weight: 0.0}
+optimiser: {grad_clip: 0.05}

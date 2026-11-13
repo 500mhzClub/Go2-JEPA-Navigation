@@ -4,7 +4,8 @@
 
 Each val unit's frames are run through the slot model in order (slots carried from frame to frame, as they would be in a
 mission), and each patch is given to the slot whose decoder mask is largest there. A slot's image columns are those
-holding at least `MIN_PATCHES` of its patches.
+holding at least `MIN_PATCHES` of its patches for every 12 rows of the features' grid (`set_grid`: 16 x 12 on the
+corpus's frames, 32 x 24 on frames upsampled twice; the same share of the image's height).
 
 - **In view** (labels for scoring only): `eval.mover_probe.in_view` on the unit's true walker positions and the layout's
   walls; the walker's columns are its cylinder's bearings through the primary camera (`perception.cameras`).
@@ -32,6 +33,13 @@ from go2nav.sim.obstacles import RADIUS_M
 
 ROWS, COLUMNS = 12, 16
 MIN_PATCHES, IOU, NEAR_M, TURNING_RAD_S, CHUNK = 2, .5, .15, .3, 32
+HOLD = MIN_PATCHES             # patches a column for a slot to hold it, on the grid in use
+
+
+def set_grid(rows, columns):
+    """The features' patch grid (rows, columns), from their index."""
+    global ROWS, COLUMNS, HOLD
+    ROWS, COLUMNS, HOLD = int(rows), int(columns), max(1, round(MIN_PATCHES*int(rows)/12))
 
 
 def columns_of(bearing_low, bearing_high):
@@ -58,7 +66,7 @@ def slot_columns(model, features, device):
         owner = masks[0].float().argmax(1).cpu().numpy().reshape(-1, ROWS, COLUMNS)           # (T, rows, cols)
         for frame in owner:
             counts = [(frame == k).sum(0) for k in range(model.config.slots)]
-            out.append([set(np.flatnonzero(c >= MIN_PATCHES).tolist()) for c in counts])
+            out.append([set(np.flatnonzero(c >= HOLD).tolist()) for c in counts])
     return out
 
 
@@ -139,6 +147,7 @@ def main():
     torch.backends.cuda.enable_flash_sdp(False), torch.backends.cuda.enable_mem_efficient_sdp(False)
     model = load_model(a.model, device)
     index = json.loads((a.features/'index.json').read_text())
+    set_grid(*index['grid'])
     rows = []
     for path in index['units']['lewm_val'][:a.units]:
         rows += score_unit(model, a.corpus/path, a.features/'lewm_val'/f'{Path(path).name}.npy', device)

@@ -26,7 +26,8 @@ from go2nav.models.slots import SlotConfig, SlotModel, losses
 
 MEMORY_FRACTION = .8
 DEFAULTS = dict(seed=2026111106, model={}, data=dict(batch=32, frames=4),
-                objective=dict(similarity_weight=.25, sigreg_weight=.05, temperature=.075, sigreg_projections=512),
+                objective=dict(similarity_weight=.25, sigreg_weight=.05, temperature=.075, sigreg_projections=512,
+                               threshold=None),
                 optimiser=dict(lr=1e-4, warmup=2000, steps=60000, grad_clip=1.),
                 runtime=dict(log_every=100, validate_every=2500, checkpoint_every=1000, validation_clips=512))
 
@@ -89,7 +90,8 @@ def validate(model, clips, objective, sigreg, device, batch=64):
         x = clips[i:i+batch].to(device).float()
         with torch.autocast('cuda', dtype=torch.bfloat16, enabled=False):   # full precision: see the docstring
             _, terms = losses(model, x, sigreg=sigreg, similarity_weight=objective['similarity_weight'],
-                              sigreg_weight=objective['sigreg_weight'], temperature=objective['temperature'])
+                              sigreg_weight=objective['sigreg_weight'], temperature=objective['temperature'],
+                              threshold=objective.get('threshold'))
             slots, _ = model(x)
             _, _, masks = model.decode(slots)
         masks = masks.float()
@@ -116,13 +118,17 @@ def schedule(warmup, total):
 def train(features, out, config):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
-    (out/'config.json').write_text(json.dumps(config, indent=1)+'\n')
     device = torch.device('cuda:0')
     torch.cuda.set_per_process_memory_fraction(MEMORY_FRACTION, device)
     torch.backends.cuda.enable_flash_sdp(False)              # see models.slots: the fused attention kernels fault here
     torch.backends.cuda.enable_mem_efficient_sdp(False)
     torch.manual_seed(config['seed'])
+    rows, columns = json.loads((Path(features)/'index.json').read_text())['grid']   # the features' patch grid
+    config['model'].setdefault('patches', rows*columns)
+    if config['model']['patches'] != rows*columns:
+        raise ValueError(f"the model takes {config['model']['patches']} patches, the features have {rows*columns}")
     model = SlotModel(SlotConfig(**config['model'])).to(device)
+    (out/'config.json').write_text(json.dumps(config, indent=1)+'\n')
     data, objective, optim, run = config['data'], config['objective'], config['optimiser'], config['runtime']
     sigreg = SIGReg(num_proj=objective['sigreg_projections']).to(device)
     optimiser = torch.optim.Adam(model.parameters(), lr=optim['lr'])
@@ -146,7 +152,7 @@ def train(features, out, config):
         with torch.autocast('cuda', dtype=torch.bfloat16, enabled=False):   # full precision: see the docstring
             total, terms = losses(model, x, sigreg=sigreg, similarity_weight=objective['similarity_weight'],
                                   sigreg_weight=objective['sigreg_weight'], temperature=objective['temperature'],
-                                  generator=generator)
+                                  generator=generator, threshold=objective.get('threshold'))
         if not torch.isfinite(total):
             raise FloatingPointError(f'loss {float(total)} at step {step}')
         optimiser.zero_grad(set_to_none=True)
