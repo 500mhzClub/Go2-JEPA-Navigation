@@ -24,7 +24,8 @@ plan), `velocity`, `frozen` and `frozen_seen` (`SimpleModel`: walkers that do no
 tape: it is also told each frame's request through `record`, and given the tapes), or `objects:<path>` (P22: the
 object-level predictor over the ring tracker's objects, `planning.object_model.ObjectModel`, likewise), or
 `modes:<path>` (P22 item 8: several futures an object, `planning.object_model.ModesModel`), or `mix:<parts>` (P22
-item 12: the true future beside false ones, `planning.mixture.MixtureModel`).
+item 12: the true future beside false ones, `planning.mixture.MixtureModel`), or `dice:<draws>` (P22 item 13: the true
+rules under new dice only, `planning.mixture.DiceModel`).
 
 **Cost,** in seconds:
 - time: 0.1 s for each step further than `ARRIVE_M` from the target;
@@ -205,6 +206,9 @@ def make_model(name, seed=0):
     if name.startswith('mix:'):                                       # P22 item 12: the true future beside false ones
         from go2nav.planning.mixture import MixtureModel
         return MixtureModel(name.partition(':')[2], seed=seed)
+    if name.startswith('dice:'):                                      # P22 item 13: the true rules, new dice only
+        from go2nav.planning.mixture import DiceModel
+        return DiceModel(name.partition(':')[2], seed=seed)
     if name not in MODELS:
         raise ValueError(f'the model is one of {MODELS} or ring_model:<path>')
     if name.startswith('ring_'):

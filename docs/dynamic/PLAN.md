@@ -1769,6 +1769,53 @@ from a planner that sees the walkers, so their motions are correlated whichever 
 - On a real robot the counterpart is exploration whose commands do not depend on the walkers; branching from one
   state is what the simulator adds, to tell the two apart sooner.
 
+**12. The decision rule** (approved 13 November, after N4 failed item 11's bars). Whether the planner can use a model
+of several futures at all: the true future beside false ones (`planning.mixture`, `mix:<parts>`); then the usual rule
+in expectation over the futures, worked out (`Planner.expected_costs`, `GO2NAV_EXACT`; drawn futures beside it,
+`GO2NAV_SCENARIOS`), a way out for a tape already under the floor (`GO2NAV_RECOVER`) and a walker contact's own price
+(`GO2NAV_WALKER_PRICE`). **Outcome:** with the price at 300 s, chosen on seed 0 with realistic errors (3,000 s: 11
+round trips; 1,000 s: 10; 300 s: 26; 100 s: 16), on four walkers that do not yield, seeds 0-3: perfect predictions
+29.25 round trips and no contact stops; realistic errors 21.5 and none (26 on seed 0, 19-21 on the others: the price
+favoured the seed it was chosen on); N4 6.0 and 8.0.
+
+**13. Contact calibration and N5** (approved 13 November). Models of one future go through the same rule (the ring
+tracker: 12.5 to 16.25 round trips, 14.5 to 8.25 contact stops). `eval.contact_calibration`: at the planner's own
+plans near walkers, the model's chance of a contact against exact replays of every kept tape, and each wrong choice by
+cause and by cost term. Windows branched from the states N4's planner reaches under its own tapes
+(`data.planner_branches`) and N5, N4 fine-tuned on them (`configs/object/n5.yaml`). Bars (approved): fewer false alarms
+and misses, and above 16.25 round trips with at most 8.25 contact stops. **Outcome:** N5 6.75 round trips and 7.0
+contact stops. Misses fell (the chosen tape truly comes within the floor at 23% of probed plans, N4 29%), false alarms
+did not (12%, N4 10%). Fails.
+
+**14. Freeze, M5 and a bank of decisions** (approved 14 November; docs/REVIEW_2026-11-14.md). Since 12 November every
+model has failed (c) in the same loop: a new probe, a patch to the data or the rule, a retrain. Three steps, then a
+learned value as the next piece whatever they show.
+- **The several-futures line stops** (N0-N5); N4 stays its reference. **The rule is frozen** as it stands:
+  `GO2NAV_EXACT=1`, `GO2NAV_RECOVER=1`, `GO2NAV_WALKER_PRICE=300`, `GO2NAV_W_STILL=0`. No switch is added or tuned.
+  Its decision-path constants (`planning.sampling`), counted: the cost 11 (P17's 9, seven named and two written inline,
+  the late breach's discount and the cap on an unreachable distance; and the rule's walker price and the way out's
+  5-mm margin); the proposals about 28 (22 named, 6 inline), unchanged since P17. Five development switches stay off
+  and go at the merge: `CONTACT_CAP`, `FLOOR_EXEMPT`, `SCENARIOS`, `STILL_FRAMES` and the priced rule's `CONTACT_S`.
+- **M5 under the frozen rule.** M5 is the one-future correction to constant velocity that passes (a) (0.033, 0.101,
+  0.325 m) and has never run in a mission. Four walkers that do not yield, seeds 0-3; and 1-2 walkers not yielding,
+  polite and reactive, seed 0, beside the tracker and the true model under the same rule. GPU inference, at most 6
+  mission workers. **Bar (c), as item 7:** a mean of at least 22.25 round trips (the tracker's 16.25 plus 6) and at
+  most 4.1 contact stops (half its 8.25). Read beside it: the parity line (above 16.25 round trips, at most 8.25 contact
+  stops) and, on the other suites, within 3 round trips of the tracker with no more contact stops.
+- **The decision bank** (`eval.decision_bank`): planning moments fixed once, the same for every model. From the
+  tracker's and the true model's missions under the frozen rule (four walkers that do not yield; 1-2 walkers of each
+  kind; seed 0), at plans with a walker within 3 m, up to 4 a mission, evenly spaced; at each, the plan's tapes and
+  each tape's cost under the truth (an exact replay with the walkers' dice). A model is scored by replaying the
+  mission's recorded requests, so it sees the history it would have seen there, costing the same tapes and taking the
+  cheapest: its regret under the truth, its wrong choices by cause (as `eval.contact_calibration`), the share of chosen
+  tapes truly within the floor, and its contact chance's AUC and Brier score. Checks: the true model and the tracker
+  repeat their own missions' choices, and the true model's regret is near nothing (its walkers step at 100 ms, the
+  world's at 2 ms). **Validated before it is used to choose:** on the models with
+  missions (perfect predictions, realistic errors, `dice:8`, the tracker, M5, N4, N5), its order by mean regret against
+  their round trips on four walkers that do not yield.
+- **Next, whatever these show:** a learned value of the state (a critic on the cost to go) in place of the hand terms
+  beyond a short horizon; set out after them.
+
 ### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
 
 - **P24, the predictor in Genesis on the harness's tracks.** The mission harness already tracks walkers (the hand

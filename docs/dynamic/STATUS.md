@@ -2128,3 +2128,56 @@ N2 again: **fails all three**.
   it. The earlier stand-off table read the likeliest future only, which hid the recorded-tape result.
 
 **3. Next** (approved): PLAN P22 item 11, branched windows, and item 10's tape-optimism measure first.
+
+## P22: branched windows, the decision rule and N5 fail (c); the review of 14 November (13-14 November)
+
+**1. N4 (item 11): the branches move the stand-off chances, not the missions.** N3 with half of each batch branched
+windows. (a) 0.065 / 0.165 / 0.424 m, (b) 0.36 / 0.40 / 0.37. A polite walker held up 2-5 s under a hold: a chance of
+moving on of 0.14 / 0.48 at 1.6 / 3.2 s (truly 0.63 / 0.87; N3 0.02 / 0.14). The chosen tape truly within the floor at
+26% of tape-optimism probes (N3 52%). Four walkers that do not yield, old rule: 6.25 round trips, 17.25 contact stops
+(the tracker 12.5 and 14.5). Fails.
+
+**2. The decision rule (item 12).** With perfect predictions (`mix:`, rude4 seed 0) the usual rule makes 29 round trips
+and no contact stops; the same future priced by its probability (`CONTACT_S`) makes 22. Neither a cap on the chance
+nor the floor's exemption fixed it. The rule in expectation over every future, worked out (`GO2NAV_EXACT`), repeats
+the true model's missions exactly; a way out for a tape already under the floor (`GO2NAV_RECOVER`) and a walker
+contact's own price (`GO2NAV_WALKER_PRICE`, 300 s, chosen on seed 0 with realistic errors) complete it. Four walkers
+that do not yield (round trips; contact stops; timeouts), under that rule:
+
+| | Seed 0 | Seed 1 | Seed 2 | Seed 3 | Mean |
+|---|---|---|---|---|---|
+| Perfect predictions | 29; 0; 11 | 30; 0; 10 | 28; 0; 12 | 30; 0; 10 | 29.25; 0; 10.75 |
+| Realistic errors (`mix:noise=0.03,fresh=0.3`) | 26; 0; 14 | 19; 0; 21 | 21; 0; 19 | 20; 0; 20 | 21.5; 0; 18.5 |
+| The ring tracker (one future, through the same rule: item 13) | 18; 7; 15 | 12; 8; 20 | 20; 8; 12 | 15; 10; 15 | 16.25; 8.25; 15.5 |
+| N4 | 6; 10; 24 | 3; 7; 30 | 8; 6; 26 | 7; 9; 24 | 6.0; 8.0; 26.0 |
+
+The price favoured the seed it was chosen on (realistic errors 26 there, 19-21 elsewhere).
+
+**3. Contact calibration (item 13; `eval.contact_calibration`, seed 0).** At the planner's own plans with a walker
+within 3 m, the model's chance of a contact on each kept tape against exact replays; per plan probed:
+
+| | N4 | N5 | The ring tracker | Realistic errors |
+|---|---|---|---|---|
+| Plans probed | 1,155 | 1,187 | 1,074 | 1,144 |
+| AUC; Brier score | 0.91; 0.12 | 0.92; 0.11 | 0.83; 0.17 | 0.997; 0.02 |
+| A wrong choice (regret 2 s or more) | 50% | 45% | 44% | 7% |
+| ... the chosen tape truly within the floor (a miss) | 29% | 23% | 35% | 0.5% |
+| ... the best tape given a chance of 0.5 or more (a false alarm) | 10% | 12% | 6% | 1% |
+| Mean regret | 90 s | 66 s | 112 s | 3 s |
+| Contact term the largest error of a wrong choice | 89% | 90% | 97% | 92% |
+
+N4 ranks contacts better than the tracker and loses its missions: a calibrated spread of futures over 6.4 s puts some
+chance of contact on nearly every tape that moves, and the robot holds.
+
+**4. N5 (item 13): fails.** N4 fine-tuned 10,000 steps on windows branched from the states N4's planner reaches
+(`data.planner_branches`: 188,737 train and 19,986 val windows from 1,100 missions), a quarter random-tape branches and
+a quarter the corpus. On the planner's states the error at 6.4 s fell from 0.44 to 0.41 m (0.40 at step 2,500); on the
+corpus it rose from 0.44 to 0.47 m. Four walkers that do not yield: 9, 5, 5, 8 round trips (6.75), 5, 5, 9, 9 contact
+stops (7.0), 26, 30, 26, 23 timeouts. Misses fell, false alarms did not (above).
+
+**5. The review of 14 November** (docs/REVIEW_2026-11-14.md; approved): every model since 12 November has failed (c)
+in the same loop, the suite is mostly a deadlock in tree mazes, and M5, the one model that passes (a), has never run in
+a mission. PLAN P22 item 14: the several-futures line stops and the rule is frozen; M5 under it; a bank of fixed
+planning moments (`eval.decision_bank`) to rank models in minutes; then a learned value of the state. The oracle
+`dice:8` (`planning.mixture.DiceModel`: the walkers' true rules, kinds and state under eight new sets of dice a plan)
+runs beside them; it copies each walker's pause timer and chosen next cell, so it bounds the rule, not the models.

@@ -79,3 +79,27 @@ class MixtureModel:
         self.groups = np.tile(np.arange(n), len(futures))
         self.ends = true[:, -1]
         return np.concatenate(futures, 2)
+
+
+class DiceModel:
+    """P22 item 13's honest-uncertainty oracle (`dice:<draws>`): the walkers' true rules, kinds and present state (the
+    world's walkers copied, as `TrueModel`'s) under `draws` new sets of dice a plan, each at weight 1/draws, and never
+    the dice the world will throw. The best a model could do that knew everything about the walkers but their future
+    choices (the next cell at a junction, a pause). Each walker's futures are its own group, as a learned model's are;
+    the distance left reads each walker where the first draw leaves it (`ends`)."""
+
+    def __init__(self, draws, seed=0):
+        from go2nav.planning.sampling import TrueModel
+        self.draws = int(draws)
+        if self.draws < 1:
+            raise ValueError('dice: takes the number of draws a plan, at least one')
+        self.fresh = TrueModel(fresh=True, seed=seed)
+        self.weights = self.groups = self.ends = None
+
+    def walkers(self, snapshot, xy, yaw, frames, geometry=None):
+        count, n = xy.shape[0], len(snapshot['walkers'])
+        futures = [self.fresh.walkers(snapshot, xy, yaw, frames, geometry) for _ in range(self.draws)]
+        self.weights = np.full((count, n*self.draws), 1./self.draws)
+        self.groups = np.tile(np.arange(n), self.draws)
+        self.ends = futures[0][:, -1]
+        return np.concatenate(futures, 2)

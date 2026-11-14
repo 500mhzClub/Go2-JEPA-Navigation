@@ -146,6 +146,23 @@ def test_the_mixture_keeps_the_true_future_and_weighs_the_false_ones():
         pass
 
 
+def test_the_dice_oracle_draws_new_dice_and_never_the_worlds():
+    from go2nav.planning import sampling as s
+    w, _ = world(walkers=2)
+    for _ in range(30):
+        w.step((0., 0., 0.))
+    snapshot = w.snapshot()
+    xy, yaw = np.tile(snapshot['xy'], (3, 400, 1)), np.zeros((3, 400))
+    true = s.make_model('true').walkers(snapshot, xy, yaw, np.full(3, 400), w.geometry)
+    model = s.make_model('dice:4', seed=3)
+    paths = model.walkers(snapshot, xy, yaw, np.full(3, 400), w.geometry)
+    assert paths.shape == (3, 400, 8, 2) and np.allclose(model.weights, .25) and list(model.groups) == [0, 1]*4
+    assert np.allclose(paths[:, 5], np.tile(true[:, 5], (1, 4, 1)))               # the same walk until the first draw
+    assert all(not np.allclose(paths[:, -1, 2*d:2*d+2], true[:, -1]) for d in range(4))   # then never the world's
+    assert not np.allclose(paths[:, -1, 0:2], paths[:, -1, 2:4])                  # nor one another's
+    assert np.allclose(paths[0], paths[1]) and np.allclose(model.ends, paths[:, -1, :2])   # the same for every tape
+
+
 def test_drawn_futures_through_the_true_rule_are_the_true_rule_when_there_is_one_future():
     w, record = world(walkers=4)
     for _ in range(40):
