@@ -2283,3 +2283,45 @@ Under the frozen rule nothing changed:
 - the bank, rescored for all seven models, is identical row for row;
 - 24 recorded missions (perfect predictions, the tracker, realistic errors, the oracle; 1-2 walkers) repeat exactly;
 - the unit tests pass (288).
+
+## P22b's reason: what perfect foresight's timeouts are (14 November)
+
+**1. The walkers.**
+- A walker that does not yield stops while the robot is within its reach ahead (0.63 m between centres) and waits
+  for the way to clear. It never turns back.
+- A passage (1.3 m) leaves about 0.43 m beside a walker on its centre line; the robot needs 0.56 m with the 8-cm
+  floor on both sides.
+- So the robot can get by only from a junction, where it can step aside. In a tree maze there is one way to any target.
+
+**2. The 11 timeouts of perfect foresight** (four walkers that do not yield, seed 0, the frozen rule; `eval.deadlocks`,
+replayed from their recorded requests):
+- At the end of every one the robot is trapped: 3-4 walkers wait on it, most for 5-7 minutes, and it cannot reach a
+  junction or its target without passing one.
+- 8 were trapped from the second the last stand-off began: the robot was in a dead-end branch (in 6, after reaching
+  the beacon) when a walker came in.
+- The other 3 had a window of 3-12 s with a junction behind the robot. It held, and more walkers sealed it in.
+
+**3. A longer look-ahead does not raise the suite.** The same 40 missions planned again with perfect foresight:
+
+| Look-ahead | 6.4 s | 12.8 s | 25.6 s |
+|---|---|---|---|
+| Round trips (of 40) | 29 | 28 | 28 |
+| ... of the 11 timeouts, now round trips | | 4 | 5 |
+| ... of the 29 round trips, now timeouts | | 5 | 6 |
+
+Seeing further, the robot avoids some traps and walks into others.
+
+**4. Read.**
+- Perfect foresight's timeouts are a floor of traps for this rule and suite, not a matter of how far ahead it looks
+  (up to 25.6 s).
+- M5 and the honest oracle time out twice as often (22.75 and 23.5 of 40 over seeds 0-3, against 10.75), in the same
+  kind of trap.
+  - In a failed mission, walkers wait on the robot a median 434-445 s of the 480 for both, and 442-450 s for perfect
+    foresight.
+  - They end pinned (two or fewer cells reachable past the walkers) in 17.25 and 13.75 missions, against 6.5.
+  - They give way more (the bank's progress regret: the oracle 4.2 s a moment, perfect foresight 0.6), and a walker
+    that never turns back does not reward waiting.
+- That cost builds up over many plans. A longer open-loop plan does not see it, and no model predicts walkers 12-25 s
+  ahead. P22b's value is to learn it from the robot's own missions.
+- I said earlier today that about half of perfect foresight's timeouts were a horizon problem. That came from
+  replanning the 11 timeouts alone. The whole suite shows the gain is offset.

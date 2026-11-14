@@ -1824,6 +1824,88 @@ learned value as the next piece whatever they show.
   - The five switches are gone (a model of several futures is always costed in expectation, worked out). Nothing
     changed under the frozen rule.
 
+### P22b. A learned value of the state (approved 14 November, after P22 item 14; set out before any run)
+
+**Why.**
+- Under the frozen rule (P22 item 14), M5 makes 16.75 round trips with four walkers that do not yield. The honest
+  oracle, which knows the walkers' rules and hidden state but not their dice, makes 16.0. Better prediction cannot
+  raise it.
+- Perfect foresight times out in 11 of seed 0's 40 missions, and in each the robot ends boxed in by walkers that never
+  turn back (STATUS, P22b's reason). Planned 12.8 or 25.6 s ahead, it avoids 4-5 of those traps and walks into 5-6
+  others (28 round trips either way). That floor is not a matter of look-ahead.
+- M5 and the honest oracle time out twice as often (22.75 and 23.5 of 40, against 10.75), in the same kind of trap.
+  - They give way more (the bank's progress regret), and a walker that never turns back does not reward waiting.
+  - That cost builds up over many plans. No 6.4 s plan sees it, and no model predicts walkers 12-25 s ahead.
+- What a state is worth over the rest of the mission can instead be learned from the robot's own missions: a value,
+  or critic, as TD-MPC2's terminal value and the critic of LeCun's architecture. It is P26's learned end cost brought
+  forward, in the ring world.
+
+Branch `feature/learned-value`. The CPU for the data; the GPU for training and for M5's missions.
+
+**1. What it predicts:** a state's cost to go on the current leg of the round trip, in the rule's seconds.
+- It is the time until the leg's target is reached.
+- If the mission fails first (a contact stop, or the time limit), it is the time until then plus the frozen rule's
+  walker price (300 s). A failure is priced as a walker contact already is; nothing new is priced.
+
+**2. Its input** is the state at a plan's cut point:
+- the robot where the plan leaves it;
+- the walkers where the model predicts them, with their velocities, and each walker's memory from the tracker (P22
+  item 10).
+
+It is drawn as a window 8 m square round the robot, aligned with it, at 0.125 m, with these layers:
+- the walls;
+- the distance to the target through the walls;
+- each walker, as a disc carrying its velocity and memory;
+- the robot's outline.
+
+It is engineered from the layout, the pose and the tracker, as M5's tokens are; the walkers' true states are never an
+input.
+
+**3. The model** (`models/value.py`) is a small convolutional network giving one number.
+- That number is a correction to the frozen rule's distance term: the distance left over `V_REF`, and a sealed way's
+  `SEALED_S`.
+- The head starts at zero, so an untrained value is the frozen rule.
+- It is trained on the GPU, with a Huber loss in seconds.
+
+**4. In the planner** (`Planner(value=...)`, `--value` in the suites):
+- The model prices the first 3.2 s of each plan (time, clearance and a breach, worked out as in the frozen rule).
+  That is where M5 errs 0.10 m.
+- The value prices the rest from the cut point, in place of the distance term.
+- Nothing else in the rule changes.
+
+**5. The data** (`data/value_missions.py`):
+- Missions on the ring corpus's training layouts (`lewm_sets_v1` 0-1,199, tree mazes of 20 cells; validation
+  1,200-1,299), never the evaluation mazes. Each has 1-4 walkers of one kind.
+- The planner is the ring tracker under the frozen rule (0.03 s a plan on one core). At one plan in ten it takes a
+  random kept tape instead, so that the data also hold states the planner would not choose.
+- At every plan the state is kept, with the cost to go the mission then realised. About 5,000 missions, stored
+  compactly; the windows are drawn on the GPU in training.
+- Then one round of the value's own: missions with the tracker and V0 at 3.2 s, and V1 trained on both rounds.
+
+**6. Measures, in order, under the stop rule:**
+- (a) **Offline, validation layouts:** the median error of the cost to go, against that of the frozen rule's distance
+  term, over all moments and over those with a walker within 3 m. **Bar:** at most half its error in both.
+- (b) **The traps:** the 11 timeouts of perfect foresight above, replayed (`eval.deadlocks`). **Bar:** once the robot
+  is boxed in, a cost to go above the failure price (300 s) in at least 9 of 11. Read beside it: the value 5 s before
+  each stand-off began.
+- (c) **Missions:** M5 with the better value by (a), four walkers that do not yield, seeds 0-3.
+  - **Bar, as item 7:** a mean of at least 22.25 round trips and at most 4.1 contact stops.
+  - With 1-2 walkers (not yielding, polite and reactive; seed 0): within 3 round trips of M5 under the frozen rule,
+    with no more contact stops.
+  - **Read beside it,** seed 0: M5 at 3.2 s with the distance term (the shorter horizon alone); the tracker, perfect
+    foresight and the honest oracle with the value; perfect foresight planned 25.6 s ahead (the horizon's ceiling).
+
+**7. Runs:**
+- V0 (the tracker's missions) and V1 (with its own round). M5 is used only in (c).
+- **The risk:** the data come from the tracker's planner, which bumps into walkers more and waits less than M5's. If (c)
+  shows the value mis-pricing M5's states, the fallback is one round of M5's own missions on the GPU (about 90 an hour),
+  overnight.
+
+**Compute.**
+- The data: about 5,000 missions, 1-2 hours on 26 cores; the second round the same.
+- Training: under an hour each on the GPU.
+- (c): about 3 hours of GPU missions (6 workers).
+
 ### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
 
 - **P24, the predictor in Genesis on the harness's tracks.** The mission harness already tracks walkers (the hand
