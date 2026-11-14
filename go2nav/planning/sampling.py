@@ -439,16 +439,16 @@ class Planner:
                 aware[k] = static[k] if sealed_aware[k] else value
         static, aware = np.where(np.isfinite(static), static, 1e3), np.where(np.isfinite(aware), aware, 1e3)
         clean = survive[:, -1]                                                                      # no breach at all
-        progress = (1.-clean)*static/V_REF+clean*(aware/V_REF+SEALED_S*sealed_aware)
+        terminal = aware/V_REF+SEALED_S*sealed_aware                  # the distance term where no breach comes
+        progress = (1.-clean)*static/V_REF+clean*terminal
         if self.value is not None:            # P22b: the learned correction to the distance term, where none breaches
-            progress = progress+clean*self.value.correction(target, end, yaw[:, -1], walkers,
-                                                            aware/V_REF+SEALED_S*sealed_aware)
+            progress = progress+clean*self.value.correction(target, end, yaw[:, -1], walkers, terminal)
         breached = clean < .5
         nearest = np.where(w[:, None] > 0, gaps, np.inf).min(-1) if gaps.shape[-1] else np.full_like(walls, np.inf)
         minimum = np.minimum(walls, nearest).min(1)
         return time+soft+progress+discard, dict(time=time, clearance=soft, progress=progress,
                                                 sealed=sealed_aware & ~breached, breached=breached,
-                                                minimum_clearance=minimum)
+                                                minimum_clearance=minimum, clean=clean, terminal=terminal)
 
     def choose(self, total, terms):
         """The tape taken: the cheapest (P22b's data explore by overriding this)."""

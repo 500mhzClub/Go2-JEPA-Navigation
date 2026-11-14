@@ -1916,6 +1916,41 @@ input.
 - Training: under an hour each on the GPU.
 - (c): about 3 hours of GPU missions (6 workers).
 
+**8. Revised 14 November (approved), after V0 (STATUS P22b).**
+- **What happened:** V0 passed (a) and (b), and in the loop it broke the planner. With V0 at 3.2 s the tracker's
+  planner timed out in 62 of 200 missions, against 11 at 3.2 s without it.
+  - V0 changed the choice at 95-99% of plans. Its corrections spread 52-59 s across the candidate tapes, against 6-7 s
+    for the rest of the cost.
+  - With no walker in view it rated holding still about 25 s cheaper than heading for the target.
+- **Why:** it was trained to be right on average over the states the planner visited. The planner uses only the
+  difference between the states two tapes lead to, and nothing in its data or bars tested that.
+- **Branches** (`data/value_branches.py`). Moments are taken from round 0's missions, two a mission: one with a walker
+  within 3 m and one at random.
+  - At each, the world is copied exactly (the walkers' dice included).
+  - 6 of the planner's candidate tapes are run there: the rule's choice, the hold, the plain way to the target, and
+    random tapes predicted clear.
+  - Each is run for 3.2 s, then the frozen rule's own planner continues, without exploring, until the leg's target is
+    reached or the mission fails.
+  - Kept per tape: the state at the cut as it truly was (for training) and as the planner predicted it (for the
+    measure), the frozen rule's cost of the tape, and the cost to go realised from the cut and from the moment.
+  - 2,000 training missions (24,000 branches) and 300 validation missions.
+  - The value so learnt is the frozen rule's own cost to go after the cut, so choosing tapes by it is one step of
+    improving on that rule.
+- **Training:** three terms, weighted equally, in the same units:
+  - the branches' realised costs from their cuts;
+  - round 0's realised costs (as before);
+  - consistency along round 0's missions: a moment's value is the seconds to the next plan plus the next moment's value
+    (that value held fixed), and the last moment of a leg takes its realised cost.
+- **Measures, in order** (each a bar; (c) runs only if all pass):
+  - **(a′) Ranking, the new bar:** at the validation branches' moments, the planner's choice among the 6 tapes, by its
+    3.2 s cost plus the value at each tape's predicted cut, scored by the chosen tape's realised cost less the best
+    tape's (regret). **Bar:** a mean regret at most half the frozen rule's at the same cut. Read beside it: the rank
+    correlation, and how often the value holds where the rule does not.
+  - (a) and (b) as before.
+  - (c) as before.
+- **Runs:** V2. V0's round-1 data are not used: the costs they realised are V0's planner's, not the frozen rule's.
+- **Compute:** the branches about 4-5 hours on 26 cores; training and measures about an hour.
+
 ### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
 
 - **P24, the predictor in Genesis on the harness's tracks.** The mission harness already tracks walkers (the hand

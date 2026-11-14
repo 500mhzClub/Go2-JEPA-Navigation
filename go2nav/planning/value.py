@@ -80,22 +80,30 @@ class Value:
     def correction(self, target, xy, yaw, walkers, base):
         """Seconds (K,) to add to the distance term `base` (K,) of tapes ending at xy (K, 2), yaw (K,), the model's
         walkers along them (K, T, J, 2)."""
-        from go2nav.sim.kinematic import FRAME_S
         now, count = self.walkers.now, len(xy)
-        slots_xy = np.tile(now['xy'], (count, 1, 1))
-        slots_v = np.tile(now['velocity'], (count, 1, 1))
-        if walkers.shape[2] and walkers.shape[1] > 1:
-            start = walkers[0, 0]                                                    # (J, 2): the same for every tape
-            for k in np.flatnonzero(now['present']):
-                gap = np.linalg.norm(start-now['xy'][k], axis=1)
-                j = int(np.argmin(gap))
-                if gap[j] < MATCH_M:
-                    slots_xy[:, k] = walkers[:, -1, j]
-                    slots_v[:, k] = (walkers[:, -1, j]-walkers[:, -2, j])/FRAME_S
-        own = self.fields.value(self.fields.static(target), xy)
-        own = np.where(np.isfinite(own), own, vm.FAR_M)
+        slots_xy, slots_v, own = cut_inputs(now, walkers, xy, self.fields, target)
         t = lambda a: torch.as_tensor(np.asarray(a, np.float32), device=self.device)
         window = vm.draw(self.walls, self._distance(target), self.low, t(xy), t(yaw), t(own), t(slots_xy), t(slots_v),
                          t(np.tile(now['memory'], (count, 1, 1))),
                          torch.as_tensor(np.tile(now['present'], (count, 1)), device=self.device))
         return self.net(window, t(base), t(own)).cpu().numpy().astype(float)
+
+
+def cut_inputs(now, walkers, xy, fields, target):
+    """The value's walkers at each tape's end (K, S, 2 positions and velocities; each slot where the model leaves its
+    walker, see the module docstring) and the robot's walking distance there (K,), from the slots `now`
+    (`WalkerState.now`), the model's walkers (K, T, J, 2) and the tapes' ends xy (K, 2)."""
+    from go2nav.sim.kinematic import FRAME_S
+    count = len(xy)
+    slots_xy = np.tile(now['xy'], (count, 1, 1))
+    slots_v = np.tile(now['velocity'], (count, 1, 1))
+    if walkers.shape[2] and walkers.shape[1] > 1:
+        start = walkers[0, 0]                                                        # (J, 2): the same for every tape
+        for k in np.flatnonzero(now['present']):
+            gap = np.linalg.norm(start-now['xy'][k], axis=1)
+            j = int(np.argmin(gap))
+            if gap[j] < MATCH_M:
+                slots_xy[:, k] = walkers[:, -1, j]
+                slots_v[:, k] = (walkers[:, -1, j]-walkers[:, -2, j])/FRAME_S
+    own = fields.value(fields.static(target), xy)
+    return slots_xy, slots_v, np.where(np.isfinite(own), own, vm.FAR_M)

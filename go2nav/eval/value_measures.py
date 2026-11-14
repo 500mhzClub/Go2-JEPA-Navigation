@@ -1,7 +1,12 @@
-"""P22b's measures (a) and (b) (docs/dynamic/PLAN.md) of a trained value (`models.value`, `training.value`).
+"""P22b's measures (a), (a′) and (b) (docs/dynamic/PLAN.md) of a trained value (`models.value`, `training.value`).
 
     python -m go2nav.eval.value_measures offline --data DATA/packed [...] --model RUN/model.pt --out FILE
+    python -m go2nav.eval.value_measures ranking --branches BRANCHES/packed --model RUN/model.pt --out FILE
     python -m go2nav.eval.value_measures traps --bank BANK --model RUN/model.pt --out FILE [--source true_rude4]
+
+- `ranking` (a′, item 8): at the validation branches' moments (`data.value_branches`), the planner's choice among the
+  tapes by the value against the frozen rule's at the same cut, each scored by the realised cost of the chosen tape less
+  the best's (`training.value.ranking`). Bar: the value's mean regret at most half the frozen rule's. On the GPU.
 
 - `offline` (a): on the validation layouts' moments, the mean squared error of the cost to go of the value and of the
   frozen rule's distance term alone, over all moments and over those with a walker within 3 m, with the medians beside
@@ -35,6 +40,20 @@ def offline(folders, model, out):
     report = evaluate(vm.load(model, device), moments, grids, limit=len(moments['cost']))
     report['passes'] = all(report[k]['ratio'] <= .5 for k in ('all', 'near'))
     Path(out).write_text(json.dumps(dict(model=str(model), data=[str(f) for f in folders], **report), indent=1)+'\n')
+    return report
+
+
+def ranking(branches, model, out):
+    import torch
+    from go2nav.models import value as vm
+    from go2nav.training.value import load_branches, ranking as rank
+    if not torch.cuda.is_available():
+        raise RuntimeError('the ranking measure runs on the GPU')
+    device = torch.device('cuda:0')
+    data, grids = load_branches(branches, 'val', device)
+    report = rank(vm.load(model, device), data, grids)
+    report['passes'] = report['ratio'] <= .5
+    Path(out).write_text(json.dumps(dict(model=str(model), branches=str(branches), **report), indent=1)+'\n')
     return report
 
 
@@ -103,6 +122,10 @@ def main():
     o.add_argument('--data', required=True, type=Path, nargs='+')
     o.add_argument('--model', required=True, type=Path)
     o.add_argument('--out', required=True, type=Path)
+    r = sub.add_parser('ranking')
+    r.add_argument('--branches', required=True, type=Path)
+    r.add_argument('--model', required=True, type=Path)
+    r.add_argument('--out', required=True, type=Path)
     t = sub.add_parser('traps')
     t.add_argument('--bank', required=True, type=Path)
     t.add_argument('--model', required=True, type=Path)
@@ -112,6 +135,8 @@ def main():
     a = p.parse_args()
     if a.command == 'offline':
         report = offline(a.data, a.model, a.out)
+    elif a.command == 'ranking':
+        report = ranking(a.branches, a.model, a.out)
     else:
         report = traps(a.bank, a.model, a.out, a.source, a.workers)
         report = {k: v for k, v in report.items() if k != 'missions'}

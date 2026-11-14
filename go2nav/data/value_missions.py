@@ -69,7 +69,12 @@ def exploring(*args, explore_seed, **kwargs):
     from go2nav.planning.sampling import Planner
 
     class Exploring(Planner):
+        greedy = False                         # set on a copy that must not explore (`data.value_branches`)
+
         def choose(self, total, terms):
+            if self.greedy:
+                self.explored = False
+                return int(total.argmin())
             self.explored = bool(self.explore_rng.random() < EXPLORE)
             clear = np.flatnonzero(~np.asarray(terms['breached'], bool))
             if self.explored and len(clear):

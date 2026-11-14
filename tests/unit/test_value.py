@@ -114,6 +114,26 @@ def test_exploring_changes_only_the_tape_taken(monkeypatch):
 
 @pytest.mark.skipif(not __import__('go2nav.data.value_missions', fromlist=['x']).mazes_root().exists(),
                     reason='needs the corpus layouts (GO2NAV_MAZES_ROOT)')
+def test_a_branched_mission_repeats_round_0_and_its_branches_add_up(monkeypatch):
+    for k, v in FROZEN.items():
+        monkeypatch.setenv(k, v)
+    from go2nav.data import value_branches as vb
+    from go2nav.data import value_missions as vmi
+    job = vmi.job(2, 5000, 500)
+    meta, arrays = vmi.run(job)
+    frames = [int(arrays['frame'][3]), int(arrays['frame'][40])]
+    ended, last, moments = vb.run_moments(job, frames, vmi.mazes_root(), 300.)
+    assert (ended, last) == (meta['exit'], meta['frames']) and [m[0] for m in moments] == frames
+    for frame, leg, names, a in moments:
+        assert names[1] == 'hold' and names[2].startswith('target@') and len(names) == vb.TAPES
+        reached = a['cut_reached']
+        assert np.allclose(a['cost_moment'][reached], a['cost_cut'][reached]+vb.CUT_S)
+        assert (a['cost_moment'] > 0).all() and np.isfinite(a['cut_base'][reached]).all()
+        assert np.isclose(a['rule'][0], a['rule'].min())                   # the rule's choice first
+
+
+@pytest.mark.skipif(not __import__('go2nav.data.value_missions', fromlist=['x']).mazes_root().exists(),
+                    reason='needs the corpus layouts (GO2NAV_MAZES_ROOT)')
 def test_a_data_mission_keeps_every_plan_s_state_and_its_cost_to_go(monkeypatch):
     for k, v in FROZEN.items():
         monkeypatch.setenv(k, v)
