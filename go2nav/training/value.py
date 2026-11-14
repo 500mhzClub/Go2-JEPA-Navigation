@@ -4,10 +4,13 @@ the robot (`models.value`), as a correction to the frozen rule's distance term.
     python -m go2nav.training.value --data DATA/packed [MORE/packed ...] --out RUN [--steps 20000] [--batch 1024]
 
 On the GPU only (the dedicated R9700; it refuses the CPU). Each moment's window is drawn on the GPU from its stored
-state and its layout's grids. Huber loss in seconds (`DELTA_S`); Adam with a warm-up and a cosine decay. Every `EVERY`
-steps (`evaluate`): on the validation split, the median error of the value and of the distance term alone, over all
-moments and over those with a walker within `NEAR_M`; a checkpoint (RUN/last.pt, which a rerun resumes from); and the
-best by the value's median error over all moments (RUN/model.pt). RUN/train.log has a line per evaluation.
+state and its layout's grids. A squared-error loss (in units of `models.value.BASE_S`), so that the value is the
+expected cost to go, as the planner's other terms are expectations (approved 14 November, in place of a Huber loss,
+which learns the typical outcome and would pass over a rare failure); Adam with a warm-up and a cosine decay. Every
+`EVERY` steps (`evaluate`): on the validation split, the mean squared error of the value and of the distance term
+alone, over all moments and over those with a walker within `NEAR_M`, with the medians beside them; a checkpoint
+(RUN/last.pt, which a rerun resumes from); and the best by the value's mean squared error over all moments
+(RUN/model.pt). RUN/train.log has a line per evaluation.
 """
 import argparse
 import json
@@ -21,7 +24,7 @@ import torch.nn.functional as F
 
 from go2nav.models import value as vm
 
-DELTA_S, EVERY, NEAR_M, VAL_LIMIT, CHUNK = 10., 1000, 3., 200_000, 4096
+EVERY, NEAR_M, VAL_LIMIT, CHUNK = 1000, 3., 200_000, 4096
 FIELDS = ('xy', 'yaw', 'slots_xy', 'slots_v', 'memory', 'present', 'base', 'own', 'cost', 'leg', 'grid')
 
 
@@ -58,7 +61,8 @@ def near(moments, idx):
 
 @torch.no_grad()
 def evaluate(net, moments, grids, limit=VAL_LIMIT):
-    """Median errors (seconds) of the value and of the distance term alone, over all moments and those near walkers."""
+    """Mean squared errors (s^2), with the medians of the absolute errors (s), of the value and of the distance term
+    alone, over all moments and those near walkers; `ratio`: the value's mean squared error over the distance term's."""
     count = len(moments['cost'])
     idx_all = torch.arange(count, device=moments['cost'].device)
     if count > limit:
@@ -72,9 +76,12 @@ def evaluate(net, moments, grids, limit=VAL_LIMIT):
     cost, base = moments['cost'][idx_all], moments['base'][idx_all]
     out = {}
     for name, keep in (('all', torch.ones_like(close)), ('near', close)):
-        out[name] = dict(moments=int(keep.sum()), value_s=float((value-cost)[keep].abs().median()),
-                         distance_term_s=float((base-cost)[keep].abs().median()))
-        out[name]['ratio'] = round(out[name]['value_s']/max(out[name]['distance_term_s'], 1e-9), 3)
+        a, b = (value-cost)[keep], (base-cost)[keep]
+        out[name] = dict(moments=int(keep.sum()), value_mse=round(float((a**2).mean()), 1),
+                         distance_term_mse=round(float((b**2).mean()), 1),
+                         value_median_s=round(float(a.abs().median()), 2),
+                         distance_term_median_s=round(float(b.abs().median()), 2))
+        out[name]['ratio'] = round(out[name]['value_mse']/max(out[name]['distance_term_mse'], 1e-9), 3)
     return out
 
 
@@ -107,7 +114,7 @@ def train(folders, out, steps=20000, batch=1024, lr=3e-4, warmup=500, seed=0):
     for step in range(start, steps):
         idx = torch.randint(0, len(train_set['cost']), (batch,), device=device, generator=generator)
         correction = net(windows(train_set, grids, idx), train_set['base'][idx], train_set['own'][idx])
-        loss = F.huber_loss(train_set['base'][idx]+correction, train_set['cost'][idx], delta=DELTA_S)
+        loss = F.mse_loss((train_set['base'][idx]+correction)/vm.BASE_S, train_set['cost'][idx]/vm.BASE_S)
         optimiser.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(net.parameters(), 1.)
@@ -118,10 +125,10 @@ def train(folders, out, steps=20000, batch=1024, lr=3e-4, warmup=500, seed=0):
             net.eval()
             report = evaluate(net, val_set, val_grids)
             net.train()
-            line = dict(step=step+1, loss=round(total/EVERY, 3), seconds=round(time.time()-began, 1), **report)
+            line = dict(step=step+1, loss=round(total/EVERY, 4), seconds=round(time.time()-began, 1), **report)
             total = 0.
-            if report['all']['value_s'] < best:
-                best = report['all']['value_s']
+            if report['all']['value_mse'] < best:
+                best = report['all']['value_mse']
                 vm.save(out/'model.pt', net, dict(step=step+1, val=report))
                 line['best'] = True
             torch.save(dict(model=net.state_dict(), optimiser=optimiser.state_dict(), schedule=schedule.state_dict(),

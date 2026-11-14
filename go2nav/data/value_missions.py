@@ -10,8 +10,8 @@ with the cost to go that the mission then realised.
 episodes (home pose and beacon); 1-4 walkers all of one kind (not yielding, polite or reactive), placed as missions
 place them; the round trip (`planning.mission.RoundTripMission`) within 480 s. The planner is P17's with the ring
 tracker (`ring_velocity`) under the frozen rule, which the environment must set; 6.4 s and the walkers terminal, or
-with `--value` P22b's value at `--horizon`. At one plan in `EXPLORE` it takes a random tape of those clear of the walls
-(`Exploring.choose`), so that the data also hold states the planner would not choose.
+with `--value` P22b's value at `--horizon`. At one plan in `EXPLORE` it takes a random tape of those it predicts clear
+of the walls and the walkers (`exploring`), so that the data also hold states the planner would not choose.
 
 **Kept**, OUT/<split>/<index>.npz and .json, at every plan: the frame, the leg (0 to the beacon, 1 home), the robot's
 pose, the walkers' slots (`planning.value.WalkerState`: position, velocity, memory, present), the frozen rule's distance
@@ -63,13 +63,15 @@ def own_distance(fields, target, xy):
 
 
 def exploring(*args, explore_seed, **kwargs):
-    """P17's planner that, at one plan in `EXPLORE`, takes a random tape clear of the walls."""
-    from go2nav.planning.sampling import DISCARD, Planner
+    """P17's planner that, at one plan in `EXPLORE`, takes a random tape of those it predicts clear of the walls and the
+    walkers (no breach). Clear of the walls alone, 85% of the first build's walker contacts came within three plans of a
+    random tape (by chance 27%): the exploration's own, which turned the traps into contacts."""
+    from go2nav.planning.sampling import Planner
 
     class Exploring(Planner):
         def choose(self, total, terms):
             self.explored = bool(self.explore_rng.random() < EXPLORE)
-            clear = np.flatnonzero(total < DISCARD)
+            clear = np.flatnonzero(~np.asarray(terms['breached'], bool))
             if self.explored and len(clear):
                 return int(self.explore_rng.choice(clear))
             self.explored = False

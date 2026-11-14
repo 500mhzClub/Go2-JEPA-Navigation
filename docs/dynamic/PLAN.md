@@ -1865,7 +1865,9 @@ input.
 - That number is a correction to the frozen rule's distance term: the distance left over `V_REF`, and a sealed way's
   `SEALED_S`.
 - The head starts at zero, so an untrained value is the frozen rule.
-- It is trained on the GPU, with a Huber loss in seconds.
+- It is trained on the GPU, with a squared-error loss, so that it learns the expected cost to go, as the planner's
+  other terms are expectations. Changed 14 November before any training (approved): the Huber loss first set out
+  learns the typical outcome, and would value a state with a 20% chance of ending trapped as if it always succeeded.
 
 **4. In the planner** (`Planner(value=...)`, `--value` in the suites):
 - The model prices the first 3.2 s of each plan (time, clearance and a breach, worked out as in the frozen rule).
@@ -1877,14 +1879,22 @@ input.
 - Missions on the ring corpus's training layouts (`lewm_sets_v1` 0-1,199, tree mazes of 20 cells; validation
   1,200-1,299), never the evaluation mazes. Each has 1-4 walkers of one kind.
 - The planner is the ring tracker under the frozen rule (0.03 s a plan on one core). At one plan in ten it takes a
-  random kept tape instead, so that the data also hold states the planner would not choose.
+  random kept tape instead, so that the data also hold states the planner would not choose. A kept tape is one the
+  planner predicts clear of the walls and the walkers.
+  - Rebuilt 14 November. The first build kept tapes clear of the walls alone, and its random tapes made its failures:
+    85% of its walker contacts came within three plans of one (by chance 27%), and it had 1 timeout in 4,500
+    missions, as random tapes turned the traps into contacts.
 - At every plan the state is kept, with the cost to go the mission then realised. About 5,000 missions, stored
   compactly; the windows are drawn on the GPU in training.
 - Then one round of the value's own: missions with the tracker and V0 at 3.2 s, and V1 trained on both rounds.
 
 **6. Measures, in order, under the stop rule:**
-- (a) **Offline, validation layouts:** the median error of the cost to go, against that of the frozen rule's distance
-  term, over all moments and over those with a walker within 3 m. **Bar:** at most half its error in both.
+- (a) **Offline, validation layouts:** the mean squared error of the cost to go, against that of the frozen rule's
+  distance term, over all moments and over those with a walker within 3 m. **Bar:** at most half its mean squared error
+  in both. The medians are reported beside it.
+  - Changed 14 November before any training (approved). The bar first set out compared medians. Most moments are on
+    clear paths, where the distance term is already within about 3 s, so a median can neither see the rare failures
+    the value is for nor tell the expected cost from the typical one.
 - (b) **The traps:** the 11 timeouts of perfect foresight above, replayed (`eval.deadlocks`). **Bar:** once the robot
   is boxed in, a cost to go above the failure price (300 s) in at least 9 of 11. Read beside it: the value 5 s before
   each stand-off began.

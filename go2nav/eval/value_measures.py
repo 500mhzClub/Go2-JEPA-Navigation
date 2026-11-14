@@ -3,9 +3,10 @@
     python -m go2nav.eval.value_measures offline --data DATA/packed [...] --model RUN/model.pt --out FILE
     python -m go2nav.eval.value_measures traps --bank BANK --model RUN/model.pt --out FILE [--source true_rude4]
 
-- `offline` (a): on the validation layouts' moments, the median error of the cost to go of the value and of the frozen
-  rule's distance term alone, over all moments and over those with a walker within 3 m (`training.value.evaluate`,
-  every moment). Bar: the value at most half the distance term's error in both. On the GPU.
+- `offline` (a): on the validation layouts' moments, the mean squared error of the cost to go of the value and of the
+  frozen rule's distance term alone, over all moments and over those with a walker within 3 m, with the medians beside
+  them (`training.value.evaluate`, every moment). Bar (approved 14 November in place of the medians): the value's mean
+  squared error at most half the distance term's in both. On the GPU.
 - `traps` (b): the timed-out missions of a decision bank source (`eval.decision_bank`), replayed from their recorded
   requests; every second, whether the robot is trapped (`eval.deadlocks.trapped`) and the value's cost to go at its
   state (its walkers from the value's own tracker on the scan). Bar: while trapped, a median above the failure price

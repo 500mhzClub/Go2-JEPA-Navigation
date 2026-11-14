@@ -97,7 +97,7 @@ def test_exploring_changes_only_the_tape_taken(monkeypatch):
     for k, v in FROZEN.items():
         monkeypatch.setenv(k, v)
     from go2nav.data import value_missions as vmi
-    from go2nav.planning.sampling import DISCARD, Planner
+    from go2nav.planning.sampling import Planner
     w, record = world(walkers=2)
     snapshot, target = w.snapshot(), record['beacon_xy_world']
     plain = Planner(w.geometry, horizon_s=6.4, terminal='walkers', model='true', seed=3)
@@ -109,7 +109,7 @@ def test_exploring_changes_only_the_tape_taken(monkeypatch):
     requested, _ = always.proposals(snapshot, target)
     total, terms = always.costs(snapshot, target, requested)
     k = always.choose(total, terms)
-    assert always.explored and total[k] < DISCARD
+    assert always.explored and not terms['breached'][k]
 
 
 @pytest.mark.skipif(not __import__('go2nav.data.value_missions', fromlist=['x']).mazes_root().exists(),
