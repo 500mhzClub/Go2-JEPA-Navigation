@@ -38,7 +38,8 @@ rules under new dice only, `planning.mixture.DiceModel`).
 A model of several futures (one that sets `weights`) is costed in expectation over them, worked out
 (`Planner.expected_costs`); `GO2NAV_EXACT=1` sends a model of one future through it too, where `GO2NAV_RECOVER=1` lets a
 tape already under the floor move away (by 5 mm) and `GO2NAV_WALKER_PRICE` gives a walker's breach its own price. The
-frozen rule (PLAN P22 item 14): all three, the price 300 s, with `GO2NAV_W_STILL=0` (no still future).
+frozen rule (PLAN P22 item 14): all three, the price 300 s, with `GO2NAV_W_STILL=0` (no still future). P22b: with a
+`value` (`planning.value.Value`), under the frozen rule, a learned correction to the distance term at each tape's end.
 """
 import copy
 import os
@@ -218,7 +219,8 @@ def make_model(name, seed=0):
 
 
 class Planner:
-    def __init__(self, geometry, *, horizon_s, terminal='static', seed=0, model='true', max_speed=None, cells=True):
+    def __init__(self, geometry, *, horizon_s, terminal='static', seed=0, model='true', max_speed=None, cells=True,
+                 value=None):
         if terminal not in ('static', 'walkers'):
             raise ValueError("terminal is 'static' or 'walkers'")
         self.geometry, self.fields, self.terminal = geometry, Fields(geometry), terminal
@@ -226,6 +228,11 @@ class Planner:
         self.model = make_model(model, seed) if isinstance(model, str) else model
         if hasattr(self.model, 'bind'):
             self.model.bind(self.fields)
+        self.value = None                     # P22b: a learned value of the state at each tape's end (`planning.value`)
+        if value is not None:
+            from go2nav.planning.value import Value
+            self.value = Value(value) if isinstance(value, (str, os.PathLike)) else value
+            self.value.bind(self.fields)
         self.speeds = SPEEDS if max_speed is None else tuple(v*max_speed/SPEEDS[0] for v in SPEEDS)
         self.max_speed, self.use_cells = max_speed, cells
         self.rng = np.random.default_rng(seed)
@@ -343,9 +350,11 @@ class Planner:
         extra = dict(requested=requested) if getattr(self.model, 'takes_tapes', False) else {}
         walkers = self.model.walkers(snapshot, xy, yaw, alive, self.geometry, **extra)
         weights = getattr(self.model, 'weights', None)
-        if walkers.shape[2] and (weights is not None or self.exact):
+        if (walkers.shape[2] and (weights is not None or self.exact)) or self.value is not None:
             # a model of several futures (`weights`), in expectation worked out; with `exact` a model of one future too,
-            # each walker's at weight 1 (P22 items 12-14)
+            # each walker's at weight 1 (P22 items 12-14); with P22b's value, always
+            if self.value is not None and not self.exact:
+                raise ValueError("P22b's value is read under the frozen rule (GO2NAV_EXACT=1)")
             groups = self.model.groups if weights is not None else np.arange(walkers.shape[2])
             weights = weights if weights is not None else np.ones((count, walkers.shape[2]))
             return self.expected_costs(snapshot, target, xy, yaw, walls, walkers, weights, groups)
@@ -431,11 +440,19 @@ class Planner:
         static, aware = np.where(np.isfinite(static), static, 1e3), np.where(np.isfinite(aware), aware, 1e3)
         clean = survive[:, -1]                                                                      # no breach at all
         progress = (1.-clean)*static/V_REF+clean*(aware/V_REF+SEALED_S*sealed_aware)
+        if self.value is not None:            # P22b: the learned correction to the distance term, where none breaches
+            progress = progress+clean*self.value.correction(target, end, yaw[:, -1], walkers,
+                                                            aware/V_REF+SEALED_S*sealed_aware)
         breached = clean < .5
-        minimum = np.minimum(walls, np.where(w[:, None] > 0, gaps, np.inf).min(-1)).min(1)
+        nearest = np.where(w[:, None] > 0, gaps, np.inf).min(-1) if gaps.shape[-1] else np.full_like(walls, np.inf)
+        minimum = np.minimum(walls, nearest).min(1)
         return time+soft+progress+discard, dict(time=time, clearance=soft, progress=progress,
                                                 sealed=sealed_aware & ~breached, breached=breached,
                                                 minimum_clearance=minimum)
+
+    def choose(self, total, terms):
+        """The tape taken: the cheapest (P22b's data explore by overriding this)."""
+        return int(total.argmin())
 
     def plan(self, snapshot, target):
         """The next `REPLAN_FRAMES` requests (n, 3) from the world's snapshot towards `target`, and what was chosen."""
@@ -444,7 +461,7 @@ class Planner:
             self.previous, self.target = None, target.copy()
         requested, names = self.proposals(snapshot, target)
         total, terms = self.costs(snapshot, target, requested)
-        k = int(total.argmin())
+        k = self.choose(total, terms)
         self.previous = requested[k]
         return requested[k, :REPLAN_FRAMES].astype(np.float32), dict(
             chosen=names[k], cost=float(total[k]), proposals=len(names), sealed=bool(terms['sealed'][k]),
