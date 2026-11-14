@@ -1815,6 +1815,14 @@ learned value as the next piece whatever they show.
   their round trips on four walkers that do not yield.
 - **Next, whatever these show:** a learned value of the state (a critic on the cost to go) in place of the hand terms
   beyond a short horizon; set out after them.
+- **Outcome** (STATUS P22 item 14).
+  - M5 makes 16.75 round trips and 0.5 contact stops over seeds 0-3, so it fails (c). It is above the parity line,
+    and within it on the other suites.
+  - The honest oracle makes 16.0 and 0.5, so (c) cannot be reached by prediction under this rule.
+  - The bank repeats its sources exactly. It orders the models as their contact stops (Spearman 0.98), not their round
+    trips (0.68), so the validation fails as set: it ranks contact risk, not missions.
+  - The five switches are gone (a model of several futures is always costed in expectation, worked out). Nothing
+    changed under the frozen rule.
 
 ### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
 

@@ -77,7 +77,7 @@ TERMS = ('time', 'clearance', 'progress', 'contact')
 
 def split(total, terms):
     """A tape's cost (K,) in its parts (4, K): time, clearance, progress (the distance left, and a sealed way), and the
-    rest (`contact`: the breach's cost, and under the priced rule the risk)."""
+    rest (`contact`: the breach's cost)."""
     parts = [np.asarray(terms[k], float) for k in TERMS[:3]]
     return np.stack(parts+[np.asarray(total, float)-sum(parts)])
 

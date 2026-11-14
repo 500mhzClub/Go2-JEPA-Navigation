@@ -34,6 +34,11 @@ rules under new dice only, `planning.mixture.DiceModel`).
   is taken);
 - progress: the distance left from the tape's end over `V_REF`. `terminal='static'`: through the walls alone.
   `terminal='walkers'`: with the walkers, where the tape leaves them, as obstacles; a sealed way costs `SEALED_S` more.
+
+A model of several futures (one that sets `weights`) is costed in expectation over them, worked out
+(`Planner.expected_costs`); `GO2NAV_EXACT=1` sends a model of one future through it too, where `GO2NAV_RECOVER=1` lets a
+tape already under the floor move away (by 5 mm) and `GO2NAV_WALKER_PRICE` gives a walker's breach its own price. The
+frozen rule (PLAN P22 item 14): all three, the price 300 s, with `GO2NAV_W_STILL=0` (no still future).
 """
 import copy
 import os
@@ -50,8 +55,6 @@ FRAME_S = kin.FRAME_S
 REPLAN_FRAMES, KNOT_FRAMES = 4, 8
 V_REF, ARRIVE_M, NEAR_M = .3, .03, .4
 FLOOR_M, SOFT_M, CLEARANCE_RATE, SEALED_S, DISCARD = .08, .20, 2., 200., 1e4
-CONTACT_S = 2000.          # what a contact costs a tape, times its probability (a model of several futures)
-CONTACT_CAP = None         # P22 item 12: a tape whose chance of contact passes this is discarded as a breach (None: priced)
 HOPS, WAITS_S, SPEEDS, REVERSE_M_S = 3, (2., 5., 10., 20.), (.4, .25, .12), .25
 RING_M, RING, AT_CELL_M, TURN_GAIN, ALIGNED_RAD = .3, 16, .15, 2., .8
 GAUSSIANS, SIGMA = 16, (.12, .06, .25)
@@ -199,9 +202,7 @@ def make_model(name, seed=0):
         from go2nav.planning.object_model import ModesModel
         model = ModesModel(name.partition(':')[2])
         model.EXPECT = name.startswith('expect:')
-        import os                                             # development switches (STATUS P22)
-        model.W_STILL = float(os.environ.get('GO2NAV_W_STILL', model.W_STILL))
-        model.STILL_FRAMES = int(os.environ.get('GO2NAV_STILL_FRAMES', model.STILL_FRAMES))
+        model.W_STILL = float(os.environ.get('GO2NAV_W_STILL', model.W_STILL))   # the frozen rule: 0 (P22 item 14)
         return model
     if name.startswith('mix:'):                                       # P22 item 12: the true future beside false ones
         from go2nav.planning.mixture import MixtureModel
@@ -228,12 +229,6 @@ class Planner:
         self.speeds = SPEEDS if max_speed is None else tuple(v*max_speed/SPEEDS[0] for v in SPEEDS)
         self.max_speed, self.use_cells = max_speed, cells
         self.rng = np.random.default_rng(seed)
-        self.contact_cap = None                     # overrides CONTACT_CAP (the suites set it by GO2NAV_CONTACT_CAP)
-        if os.environ.get('GO2NAV_CONTACT_CAP'):
-            self.contact_cap = float(os.environ['GO2NAV_CONTACT_CAP'])
-        self.floor_exempt = os.environ.get('GO2NAV_FLOOR_EXEMPT', '1') != '0'
-        self.scenarios = int(os.environ.get('GO2NAV_SCENARIOS', '0'))    # P22 item 12: `scenario_costs` when set
-        self.scenario_rng = np.random.default_rng([seed, 31])           # not `rng`: the proposals stay as they were
         self.exact = os.environ.get('GO2NAV_EXACT', '0') == '1'          # P22 item 12: `expected_costs` when set
         self.recover = os.environ.get('GO2NAV_RECOVER', '0') == '1'      # ... with a way out from under the floor
         self.walker_price = float(os.environ['GO2NAV_WALKER_PRICE']) if os.environ.get('GO2NAV_WALKER_PRICE') else None
@@ -347,41 +342,18 @@ class Planner:
         alive = np.where(breach.any(1), breach.argmax(1)+1, frames)          # frames worth stepping the walkers for
         extra = dict(requested=requested) if getattr(self.model, 'takes_tapes', False) else {}
         walkers = self.model.walkers(snapshot, xy, yaw, alive, self.geometry, **extra)
-        clearance = walls
-        weights, risk, expected_soft = getattr(self.model, 'weights', None), 0., 0.
-        if walkers.shape[2] and self.exact:            # a model of one future: each walker's, at weight 1 (P22 item 13)
+        weights = getattr(self.model, 'weights', None)
+        if walkers.shape[2] and (weights is not None or self.exact):
+            # a model of several futures (`weights`), in expectation worked out; with `exact` a model of one future too,
+            # each walker's at weight 1 (P22 items 12-14)
             groups = self.model.groups if weights is not None else np.arange(walkers.shape[2])
             weights = weights if weights is not None else np.ones((count, walkers.shape[2]))
             return self.expected_costs(snapshot, target, xy, yaw, walls, walkers, weights, groups)
-        if weights is not None and walkers.shape[2] and self.scenarios:
-            return self.scenario_costs(target, xy, yaw, walls, walkers, weights, self.model.groups)
-        capped = None
-        if weights is not None and walkers.shape[2]:
-            # a model of several futures with probabilities: a contact is priced by its probability, not ruled out
-            gaps = kin.rectangle_gap(walkers, xy[:, :, None], yaw[:, :, None])-moving.RADIUS_M       # (K, T, n)
-            now = kin.rectangle_gap(walkers[:, 0], snapshot['xy'], snapshot['yaw'])-moving.RADIUS_M   # (K, n)
-            floor = np.minimum(FLOOR_M, now-.005)      # already under the floor: a tape may still not go nearer
-            if not self.floor_exempt:                  # P22 item 12: as the true model's rule, under it is a breach
-                floor = np.full_like(now, FLOOR_M)
-            hits = np.maximum.accumulate(gaps < floor[:, None], 1)                    # (K, T, n): a contact by then
-            groups = self.model.groups
-            clear = np.ones((count, frames))
-            for g in np.unique(groups):
-                clear = clear*(1.-np.clip((weights[:, None, groups == g]*hits[..., groups == g]).sum(-1), 0., 1.))
-            chance = 1.-clear                                                         # (K, T): of a contact by then
-            cap = CONTACT_CAP if self.contact_cap is None else self.contact_cap
-            if cap is not None:
-                capped = chance > cap                     # past the cap: a breach from then, as the true model's
-                chance = np.where(capped.any(1)[:, None], 0., chance)
-            risk = CONTACT_S*chance[:, -1]
-            softs = np.clip((SOFT_M-gaps)/(SOFT_M-FLOOR_M), 0., 1.).sum(1)*FRAME_S*CLEARANCE_RATE     # (K, n)
-            expected_soft = (weights*softs).sum(1)
-        elif walkers.shape[2]:
+        clearance = walls
+        if walkers.shape[2]:
             gap = kin.rectangle_gap(walkers, xy[:, :, None], yaw[:, :, None]).min(-1)-moving.RADIUS_M
             clearance = np.minimum(walls, gap)
         breach = clearance < FLOOR_M
-        if capped is not None:
-            breach = breach | capped
         breached = breach.any(1)
         first = np.where(breached, breach.argmax(1), frames)
         counted = np.arange(frames)[None] < first[:, None]
@@ -401,66 +373,13 @@ class Planner:
         left = np.where(np.isfinite(left), left, 1e3)
         progress = left/V_REF+SEALED_S*sealed
         discard = np.where(breached, DISCARD*(2-first/frames), 0.)
-        total = time+soft+progress+discard+risk+expected_soft
+        total = time+soft+progress+discard
         return total, dict(time=time, clearance=soft, progress=progress, sealed=sealed, breached=breached,
                            minimum_clearance=np.where(counted, clearance, np.inf).min(1))
 
-    def scenario_costs(self, target, xy, yaw, walls, walkers, weights, groups):
-        """P22 item 12: a model of several futures through the true model's rule. `scenarios` joint futures are drawn,
-        each walker (`groups`) taking one of its futures by its probability under each tape (the same uniform draws for
-        every tape), and each tape is costed on each as the true model's are (a walker under `FLOOR_M` is a breach,
-        the later the cheaper; clearance from the nearest; the distance left with the walkers where the model's
-        likeliest futures leave them, `ends`); the cost is the mean. With one future, the true model's rule exactly."""
-        count, frames = xy.shape[:2]
-        ids = np.unique(groups)
-        draws = self.scenario_rng.random((self.scenarios, len(ids)))
-        chosen = np.empty((self.scenarios, count, len(ids)), int)
-        for i, g in enumerate(ids):
-            members = np.flatnonzero(groups == g)
-            w = np.clip(weights[:, members], 0., None)
-            total = w.sum(1, keepdims=True)
-            cdf = np.cumsum(np.where(total > 0, w/np.where(total > 0, total, 1.), 1./len(members)), 1)   # (K, m)
-            pick = (draws[:, i, None, None] > cdf[None]).sum(-1)                                          # (S, K)
-            chosen[:, :, i] = members[np.minimum(pick, len(members)-1)]
-        end = xy[:, -1]
-        static = self.fields.value(self.fields.static(target), end)
-        aware, sealed_aware = static.copy(), np.zeros(count, bool)
-        if self.terminal == 'walkers':
-            ends = getattr(self.model, 'ends', None)
-            ends = walkers[:, -1] if ends is None else ends
-            for k in range(count):
-                value = float(self.fields.value(self.fields.with_walkers(target, ends[k]), end[k:k+1])[0])
-                sealed_aware[k] = not np.isfinite(value)
-                aware[k] = static[k] if sealed_aware[k] else value
-        away = np.linalg.norm(xy-np.asarray(target, float), axis=-1) > ARRIVE_M
-        sums = dict(total=0., time=0., clearance=0., progress=0., sealed=0., breached=0.)
-        minimum = np.full(count, np.inf)
-        for s in range(self.scenarios):
-            paths = np.take_along_axis(walkers, chosen[s][:, None, :, None], 2)                           # (K, T, n, 2)
-            gap = kin.rectangle_gap(paths, xy[:, :, None], yaw[:, :, None]).min(-1)-moving.RADIUS_M
-            clearance = np.minimum(walls, gap)
-            breach = clearance < FLOOR_M
-            breached = breach.any(1)
-            first = np.where(breached, breach.argmax(1), frames)
-            counted = np.arange(frames)[None] < first[:, None]
-            time = (away & counted).sum(1)*FRAME_S
-            soft = (np.clip((SOFT_M-clearance)/(SOFT_M-FLOOR_M), 0., 1.)*counted).sum(1)*FRAME_S*CLEARANCE_RATE
-            sealed = ~breached & sealed_aware
-            left = np.where(breached, static, aware)
-            left = np.where(np.isfinite(left), left, 1e3)
-            progress = left/V_REF+SEALED_S*sealed
-            discard = np.where(breached, DISCARD*(2-first/frames), 0.)
-            for key, value in (('total', time+soft+progress+discard), ('time', time), ('clearance', soft),
-                               ('progress', progress), ('sealed', sealed), ('breached', breached)):
-                sums[key] = sums[key]+value
-            minimum = np.minimum(minimum, np.where(counted, clearance, np.inf).min(1))
-        mean = {key: value/self.scenarios for key, value in sums.items()}
-        return mean['total'], dict(time=mean['time'], clearance=mean['clearance'], progress=mean['progress'],
-                                   sealed=mean['sealed'] > .5, breached=mean['breached'] >= 1., minimum_clearance=minimum)
-
     def expected_costs(self, snapshot, target, xy, yaw, walls, walkers, weights, groups, ends=None):
-        """P22 item 12: the true model's rule in expectation over a model of several futures, worked out rather than
-        drawn (`scenario_costs` with every joint future, the walkers taken as independent). The breach comes at the
+        """P22 item 12: the true model's rule in expectation over a model of several futures, worked out over every
+        joint future rather than drawn, the walkers taken as independent. The breach comes at the
         wall's first frame or a walker's, whichever is first; S(t), the chance that none has come by frame t, is the
         product over walkers of one less the weight of their futures within the floor by then. In expectation: the
         breach cost over its frame (`DISCARD`, the later the cheaper), the time and clearance of each frame times S(t)

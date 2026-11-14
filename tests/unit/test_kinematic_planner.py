@@ -163,32 +163,35 @@ def test_the_dice_oracle_draws_new_dice_and_never_the_worlds():
     assert np.allclose(paths[0], paths[1]) and np.allclose(model.ends, paths[:, -1, :2])   # the same for every tape
 
 
-def test_drawn_futures_through_the_true_rule_are_the_true_rule_when_there_is_one_future():
+def test_the_worked_out_rule_is_the_true_rule_for_one_future_and_the_expectation_over_joint_futures():
+    from itertools import product
+
+    from go2nav.eval import contact_calibration as cc
+    from go2nav.planning.sampling import integrate
     w, record = world(walkers=4)
     for _ in range(40):
         w.step((.2, 0., 0.))
     snapshot, target = w.snapshot(), record['beacon_xy_world']
     true = Planner(w.geometry, horizon_s=6.4, terminal='walkers', model='true')
-    drawn = Planner(w.geometry, horizon_s=6.4, terminal='walkers', model='mix:')
-    drawn.scenarios = 4
     requested, _ = true.proposals(snapshot, target)
     a, terms_a = true.costs(snapshot, target, requested)
-    b, terms_b = drawn.costs(snapshot, target, requested)
-    assert np.allclose(a, b) and (terms_a['breached'] == terms_b['breached']).all()
-    noisy = Planner(w.geometry, horizon_s=6.4, terminal='walkers', model='mix:noise=0.05')
-    noisy.scenarios = 8
-    c, _ = noisy.costs(snapshot, target, requested)
-    assert c.shape == a.shape and np.isfinite(c).all()
-    worked = Planner(w.geometry, horizon_s=6.4, terminal='walkers', model='mix:')
-    worked.exact = True
-    d, terms_d = worked.costs(snapshot, target, requested)
+    alone = Planner(w.geometry, horizon_s=6.4, terminal='walkers', model='mix:')        # the true future at weight 1
+    d, terms_d = alone.costs(snapshot, target, requested)
     assert np.allclose(a, d) and (terms_a['breached'] == terms_d['breached']).all()
-    many = Planner(w.geometry, horizon_s=6.4, terminal='walkers', model='mix:noise=0.05')
-    many.scenarios, exact = 4000, Planner(w.geometry, horizon_s=6.4, terminal='walkers', model='mix:noise=0.05')
-    exact.exact = True
-    e, _ = many.costs(snapshot, target, requested)
-    f, _ = exact.costs(snapshot, target, requested)
-    assert np.corrcoef(e, f)[0, 1] > .95                       # the worked-out expectation is what many draws give
+    noisy = Planner(w.geometry, horizon_s=6.4, terminal='static', model='mix:noise=0.05')  # four futures a walker
+    xy, yaw = integrate(snapshot, requested)
+    walls = noisy.fields.wall_clearance(kin.body_points(xy, yaw)).min(-1)
+    walkers = noisy.model.walkers(snapshot, xy, yaw, np.full(len(requested), noisy.frames), w.geometry)
+    weights, groups = noisy.model.weights, noisy.model.groups
+    worked = cc.split(*noisy.expected_costs(snapshot, target, xy, yaw, walls, walkers, weights, groups))
+    ones, ids = np.ones((len(requested), len(np.unique(groups)))), np.arange(len(np.unique(groups)))
+    mean = 0.
+    for pick in product(*(np.flatnonzero(groups == g) for g in np.unique(groups))):   # each joint future alone
+        one = noisy.expected_costs(snapshot, target, xy, yaw, walls, walkers[:, :, list(pick)], ones, ids)
+        mean = mean+np.prod(weights[0, list(pick)])*cc.split(*one)
+    assert len(walkers[0, 0]) == 16 and np.isclose(np.prod(weights[0, :4]), 1/256)
+    assert np.allclose(worked[[0, 2, 3]], mean[[0, 2, 3]])  # time, progress, the breach: the expectation exactly
+    assert np.corrcoef(worked[1], mean[1])[0, 1] > .9        # clearance from the expected nearness: near it
     for name in ('true', 'velocity'):                          # a model of one future goes through the worked-out rule
         usual, worked = (Planner(w.geometry, horizon_s=6.4, terminal='walkers', model=name) for _ in range(2))
         worked.exact = True

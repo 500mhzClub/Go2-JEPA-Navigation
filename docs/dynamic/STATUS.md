@@ -2181,3 +2181,105 @@ a mission. PLAN P22 item 14: the several-futures line stops and the rule is froz
 planning moments (`eval.decision_bank`) to rank models in minutes; then a learned value of the state. The oracle
 `dice:8` (`planning.mixture.DiceModel`: the walkers' true rules, kinds and state under eight new sets of dice a plan)
 runs beside them; it copies each walker's pause timer and chosen next cell, so it bounds the rule, not the models.
+
+## P22 item 14: M5 under the frozen rule, the honest oracle and the decision bank (14 November)
+
+**1. M5 under the frozen rule** (worked out, the way out, a walker contact at 300 s, no still future). Four walkers
+that do not yield (round trips; contact stops; timeouts):
+
+| | Seed 0 | Seed 1 | Seed 2 | Seed 3 | Mean |
+|---|---|---|---|---|---|
+| Perfect predictions | 29; 0; 11 | 30; 0; 10 | 28; 0; 12 | 30; 0; 10 | 29.25; 0; 10.75 |
+| Realistic errors | 26; 0; 14 | 19; 0; 21 | 21; 0; 19 | 20; 0; 20 | 21.5; 0; 18.5 |
+| **M5** | 17; 0; 23 | 16; 1; 23 | 18; 1; 21 | 16; 0; 24 | **16.75; 0.5; 22.75** |
+| The ring tracker | 18; 7; 15 | 12; 8; 20 | 20; 8; 12 | 15; 10; 15 | 16.25; 8.25; 15.5 |
+| The honest oracle (`dice:8`) | 14; 0; 26 | 13; 1; 26 | 19; 1; 20 | 18; 0; 22 | 16.0; 0.5; 23.5 |
+| N5 | 9; 5; 26 | 5; 5; 30 | 5; 9; 26 | 8; 9; 23 | 6.75; 7.0; 26.25 |
+| N4 | 6; 10; 24 | 3; 7; 30 | 8; 6; 26 | 7; 9; 24 | 6.0; 8.0; 26.0 |
+
+With 1-2 walkers, seed 0 (80 missions):
+
+| | Not yielding | Polite | Reactive |
+|---|---|---|---|
+| Perfect predictions | 68; 0; 12 | 80; 0; 0 | 80; 0; 0 |
+| M5 | 64; 1; 15 | 77; 0; 3 | 79; 1; 0 |
+| The ring tracker | 63; 8; 9 | 79; 1; 0 | 78; 2 (one a wall); 0 |
+
+- **Bar (c) fails** on round trips (16.75 against 22.25) and passes on contact stops (0.5 against at most 4.1). M5
+  is above the parity line (16.25 round trips, 8.25 contact stops) and within it on the other suites. It is the first
+  learned model in P22 level with the tracker on round trips, and it has a sixteenth of the tracker's contact stops.
+  What the tracker loses to contacts, M5 loses to waiting (22.75 timeouts against 15.5).
+- **The honest oracle** knows each walker's rules, kind, pause timer and next cell, and draws eight new sets of dice
+  a plan. It makes 16.0 round trips, and M5 is level with it. So under this rule, a model that knew everything but
+  the dice would do no better than M5.
+- The 13 round trips between the oracle and perfect predictions are the walkers' future draws. No model can know
+  them, and the rule prices them over 6.4 s with no chance to look again. Bar (c)'s 22.25 cannot be reached by
+  prediction alone.
+
+**2. The decision bank** (`outputs/decision_bank`: 33 minutes to build, 2-6 minutes a model, 24 cores).
+- It holds 2,240 moments from 560 missions (the tracker's and the true model's, four suites, seed 0). The 3 with no
+  tape clear of the walls are not scored.
+- Its source missions repeat the suites' own figures.
+- **Both checks pass.** Replaying the requests, the true model repeats the true model's choices at every moment, and
+  the tracker the tracker's (agreement 1.000 on each of the eight sources).
+- The true model's regret is under 2 s at 99.1% of moments. Its mean, 2.6 s, comes from 17 moments where its chosen
+  tape truly comes within the floor. Not traced; presumably its 100 ms step.
+
+All 2,237 moments (a wrong choice: a regret of 2 s or more):
+
+| | Mean regret (s) | Wrong choices | Chosen tape truly within the floor | AUC; Brier |
+|---|---|---|---|---|
+| Perfect predictions | 2.6 | 0.9% | 1.1% | 0.991; 0.006 |
+| Realistic errors | 1.3 | 3.1% | 0.7% | 0.999; 0.009 |
+| The honest oracle | 5.7 | 5.8% | 1.4% | 0.988; 0.023 |
+| M5 | 30.8 | 15.6% | 8.8% | 0.87; 0.089 |
+| N4 | 36.4 | 22.2% | 8.9% | 0.905; 0.077 |
+| N5 | 34.7 | 22.5% | 8.2% | 0.906; 0.078 |
+| The ring tracker | 48.0 | 17.6% | 14.3% | 0.83; 0.10 |
+
+The validation: the 318 moments from four walkers that do not yield, against the same models' missions on that suite
+(regret by term: the chosen tape's true cost less the best tape's; a negative part is a term on which the chosen tape
+is truly cheaper, paid for on another):
+
+| | Mean regret (s) | ... contact | ... progress | Chosen tape truly within | Missions: round trips; contact stops |
+|---|---|---|---|---|---|
+| Realistic errors | 3.1 | 2.2 | 0.9 | 1.6% | 21.5; 0 |
+| Perfect predictions | 5.1 | 4.5 | 0.6 | 2.2% | 29.25; 0 |
+| The honest oracle | 8.0 | 3.8 | 4.2 | 1.9% | 16.0; 0.5 |
+| M5 | 44.0 | 53.1 | -8.7 | 14.2% | 16.75; 0.5 |
+| N5 | 56.7 | 62.2 | -5.1 | 15.8% | 6.75; 7.0 |
+| N4 | 66.1 | 79.5 | -12.7 | 19.2% | 6.0; 8.0 |
+| The ring tracker | 70.1 | 89.6 | -18.7 | 22.3% | 16.25; 8.25 |
+
+- **The validation fails as set.** By mean regret the bank orders the models as their contact stops (Spearman 0.98),
+  not their round trips (0.68). It puts the tracker last for its contacts, and the oracle third, though the oracle's
+  missions make only 16.0.
+- The bank prices each moment over the same 6.4 s as the rule. The timeouts that decide this suite are deadlocks:
+  many moments in a row, each of which looks right over 6.4 s. Half the oracle's regret is progress given up (4.2 s a
+  moment, the most of any model). It gives way, and small losses at every plan add up to timeouts.
+- So the bank ranks contact risk in minutes, and it is not to choose between models on round trips. Its split by
+  term tells giving way (positive progress) from pushing on (negative progress, paid in contact).
+- M5's open-loop contacts do not become contact stops. On this suite 14% of its chosen tapes truly come within the
+  floor, against 16-22% for N4, N5 and the tracker. Yet it has 0.5 contact stops where they have 7-8.25: replanning
+  every 0.4 s corrects M5's choices and not theirs. Presumably M5's errors come late in the horizon, since it is the
+  most accurate at 1.6 s (0.033 m). Not measured: the bank does not record when a contact comes.
+
+**3. Read.**
+- Under the frozen rule, prediction is no longer what limits this suite: M5 is level with the honest oracle.
+- What is left is the rule's. Over 6.4 s priced open loop, a model honest about the walkers' dice gives way, and no
+  single moment shows the cost.
+- Item 14's next piece, a learned value of the state priced beyond the horizon, is aimed at that.
+- P22's bars:
+  - (a) passed by M5;
+  - (b) passed by no run (M5 0.39 [0.30, 0.50] at 1.6 s);
+  - (c) failed as written, with M5 above the parity line.
+
+**4. Before the merge** (item 14): the five development switches are gone (`CONTACT_CAP`, `FLOOR_EXEMPT`,
+`SCENARIOS`, `STILL_FRAMES` and the priced rule's `CONTACT_S`). A model of several futures is now always costed in
+expectation, worked out. The drawn futures' check in the tests is replaced by an exact one: the worked-out expectation
+against all 256 joint futures of four walkers costed one by one (time, progress and the breach equal).
+
+Under the frozen rule nothing changed:
+- the bank, rescored for all seven models, is identical row for row;
+- 24 recorded missions (perfect predictions, the tracker, realistic errors, the oracle; 1-2 walkers) repeat exactly;
+- the unit tests pass (288).
