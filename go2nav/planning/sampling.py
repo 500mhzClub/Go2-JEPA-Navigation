@@ -19,7 +19,13 @@ block's limits, at 100 ms. The walkers' part is one of `MODELS`: `true` (copies 
 that path, random generators included, so the model knows their future draws), `fresh` (the same with new dice each
 plan), `velocity`, `frozen` and `frozen_seen` (`SimpleModel`: walkers that do not react), or `ring_frozen` and
 `ring_velocity` (`RingModel`, P20: the same two, with the walkers and their velocities taken from the range ring by
-`perception.ring_walkers`; the mission hands such a model every frame's scan through `observe`).
+`perception.ring_walkers`; the mission hands such a model every frame's scan through `observe`), or
+`ring_model:<path>` (P21: the learned ring world model, `planning.ring_model.LearnedRingModel`, rolled out under each
+tape: it is also told each frame's request through `record`, and given the tapes), or `objects:<path>` (P22: the
+object-level predictor over the ring tracker's objects, `planning.object_model.ObjectModel`, likewise), or
+`modes:<path>` (P22 item 8: several futures an object, `planning.object_model.ModesModel`), or `mix:<parts>` (P22
+item 12: the true future beside false ones, `planning.mixture.MixtureModel`), or `dice:<draws>` (P22 item 13: the true
+rules under new dice only, `planning.mixture.DiceModel`).
 
 **Cost,** in seconds:
 - time: 0.1 s for each step further than `ARRIVE_M` from the target;
@@ -28,8 +34,14 @@ plan), `velocity`, `frozen` and `frozen_seen` (`SimpleModel`: walkers that do no
   is taken);
 - progress: the distance left from the tape's end over `V_REF`. `terminal='static'`: through the walls alone.
   `terminal='walkers'`: with the walkers, where the tape leaves them, as obstacles; a sealed way costs `SEALED_S` more.
+
+A model of several futures (one that sets `weights`) is costed in expectation over them, worked out
+(`Planner.expected_costs`); `GO2NAV_EXACT=1` sends a model of one future through it too, where `GO2NAV_RECOVER=1` lets a
+tape already under the floor move away (by 5 mm) and `GO2NAV_WALKER_PRICE` gives a walker's breach its own price. The
+frozen rule (PLAN P22 item 14): all three, the price 300 s, with `GO2NAV_W_STILL=0` (no still future).
 """
 import copy
+import os
 
 import numpy as np
 
@@ -164,10 +176,14 @@ class RingModel:
     walkers are not read."""
 
     def __init__(self, kind):
-        self.kind, self.tracker = kind, ring_walkers.Tracker()
+        self.kind, self.tracker, self.fields = kind, ring_walkers.Tracker(), None
+
+    def bind(self, fields):
+        """The layout's wall distances (`planning.fields.Fields`), given by the planner."""
+        self.fields = fields
 
     def observe(self, t, scan, xy, yaw, geometry):
-        found = ring_walkers.detect(*scan, geometry.wall_ranges(xy, yaw), xy, yaw)
+        found = ring_walkers.detect(*scan, xy, yaw, self.fields.wall_clearance)
         self.tracker.update(t, found, ring_walkers.mount_of(xy, yaw), geometry)
 
     def walkers(self, snapshot, xy, yaw, frames, geometry=None):
@@ -176,8 +192,26 @@ class RingModel:
 
 
 def make_model(name, seed=0):
+    if name.startswith('ring_model:'):
+        from go2nav.planning.ring_model import LearnedRingModel
+        return LearnedRingModel(name.partition(':')[2])
+    if name.startswith('objects:'):
+        from go2nav.planning.object_model import ObjectModel
+        return ObjectModel(name.partition(':')[2])
+    if name.startswith('modes:') or name.startswith('expect:'):     # expect: a contact priced by its probability
+        from go2nav.planning.object_model import ModesModel
+        model = ModesModel(name.partition(':')[2])
+        model.EXPECT = name.startswith('expect:')
+        model.W_STILL = float(os.environ.get('GO2NAV_W_STILL', model.W_STILL))   # the frozen rule: 0 (P22 item 14)
+        return model
+    if name.startswith('mix:'):                                       # P22 item 12: the true future beside false ones
+        from go2nav.planning.mixture import MixtureModel
+        return MixtureModel(name.partition(':')[2], seed=seed)
+    if name.startswith('dice:'):                                      # P22 item 13: the true rules, new dice only
+        from go2nav.planning.mixture import DiceModel
+        return DiceModel(name.partition(':')[2], seed=seed)
     if name not in MODELS:
-        raise ValueError(f'the model is one of {MODELS}')
+        raise ValueError(f'the model is one of {MODELS} or ring_model:<path>')
     if name.startswith('ring_'):
         return RingModel(name)
     return TrueModel(fresh=name == 'fresh', seed=seed) if name in ('true', 'fresh') else SimpleModel(name)
@@ -190,9 +224,14 @@ class Planner:
         self.geometry, self.fields, self.terminal = geometry, Fields(geometry), terminal
         self.frames = int(round(horizon_s/FRAME_S))
         self.model = make_model(model, seed) if isinstance(model, str) else model
+        if hasattr(self.model, 'bind'):
+            self.model.bind(self.fields)
         self.speeds = SPEEDS if max_speed is None else tuple(v*max_speed/SPEEDS[0] for v in SPEEDS)
         self.max_speed, self.use_cells = max_speed, cells
         self.rng = np.random.default_rng(seed)
+        self.exact = os.environ.get('GO2NAV_EXACT', '0') == '1'          # P22 item 12: `expected_costs` when set
+        self.recover = os.environ.get('GO2NAV_RECOVER', '0') == '1'      # ... with a way out from under the floor
+        self.walker_price = float(os.environ['GO2NAV_WALKER_PRICE']) if os.environ.get('GO2NAV_WALKER_PRICE') else None
         self.previous, self.target = None, None
         self.cells = {cell: np.asarray(cell, float)*geometry.pitch for cell in geometry.neighbours}
 
@@ -301,7 +340,15 @@ class Planner:
         walls = self.fields.wall_clearance(kin.body_points(xy, yaw)).min(-1)                    # (K, T)
         breach = walls < FLOOR_M
         alive = np.where(breach.any(1), breach.argmax(1)+1, frames)          # frames worth stepping the walkers for
-        walkers = self.model.walkers(snapshot, xy, yaw, alive, self.geometry)
+        extra = dict(requested=requested) if getattr(self.model, 'takes_tapes', False) else {}
+        walkers = self.model.walkers(snapshot, xy, yaw, alive, self.geometry, **extra)
+        weights = getattr(self.model, 'weights', None)
+        if walkers.shape[2] and (weights is not None or self.exact):
+            # a model of several futures (`weights`), in expectation worked out; with `exact` a model of one future too,
+            # each walker's at weight 1 (P22 items 12-14)
+            groups = self.model.groups if weights is not None else np.arange(walkers.shape[2])
+            weights = weights if weights is not None else np.ones((count, walkers.shape[2]))
+            return self.expected_costs(snapshot, target, xy, yaw, walls, walkers, weights, groups)
         clearance = walls
         if walkers.shape[2]:
             gap = kin.rectangle_gap(walkers, xy[:, :, None], yaw[:, :, None]).min(-1)-moving.RADIUS_M
@@ -316,9 +363,11 @@ class Planner:
         end = xy[:, -1]
         static = self.fields.value(self.fields.static(target), end)
         left, sealed = static.copy(), np.zeros(count, bool)
+        ends = getattr(self.model, 'ends', None)             # a model of several futures: each walker at its likeliest
+        ends = walkers[:, -1] if ends is None else ends
         if self.terminal == 'walkers' and walkers.shape[2]:
             for k in np.flatnonzero(~breached):
-                value = float(self.fields.value(self.fields.with_walkers(target, walkers[k, -1]), end[k:k+1])[0])
+                value = float(self.fields.value(self.fields.with_walkers(target, ends[k]), end[k:k+1])[0])
                 sealed[k] = not np.isfinite(value)
                 left[k] = static[k] if sealed[k] else value
         left = np.where(np.isfinite(left), left, 1e3)
@@ -327,6 +376,66 @@ class Planner:
         total = time+soft+progress+discard
         return total, dict(time=time, clearance=soft, progress=progress, sealed=sealed, breached=breached,
                            minimum_clearance=np.where(counted, clearance, np.inf).min(1))
+
+    def expected_costs(self, snapshot, target, xy, yaw, walls, walkers, weights, groups, ends=None):
+        """P22 item 12: the true model's rule in expectation over a model of several futures, worked out over every
+        joint future rather than drawn, the walkers taken as independent. The breach comes at the
+        wall's first frame or a walker's, whichever is first; S(t), the chance that none has come by frame t, is the
+        product over walkers of one less the weight of their futures within the floor by then. In expectation: the
+        breach cost over its frame (`DISCARD`, the later the cheaper), the time and clearance of each frame times S(t)
+        (clearance from the nearest: a frame's worst of the walls and each walker's expected nearness), and the
+        distance left, through the walkers where the likeliest futures leave them if none breaches (`ends`), else
+        through the walls alone. With one future, the true model's rule exactly. With `recover`, a walker already under
+        the floor counts only when a tape goes nearer (the expected-cost rule's way out). `ends` (K, n, 2): where the
+        walkers end up for the distance left, in place of the model's (`eval.contact_calibration` costs the truth)."""
+        count, frames = xy.shape[:2]
+        gaps = kin.rectangle_gap(walkers, xy[:, :, None], yaw[:, :, None])-moving.RADIUS_M          # (K, T, J)
+        if self.recover:
+            now = kin.rectangle_gap(walkers[:, 0], snapshot['xy'], snapshot['yaw'])-moving.RADIUS_M  # (K, J)
+            floor = np.minimum(FLOOR_M, now-.005)[:, None]
+        else:
+            floor = FLOOR_M
+        hits = np.maximum.accumulate(gaps < floor, 1)
+        w = np.clip(np.asarray(weights, float), 0., None)
+        softs = np.clip((SOFT_M-gaps)/(SOFT_M-FLOOR_M), 0., 1.)                                    # (K, T, J)
+        clear, nearness = np.ones((count, frames)), np.zeros((count, frames))
+        for g in np.unique(groups):
+            members = groups == g
+            total = w[:, members].sum(1, keepdims=True)
+            share = np.where(total > 0, w[:, members]/np.where(total > 0, total, 1.), 0.)            # (K, m)
+            clear = clear*(1.-np.clip((share[:, None]*hits[..., members]).sum(-1), 0., 1.))
+            nearness = np.maximum(nearness, (share[:, None]*softs[..., members]).sum(-1))
+        wall_breach = walls < FLOOR_M
+        wall_first = np.where(wall_breach.any(1), wall_breach.argmax(1), frames)
+        survive = np.where(np.arange(frames)[None] < wall_first[:, None], clear, 0.)                # S(t)
+        before = np.concatenate((np.ones((count, 1)), survive[:, :-1]), 1)
+        breach_at = before-survive                                                                  # P(first at t)
+        late = (2-np.arange(frames)/frames)[None]
+        walker = np.arange(frames)[None] < wall_first[:, None]           # before the wall's frame: a walker's breach
+        price = DISCARD if self.walker_price is None else self.walker_price
+        discard = (np.where(walker, price, DISCARD)*breach_at*late).sum(1)
+        away = np.linalg.norm(xy-np.asarray(target, float), axis=-1) > ARRIVE_M
+        time = (survive*away).sum(1)*FRAME_S
+        wall_soft = np.clip((SOFT_M-walls)/(SOFT_M-FLOOR_M), 0., 1.)
+        soft = (survive*np.maximum(wall_soft, nearness)).sum(1)*FRAME_S*CLEARANCE_RATE
+        end = xy[:, -1]
+        static = self.fields.value(self.fields.static(target), end)
+        aware, sealed_aware = static.copy(), np.zeros(count, bool)
+        if self.terminal == 'walkers':
+            ends = getattr(self.model, 'ends', None) if ends is None else ends
+            ends = walkers[:, -1] if ends is None else ends
+            for k in range(count):
+                value = float(self.fields.value(self.fields.with_walkers(target, ends[k]), end[k:k+1])[0])
+                sealed_aware[k] = not np.isfinite(value)
+                aware[k] = static[k] if sealed_aware[k] else value
+        static, aware = np.where(np.isfinite(static), static, 1e3), np.where(np.isfinite(aware), aware, 1e3)
+        clean = survive[:, -1]                                                                      # no breach at all
+        progress = (1.-clean)*static/V_REF+clean*(aware/V_REF+SEALED_S*sealed_aware)
+        breached = clean < .5
+        minimum = np.minimum(walls, np.where(w[:, None] > 0, gaps, np.inf).min(-1)).min(1)
+        return time+soft+progress+discard, dict(time=time, clearance=soft, progress=progress,
+                                                sealed=sealed_aware & ~breached, breached=breached,
+                                                minimum_clearance=minimum)
 
     def plan(self, snapshot, target):
         """The next `REPLAN_FRAMES` requests (n, 3) from the world's snapshot towards `target`, and what was chosen."""

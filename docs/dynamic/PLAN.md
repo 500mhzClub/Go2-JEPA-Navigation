@@ -1501,8 +1501,11 @@ mazes 40 of 40, polite walkers 64 of 80, four walkers 18 of 40); the planner is 
 |---|---|---|
 | P20 | A fast ring world: P17's kinematic world with the range ring and no rendering, the planner fed from the ring alone, and a corpus driven by commands that are not scripted from privileged state | set out below |
 | P21 | The corrected model in the ring world, one change a run: no command history in the encoder; a token and a loss per sensor; next-scan prediction as an auxiliary with gradient; longer training rollouts | P17's planner on the model's rollouts makes at least 60 of 80 round trips with walkers that do not yield (6.4 s), with no more contact stops than the velocity row's 7; beside it P16's measures (reaction slope's interval above 0.5; contact skill at least half the gap; action share at most 0.25). Set out in full before its first run |
-| P22 | A learned end cost (a critic on time to go) in place of the hand distance field with walkers, then data collected by the model's own planner | only after P21 passes; set out then |
-| P23 | The winning design in Genesis, camera and ring, on the existing corpus; planned on through P18's cost | against P18's merged figures and, with walkers that do not yield, the hand reference's 7 of 80; set out then |
+| P22 | (superseded 11 November) A learned end cost (a critic on time to go) in place of the hand distance field with walkers, then data collected by the model's own planner | only after P21 passes; set out then |
+| P23 | (superseded 11 November) The winning design in Genesis, camera and ring, on the existing corpus; planned on through P18's cost | against P18's merged figures and, with walkers that do not yield, the hand reference's 7 of 80; set out then |
+
+**Revised 11 November** (docs/REVIEW_2026-11-11.md, approved): P21 stopped after its first run, and the pieces after
+it are P22-P25 below. The learned end cost moves to P25; the Genesis piece is P24.
 
 - **Why the ring world first** (approved). A model in Genesis costs 15-25 GPU-hours and a suite 6 hours; P17 ran 49
   suites in under two hours on the CPU. The risk is that what holds for a ring-only model does not hold with the
@@ -1555,6 +1558,286 @@ walkers waiting on the robot, contacts).
   piece stops and the record says what the ring does not carry.
 
 **Compute.** About 2 days of building; the gate's suites take minutes each; the corpus under an hour on 16 workers.
+
+### P21. The corrected model in the ring world (approved 11 November; set out before any run)
+
+Branch `feature/ring-model`. Data: P20's corpus (train 3.8 million frames, val 0.42 million).
+
+**1. The model** (`models/ring_jepa.py`): LeWM's recipe on the range ring.
+- **Encoder:** one scan a frame and nothing else: no command history, no pose. The 720 beams (log range and a validity
+  flag) go through a circular 1-D convolution and a small transformer to 24 sector tokens of 15 degrees each, so a
+  walker fills a token of its own rather than a share of one vector.
+- **Predictor:** LeWM's action-conditioned causal transformer (AdaLN) over 0.3 s of history (4 frames of 24 tokens),
+  conditioned at each step on that step's requested command, rolled out step by step.
+- **Losses:** the next-latent error over a K-step rollout, SIGReg on every frame's tokens, and the scan decoded from
+  every latent (encoded and predicted) against the true scan, with gradient into the latent (the next-scan auxiliary).
+
+**2. How the planner uses it** (`planning.sampling`, a `ring_model` model). For each tape the model rolls out over the
+horizon from the last 0.3 s of scans; the robot's pose along the tape is integrated as for every other model (the
+kinematic robot moves as told). Each predicted scan is compared with what the walls alone would give at that pose,
+and walkers are taken out by `perception.ring_walkers.detect`, the hand tracker's own code. The cost is unchanged.
+No simulator label enters the decision. (Not taken: a readout trained on the walkers' true positions.)
+
+**3. Runs,** one change each, all scored the same way:
+
+| Run | Change |
+|---|---|
+| R0 | As above, trained on rollouts of K = 16 steps (1.6 s) |
+| R1 | Rollouts of 64 steps (6.4 s) |
+| R2 | The scan decoder with no gradient into the latent |
+| R3 | One latent vector a frame in place of 24 sector tokens |
+| R4 (only if R0 and R1 lose the walkers beyond about 2 s) | A predictor step of 0.4 s (the commands of 4 frames as one action), so 6.4 s is 16 steps: the one-level form of a hierarchy |
+
+"A token and a loss per sensor" needs a second sensor; it moves to P23. A two-level H-JEPA is not planned: P17 says
+the decision needs walkers predicted over 6.4 s with the walker-aware end cost (69 of 80), and a 25.6-s horizon adds
+3; R4 tests the cheaper form first.
+
+**4. Passes when** (walkers that do not yield, 80 missions, 6.4 s, the `walkers` terminal distance):
+- at least 60 round trips, and no more than 10 contact stops (the ring tracker's on the same input; was 7, the
+  privileged velocity row's, changed on approval 11 November).
+
+Reported beside them, on val windows with a walker within 1.5 m of the robot (counterfactuals are exact in the
+kinematic world: the episode is replayed to the window and the walkers are stepped under each tape):
+- **the reaction:** the model's predicted difference in a walker's position between holding and backing away,
+  regressed on the true difference, at 1.6, 3.2 and 6.4 s; P16's bar, the slope's 95% interval above 0.5;
+- **contact foresight:** a contact within 0.8 s that is not one at t, read from the predicted scans' least clearance,
+  against the present scan's (P16's rule: half the gap from that null to 1);
+- the same suites with polite walkers, and the extraction's errors on predicted scans against the true walkers.
+
+**Compute.** About 2-4 GPU-hours to train a run; a suite of 80 missions 20-30 minutes on the GPU.
+
+**5. Outcome (11 November; STATUS P21).** R0 failed: 30 of 80 round trips with walkers that do not yield (50 contact
+stops) and 44 of 80 with polite ones (36), against the ring tracker's 59-62 (7-12) and 78. Its predicted scans hold
+34% of the walkers in sight 1.6 s ahead (the true scans 95%) and show about 11 walkers that are not there. The review
+of 11 November stopped the ring-scan line; R1 to R4 were not run.
+
+### P22. Object-level dynamics in the ring world (stage 1 of the review of 11 November; set out before any run)
+
+**Why.** Whether a self-supervised predictor over objects learns how walkers move and react to the robot from
+observation, and whether planning on it beats carrying them on at their velocity: the core question, with no
+perception in the way, exact counterfactuals and a known ladder. Branch `feature/object-dynamics`. CPU, with the
+GPU for training if it helps.
+
+**1. Objects:** the ring tracker (`perception.ring_walkers`, as in missions) run over every episode of P20's corpus,
+up to 6 tracks a frame. The tracker is engineered estimation from the scan, the pose and the layout; the walkers'
+true states are never an input or a target.
+
+**2. Tokens,** at steps of 0.4 s (four frames, the plan's period), in the robot's body frame at the step the
+prediction starts from:
+- an object token a track: its position, whether it is seen this frame or remembered, and the walls round it (the
+  walls' distance on a 5 x 5 grid 0.25 m apart, aligned with the robot);
+- a robot token: its displacement and turn over the last step (from the pose: odometry), and the walls round it (the
+  walls' distance on a 7 x 7 grid 0.3 m apart, aligned with the robot: a lookup, so a rollout can recompute it at
+  every predicted step, where casting the ring costs 1.5 ms a pose);
+- a step's action: its four requested commands (12 values), by AdaLN-zero, as `models.lewm.ARPredictor`;
+- 3 steps of history (0.8 s).
+
+**3. The predictor** (`models/object_jepa.py`): a transformer over the history's tokens, block-causal over steps
+(every token of a step sees every other: interactions), predicting each object's position at the next step. Trained
+teacher-forced plus a 2-step rollout (Terver et al.: longer is worse in simulation), with C-JEPA's object masking: in
+half the windows, one present object's history after its first step is replaced by a learned mask embedding added to
+a projection of its first-step token, so its motion must be inferred from the others and the robot's actions. The
+loss counts objects seen at the target step only. The targets are the tracker's, so nothing can collapse and no
+anti-collapse term is needed (P23's slots get SIGReg).
+
+**4. In the planner** (`planning.sampling`, an `objects:<path>` model): every tape rolled out 16 steps (6.4 s),
+positions interpolated to the frames and put back into the world frame by the pose at the plan; the robot's own path
+is the tape's, as for every other model.
+
+**5. Measures, in order, under the stop rule** (labels only to choose strata and to score):
+- (a) **Offline, val:** for walkers seen at the target step within 3 m, the median error of the predicted position
+  under the recorded commands at 1.6, 3.2 and 6.4 s, against carrying the tracker's walkers on at its velocity.
+  **Bar:** lower than that at 1.6 and 3.2 s, over all such walkers and over those waiting on the robot. If (a) fails,
+  (b) and (c) are not run.
+- (b) **The reaction, exact:** val windows with a walker within 1.5 m; the episode is replayed to the window and
+  branched under two tapes (hold for 6.4 s; back away at 0.2 m/s for 2 s, then hold); the true difference in that
+  walker's position between them against the model's predicted difference, at 1.6, 3.2 and 6.4 s. **Bar:** the
+  slope's 95% interval (bootstrap over episodes) above 0.5 at 1.6 s. Carrying on at a velocity has slope 0.
+- (c) **The planner:** walkers that do not yield, 80 missions, 6.4 s, the `walkers` terminal distance, on the four
+  planner seeds the ring tracker was scored on (60, 60, 59, 62 round trips; 12, 11, 11, 7 contact stops). **Bar:** a
+  mean of at least 60.25 round trips and at most 10 contact stops; the target is the scripts' row (66-69). Polite
+  walkers reported beside it.
+
+**6. Runs:** M0 as above; M1 without object masking (what the masking is worth).
+
+**Compute.** Tracking the corpus about 10 minutes on 28 cores; training under an hour; a suite minutes.
+
+**7. Revised 11 November** (docs/REVIEW_2026-11-11_second.md; approved). P22 is ego-conditioned trajectory prediction
+on engineered tracks, not a JEPA: it is the ceiling for what object-level dynamics can give the planner.
+- **Runs:** M2, the prediction as a correction to the object carried on at its velocity (the tracker's velocity in
+  each token; the head starts at zero); M3, M2 with object masking; M4, M2 trained on six-step rollouts. M0 and M1
+  predicted the whole displacement and lost to constant velocity at 1.6 s. Then a variant that weights the frames
+  inside a random tape (Tang et al. 2022).
+- **(a) restated:** no worse than the tracker's constant velocity at 1.6 s and at most half its error at 3.2 and
+  6.4 s, over all scored walkers and over those waiting on the robot. The floor, measured: the best deterministic
+  predictor errs 0.00, 0.00 and 0.18 m.
+- **(b)** as set, now read for every run (ten minutes on the CPU), from a replay of the recorded requests.
+- **(c) restated:** the primary suite is four walkers that do not yield (40 missions), on four planner seeds, where
+  the room is (the tracker 13 round trips and 16 contact stops on seed 0, the true model 29 and 0). **Bar:** a mean at
+  least 6 round trips above the tracker's and at most half its contact stops. The run best by (a) is scored.
+- No model is trained on the CPU.
+
+**8. Several futures in one pass** (approved 12 November, after STATUS P22 of that day: one predicted future gave
+the planner no margin for what a walker hides, its pause timer and its kind, and a rollout of 16 passes a plan was
+too slow for suites). `models/object_modes.py`: from the same history tokens (the walls round an object on a wider
+grid) and a robot token for each of the tape's 16 steps, one transformer pass gives each object 6 futures over 6.4 s,
+corrections to constant velocity, each with a probability; trained with the nearest-mode loss of trajectory
+prediction (MTP, Cui et al. 2019), conditioned on the robot's plan as PiP (Song et al. 2020).
+- **In the planner** (`modes:<path>`): clearance against every future of probability 0.1 or more (the 3 likeliest at
+  most); the distance left at the end with each walker at its likeliest future. Two constants.
+- **Runs:** N0 (6 futures); N1 (one future: what the single pass over the whole horizon is worth by itself).
+- **Measures:** (a) and (b) on the likeliest future, the bars unchanged; reported beside them the nearest of the
+  futures and the share of walkers some likely future covers (within 0.15 m). (c) as item 7: four walkers that do
+  not yield, four seeds (the tracker: 13, 11, 14, 12 round trips; 16, 11, 16, 15 contact stops), a mean of at least
+  6 round trips more and at most half the contact stops; the suite with 1-2 walkers and the reactive one beside it.
+
+### P23. Self-supervised slots on the Go2's camera (stage 2; set out before any run)
+
+**Why.** Whether objects can be found without labels from the Go2's moving camera, so that P24 can replace the ring
+tracker's objects with learned ones. Branch `feature/camera-slots`. GPU, offline, in parallel with P22.
+
+**1. Data:** corpus v2's primary-camera frames (224 x 168, 10 Hz): 600 `lewm_train` units and 100 `lewm_val` units
+with at least one walker (about 600,000 frames), the splits sharing no layout.
+
+**2. Features:** frozen DINOv2 ViT-S/14 (the weights already on this machine), 16 x 12 patch tokens of 384 a frame,
+stored as float16 out of tree. Level 1 of a later hierarchy sits above it (the review's section 5).
+
+**3. Slots,** VideoSAUR's recipe as C-JEPA trained its encoder (`models/slots.py`): patch features projected to 128;
+Slot Attention with 2 iterations and 6 slots; each frame's slots started from the last frame's through one
+transformer block, so a slot keeps its object; an MLP broadcast decoder whose per-slot masks rebuild the patch
+features, plus VideoSAUR's temporal-similarity loss (weight 0.25), and SIGReg on the slot latents (for P24 and a later
+hierarchy). Adam at 1e-4 with 2,000 steps of warm-up.
+
+**4. A slot's position,** engineered from observations: the image columns its mask covers, their bearings through the
+camera's intrinsics (`perception.cameras`), and the ring's nearest return over those bearings (corpus v2's
+backfilled scans), to a point in the body frame.
+
+**5. Measures** (labels only for scoring: the walkers' true positions, projected through the camera, and
+`mover_probe.in_view`):
+- **binding:** of walkers in view, the share for which one slot's mask covers at least half the walker's image
+  columns with a column IoU of at least 0.5;
+- **position:** that slot's position against the walker's true one;
+- both while the robot turns (above 0.3 rad/s) and otherwise.
+- **Bar:** on val, at least 90% of the walkers in view bound and at least 90% of those within 0.15 m; while turning,
+  no more than 10 points below.
+
+**6. Beside it, not gating:** the baseline the August review called mandatory, a DINO-WM-style predictor over every
+patch on the same features (Terver et al.'s settings: depth 6, AdaLN, 3 frames, a 2-step loss, the corpus's
+commands), scored on P16's measures with their existing labels.
+
+**Compute.** Features about 1-2 GPU-hours; the slot model measured at its smoke (estimate 6-10 hours); the patch
+baseline 4-8 hours.
+
+**7. Revised 11 November** (the second review; approved). The slot model is to be a port of the official VideoSAUR
+code (martius-lab/videosaur, MIT), as this repository's LeWM is of its original, in place of the version written from
+memory; SlotContrast's loss is the first variant if slots do not keep their walker over time. Training is on the GPU
+only: the trainer's illegal memory accesses on this ROCm build are to be solved there (alone on the card first; the
+same steps run clean on the CPU, so it is not the code's indexing). The features took 6 minutes, not 1-2 hours.
+
+**10. A memory of each walker** (approved 13 November, after item 9 failed its bar: the agreed next step, a model
+that can infer what it cannot see). Measured first, in 927 stand-offs under a hold tape (median metres moved at
+1.6 / 3.2 s): a polite walker that has waited 2-5 s truly moves 0.20 / 0.53 m (it gives up after 3 s and turns back),
+and every model predicts 0.01-0.05; a walker that does not yield truly stays, and every model has it stay (0.01-0.04).
+So the missing memory is how long a walker has been held up; and the contacts with walkers that do not yield come from
+the tapes the planner chooses, not from the hold tape.
+- **The memory** (`perception.ring_walkers.Memory`, engineered from the tracker and the robot's pose): per slot, how
+  long its track has lasted, stood still and been within 1.5 m of the robot, and how far it walked in the last 10 s.
+- **Run N3:** N0 with the memory in each object token.
+- **Measures:** the stand-off table above (the polite rows are what the memory is for); (a) and (b) as before; and the
+  planner (expected cost, item 9) on four walkers that do not yield (seeds 0-3), and on polite, 1-2 not yielding and
+  reactive walkers (seed 0). Same bars as item 9.
+- **Then, if contacts with walkers that do not yield remain:** a measure of how often, among the planner's tapes, one
+  has the model clear a blocked walker that truly stays (the planner selects that error), before any fix is chosen.
+
+**11. Branched windows** (approved 13 November, after item 10 failed its bars; STATUS P22 of that day). The memory
+changed nothing, and the reason was found: under the recorded tape the model gives a polite walker held up 2-5 s
+nearly the true chance of moving on (0.31 against 0.66 at 1.6 s; 0.73 against 0.88 at 3.2 s), under a hold next to
+none (0.02 against 0.63). It learnt that a walker moves when the robot does: three plans in four of the corpus come
+from a planner that sees the walkers, so their motions are correlated whichever causes which (Tang et al. 2022).
+- **The data** (`data/branches.py`): at each frame of the corpus at which a walker in sight is within 1.5 m (at most
+  one a second; 123,000 points in train), the world replayed exactly and the tracker with it, then six random tapes
+  of 6.4 s from the same state with the same walkers' dice (one in five a hold), the tracker run on each. About
+  740,000 train branches; CPU, about 5 hours on 26 cores; about 10 GB on the GPU when loaded.
+- **The measure first** (item 10's last bullet, `eval/tape_optimism.py`): in the suite with four walkers that do not
+  yield, at plans where a walker is held up by the robot, each tape's chance of contact as the expected cost reads it,
+  against the truth from an exact copy of the world; whether the chosen tape truly comes within the floor while the
+  model gave it under 0.1. For N3, the tracker and the true model, then for N4.
+- **Run N4:** N3 with half of each batch branched windows, from the first 2,250 train episodes (the build still
+  running); with the whole build if it helps.
+- **Measures and bars:** as items 9 and 10; and the stand-off tables under the hold and the recorded tapes, where N4
+  should give the polite walker held up 2-5 s a chance of moving on near the truth under both.
+- On a real robot the counterpart is exploration whose commands do not depend on the walkers; branching from one
+  state is what the simulator adds, to tell the two apart sooner.
+
+**12. The decision rule** (approved 13 November, after N4 failed item 11's bars). Whether the planner can use a model
+of several futures at all: the true future beside false ones (`planning.mixture`, `mix:<parts>`); then the usual rule
+in expectation over the futures, worked out (`Planner.expected_costs`, `GO2NAV_EXACT`; drawn futures beside it,
+`GO2NAV_SCENARIOS`), a way out for a tape already under the floor (`GO2NAV_RECOVER`) and a walker contact's own price
+(`GO2NAV_WALKER_PRICE`). **Outcome:** with the price at 300 s, chosen on seed 0 with realistic errors (3,000 s: 11
+round trips; 1,000 s: 10; 300 s: 26; 100 s: 16), on four walkers that do not yield, seeds 0-3: perfect predictions
+29.25 round trips and no contact stops; realistic errors 21.5 and none (26 on seed 0, 19-21 on the others: the price
+favoured the seed it was chosen on); N4 6.0 and 8.0.
+
+**13. Contact calibration and N5** (approved 13 November). Models of one future go through the same rule (the ring
+tracker: 12.5 to 16.25 round trips, 14.5 to 8.25 contact stops). `eval.contact_calibration`: at the planner's own
+plans near walkers, the model's chance of a contact against exact replays of every kept tape, and each wrong choice by
+cause and by cost term. Windows branched from the states N4's planner reaches under its own tapes
+(`data.planner_branches`) and N5, N4 fine-tuned on them (`configs/object/n5.yaml`). Bars (approved): fewer false alarms
+and misses, and above 16.25 round trips with at most 8.25 contact stops. **Outcome:** N5 6.75 round trips and 7.0
+contact stops. Misses fell (the chosen tape truly comes within the floor at 23% of probed plans, N4 29%), false alarms
+did not (12%, N4 10%). Fails.
+
+**14. Freeze, M5 and a bank of decisions** (approved 14 November; docs/REVIEW_2026-11-14.md). Since 12 November every
+model has failed (c) in the same loop: a new probe, a patch to the data or the rule, a retrain. Three steps, then a
+learned value as the next piece whatever they show.
+- **The several-futures line stops** (N0-N5); N4 stays its reference. **The rule is frozen** as it stands:
+  `GO2NAV_EXACT=1`, `GO2NAV_RECOVER=1`, `GO2NAV_WALKER_PRICE=300`, `GO2NAV_W_STILL=0`. No switch is added or tuned.
+  Its decision-path constants (`planning.sampling`), counted: the cost 11 (P17's 9, seven named and two written inline,
+  the late breach's discount and the cap on an unreachable distance; and the rule's walker price and the way out's
+  5-mm margin); the proposals about 28 (22 named, 6 inline), unchanged since P17. Five development switches stay off
+  and go at the merge: `CONTACT_CAP`, `FLOOR_EXEMPT`, `SCENARIOS`, `STILL_FRAMES` and the priced rule's `CONTACT_S`.
+- **M5 under the frozen rule.** M5 is the one-future correction to constant velocity that passes (a) (0.033, 0.101,
+  0.325 m) and has never run in a mission. Four walkers that do not yield, seeds 0-3; and 1-2 walkers not yielding,
+  polite and reactive, seed 0, beside the tracker and the true model under the same rule. GPU inference, at most 6
+  mission workers. **Bar (c), as item 7:** a mean of at least 22.25 round trips (the tracker's 16.25 plus 6) and at
+  most 4.1 contact stops (half its 8.25). Read beside it: the parity line (above 16.25 round trips, at most 8.25 contact
+  stops) and, on the other suites, within 3 round trips of the tracker with no more contact stops.
+- **The decision bank** (`eval.decision_bank`): planning moments fixed once, the same for every model. From the
+  tracker's and the true model's missions under the frozen rule (four walkers that do not yield; 1-2 walkers of each
+  kind; seed 0), at plans with a walker within 3 m, up to 4 a mission, evenly spaced; at each, the plan's tapes and
+  each tape's cost under the truth (an exact replay with the walkers' dice). A model is scored by replaying the
+  mission's recorded requests, so it sees the history it would have seen there, costing the same tapes and taking the
+  cheapest: its regret under the truth, its wrong choices by cause (as `eval.contact_calibration`), the share of chosen
+  tapes truly within the floor, and its contact chance's AUC and Brier score. Checks: the true model and the tracker
+  repeat their own missions' choices, and the true model's regret is near nothing (its walkers step at 100 ms, the
+  world's at 2 ms). **Validated before it is used to choose:** on the models with
+  missions (perfect predictions, realistic errors, `dice:8`, the tracker, M5, N4, N5), its order by mean regret against
+  their round trips on four walkers that do not yield.
+- **Next, whatever these show:** a learned value of the state (a critic on the cost to go) in place of the hand terms
+  beyond a short horizon; set out after them.
+- **Outcome** (STATUS P22 item 14).
+  - M5 makes 16.75 round trips and 0.5 contact stops over seeds 0-3, so it fails (c). It is above the parity line,
+    and within it on the other suites.
+  - The honest oracle makes 16.0 and 0.5, so (c) cannot be reached by prediction under this rule.
+  - The bank repeats its sources exactly. It orders the models as their contact stops (Spearman 0.98), not their round
+    trips (0.68), so the validation fails as set: it ranks contact risk, not missions.
+  - The five switches are gone (a model of several futures is always costed in expectation, worked out). Nothing
+    changed under the frozen rule.
+
+### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
+
+- **P24, the predictor in Genesis on the harness's tracks.** The mission harness already tracks walkers (the hand
+  tracker on the built map; the earlier model's walker finder), so this does not wait for slots. First offline: the
+  ring world's predictor on the tracks of recorded missions, against constant velocity (the walkers' scripts are the
+  same code in both worlds). Then P17's planner in missions on the built map, with long tapes and the walker-aware
+  end cost. Against P18's merged figures (40, 64, 18 of 40) and, with walkers that do not yield, the hand reference's
+  7 of 80. Only after P22 passes (a).
+- **P25, a second world.** Zhu et al.'s bouncing-ball task rebuilt (64 x 64 frames; a ball the agent controls among
+  balls that move on their own): LeWM as ported here, and the object recipe. Their figures (LeWM 0-3%; with their
+  supervised targets 60-92%) are a reference, not a like-for-like comparison.
+- **P26, slots in place of the tracker, and after:** P22's predictor over P23's slots in Genesis; whether adapting the
+  encoder improves the dynamics without losing the pretrained geometry; a learned end cost; held-out families; the
+  H-JEPA decision (docs/REVIEW_2026-11-11.md section 5).
 
 ## Compute and order
 

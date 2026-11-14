@@ -1874,3 +1874,412 @@ P20 item 4, both in the module's docstring:
 with privileged velocity), missions run at thousands an hour on the CPU, and there is a corpus of 4.2 million frames
 in which half the commands are random with respect to the walkers. Next: P21, the learned model, set out before its
 first run.
+
+## P21: the ring world model, R0 (11 November)
+
+Plan: PLAN P21. Branch `feature/ring-model`. Code: `models/ring_jepa.py`, `training/ring_jepa.py`,
+`planning/ring_model.py`, `perception/ring_walkers.py` (batched detection), `data/ring_corpus.py` (`pack`). Runs:
+`outputs/ring_model/` (R0: 20,000 steps, 14:07-18:12; suites 18:12-19:25 on the GPU).
+
+**1. Result: R0 fails, below carrying walkers frozen.**
+
+| P17's planner, 80 missions, 6.4 s, seed 0 | Not yielding | Polite |
+|---|---|---|
+| R0 (walkers read from its predicted scans) | 30 (50 contact stops) | 44 (36) |
+| The ring tracker, `ring_velocity` | 60 (12); 59-62 over 4 seeds | 78 (1) |
+| The ring tracker, `ring_frozen` | 48 (7); 41-48 over 4 seeds | 72 |
+| Bar | at least 60, at most 10 contact stops | |
+
+A plan took 2.05 s (16 ms with the tracker).
+
+**2. Why.** Walkers read from R0's scans on 341 val windows with a walker in sight within 2 m, under the recorded
+commands (walkers found within 0.3 m of a true one, of those in sight; false detections a scan):
+
+| | Now | 0.1 s | 0.8 s | 1.6 s | 3.2 s |
+|---|---|---|---|---|---|
+| The true scan | 94%, 0.04 | 94% | 94% | 95% | 95% |
+| R0's predicted scan | 83%, 5.7 | 64%, 10 | 47%, 11 | 34%, 11 | 22%, 11 |
+
+- **The walls are blurred:** the decoded scan's error is 1 cm (median) under 1 m and 4 cm at 2-4 m, but its 95th
+  percentile is 52 cm at 2-4 m and 147 cm at 4-8 m. Returns 6 cm off a wall read as walkers; a margin of 20 cm still
+  leaves about 4 phantoms a scan.
+- **The walkers fade:** 83% held in the decoded present, 34% 1.6 s ahead. The planner missed most real walkers and
+  steered round phantoms.
+- **The validation misled.** Its error on the beams that changed fell to a quarter of persistence's (0.022 against
+  0.089 at 1.6 s, 0.029 against 0.100 at 3.2 s), but those beams are mostly walls moving with the robot: a walker is
+  a few percent of a scan, and the loss had no reason to keep it. The same failure as P4 to P4f and phase C, in a
+  different sensor.
+
+**3. The suite's own spread.** Detection changes that moved fitted centres by millimetres moved the tracker's suite by
+2 round trips, so it was scored on four planner seeds: `ring_velocity` 60, 60, 59, 62 (contact stops 12, 11, 11, 7),
+`ring_frozen` 48, 46, 41, 47, the privileged velocity 64 and 65, `frozen_seen` 49 and 46. One 80-mission suite is
+good to about 2-4 round trips.
+
+**4. Read and decision.** The ring-scan JEPA from scratch fails for the reason the literature reports for small
+from-scratch JEPAs in worlds with independently moving objects (docs/REVIEW_2026-11-11.md). The review of
+11 November stopped this line; R1 to R4 were not run. Next: P22 (object-level dynamics in the ring world) and P23
+(self-supervised slots on the Go2's camera), in parallel.
+
+## P22: first runs, and the second review's measurements (11 November)
+
+Plan: PLAN P22 and its item 7. Branch `feature/object-dynamics`. Code: `data/object_tracks.py`,
+`models/object_jepa.py`, `training/object_jepa.py`, `planning/object_model.py`, `eval/object_measures.py`,
+`planning/wall_raster.py`. Runs: `outputs/object_dynamics/`, `outputs/review_1111/`.
+
+**1. M0 and M1 lose to constant velocity at 1.6 s.** Training validation (8,192 val windows, 16-step rollouts under
+the recorded commands; median error in metres against the tracker's later positions):
+
+| | 1.6 s | 3.2 s | 6.4 s |
+|---|---|---|---|
+| M1 (no object masking), 20,000 steps | 0.070 | 0.179 | 0.411 |
+| M0 (object masking), 14,000 steps | 0.075 | 0.190 | 0.425 |
+| Carried on at the last step's displacement | 0.052 | 0.322 | 0.930 |
+
+Masking makes no difference to this error so far. Both predicted the whole displacement; M2 on predict a correction
+to constant velocity (PLAN P22 item 7).
+
+**2. The measurements of the second review** (docs/REVIEW_2026-11-11_second.md has the tables): the walkers are
+near-deterministic (the best deterministic predictor errs 0.00, 0.00 and 0.18 m at 1.6, 3.2 and 6.4 s); the robot's
+choice moves a nearby walker by more than 5 cm in 17%, 32% and 41% of close encounters; and the planner suites'
+room for a walker model is largest with four walkers that do not yield (the tracker 13 of 40 with 16 contact stops,
+the true model 29 with none) and nearly absent where the layout has loops.
+
+**3. Two faults found.**
+- Replaying a corpus episode through its planner is not exact once the planner's code has changed: P21's faster
+  detection moved tracks by millimetres and replays left the record. `data.ring_corpus.replay_world` replays the
+  recorded requests through the world instead; `eval.object_measures` checks the pose on every window. Nothing had
+  been scored with the planner replay.
+- P23's slot trainer hits illegal memory accesses on the GPU within about 100 steps (GPU page faults in the kernel
+  log; no reset). Twelve training steps on the CPU run clean, so it is not the code's indexing. Ruled out: the data
+  (no non-finite value in 700 feature files), the memory cap, the second device, the fused GRU kernel, loader
+  processes, pinned copies. Turning the fused attention kernels off let a bare loop run 400 steps three times, and
+  the trainer still faulted. Not explained; to be retried alone on the card. No model is trained on the CPU.
+
+## P22: M2 to M4, and the planner check (12 November)
+
+Runs: `outputs/object_dynamics/` (M2, M3, M4 trained 21:35-23:44 on 11 November; measures on the CPU).
+
+**1. (a) offline, 25,811 walker-windows (3,649 waiting): the correction to constant velocity works.** Median error (m):
+
+| | 1.6 s | 3.2 s | 6.4 s | Waiting: 1.6 / 3.2 / 6.4 s |
+|---|---|---|---|---|
+| The tracker's constant velocity | 0.054 | 0.272 | 0.776 | 0.052 / 0.184 / 0.469 |
+| Frozen | 0.313 | 0.562 | 0.964 | |
+| M0 (whole displacement, masking) | 0.066 | 0.167 | 0.392 | 0.045 / 0.123 / 0.323 |
+| M1 (whole displacement) | 0.069 | 0.169 | 0.395 | 0.047 / 0.125 / 0.337 |
+| M2 (correction to constant velocity) | 0.048 | 0.147 | 0.393 | 0.044 / 0.121 / 0.335 |
+| M3 (M2 with masking) | 0.049 | 0.149 | 0.397 | 0.045 / 0.119 / 0.322 |
+| M4 (M2, six-step rollouts, half the steps) | 0.063 | 0.157 | 0.375 | 0.059 / 0.130 / 0.317 |
+| Bar (a) | 0.054 | 0.136 | 0.388 | 0.052 / 0.092 / 0.235 |
+
+- M2 and M3 beat constant velocity at every horizon and miss the bar: by 1 cm at 3.2 s and half a centimetre at 6.4 s
+  over all walkers, by more among the waiting ones.
+- Object masking changes nothing (M3 against M2, M0 against M1).
+
+**2. (b) the reaction, 511 windows** (hold against back away; the slope of the predicted difference on the true one):
+
+| | 1.6 s | 3.2 s | 6.4 s |
+|---|---|---|---|
+| M2 | 0.22 [0.17, 0.28] | 0.21 [0.16, 0.26] | 0.12 [0.09, 0.16] |
+| M3 | 0.23 [0.18, 0.30] | 0.20 [0.16, 0.26] | 0.12 [0.08, 0.16] |
+| M4 | 0.35 [0.29, 0.43] | 0.41 [0.33, 0.49] | 0.35 [0.28, 0.42] |
+
+No run reaches the bar (an interval above 0.5). Longer training rollouts are what move it; the earlier models read
+0.03-0.07 on P16's version of this measure. M5 (M4 with the loss as a distance) and M6 (sixteen-step rollouts) are
+training.
+
+**3. (c) the planner: stopped under the stop rule, no better than the tracker.** Four walkers that do not yield:
+
+| | Round trips of 40 | Contact stops |
+|---|---|---|
+| The ring tracker, seeds 0-3 | 13, 11, 14, 12 | 16, 11, 16, 15 |
+| The true model, seed 0 | 29 | 0 |
+| M4, seed 0, the first 15 missions to end | 1 | 13 (the tracker had 11 by the same simulated time) |
+| M2, seed 0, the first 5 to end | 0 | 5 |
+
+Two contacts traced (M4): a walker that had paused started again while the robot closed on it (the model and constant
+velocity both had it still); and a stand-off 10 cm from a walker, where errors of 3 cm decide. The true model is exact
+in both. From observations a walker's future has several branches (its pause timer and its kind are hidden), and a
+single predicted future gives the planner no margin for them.
+
+**4. Faults of the night.**
+- The first planner suite ran 12 missions at once with the model on the GPU and livelocked for ten hours with no
+  mission finished: the known limit is 6 (20 October). The same suites with the model on the CPU pool took 3-4 s a
+  plan (28 at once). A rollout of 16 passes a plan is too slow for suites either way.
+- The slot trainer's smoke faulted alone on the GPU too (2 page faults, before its first log): it is not the sharing.
+
+## P22: M5 passes (a); the several-futures predictor fails in the planner (12 November, afternoon)
+
+**1. Offline.** Median error (m), all walkers / waiting ones; the reaction's slope with its interval:
+
+| | 1.6 s | 3.2 s | 6.4 s | Waiting | Reaction at 1.6 / 3.2 / 6.4 s |
+|---|---|---|---|---|---|
+| The tracker's constant velocity | 0.054 | 0.272 | 0.776 | 0.052 / 0.184 / 0.469 | 0 |
+| M5 (six-step rollouts, distance loss) | 0.033 | 0.101 | 0.325 | 0.028 / 0.082 / 0.214 | 0.39 [0.30, 0.50] / 0.41 / 0.33 |
+| M6 (sixteen-step rollouts) | 0.072 | 0.161 | 0.337 | 0.059 / 0.116 / 0.239 | 0.40 [0.31, 0.49] / 0.43 / 0.37 |
+| N1 (one pass, one future) | 0.047 | 0.139 | 0.353 | 0.054 / 0.124 / 0.275 | 0.23 / 0.29 / 0.30 |
+| N0 (one pass, six futures; the likeliest) | 0.061 | 0.156 | 0.399 | 0.066 / 0.151 / 0.314 | 0.27 / 0.34 / 0.29 |
+| Bar (a) | 0.054 | 0.136 | 0.388 | 0.052 / 0.092 / 0.235 | interval above 0.5 |
+
+**M5 passes (a)** in both strata, the first learned model here to beat the hand tracker on a bar set beforehand. No
+run passes (b). N0's nearest future errs 0.031, 0.071 and 0.171 m, and a future of probability 0.1 or more lies within
+0.15 m of the walker for 87%, 69% and 42% of walkers.
+
+**2. In the planner** (four walkers that do not yield, 40 missions; round trips, contact stops):
+
+| | Seeds 0-3 |
+|---|---|
+| The true model | 29, 29, 28, 30; 0, 1, 0, 1 |
+| The ring tracker | 13, 11, 14, 12; 16, 11, 16, 15 |
+| N0 | 5, 3, 8, 6; 30, 31, 28, 31 |
+| N1 | 5, 4, 7, 6; 34, 32, 30, 31 |
+| N0, clearance also kept from each walker still and at the tracker's velocity (seeds 0, 1) | 6, 6; 15, 11 (19 and 21 timeouts) |
+| N1, the same | 7, 6; 10, 11 (21 and 22 timeouts) |
+
+With 1-2 walkers that do not yield N0 makes 49 and N1 54 (the tracker 59-62); reactive, 70 and 67 (74).
+- **Why:** traced on N1. A walker stands in front of the robot (one that does not yield waits there for ever). Under
+  some tapes the model has it move aside, as a polite walker would (0.26 m in 1.6 s; the truth 0.00), the planner
+  takes those tapes, and the robot drives into it. The planner waited in 498 plans where the tracker's waited in
+  10,849. Choosing the best of 50 tapes on a model selects the tapes its errors favour.
+- Keeping clearance from the engineered futures too brings contact stops back to the tracker's and round trips
+  below it: more futures seal more ways.
+- So a predictor better than constant velocity offline is worse than it in this planner, with one future or six. A
+  walker's kind is hidden, and the planner needs more than futures: what a wrong guess costs.
+
+**3. P23's fault found.** The slot trainer's illegal memory accesses were bf16 autocast in that model on this ROCm
+build: in float32 it ran 600 steps clean twice. It trains in full precision (started 15:10).
+
+## P22: the expected-cost planner and N2; P23's first slots (12 November, evening)
+
+**1. P22 item 9 stops at its agreed limit.** The planner prices a contact by its probability over the predicted
+futures (`expect:<path>`, `CONTACT_S` 2,000 s), with a walker standing still among them at 10% and a tape already
+under the clearance floor free to move away. N2 is N0 with 4.8 s of history. Four walkers that do not yield, 40
+missions (round trips; contact stops; timeouts):
+
+| | Seed 0 | Seed 1 | Seed 2 | Seed 3 | Mean |
+|---|---|---|---|---|---|
+| The ring tracker | 13; 16; 11 | 11; 11; 16 | 14; 16; 8 | 12; 15; 13 | 12.5; 14.5 |
+| N0, expected cost | 8; 12; 20 | 8; 11; 21 | | | |
+| N2, expected cost | 3; 17; 20 | 5; 15; 20 | 7; 20; 13 | 7; 13; 20 | 5.5; 16.3 |
+| N2, without the still future | 6; 26; 8 | | | | |
+| The true model | 29; 0; 11 | 29; 1; 10 | 28; 0; 12 | 30; 1; 9 | 29; 0.5 |
+
+- **Fails the bar** (a mean above 12.5 round trips with at most 14.5 contact stops). With 1-2 walkers that do not
+  yield N2 makes 41 of 80 (the tracker 59-62); reactive, 70 (74).
+- Offline N2 is a little better than N0 (likeliest future 0.056, 0.135, 0.349 m; a likely future covers 91%, 78%
+  and 45% of walkers) and still worse than constant velocity at 1.6 s for walkers waiting on the robot (0.064
+  against 0.052); its reaction slope 0.25-0.29.
+- Without the engineered still future it has 26 contact stops, as N0 had 25: longer history did not teach the model
+  that a walker blocking the robot stays. With it the robot is pinned: a walker held up by it for a median 394 s
+  (N0), against 4.5 s under the tracker.
+- **Read:** as agreed before the runs, the suite says the hidden state is what matters (a walker's kind and its
+  pause), and further planner changes stop here. `CONTACT_S`, the still future's weight and the stand-off rule were
+  chosen on the suite they were scored on.
+
+**2. P23, the first slot model** (`outputs/camera_slots/s0`: this repository's implementation of VideoSAUR's recipe,
+not yet the official port; 60,000 steps in full precision, 15:05-22:48; 100 val units, 16,300 walker-frames in view):
+
+| | Bound | Of those, within 0.15 m | Median error |
+|---|---|---|---|
+| All | 84.9% | 81.7% | 0.038 m |
+| Turning (over 0.3 rad/s) | 88.8% | 75.8% | 0.041 m |
+| Straight | 82.9% | 85.0% | 0.037 m |
+| An untrained model (the null) | 21% | | |
+| Bar | 90% | 90% | |
+
+- **Misses the bar narrowly on both counts**, from a null of 21%. Turning is not worse than straight for binding,
+  so the robot's own motion does not break the slots; positions are worse while turning.
+- The slots share the image evenly (the largest holds 28% of the patches); no collapse.
+
+## P22: a memory of each walker fails; the model ties a walker's motion to the robot's (13 November)
+
+**1. N3** (N0 with each walker's memory: how long tracked, stood still, near the robot; how far walked in 10 s;
+`perception.ring_walkers.Memory`). Against the bars of items 9 and 10:
+
+| | N3 | The ring tracker | Bar |
+|---|---|---|---|
+| (a) likeliest future, all, 1.6 / 3.2 / 6.4 s (m) | 0.061 / 0.154 / 0.399 | 0.054 / 0.272 / 0.776 | 0.054 / 0.136 / 0.388 |
+| (b) reaction slope, 1.6 / 3.2 / 6.4 s | 0.26 / 0.36 / 0.37 | 0 | interval above 0.5 |
+| (c) four walkers that do not yield, seeds 0-3: round trips | 10, 7, 5, 4 (6.5) | 12.5 | above 12.5 |
+| contact stops | 17, 13, 20, 24 (18.5) | 14.5 | at most 14.5 |
+
+With 1-2 walkers (seed 0): polite 75 of 80 (the tracker 78), not yielding 38 (59-62), reactive 73 (74). N3 is N0 and
+N2 again: **fails all three**.
+
+**2. Why the memory did nothing** (CPU and GPU checks, `outputs/walker_memory/`):
+- The memory reads right: walkers held up 2-5 s show a median 2.3 s stood still.
+- The training targets carry the giving up: of slots stood still 2 s or more within 1.2 m of the robot, a polite
+  walker's track moves more than 0.15 m within 1.6 s 57% of the time (not yielding 8%), and the track is kept
+  98-100% of the time.
+- On val windows under their recorded tapes the chances are close to the truth (stood still 2-5 s: truly moves 0.37 /
+  0.52 by 1.6 / 3.2 s; N3 0.28 / 0.56; N0 0.22 / 0.50).
+- The same 927 stand-offs under the two tapes, the chance that the walker moves more than 0.15 m:
+
+| Walker held up 2-5 s | Truly, 1.6 / 3.2 s | N3, recorded tape | N3, robot holds |
+|---|---|---|---|
+| Polite (116) | 0.63-0.66 / 0.87-0.88 | 0.31 / 0.73 | 0.02 / 0.14 |
+| Not yielding (74) | 0.00-0.09 / 0.00-0.26 | 0.11 / 0.31 | 0.00 / 0.03 |
+
+(The truth differs a little between the tapes: under the recorded one the robot often clears the way.)
+- **Read:** the model learnt that a walker moves when the robot moves. A polite walker gives up on its own timer
+  whatever the robot does, but in the corpus three plans in four come from a planner that sees the walkers, and a
+  long hold beside a waiting walker is rare. The same confusion the other way would be the tapes the planner chooses
+  with walkers that do not yield (that the robot pushing on has a blocker step aside); item 10's last measure tests
+  it. The earlier stand-off table read the likeliest future only, which hid the recorded-tape result.
+
+**3. Next** (approved): PLAN P22 item 11, branched windows, and item 10's tape-optimism measure first.
+
+## P22: branched windows, the decision rule and N5 fail (c); the review of 14 November (13-14 November)
+
+**1. N4 (item 11): the branches move the stand-off chances, not the missions.** N3 with half of each batch branched
+windows. (a) 0.065 / 0.165 / 0.424 m, (b) 0.36 / 0.40 / 0.37. A polite walker held up 2-5 s under a hold: a chance of
+moving on of 0.14 / 0.48 at 1.6 / 3.2 s (truly 0.63 / 0.87; N3 0.02 / 0.14). The chosen tape truly within the floor at
+26% of tape-optimism probes (N3 52%). Four walkers that do not yield, old rule: 6.25 round trips, 17.25 contact stops
+(the tracker 12.5 and 14.5). Fails.
+
+**2. The decision rule (item 12).** With perfect predictions (`mix:`, rude4 seed 0) the usual rule makes 29 round trips
+and no contact stops; the same future priced by its probability (`CONTACT_S`) makes 22. Neither a cap on the chance
+nor the floor's exemption fixed it. The rule in expectation over every future, worked out (`GO2NAV_EXACT`), repeats
+the true model's missions exactly; a way out for a tape already under the floor (`GO2NAV_RECOVER`) and a walker
+contact's own price (`GO2NAV_WALKER_PRICE`, 300 s, chosen on seed 0 with realistic errors) complete it. Four walkers
+that do not yield (round trips; contact stops; timeouts), under that rule:
+
+| | Seed 0 | Seed 1 | Seed 2 | Seed 3 | Mean |
+|---|---|---|---|---|---|
+| Perfect predictions | 29; 0; 11 | 30; 0; 10 | 28; 0; 12 | 30; 0; 10 | 29.25; 0; 10.75 |
+| Realistic errors (`mix:noise=0.03,fresh=0.3`) | 26; 0; 14 | 19; 0; 21 | 21; 0; 19 | 20; 0; 20 | 21.5; 0; 18.5 |
+| The ring tracker (one future, through the same rule: item 13) | 18; 7; 15 | 12; 8; 20 | 20; 8; 12 | 15; 10; 15 | 16.25; 8.25; 15.5 |
+| N4 | 6; 10; 24 | 3; 7; 30 | 8; 6; 26 | 7; 9; 24 | 6.0; 8.0; 26.0 |
+
+The price favoured the seed it was chosen on (realistic errors 26 there, 19-21 elsewhere).
+
+**3. Contact calibration (item 13; `eval.contact_calibration`, seed 0).** At the planner's own plans with a walker
+within 3 m, the model's chance of a contact on each kept tape against exact replays; per plan probed:
+
+| | N4 | N5 | The ring tracker | Realistic errors |
+|---|---|---|---|---|
+| Plans probed | 1,155 | 1,187 | 1,074 | 1,144 |
+| AUC; Brier score | 0.91; 0.12 | 0.92; 0.11 | 0.83; 0.17 | 0.997; 0.02 |
+| A wrong choice (regret 2 s or more) | 50% | 45% | 44% | 7% |
+| ... the chosen tape truly within the floor (a miss) | 29% | 23% | 35% | 0.5% |
+| ... the best tape given a chance of 0.5 or more (a false alarm) | 10% | 12% | 6% | 1% |
+| Mean regret | 90 s | 66 s | 112 s | 3 s |
+| Contact term the largest error of a wrong choice | 89% | 90% | 97% | 92% |
+
+N4 ranks contacts better than the tracker and loses its missions: a calibrated spread of futures over 6.4 s puts some
+chance of contact on nearly every tape that moves, and the robot holds.
+
+**4. N5 (item 13): fails.** N4 fine-tuned 10,000 steps on windows branched from the states N4's planner reaches
+(`data.planner_branches`: 188,737 train and 19,986 val windows from 1,100 missions), a quarter random-tape branches and
+a quarter the corpus. On the planner's states the error at 6.4 s fell from 0.44 to 0.41 m (0.40 at step 2,500); on the
+corpus it rose from 0.44 to 0.47 m. Four walkers that do not yield: 9, 5, 5, 8 round trips (6.75), 5, 5, 9, 9 contact
+stops (7.0), 26, 30, 26, 23 timeouts. Misses fell, false alarms did not (above).
+
+**5. The review of 14 November** (docs/REVIEW_2026-11-14.md; approved): every model since 12 November has failed (c)
+in the same loop, the suite is mostly a deadlock in tree mazes, and M5, the one model that passes (a), has never run in
+a mission. PLAN P22 item 14: the several-futures line stops and the rule is frozen; M5 under it; a bank of fixed
+planning moments (`eval.decision_bank`) to rank models in minutes; then a learned value of the state. The oracle
+`dice:8` (`planning.mixture.DiceModel`: the walkers' true rules, kinds and state under eight new sets of dice a plan)
+runs beside them; it copies each walker's pause timer and chosen next cell, so it bounds the rule, not the models.
+
+## P22 item 14: M5 under the frozen rule, the honest oracle and the decision bank (14 November)
+
+**1. M5 under the frozen rule** (worked out, the way out, a walker contact at 300 s, no still future). Four walkers
+that do not yield (round trips; contact stops; timeouts):
+
+| | Seed 0 | Seed 1 | Seed 2 | Seed 3 | Mean |
+|---|---|---|---|---|---|
+| Perfect predictions | 29; 0; 11 | 30; 0; 10 | 28; 0; 12 | 30; 0; 10 | 29.25; 0; 10.75 |
+| Realistic errors | 26; 0; 14 | 19; 0; 21 | 21; 0; 19 | 20; 0; 20 | 21.5; 0; 18.5 |
+| **M5** | 17; 0; 23 | 16; 1; 23 | 18; 1; 21 | 16; 0; 24 | **16.75; 0.5; 22.75** |
+| The ring tracker | 18; 7; 15 | 12; 8; 20 | 20; 8; 12 | 15; 10; 15 | 16.25; 8.25; 15.5 |
+| The honest oracle (`dice:8`) | 14; 0; 26 | 13; 1; 26 | 19; 1; 20 | 18; 0; 22 | 16.0; 0.5; 23.5 |
+| N5 | 9; 5; 26 | 5; 5; 30 | 5; 9; 26 | 8; 9; 23 | 6.75; 7.0; 26.25 |
+| N4 | 6; 10; 24 | 3; 7; 30 | 8; 6; 26 | 7; 9; 24 | 6.0; 8.0; 26.0 |
+
+With 1-2 walkers, seed 0 (80 missions):
+
+| | Not yielding | Polite | Reactive |
+|---|---|---|---|
+| Perfect predictions | 68; 0; 12 | 80; 0; 0 | 80; 0; 0 |
+| M5 | 64; 1; 15 | 77; 0; 3 | 79; 1; 0 |
+| The ring tracker | 63; 8; 9 | 79; 1; 0 | 78; 2 (one a wall); 0 |
+
+- **Bar (c) fails** on round trips (16.75 against 22.25) and passes on contact stops (0.5 against at most 4.1). M5
+  is above the parity line (16.25 round trips, 8.25 contact stops) and within it on the other suites. It is the first
+  learned model in P22 level with the tracker on round trips, and it has a sixteenth of the tracker's contact stops.
+  What the tracker loses to contacts, M5 loses to waiting (22.75 timeouts against 15.5).
+- **The honest oracle** knows each walker's rules, kind, pause timer and next cell, and draws eight new sets of dice
+  a plan. It makes 16.0 round trips, and M5 is level with it. So under this rule, a model that knew everything but
+  the dice would do no better than M5.
+- The 13 round trips between the oracle and perfect predictions are the walkers' future draws. No model can know
+  them, and the rule prices them over 6.4 s with no chance to look again. Bar (c)'s 22.25 cannot be reached by
+  prediction alone.
+
+**2. The decision bank** (`outputs/decision_bank`: 33 minutes to build, 2-6 minutes a model, 24 cores).
+- It holds 2,240 moments from 560 missions (the tracker's and the true model's, four suites, seed 0). The 3 with no
+  tape clear of the walls are not scored.
+- Its source missions repeat the suites' own figures.
+- **Both checks pass.** Replaying the requests, the true model repeats the true model's choices at every moment, and
+  the tracker the tracker's (agreement 1.000 on each of the eight sources).
+- The true model's regret is under 2 s at 99.1% of moments. Its mean, 2.6 s, comes from 17 moments where its chosen
+  tape truly comes within the floor. Not traced; presumably its 100 ms step.
+
+All 2,237 moments (a wrong choice: a regret of 2 s or more):
+
+| | Mean regret (s) | Wrong choices | Chosen tape truly within the floor | AUC; Brier |
+|---|---|---|---|---|
+| Perfect predictions | 2.6 | 0.9% | 1.1% | 0.991; 0.006 |
+| Realistic errors | 1.3 | 3.1% | 0.7% | 0.999; 0.009 |
+| The honest oracle | 5.7 | 5.8% | 1.4% | 0.988; 0.023 |
+| M5 | 30.8 | 15.6% | 8.8% | 0.87; 0.089 |
+| N4 | 36.4 | 22.2% | 8.9% | 0.905; 0.077 |
+| N5 | 34.7 | 22.5% | 8.2% | 0.906; 0.078 |
+| The ring tracker | 48.0 | 17.6% | 14.3% | 0.83; 0.10 |
+
+The validation: the 318 moments from four walkers that do not yield, against the same models' missions on that suite
+(regret by term: the chosen tape's true cost less the best tape's; a negative part is a term on which the chosen tape
+is truly cheaper, paid for on another):
+
+| | Mean regret (s) | ... contact | ... progress | Chosen tape truly within | Missions: round trips; contact stops |
+|---|---|---|---|---|---|
+| Realistic errors | 3.1 | 2.2 | 0.9 | 1.6% | 21.5; 0 |
+| Perfect predictions | 5.1 | 4.5 | 0.6 | 2.2% | 29.25; 0 |
+| The honest oracle | 8.0 | 3.8 | 4.2 | 1.9% | 16.0; 0.5 |
+| M5 | 44.0 | 53.1 | -8.7 | 14.2% | 16.75; 0.5 |
+| N5 | 56.7 | 62.2 | -5.1 | 15.8% | 6.75; 7.0 |
+| N4 | 66.1 | 79.5 | -12.7 | 19.2% | 6.0; 8.0 |
+| The ring tracker | 70.1 | 89.6 | -18.7 | 22.3% | 16.25; 8.25 |
+
+- **The validation fails as set.** By mean regret the bank orders the models as their contact stops (Spearman 0.98),
+  not their round trips (0.68). It puts the tracker last for its contacts, and the oracle third, though the oracle's
+  missions make only 16.0.
+- The bank prices each moment over the same 6.4 s as the rule. The timeouts that decide this suite are deadlocks:
+  many moments in a row, each of which looks right over 6.4 s. Half the oracle's regret is progress given up (4.2 s a
+  moment, the most of any model). It gives way, and small losses at every plan add up to timeouts.
+- So the bank ranks contact risk in minutes, and it is not to choose between models on round trips. Its split by
+  term tells giving way (positive progress) from pushing on (negative progress, paid in contact).
+- M5's open-loop contacts do not become contact stops. On this suite 14% of its chosen tapes truly come within the
+  floor, against 16-22% for N4, N5 and the tracker. Yet it has 0.5 contact stops where they have 7-8.25: replanning
+  every 0.4 s corrects M5's choices and not theirs. Presumably M5's errors come late in the horizon, since it is the
+  most accurate at 1.6 s (0.033 m). Not measured: the bank does not record when a contact comes.
+
+**3. Read.**
+- Under the frozen rule, prediction is no longer what limits this suite: M5 is level with the honest oracle.
+- What is left is the rule's. Over 6.4 s priced open loop, a model honest about the walkers' dice gives way, and no
+  single moment shows the cost.
+- Item 14's next piece, a learned value of the state priced beyond the horizon, is aimed at that.
+- P22's bars:
+  - (a) passed by M5;
+  - (b) passed by no run (M5 0.39 [0.30, 0.50] at 1.6 s);
+  - (c) failed as written, with M5 above the parity line.
+
+**4. Before the merge** (item 14): the five development switches are gone (`CONTACT_CAP`, `FLOOR_EXEMPT`,
+`SCENARIOS`, `STILL_FRAMES` and the priced rule's `CONTACT_S`). A model of several futures is now always costed in
+expectation, worked out. The drawn futures' check in the tests is replaced by an exact one: the worked-out expectation
+against all 256 joint futures of four walkers costed one by one (time, progress and the breach equal).
+
+Under the frozen rule nothing changed:
+- the bank, rescored for all seven models, is identical row for row;
+- 24 recorded missions (perfect predictions, the tracker, realistic errors, the oracle; 1-2 walkers) repeat exactly;
+- the unit tests pass (288).

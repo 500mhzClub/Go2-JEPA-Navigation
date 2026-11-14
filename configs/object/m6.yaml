@@ -1,0 +1,5 @@
+# P22 M6: M5 with sixteen-step rollouts (6.4 s, what the measures and the planner read), at batch 256. 12,000 steps.
+name: object_m6
+model: {residual: true}
+data: {mask_probability: 0., rollout: 16, distance: true, batch: 256}
+optimiser: {steps: 12000}

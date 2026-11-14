@@ -1,0 +1,5 @@
+# P22 M2 (docs/dynamic/PLAN.md): M1 with the prediction as a correction to constant velocity (the tracker's velocity in
+# each object token; the head starts at zero). No object masking.
+name: object_m2
+model: {residual: true}
+data: {mask_probability: 0.}

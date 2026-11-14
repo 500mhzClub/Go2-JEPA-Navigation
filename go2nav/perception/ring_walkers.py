@@ -1,11 +1,14 @@
 """Walkers from the range ring where the layout is known (docs/dynamic/PLAN.md P20): engineered estimation, nothing
-privileged. The inputs are a frame's scan (`perception.range`), the robot's pose, and the range each beam would read
-with no walker in the maze (`sim.kinematic.Geometry.wall_ranges`).
+privileged. The inputs are a frame's scan (`perception.range`), the robot's pose, and the walls' distance at any point
+(`planning.fields.Fields.wall_clearance`, from the known layout).
 
-- **Detection** (`detect`): a valid return shorter than the walls' by `MARGIN_M` is a walker's. Such beams are grouped
-  while they are neighbours (the ring closes on itself) and their ranges differ by less than `STEP_M`; a group of at
-  least `MIN_BEAMS` gives one walker: a circle of the walkers' radius fitted to its points (Gauss-Newton from the
-  nearest point pushed one radius along its beam).
+- **Detection** (`detect`, `detect_batch`): a valid return whose point lies more than `MARGIN_M` from every wall is a
+  walker's. Such beams are grouped while they are neighbours (the ring closes on itself) and their ranges differ by
+  less than `STEP_M`; a group of at least `MIN_BEAMS` gives one walker: a circle of the walkers' radius fitted to its
+  points (Gauss-Newton from the nearest point pushed one radius along its beam; at most `FIT_POINTS` of them, evenly
+  spaced along the group, so a long group costs no more than a short one). The rule was first a range shorter
+  than the walls' cast range by the margin; casting the walls costs 1.5 ms a scan, and P21 reads walkers from
+  thousands of predicted scans a plan, so both the tracker and P21 use the wall-distance lookup.
 - **Tracking** (`Tracker`): each frame's detections are joined to the nearest track within `GATE_M`. A track's velocity
   is the least-squares slope of its positions over the last `WINDOW_S` (zero until it spans `MIN_SPAN_S`). The window
   was 0.5 s at first: a walker that stopped beside the robot was still read as walking on for half a second, and the
@@ -23,6 +26,7 @@ from go2nav.sim.obstacles import RADIUS_M
 
 MARGIN_M, STEP_M, MIN_BEAMS = .06, .25, 3
 GATE_M, WINDOW_S, MIN_SPAN_S, EMPTY_FRAMES = .4, .3, .15, 3
+FIT_STEPS, FIT_POINTS = 4, 32
 
 
 def mount_of(xy, yaw):
@@ -30,43 +34,71 @@ def mount_of(xy, yaw):
     return np.asarray(xy, float)+MOUNT_BODY_M[0]*np.array([np.cos(yaw), np.sin(yaw)])
 
 
-def fit_circle(points, origin, radius=RADIUS_M, steps=4):
-    """The centre (2,) of the circle of `radius` through `points` (n, 2), seen from `origin` (so on their far side)."""
-    near = points[np.linalg.norm(points-origin, axis=1).argmin()]
-    centre = near+radius*(near-origin)/max(float(np.linalg.norm(near-origin)), 1e-9)
-    for _ in range(steps):
-        offset = points-centre
-        distance = np.maximum(np.linalg.norm(offset, axis=1), 1e-9)
-        jacobian = -offset/distance[:, None]
-        centre = centre+np.linalg.lstsq(jacobian, radius-distance, rcond=None)[0]
-    return centre
+def detect_batch(ranges, valid, poses, wall_clearance):
+    """The walkers each of S scans shows: centres (S, M, 2) in the world frame, NaN past each scan's count, and the
+    counts (S,). `ranges`, `valid` (S, BEAMS); `poses` (S, 3): x, y, yaw of the robot; `wall_clearance`: points
+    (..., 2) to the walls' distance."""
+    ranges, valid, poses = np.asarray(ranges, float), np.asarray(valid, bool), np.asarray(poses, float)
+    count = len(ranges)
+    yaw = poses[:, 2]
+    origin = poses[:, :2]+MOUNT_BODY_M[0]*np.stack((np.cos(yaw), np.sin(yaw)), 1)                    # (S, 2)
+    angle = yaw[:, None]+AZIMUTHS[None]
+    points = origin[:, None]+ranges[..., None]*np.stack((np.cos(angle), np.sin(angle)), -1)          # (S, BEAMS, 2)
+    hit = valid & (wall_clearance(points) > MARGIN_M)
+    first = np.where(hit.all(1), 0, (~hit).argmax(1))                     # begin at a gap: no group straddles the seam
+    order = (first[:, None]+np.arange(BEAMS)[None]) % BEAMS
+    hit, r = np.take_along_axis(hit, order, 1), np.take_along_axis(ranges, order, 1)
+    points = np.take_along_axis(points, order[..., None], 1)
+    breaks = np.ones_like(hit)
+    breaks[:, 1:] = ~hit[:, :-1] | (np.abs(np.diff(r, axis=1)) >= STEP_M)
+    run = np.cumsum(hit & breaks, axis=1)
+    rows, beams = np.nonzero(hit)
+    out, found = np.full((count, 0, 2), np.nan), np.zeros(count, int)
+    if not len(rows):
+        return out, found
+    key = rows*(BEAMS+1)+run[rows, beams]
+    groups, inverse, sizes = np.unique(key, return_inverse=True, return_counts=True)
+    kept = sizes >= MIN_BEAMS
+    if not kept.any():
+        return out, found
+    starts = np.concatenate(([0], np.cumsum(sizes)[:-1]))
+    place = np.arange(len(key))-starts[inverse]                             # each beam's index in its group
+    stride = -(-sizes//FIT_POINTS)                                          # ceil: at most FIT_POINTS a group
+    take = kept[inverse] & (place % stride[inverse] == 0)
+    slot = place//stride[inverse]
+    width = int(min(sizes[kept].max(), FIT_POINTS))
+    pts = np.full((len(groups), width, 2), np.nan)
+    pts[inverse[take], slot[take]] = points[rows[take], beams[take]]
+    pts, owner = pts[kept], groups[kept]//(BEAMS+1)
+    mask = ~np.isnan(pts[..., 0])
+    seen_from = origin[owner][:, None]
+    reach = np.where(mask, np.linalg.norm(pts-seen_from, axis=-1), np.inf)
+    near = pts[np.arange(len(pts)), reach.argmin(1)]
+    direction = near-origin[owner]
+    centre = near+RADIUS_M*direction/np.maximum(np.linalg.norm(direction, axis=1, keepdims=True), 1e-9)
+    filled = np.where(mask[..., None], pts, 0.)
+    for _ in range(FIT_STEPS):
+        offset = np.where(mask[..., None], filled-centre[:, None], 0.)
+        distance = np.maximum(np.linalg.norm(offset, axis=-1), 1e-9)
+        jacobian = np.where(mask[..., None], -offset/distance[..., None], 0.)
+        residual = np.where(mask, RADIUS_M-distance, 0.)
+        jx, jy = jacobian[..., 0], jacobian[..., 1]
+        a, b, d = (jx*jx).sum(1)+1e-9, (jx*jy).sum(1), (jy*jy).sum(1)+1e-9
+        rx, ry = (jx*residual).sum(1), (jy*residual).sum(1)
+        det = a*d-b*b
+        centre = centre+np.stack(((d*rx-b*ry)/det, (a*ry-b*rx)/det), 1)
+    found = np.bincount(owner, minlength=count)
+    out = np.full((count, int(found.max()), 2), np.nan)
+    slot = np.arange(len(owner))-np.searchsorted(owner, owner)              # owner is sorted (keys are)
+    out[owner, slot] = centre
+    return out, found
 
 
-def detect(ranges, valid, walls, xy, yaw):
-    """The walkers a scan shows: centres (n, 2) in the world frame."""
-    ranges = np.asarray(ranges, float)
-    hit = np.asarray(valid, bool) & (ranges < np.asarray(walls, float)-MARGIN_M)
-    if not hit.any():
-        return np.zeros((0, 2))
-    origin = mount_of(xy, yaw)
-    start = int(np.flatnonzero(~hit)[0]) if not hit.all() else 0          # begin at a gap, so no group straddles the seam
-    order = (start+np.arange(BEAMS)) % BEAMS
-    groups, group = [], []
-    for k in order:
-        if hit[k] and (not group or abs(ranges[k]-ranges[group[-1]]) < STEP_M):
-            group.append(k)
-            continue
-        if len(group) >= MIN_BEAMS:
-            groups.append(group)
-        group = [k] if hit[k] else []
-    if len(group) >= MIN_BEAMS:
-        groups.append(group)
-    centres = []
-    for group in groups:
-        angle = yaw+AZIMUTHS[group]
-        points = origin+ranges[group, None]*np.stack((np.cos(angle), np.sin(angle)), 1)
-        centres.append(fit_circle(points, origin))
-    return np.array(centres).reshape(-1, 2)
+def detect(ranges, valid, xy, yaw, wall_clearance):
+    """The walkers one scan shows: centres (n, 2) in the world frame."""
+    centres, found = detect_batch(np.asarray(ranges)[None], np.asarray(valid)[None], np.array([[*xy, yaw]], float),
+                                  wall_clearance)
+    return centres[0, :found[0]]
 
 
 class Tracker:
@@ -112,3 +144,81 @@ class Tracker:
         """(positions (n, 2), velocities (n, 2)) of the tracks."""
         xy = np.array([t['xy'] for t in self.tracks], float).reshape(-1, 2)
         return xy, np.array([t['velocity'] for t in self.tracks], float).reshape(-1, 2)
+
+
+class Slots:
+    """The tracker's tracks in a fixed number of slots, for the object-level predictor (docs/dynamic/PLAN.md P22): a
+    track keeps its slot for its life; a new one takes a free slot, else the slot of the remembered track seen longest
+    ago, else it is left out (every slot holds a track seen this frame)."""
+
+    def __init__(self, count):
+        self.ids, self.last_seen = [None]*count, [-1]*count
+
+    def update(self, tracker, frame):
+        """Returns xy (count, 2) with NaN in empty slots, seen (count,) bool, id (count,) int, how many tracks were
+        left out, and the tracks' velocities (count, 2) (zero for a remembered track and an empty slot)."""
+        alive = {track['id']: track for track in tracker.tracks}
+        self.ids = [i if i in alive else None for i in self.ids]
+        left_out = 0
+        for track_id in sorted(alive):
+            if track_id in self.ids:
+                continue
+            if None in self.ids:
+                k = self.ids.index(None)
+            else:
+                stale = [k for k, i in enumerate(self.ids) if not alive[i]['history']]
+                if not stale:
+                    left_out += 1
+                    continue
+                k = min(stale, key=lambda j: self.last_seen[j])
+            self.ids[k], self.last_seen[k] = track_id, frame
+        count = len(self.ids)
+        xy, seen, ids = np.full((count, 2), np.nan), np.zeros(count, bool), np.full(count, -1)
+        velocity = np.zeros((count, 2))
+        for k, track_id in enumerate(self.ids):
+            if track_id is None:
+                continue
+            track = alive[track_id]
+            xy[k], seen[k], ids[k], velocity[k] = track['xy'], bool(track['history']), track_id, track['velocity']
+            if seen[k]:
+                self.last_seen[k] = frame
+        return xy, seen, ids, left_out, velocity
+
+
+class Memory:
+    """What each slot's walker has done over its track's life, for the object-level predictor's memory (PLAN P22 item
+    10): engineered from the tracker's outputs and the robot's pose, nothing privileged. Per slot, each scaled to [0, 1]
+    by its cap: how long the track has lasted (`AGE_S`); how long it has stood still (tracker speed under `STILL_M_S`,
+    `STILL_CAP_S`); how long it has been within `NEAR_M` of the robot (`NEAR_CAP_S`); how far it has walked over the last
+    `PATH_S` (`PATH_CAP_M`). A polite walker gives up after 3 s of being held up, one that does not yield waits for
+    ever: these say how long that has been."""
+    FEATURES = 4
+    AGE_S, STILL_M_S, STILL_CAP_S, NEAR_M, NEAR_CAP_S, PATH_S, PATH_CAP_M = 30., .05, 20., 1.5, 20., 10., 3.
+
+    def __init__(self, count, frame_s=.1):
+        self.dt, self.ids = frame_s, [None]*count
+        self.age, self.still, self.near = np.zeros(count), np.zeros(count), np.zeros(count)
+        self.paths = [deque() for _ in range(count)]
+
+    def update(self, xy, seen, ids, velocity, robot_xy):
+        """The slots of a frame (from `Slots.update`) and the robot's position; returns (count, FEATURES)."""
+        for k, track_id in enumerate(ids):
+            if track_id < 0:
+                self.ids[k], self.age[k], self.still[k], self.near[k] = None, 0., 0., 0.
+                self.paths[k].clear()
+                continue
+            if self.ids[k] != track_id:                       # a new track in this slot
+                self.ids[k], self.age[k], self.still[k], self.near[k] = track_id, 0., 0., 0.
+                self.paths[k].clear()
+            self.age[k] += self.dt
+            self.still[k] = self.still[k]+self.dt if np.linalg.norm(velocity[k]) < self.STILL_M_S else 0.
+            self.near[k] = self.near[k]+self.dt if np.linalg.norm(xy[k]-robot_xy) < self.NEAR_M else 0.
+            path = self.paths[k]
+            path.append(np.array(xy[k], float))
+            while len(path) > round(self.PATH_S/self.dt):
+                path.popleft()
+        walked = np.array([float(np.linalg.norm(np.diff(np.array(p), axis=0), axis=1).sum()) if len(p) > 1 else 0.
+                           for p in self.paths])
+        return np.stack((np.minimum(self.age/self.AGE_S, 1.), np.minimum(self.still/self.STILL_CAP_S, 1.),
+                         np.minimum(self.near/self.NEAR_CAP_S, 1.), np.minimum(walked/self.PATH_CAP_M, 1.)), 1)
+

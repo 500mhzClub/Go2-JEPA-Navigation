@@ -5,6 +5,7 @@ from go2nav.eval.mission import episode_spec
 from go2nav.perception import ring_walkers as rw
 from go2nav.perception.range import AZIMUTHS
 from go2nav.planning import sampling
+from go2nav.planning.fields import Fields
 from go2nav.sim import kinematic as kin
 from go2nav.sim import obstacles as moving
 
@@ -27,31 +28,32 @@ def test_the_scan_reads_the_walls_and_a_walker_in_front_of_them():
     ranges, valid = w.scan()
     front = np.abs(AZIMUTHS).argmin()
     assert abs(ranges[front]-(1.-moving.RADIUS_M)) < .04
-    found = rw.detect(ranges, valid, walls, w.xy, w.yaw)
+    found = rw.detect(ranges, valid, w.xy, w.yaw, Fields(w.geometry).wall_clearance)
     assert len(found) == 1 and np.linalg.norm(found[0]-ahead) < .02
 
 
 def test_the_tracker_gives_a_walker_its_velocity_and_forgets_one_seen_gone():
     w = world()
     origin, heading = rw.mount_of(w.xy, w.yaw), np.array([np.cos(w.yaw), np.sin(w.yaw)])
-    walls, tracker = w.geometry.wall_ranges(w.xy, w.yaw), rw.Tracker()
+    clear, tracker = Fields(w.geometry).wall_clearance, rw.Tracker()
     w.walkers[1].xy = np.array([50., 50.])                                            # out of the maze
     for k in range(8):                                                                # walking away at 0.3 m/s
         w.walkers[0].xy, w.frame = origin+(1.+.03*k)*heading, k
-        tracker.update(.1*k, rw.detect(*w.scan(), walls, w.xy, w.yaw), origin, w.geometry)
+        tracker.update(.1*k, rw.detect(*w.scan(), w.xy, w.yaw, clear), origin, w.geometry)
     at, velocity = tracker.state()
     assert len(at) == 1 and np.linalg.norm(at[0]-w.walkers[0].xy) < .02 and np.linalg.norm(velocity[0]-.3*heading) < .05
     w.walkers[0].xy = np.array([50., 50.])
     for k in range(8, 8+rw.EMPTY_FRAMES):
         assert len(tracker.state()[0]) == 1                                           # at rest where last seen, until seen empty
         w.frame = k
-        tracker.update(.1*k, rw.detect(*w.scan(), walls, w.xy, w.yaw), origin, w.geometry)
+        tracker.update(.1*k, rw.detect(*w.scan(), w.xy, w.yaw, clear), origin, w.geometry)
     assert len(tracker.state()[0]) == 0
 
 
 def test_a_ring_model_plans_from_what_the_ring_showed():
     w = world()
     model = sampling.make_model('ring_velocity')
+    model.bind(Fields(w.geometry))
     origin, heading = rw.mount_of(w.xy, w.yaw), np.array([np.cos(w.yaw), np.sin(w.yaw)])
     w.walkers[1].xy = np.array([50., 50.])
     for k in range(6):
@@ -79,3 +81,18 @@ def test_a_random_tape_is_random_but_keeps_off_the_walls():
     for tape in moving_:
         xy, yaw = integrate(start, tape[None])
         assert fields.wall_clearance(kin.body_points(xy, yaw)).min() >= FLOOR_M
+
+
+def test_a_batch_of_scans_gives_each_its_own_walkers():
+    w = world()
+    clear = Fields(w.geometry).wall_clearance
+    heading = np.array([np.cos(w.yaw), np.sin(w.yaw)])
+    scans, poses, truth = [], [], []
+    for k, at in enumerate((None, 1., .8)):
+        w.walkers[0].xy = np.array([50., 50.]) if at is None else rw.mount_of(w.xy, w.yaw)+at*heading
+        w.walkers[1].xy, w.frame = np.array([50., 50.]), k
+        scans.append(w.scan()), poses.append((*w.xy, w.yaw)), truth.append(w.walkers[0].xy.copy())
+    centres, found = rw.detect_batch(np.stack([s[0] for s in scans]), np.stack([s[1] for s in scans]), np.array(poses), clear)
+    assert list(found) == [0, 1, 1]
+    for k in (1, 2):
+        assert np.linalg.norm(centres[k, 0]-truth[k]) < .02

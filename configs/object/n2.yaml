@@ -1,0 +1,6 @@
+# P22 N2: N0 with 4.8 s of history (12 steps) where 0.8 s: a walker that does not yield and a polite one differ in what they
+# have done for the last seconds in front of the robot, and N0 cannot see that. 20,000 steps.
+name: object_n2
+model: {history: 12}
+data: {batch: 256}
+optimiser: {steps: 20000}
