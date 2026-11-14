@@ -2325,3 +2325,55 @@ Seeing further, the robot avoids some traps and walks into others.
   ahead. P22b's value is to learn it from the robot's own missions.
 - I said earlier today that about half of perfect foresight's timeouts were a horizon problem. That came from
   replanning the 11 timeouts alone. The whole suite shows the gain is offset.
+
+## P22b: V0 passes its bars and breaks the planner; item 8 (14 November)
+
+**1. Round 0's data, built twice** (`data.value_missions`; the ring tracker's planner under the frozen rule on the
+corpus's layouts):
+
+| 4,500 training missions | Round trips | Walker contacts | Timeouts |
+|---|---|---|---|
+| First build (random tapes clear of the walls only) | 3,691 | 794 | 1 |
+| Rebuilt (random tapes clear of the walls and the walkers) | 3,998 | 226 | 258 |
+
+- In the first build, 85% of the walker contacts came within three plans of a random tape (by chance 27%). A random
+  tape bumped walkers waiting at the robot, so the traps became contacts.
+- Rebuilt, four walkers that do not yield make 53% round trips, 15% contacts and 31% timeouts, near the suite's
+  (the tracker on rude4: 41%, 21%, 39%).
+- 1.0 million training moments and 116,000 validation moments.
+
+**2. V0 passes (a) and (b).**
+- (a): its mean squared error is 0.37 of the distance term's over all moments, and 0.35 near walkers (bar 0.5).
+  Its median error is 44 s, against the term's 132 s.
+- (b): 9 of the 11 traps are rated above 300 s once the robot is boxed in (bar 9).
+- It overfits from the first evaluation. The best checkpoint came after about one pass, and the validation error
+  rose after it. The moments are 1 million, but the outcomes behind them are 4,500.
+
+**3. In the loop it breaks the planner.** Round 1 (the tracker's planner with V0 at 3.2 s), on the first 200 missions:
+
+| | Round trips | Timeouts | Walker contacts | Four that do not yield: round trips |
+|---|---|---|---|---|
+| Round 0: frozen rule, 6.4 s | 189 | 7 | 4 | 10 of 15 |
+| 3.2 s, no value | 176 | 11 | 13 | 11 of 15 |
+| 3.2 s, V0 | 118 | 62 | 18 | 1 of 15 |
+
+- So the shorter horizon costs a little, and V0 the rest.
+- Traced on three missions, without exploring:
+  - V0 changed the choice at 95-99% of plans.
+  - Its corrections spread 52-59 s across the candidate tapes, against 6-7 s for the rest of the cost.
+  - It most often chose to hold. With no walker in view it rated holding still about 25 s cheaper than heading for
+    the target.
+- Round 1 was paused at 849 missions (the stop rule's broken clause).
+
+**4. Read.**
+- The value was trained to be right on average over the states the planner visited.
+- The planner uses only the difference between the states two tapes lead to, a few metres apart, and nothing in the
+  data or in bars (a) and (b) tested that difference.
+- An error of about ±30 s between nearby states hardly moves a mean squared error dominated by failures of 300-700 s.
+
+**5. Item 8** (PLAN; approved):
+- **The branches:** at moments of round 0's missions, six candidate tapes from an exact copy of the world, each for
+  3.2 s and then under the frozen rule's own planner to the end of the leg. Each tape then has its own realised cost.
+- **Training:** consistency along each mission, beside the branches and round 0's costs.
+- **The bar before any mission, (a′):** at held-out moments, the value's choice among the tapes must have at most half
+  the frozen rule's regret.
