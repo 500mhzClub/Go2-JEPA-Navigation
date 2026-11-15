@@ -1,0 +1,56 @@
+{
+  "id": "A010",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "Can the four newly stalled original trainers be restored from preserved155000 full-state checkpoints, and can all six original experiments then continue sequentially?",
+  "hypothesis": "The original trainer's full-state resume path can restore the saved step, model, head, optimizer, scheduler and RNG. Serial execution removes concurrent trainers but is not a demonstrated remedy for the unresolved GPU wait.",
+  "sources": [
+    {
+      "url": "https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html",
+      "version": "Official tutorial consulted2026-11-15; general checkpoint semantics checked against installed2.12 and original trainer source",
+      "sections": "General checkpoint for resuming training, multiple models, GPU checkpoint loading on CPU",
+      "consequence": "Preflight all saved components against the original implementation, preserving the source artifact. A weights-only load is insufficient for resumption."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/randomness.html",
+      "version": "2.12",
+      "sections": "Reproducibility limitations, RNGs and nondeterministic algorithms",
+      "consequence": "Restore CPU/GPU RNG and retain the same environment and deterministic per-epoch/per-step seeds. Do not promise bitwise identity or change backend determinism settings mid-experiment."
+    },
+    {
+      "url": "https://psutil.io/api/",
+      "version": "current official documentation read 2026-11-15; installed psutil 7.2.2",
+      "sections": "Process identity, is_running, terminate, kill and wait",
+      "consequence": "Bind any approved process action to PID plus creation time and command/cwd. Treat zombies and absent processes distinctly; never signal a reused PID."
+    }
+  ],
+  "differences": "A009 now observes no progress from any remaining original trainer. CPU-only preparation covers L0n1/n3/n6 and L1n6 at155000. The earlier L1n1/n3 recovery inputs remain at105000. Same original source, data/config and total303000; isolated new outputs. Cleanup of these four additional PIDs requires a new preservation exception.",
+  "contrary_evidence": "CPU restoration does not establish GPU recovery. All four can remain busy in a shared wait; absence of kernel errors is not proof of a healthy runtime. Serial execution is a conservative operational choice, not a proven cure. No scientific ranking follows.",
+  "protocol": {
+    "preparation": "Require A009 reviewed observation and preserve snapshot digests. Load all four155000 snapshots using original7dfc837 source with GPUs hidden, restore model/head where present/AdamW/LambdaLR/CPU RNG exactly, inspect saved GPU RNG, verify config/finite state and current data hashes. Create separate outputs/balls/recovery_A010 clones only after all pass. No optimizer update, forward pass, GPU initialization, signal or training during preparation.",
+    "authorization": "Earlier user explicitly authorized stopping two other PIDs. For these four preserved originals, request a concrete exception after CPU preparation and lineage commands are ready. Do not execute cleanup before it arrives.",
+    "readiness": "All four identities2407187/2407189/2407191/2407197 with creation1794751431.09 still match original cwd/argv, no progress since A009, snapshot hashes/config unchanged, no other GPU work. If any original resumes, reassess without automatic termination.",
+    "queue_retirement": "A006 already retired old queue2425797; do not restart it.",
+    "cleanup": "Only after new explicit approval, identity-check each of the four then SIGTERM and wait up to30 seconds. If any remains, preserve observations and reassess; no automatic SIGKILL, GPU reset, reboot or runtime change. Record before/after process/device/kernel evidence and literature review before recovery launch.",
+    "continuation": "Once cleanup is reviewed and device readiness established without competing work, resume one original logical experiment at a time: L1n1 then L1n3 from A005105000, then L0n1,n3,n6 and L1n6 from A010155000. Same original source/config/data/runtime, no new diagnostics alongside. Verify inputs and record each identity/elapsed/exit/final303000. Review each result before its successor. Stop to reassess any repeated stall rather than silently retry.",
+    "final_checks": "After six recovered final303000 artifacts verified and reviewed, run unchanged A003 from pinned gated source sequentially. Use explicit final lineage mapping for all six; no old queue assumption.",
+    "verification": "Actual CPU loading/restoration checks and artifact hashes are the preparation evidence. No CPU optimizer update or GPU launch. Execution success requires final artifact verification and later A003 numerical validity; preparation alone cannot pass those gates."
+  },
+  "success": "Preparation: four complete saved states restored exactly on CPU, finite and cloned with lineage/commands. Execution separately requires user exception, reviewed cleanup and successful GPU continuations/final A003 checks.",
+  "stop": "No signal or GPU launch during preparation; no cleanup without new approval. Stop on changed identity/artifact/config/data/source, progress resumption, failed exit, device fault or repeated stall. Preserve results and consult literature before dependent work.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "gpu_accounting": "CPU preparation uses zero GPU time. Resumption completes the six original logical experiments and is recorded separately from48 additional GPU hours; any new diagnostic remains charged.",
+    "cpu_workers_max": 2,
+    "disk_gb_max": 1,
+    "training_device": "dedicated_gpu only after approval; none for preparation"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/A009/review.json",
+      "allow": [
+        "technical_blocked"
+      ]
+    }
+  ]
+}

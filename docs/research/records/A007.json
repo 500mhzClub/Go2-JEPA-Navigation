@@ -1,0 +1,125 @@
+{
+  "id": "A007",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "What provisional conclusions about optimization, inference calibration, accessible physical state and four-step prediction are supported by preserved intermediate checkpoints?",
+  "hypothesis": "Lower latent loss and noncollapsed features may coexist with poor physical state accessibility. Train-only inference calibration and validation position probes can distinguish some of these cases before final planning evaluation.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/html/2609.04264v3",
+      "version": "v3, read full relevant methods/appendices2026-11-15",
+      "sections": "Sections3,4.1-4.3,5.1-5.2 and AppendicesA.1,A.10",
+      "consequence": "Measure physical-state accessibility separately from latent loss, distinguish linear readout from absent information, disclose smaller local ridge protocol and auxiliary-head gradient deviation; do not infer planning success."
+    },
+    {
+      "url": "https://arxiv.org/pdf/1502.03167v3",
+      "version": "v3",
+      "sections": "Section3.1 and Algorithm2",
+      "consequence": "Use train-only population moments with frozen learned weights; batch-statistic evaluation is a diagnostic, not the deployed inference policy."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Batched/sliced computations and linear-algebra finite/conditioning caveats",
+      "consequence": "Require CPU/GPU gradients and grouping at declared tolerances, retain float64/math selected by A002, check finite ridge inputs/outputs and independently verify decoder solution residual."
+    }
+  ],
+  "differences": "User explicitly requested preliminary checkpoint analysis while training continues. Single training seed, validation-only probes,4096 train features rather than paper50000, ridge1e-3 rather than1e-6, sorted global white readout rather than object-matched probes. No MLP probe. Original source gradient routing and predictor width differ from paper. This is a bounded diagnostic, not an additional full training run or a replacement for final P25/P26 gates.",
+  "contrary_evidence": "A poor linear probe may reflect nonlinear encoding, occlusion or discontinuous sorted targets, not missing information. Good probes may still fail planning. Moving representation scale and BatchNorm moments make raw MSE unsuitable for architecture ranking. Training/validation gaps alone do not isolate overfitting. A007 is not blind to previously inspected learning curves or A001/A002 outcomes.",
+  "protocol": {
+    "scope": [
+      "read-only learning-curve/source audit",
+      "four intermediate numerical/calibration checks",
+      "frozen-model validation position probes and four-step action controls",
+      "preliminary report and scientific plots"
+    ],
+    "models": [
+      "l0_n3_s0_40000",
+      "l1_n3_s0_40000",
+      "l0_n3_s0_latest",
+      "l1_n3_s0_latest"
+    ],
+    "snapshot": "Preserved A001 source.pt at40000 for n3 L0/L1, and latest complete original checkpoint at snapshot time for each n3 model; copy through open inode. Selection depends only on availability/time, not scores.",
+    "diagnostic_windows": 64,
+    "sampling_seed": 42,
+    "splits": [
+      "train",
+      "val"
+    ],
+    "batch_modes": [
+      "saved",
+      "encoder_batch",
+      "predictor_batch",
+      "both_batch"
+    ],
+    "calibration_windows": 4096,
+    "calibration_seed": 17,
+    "calibration_split": "train",
+    "calibration_batch": 64,
+    "calibration_order": [
+      "projector",
+      "pred_proj"
+    ],
+    "rtol": 0.0001,
+    "atol": 1e-05,
+    "checks": [
+      "finite parameters/buffers/gradients",
+      "CPU/GPU forward and gradients",
+      "repeat determinism",
+      "single versus batch",
+      "batch permutation",
+      "unchanged learned weights",
+      "resume rejects incompatible args before writes",
+      "RNG and atomic checkpoint roundtrip",
+      "gate rejects incomplete or stale reviews",
+      "budget union accounting",
+      "unchanged checkpoint/learned weights after probes",
+      "finite features/decoder/predictions",
+      "current/rollout grouping on actual first8 validation windows",
+      "no test-data access",
+      "retain all four checkpoint results and failed/inconclusive outcomes"
+    ],
+    "inference_dtype": "float64",
+    "attention_backend": "math",
+    "queue": "No queue or final-checkpoint claim. Small diagnostics may coexist below memory ceiling; no original trainer/source changes.",
+    "probes": {
+      "train_windows": 4096,
+      "validation_episodes": 100,
+      "validation_windows_per_episode": 5,
+      "seed": 2026111518,
+      "batch": 32,
+      "ridge_alpha": 0.001,
+      "history": 3,
+      "future_horizon": 4,
+      "targets": "red XY followed by white XY sorted lexicographically within each frame; no persistent white identity claim",
+      "controls": [
+        "factual actions",
+        "reverse future actions",
+        "zero future actions",
+        "no rollout"
+      ],
+      "action_notes": "Preserve two history actions. Reverse/zero only four future actions. Reversal can preserve net displacement away from walls, so it is a weak control and zero-action ablation is included.",
+      "uncertainty": "2000 episode-cluster bootstrap draws for coordinate Pearson and paired mean red/white squared-error differences; descriptive single-seed validation estimates",
+      "fit": "Fit only the train encoder features; freeze the same decoder for current and predicted validation latents. GPU linear solve, float64; no encoder/predictor updates. No test split access."
+    },
+    "interpretation": "Matched40000 comparison is the only equal-step between-arm probe comparison. Later checkpoints have unequal ages; use for within-arm progression, never rank architectures from unequal steps. Neither validation probes nor calibrated latent MSE establishes CEM success or final test thresholds.",
+    "source_audit": "Original terms() sends both encoded and predicted auxiliary losses into the same trainable head. Paper4.3 trains head only on encoded loss and freezes head parameters for predicted-latent loss. Existing L1 is therefore a local adaptation, also using predictor width128 rather than projected64; preserve it and disclose deviation. No causal conclusion that this caused runtime stalls or generalization gaps."
+  },
+  "success": "Complete and literature-review the four numerical gates and validation probes, report effect sizes/uncertainty and learning curves without promoting preliminary results to final claims. Scientific findings may be positive, negative or mixed; technical success does not require a desired outcome.",
+  "stop": "No original source/training changes. Stop a diagnostic on nonfinite/parity/grouping failure or resource ceiling, preserve result and review before any dependent probe. A007 total GPU cap0.25h within shared48h, no CPU training fallback, no test split/extra simulation/CEM tuning. Finish bounded report if budget stops work.",
+  "resources": {
+    "gpu_hours_max": 0.25,
+    "memory_fraction_max": 0.85,
+    "process_memory_fraction_max": 0.1,
+    "cpu_workers_max": 2,
+    "training_device": "dedicated_gpu for diagnostic execution and linear solve only"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/A002/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "id": "A008",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "At matched40000 updates, does the already-reviewed n3 latent geometry track controlled-ball and environment-ball position changes?",
+  "hypothesis": "Noncollapsed latent geometry can emphasize environment positions over control positions. This is an exploratory geometric diagnostic, not proof of information absence or planning success.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/html/2609.04264v3",
+      "version": "v3, read full relevant methods/appendices2026-11-15",
+      "sections": "Sections3,4.1-4.3,5.1-5.2 and AppendicesA.1,A.10",
+      "consequence": "Measure physical-state accessibility separately from latent loss, distinguish linear readout from absent information, disclose smaller local ridge protocol and auxiliary-head gradient deviation; do not infer planning success."
+    },
+    {
+      "url": "https://arxiv.org/pdf/1502.03167v3",
+      "version": "v3",
+      "sections": "Section3.1 and Algorithm2",
+      "consequence": "Use train-only population moments with frozen learned weights; batch-statistic evaluation is a diagnostic, not the deployed inference policy."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Batched/sliced computations and linear-algebra finite/conditioning caveats",
+      "consequence": "Require CPU/GPU gradients and grouping at declared tolerances, retain float64/math selected by A002, check finite ridge inputs/outputs and independently verify decoder solution residual."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/sys_path_init.html",
+      "version": "Python3.12",
+      "sections": "Initial search path: script directory versus current directory",
+      "consequence": "A script under outputs/gated needs the intended checkout explicitly on sys.path; do not use installed or alternate source accidentally."
+    }
+  ],
+  "differences": "Explicit bounded CPU reference analysis of the exact A001 calibrated checkpoints already checked in float64 CPU/GPU under A002. No training, linear/MLP fit, recalibration, model update or CPU fallback for training.500 validation observations/100 episodes and2000 cross-episode pairs rather than the paper2000 observations. White-set distance uses optimal permutation matching, not arbitrary simulator identities. A007 GPU numerical diagnostic is independently pending, and is not a prerequisite or justification for bypassing its gates.",
+  "contrary_evidence": "Low Euclidean-distance correlation can coexist with nonlinearly encoded information or distance scaling dominated by other factors. Pairs share observations/episodes and are not2000 independent samples. Good correlation alone does not establish action-conditioned prediction or planning. A004 runtime wait has no established relation to representation quality.",
+  "protocol": {
+    "checkpoints": [
+      "outputs/gated/A001/l0_n3_s0/calibrated.pt",
+      "outputs/gated/A001/l1_n3_s0/calibrated.pt"
+    ],
+    "preflight": "Require passing A002 review and exact per-case source digest/float64_math checks; load CPU, cast to float64, math attention, eval mode. Confirm checkpoint/model state unchanged and CUDA not initialized.",
+    "data": "Validation split only; exactly5 randomly selected frames per each100 episodes, fixed seed2026111519. Match cases across both checkpoints; no test split, no train fit.",
+    "pairs": "2000 fixed random index pairs with endpoints from different episodes. Latent L2; red XY L2; white-set root summed squared distance under Hungarian correspondence. Spearman rank correlation for red and white separately; retain latent mean distance and per-coordinate latent standard deviation.",
+    "uncertainty": "Exploratory point estimates only, no p-values or independent-pair confidence claims. Restrict conclusions to these matched intermediate checkpoints and sampled validation scenes.",
+    "verification": "Check finite features/distances, batch32 versus single and reversed grouping on first8 observations at rtol1e-4/atol1e-5, byte-identical source and unchanged model state. Save sampled indices, distances, hashes and standalone scatter plot.",
+    "interpretation": "Consult full paper sections3,5.1,A.10 after result; distinguish latent geometry from linear decoding, prediction and planning. Do not pass any final P25/P26 gate from this reference."
+  },
+  "success": "Produce a bounded, reproducible geometry measurement and a literature-bound provisional interpretation regardless of correlation sign/magnitude.",
+  "stop": "Stop on invalid parent/digest, nonfinite/grouping mismatch or CPU wall time above180seconds. Do not initialize GPU or fit/update parameters.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_workers_max": 2,
+    "cpu_wall_seconds_max": 180,
+    "training_device": "none; CPU reference inference only"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/A002/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

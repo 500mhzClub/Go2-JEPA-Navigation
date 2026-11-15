@@ -134,3 +134,25 @@ trainer, diagnostic and frozen-camera source versions; size9,403,412 bytes. Know
 and recovery records match their source bytes. The reviewed result is `outputs/gated/E002/archive/review.json`.
 This snapshot preserves completed evidence only; large data/checkpoints remain local and pending P25/P26 work
 still needs completion. Regenerate the final report/bundle after the remaining experiments and reviews.
+
+## Preliminary checkpoints and subsequent runtime observation
+
+[The checkpoint analysis](CHECKPOINT_ANALYSIS_2026-11-15.md) records reviewed A007
+learning curves/source fidelity and A008 matched n3 step40000 geometry. L0 red/white
+distance correlations are0.242/−0.007; L1 values are0.308/0.291. These are descriptive
+validation geometry measurements, not readout, prediction or planning scores.
+A007's GPU diagnostic produced no completed case and was stopped at912.8 seconds;
+its900-second cap overrun is recorded and charged. No new GPU probes ran.
+
+The closing monitor found the four remaining original processes live with stale
+logs near the diagnostic launch. A009 preserves complete finite step155000
+checkpoints. No signals were sent to these four originals; their earlier advancing
+status is historical. Resolve this runtime issue before new GPU work. Timing does
+not establish that the diagnostic caused the stall.
+
+A010 full-state CPU restoration passes for all four155000 snapshots under original
+source. Isolated recovery copies and six sequential continuation commands are
+prepared; stopping these four additional originals awaits the explicit preservation
+exception. No recovery training has started. The operational plan is
+`outputs/gated/A010/continuation_plan.json`; it supersedes A006's waiting schedule
+if cleanup is approved and reviewed, while preserving its earlier two recovery inputs.

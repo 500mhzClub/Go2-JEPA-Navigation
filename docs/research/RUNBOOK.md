@@ -1,5 +1,14 @@
 # P25/P26 execution
 
+Runtime update: A009 observes all four remaining originals live without logged
+progress; their prior advancing status is historical. A010 preserves and restores
+their complete155000 checkpoints on CPU and prepares isolated continuation paths.
+The requested exception to stop these four additional processes is pending. Do not
+launch GPU diagnostics or training alongside them. After approval, follow
+`outputs/gated/A010/continuation_plan.json`, review cleanup and each serial recovery,
+then run unchanged A003 on all six resolved final paths. A007's preliminary GPU
+diagnostic exhausted its declared cap; do not retry or infer probe scores from it.
+
 This branch implements the approved offline scope. It does not claim that pending scientific performance gates pass.
 Run from this checkout with the repository's Python 3.12 / ROCm environment. `PY` below names its interpreter;
 `BALLS_DATA`, `CORPUS_V2`, `RANGES`, `DINO_FEATURES` and `MAZES` name existing local data roots. Outputs are local,

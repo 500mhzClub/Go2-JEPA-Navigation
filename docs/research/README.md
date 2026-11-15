@@ -26,6 +26,10 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [A004](records/A004.json) | Why are two live original trainers no longer logging steps? | User-supplied stacks locate a GPU scalar synchronization boundary; root cause unresolved |
 | [A005](records/A005.json) | Can full checkpoint state be restored for the interrupted experiments? | Both step105000 checkpoints pass CPU state-restoration preflight; GPU continuation pending |
 | [A006](records/A006.json) | Can the two hung processes be retired immediately with all evidence preserved? | Both exited on SIGTERM; all four peers continued advancing, no kernel errors observed; reviewed |
+| [A007](records/A007.json) | What do intermediate learning curves and frozen probes establish? | Curves/source audit reviewed; GPU diagnostic budget incomplete, no probe scores |
+| [A008](records/A008.json) | Does matched intermediate latent geometry track physical positions? | n3 step40000 CPU reference reviewed: L1 geometry associates with red and white positions; preliminary, no planning claim |
+| [A009](records/A009.json) | Have the four remaining originals stopped making observable progress? | Live identities with stale logs near A007 launch; step155000 checkpoints preserved and finite; no signals to originals |
+| [A010](records/A010.json) | Can the four additional originals be restored for sequential continuation? | Full-state CPU restoration passes for all four155000 snapshots; isolated copies/commands ready, cleanup approval pending |
 | [C001](records/C001.json) | Do RGB slots and anchored masking support physical prediction/planning? | Small-batch numerical checks pass; training pending |
 | [C002](records/C002.json) | Do slot masks bind objects; do paired reviewed results satisfy the declared bars? | Evaluators verified on synthetic cases; trained-model measurements pending |
 | [C003](records/C003.json) | Does optimizer recovery preserve subsequent updates and updated-weight numerics? | Both default n3 models pass the small GPU recovery/forward/gradient/grouping diagnostic; reviewed |
@@ -38,3 +42,6 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 Results and review digests live beside run artifacts. This index must be updated when a result is interpreted. Status vocabulary: `passed`, `measured_negative`, `technical_blocked`, `budget_incomplete`. Separate implementation validity, representation, prediction, planning and generalization evidence.
 
 See [commands and remaining gates](RUNBOOK.md) and [measured implementation evidence](IMPLEMENTATION_2026-11-15.md).
+
+See the [preliminary checkpoint analysis](CHECKPOINT_ANALYSIS_2026-11-15.md) for
+the matched-step measurements, literature interpretation and current runtime limitation.

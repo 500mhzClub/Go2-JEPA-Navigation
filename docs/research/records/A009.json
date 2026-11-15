@@ -1,0 +1,57 @@
+{
+  "id": "A009",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "Have the four remaining original trainers stopped making observable progress near the A007 diagnostic, and what recovery evidence can be preserved without signalling them?",
+  "hypothesis": "Concurrent stale logs and live busy process handles are an operational stall indicator, not a scientific failure or a proven shared-runtime cause.",
+  "sources": [
+    {
+      "url": "https://github.com/benfred/py-spy",
+      "version": "official README accessed 2026-11-15; diagnostic binary pinned to 0.4.1",
+      "sections": "dump command, permissions, how py-spy works and avoiding pauses with --nonblocking",
+      "consequence": "Read only Python stack frames with --nonblocking and no locals. Sampling can be incomplete because memory reads are non-atomic. Do not attach a blocking debugger or change ptrace policy."
+    },
+    {
+      "url": "https://rocm.docs.amd.com/projects/amdsmi/en/docs-7.1.0/how-to/amdsmi-cli-tool.html",
+      "version": "ROCm 7.1.0 / AMD SMI 26.1 documentation; installed CLI help 26.2.0",
+      "sections": "CLI monitoring description, process command and engine/general fields",
+      "consequence": "Use only process/metric reads. Per-process zero or unsupported engine fields are not proof of no GPU activity; compare with advancing peers."
+    },
+    {
+      "url": "https://psutil.readthedocs.io/en/latest/#psutil.Process",
+      "version": "installed psutil 7.2.2; documentation consulted in A003",
+      "sections": "Process identity/create_time, status and CPU times",
+      "consequence": "Match the original PID and creation time, and retain state/CPU/log/checkpoint observations separately."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/cuda.html#asynchronous-execution",
+      "version": "PyTorch2.12",
+      "sections": "Asynchronous execution and synchronization on copies",
+      "consequence": "Host progress and synchronization location alone do not identify which queued GPU operation is responsible. Do not attribute causality from timing alone."
+    }
+  ],
+  "differences": "Read-only monitoring and immutable checkpoint preservation for the remaining four original identities after A007 failed to return. No new GPU operation, training, restart, signal or reset. This record does not extend the earlier permission to terminate two specific originals.",
+  "contrary_evidence": "A stale log can occur during legitimate long work; CPU busy time need not imply training updates. All six jobs report zero per-process engine usage even while four advance, so those telemetry zeros are inconclusive. A stack sample identifies location, not a deadlock cause.",
+  "protocol": {
+    "pids": [
+      2407187,
+      2407189,
+      2407191,
+      2407197
+    ],
+    "creation_time": 1794751431.09,
+    "prior_observation": "Four live processes have stale metrics for approximately16 minutes; last steps159500/159500/160000/157500. A007 stopped at912.8 seconds after no numerical result. Last log timestamps precede A007 ledger start by about26 seconds or less.",
+    "observations": "Read PID identity, cwd/argv, process CPU/status, metrics and checkpoint timestamps; repeat after at least60 seconds. Read AMD SMI and kernel journal. Do not repeat known denied privileged stack attachment.",
+    "preservation": "Copy latest checkpoint through one open source inode, capture config/metrics/train log, hash source copy, verify saved floating tensors finite on CPU with GPUs hidden. Keep all original outputs unchanged.",
+    "stop": "No signals to originals, resets, runtime changes or new GPU work. Prepare concrete recovery evidence before any approval request affecting the four originals.",
+    "interpretation": "Revisit primary process/async documentation after result. No progress is not numerical divergence. Temporal proximity is not established causality."
+  },
+  "success": "Preserve four recoverable snapshots and report whether any observable progress resumed; retain uncertainty and require a separately authorized recovery before stopping original jobs.",
+  "stop": "No destructive recovery; retain originals and evidence. At most two diagnostic samples; no busy polling.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_workers_max": 2,
+    "training_device": "none; CPU checkpoint verification only"
+  },
+  "predecessors": []
+}
