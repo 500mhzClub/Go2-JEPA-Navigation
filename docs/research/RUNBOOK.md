@@ -10,6 +10,13 @@ enforces the declared no-progress/wall limits; it cannot review results or launc
 successors. After a complete reviewed run, launch the next index with
 `python3 outputs/gated/A014/run_original.py INDEX` from this validation checkout.
 No further approval is needed for this already-approved serial continuation.
+
+A017 completed the requested CPU comparison of frozen L1 n1 snapshots at 105,000
+and 220,000 steps while this trainer continued. Calibration and physical probes
+both have exact-result literature reviews under `outputs/gated/A017`. See the
+[checkpoint progress report](CHECKPOINT_PROGRESS_2026-11-15.md) for the measurements,
+controls and figures. This diagnostic does not replace any final evaluation gate.
+
 Before approving each completed run, execute the A015 artifact audit from the
 unchanged original checkout (replace the run name for each successor):
 

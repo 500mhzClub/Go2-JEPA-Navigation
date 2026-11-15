@@ -211,3 +211,21 @@ owned-interval closure. The production CLI refuses the current trainer without
 creating evaluation output or changing the shared ledger. The post-result review
 is `outputs/gated/A016/software/review.json`. Actual all-six final admission and
 GPU evaluation integration remain pending; this is operational evidence only.
+
+A017 completed a CPU comparison of immutable L1 n1 snapshots at 105,000 and
+220,000 steps. All populated optimizer counters confirm 115,000 resumed updates.
+After the same train-only calibration, four-step red/white position RMSE improves
+from 2.316/5.942 to 1.847/4.537 pixels on 500 matched validation scenes from 100
+episodes. Paired episode-bootstrap intervals for both squared-error improvements
+exclude zero. Red prediction also benefits from the factual actions compared with
+zero-action and no-rollout controls. Current position readout improves while latent
+distance correlations decline, leaving the CEM planning objective unresolved.
+
+The two supervised CPU phases took 37.20 and 8.32 seconds, used eight threads and
+peaked below 1.74 GB RSS. Five helper checks and actual finite-state, grouping,
+gradient and ridge-residual checks passed. No GPU context was initialized, neural
+weights were unchanged and GPU training continued. Both phases received substantive
+literature review; these single-seed validation diagnostics cannot pass final
+planning or generalization gates. See the
+[checkpoint progress report](CHECKPOINT_PROGRESS_2026-11-15.md) and the exact
+artifacts under `outputs/gated/A017`.

@@ -1,5 +1,10 @@
 # Preliminary checkpoint analysis — 15 November 2026
 
+For the subsequent CPU comparison of L1 n1 at 105,000 and 220,000 steps, including actual
+position readouts and four-step action controls, see
+[the checkpoint progress report](CHECKPOINT_PROGRESS_2026-11-15.md).
+The earlier n3 results and failed GPU diagnostic below remain preserved.
+
 The checkpoints support a useful preliminary finding: auxiliary-supervised L1 has
 latent geometry associated with both the controlled red ball and the moving white
 balls. Baseline L0 has a modest red-ball association and little association with
