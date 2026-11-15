@@ -2426,3 +2426,37 @@ value:
 - A value learnt from 1 million visited moments and 22,000 branched tapes chooses no better than the rule.
 - **Lesson:** measure the ceiling (here, a chooser that knows the expected costs) before setting a bar on a learnt
   quantity, as the honest oracle was for prediction.
+
+## P24 stage 1: M5's dynamics carry into Genesis, but not for walkers held up by the robot (15 November)
+
+**The data:**
+- Corpus v2's 400 validation units with ring scans cast in Genesis, written in the ring corpus's format
+  (`data.genesis_units`). 347 have walkers: 278 polite, 69 that do not yield.
+- The ring tracker on those scans finds 98.5-100% of the walkers in sight within 3 m to 0.3 m (median 4-5 mm, seven
+  units checked).
+- P22's (a) is run unchanged (`eval.object_measures offline`).
+- **The control:** on the ring corpus the same code gives P22's published figures exactly (0.0329, 0.1007, 0.3254 m).
+
+**Median error (m): M5 / the tracker's constant velocity / the walker kept where it is:**
+
+| Genesis | 1.6 s | 3.2 s | 6.4 s |
+|---|---|---|---|
+| All walkers (13,090) | 0.028 / 0.047 / 0.281 | 0.074 / 0.192 / 0.511 | 0.251 / 0.671 / 0.838 |
+| Waiting on the robot (3,014) | 0.023 / 0.033 / 0.005 | 0.058 / 0.078 / 0.009 | 0.120 / 0.174 / 0.036 |
+| ... that do not yield (1,663) | 0.022 / 0.026 / 0.004 | 0.048 / 0.050 / 0.004 | 0.094 / 0.103 / 0.005 |
+| ... polite (1,351) | 0.027 / 0.053 / 0.010 | 0.183 / 0.258 / 0.200 | 0.600 / 0.713 / 0.658 |
+| Ring corpus, all (the control) | 0.033 / 0.054 / 0.313 | 0.101 / 0.272 / 0.562 | 0.325 / 0.776 / 0.964 |
+
+- **All walkers: passes.** M5's errors in Genesis are as low as in the ring world or lower, at the same share of
+  constant velocity's (0.60, 0.38, 0.37). Each kind of unit reads alike (explore, free, mission, transfer: 0.31-0.45
+  of constant velocity at 3.2 and 6.4 s).
+- **Waiting on the robot: fails** at 3.2 and 6.4 s (0.74 and 0.69 of constant velocity; the bar is half). M5 is still
+  better than constant velocity at every horizon there.
+- **Why:**
+  - Over half the waiting walkers in Genesis do not yield, and they never move again: kept in place, they err 4 mm.
+    M5 lets them drift 5-9 cm, no better than constant velocity.
+  - Polite ones give up and turn back, and M5 misses most of that (0.18 m at 3.2 s), as it did in the ring world.
+  - In the ring corpus the waiting walkers moved more, so constant velocity did worse and the same bar passed (0.45,
+    0.46).
+- (b), the reaction, was not run (it needs branched Genesis replays).
+- **Stage 1 fails as written.** Stage 2 waits on the decision.

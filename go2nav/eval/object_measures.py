@@ -121,14 +121,21 @@ def offline(model_path, every=8, workers=None):
             if sel:
                 report[f'{h/10:.1f}s_{name}'] = dict(count=len(sel), **{m: round(float(np.median([r[m] for r in sel])), 4)
                                                                          for m in ('model', 'velocity', 'frozen')})
-    for field in ('kind', 'unit_kind'):            # read beside: by the walkers' kind, and by a unit's (P24 stage 1)
-        for value in sorted({r[field] for r in rows if r.get(field) is not None}):
+    for field in ('kind', 'unit_kind', 'kind_waiting'):  # read beside: by the walkers' kind (and waiting), a unit's
+        for value in sorted({key(r, field) for r in rows if key(r, field) is not None}):
             for h in HORIZONS:
-                sel = [r for r in rows if r['horizon'] == h and r.get(field) == value]
+                sel = [r for r in rows if r['horizon'] == h and key(r, field) == value]
                 report.setdefault('by', {})[f'{field}={value} {h/10:.1f}s'] = dict(
                     count=len(sel), **{m: round(float(np.median([r[m] for r in sel])), 4) for m in ('model', 'velocity',
                                                                                                       'frozen')})
     return report
+
+
+def key(row, field):
+    """A row's value of a breakdown field (`kind_waiting`: its walkers' kind, and whether it was waiting at t0)."""
+    if field == 'kind_waiting':
+        return None if row.get('kind') is None else f'{row["kind"]}_{"waiting" if row["waiting"] else "not_waiting"}'
+    return row.get(field)
 
 
 def _reaction_window(args):
