@@ -1,5 +1,9 @@
 # Baseline checkpoint observations — 15 November 2026
 
+Latest assessment at 23:47 UTC: the preserved L0 n3 checkpoint is now at 280,000.
+Its raw validation prediction error continues to decrease; the later update below
+supersedes the 250,000-step snapshot for current descriptive measurements.
+
 Update at 23:35 UTC: L0 n1 has now also completed 303,000 steps and passed its
 actual artifact audit. The active arm is L0 n3. Its frozen 250,000-step checkpoint
 is assessed in the update below; the earlier 22:11 capture remains historical.
@@ -146,6 +150,31 @@ An initial summary-script field-name error was preserved and source-checked befo
 correction. The same snapshot was retained; training and source artifacts were
 untouched. Digests, complete log coverage, validation rows and medians were
 independently checked. No model forward pass or GPU work was performed.
+
+## Update: L0 n3 at 280,000 steps
+
+The latest available checkpoint was copied without interrupting training and
+read for metadata only on CPU. Complete captured logs are finite and cover every
+expected training and validation step. No model evaluation was executed.
+
+| Validation step | L0 n3 latent prediction MSE |
+|---|---:|
+| 240,000 | 0.00147287 |
+| 260,000 | 0.00102291 |
+| 280,000 | 0.00080837 |
+
+The prediction term decreased 21.0% over the latest interval and 45.1% over
+40,000 steps. Matched-step L1 n3 has raw error 0.00862006, 10.66 times larger.
+This updates the loss trajectory without changing the scientific conclusion:
+separate latent spaces and normalization prevent this ratio from ranking physical
+prediction or planning. The sources above were revisited before capture and after
+the result. No experiment recipe or next-stage protocol changed.
+
+The capture and exact-result review are preserved under
+`outputs/gated/A014/checkpoint_assessment_l0n3_latest/`.
+Result SHA256: `b65479c7e76f73415e243778d763222f1d829db63869a24af0b6dbd729e8c374`.
+The checkpoint digest, source inode/mtime, input logs and numerical verification
+are recorded there. The earlier captures remain intact.
 
 ## Preserved evidence
 
