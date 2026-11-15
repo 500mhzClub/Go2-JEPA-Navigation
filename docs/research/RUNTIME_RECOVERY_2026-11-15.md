@@ -115,7 +115,16 @@ complete finite logs. Its review and the bound A014 completion review pass. This
 is evidence of one sustained successful training continuation after reboot; it does
 not identify the faulty component or guarantee the other runs.
 
-The second continuation, L1 n3, now runs from its preserved 105,000-step checkpoint,
+The second continuation, L1 n3, also completed 303,000 steps, exiting with code 0
+after 77.51 minutes without watchdog signals. Its separate actual A015 audit and
+post-result literature review verify exact restored state, matching final/full
+tensors, all 198,000 resumed optimizer updates across 131 populated states, no
+input counter deficit, and 606 training plus 16 validation rows with finite values.
+The A014 completion review binds to that exact A015 review. These are operational
+checks; final physical accuracy and planning remain unevaluated.
+
+The third continuation, L0 n1, now runs from its preserved 155,000-step checkpoint,
 with fresh progress observed. Original source, package/runtime and training recipe
-are unchanged. Each remaining completion still needs its own audit and review, and
-all six final checkpoints require A003 before scientific evaluation.
+are unchanged. L0 n3, L0 n6 and L1 n6 follow. Each remaining completion still needs
+its own audit and review, and all six final checkpoints require A003 before
+scientific evaluation.
