@@ -2520,3 +2520,5 @@ layout. 24 recorded ring-world missions repeat exactly, and the unit tests pass 
     them near the walls, where P17's cost keeps the body 8 cm clear.
   - P18's cost looks ahead to the reflex; the tapes do not.
 - The rounds tested the planner's fit to the harness, not M5. Re-evaluated in docs/REVIEW_2026-11-15.md.
+- **P24 closed (approved 15 November)** on stage 1 and 2a, with stage 2 stopped before its suites. Next: P25 (the
+  second world) and P26's first part (slots in place of the tracker, in Genesis, offline), each set out before any run.

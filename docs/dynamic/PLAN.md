@@ -2064,9 +2064,22 @@ in Genesis, and the shortfall is in one stratum. The risk: that stratum is the s
   - The tapes now aim at the end of the route (the mission's goal or a frontier, a median 1.23 m away), and the end of
     a route is within 0.4 m of it (13% of the smoke's plans).
 
+**Closed 15 November (approved; docs/REVIEW_2026-11-15.md).** Stage 2 stops after four smoke rounds and before any
+suite. Each round fitted P17's planner to the harness, and none measured M5.
+- **P24 closes on two results.** Stage 1: M5's dynamics carry into Genesis (its waiting stratum fails its bar).
+  Stage 2a: the kinematic model follows the Go2.
+- `decision='tapes'` stays in the code, tested and used by no configuration of record.
+- Not run: stage 1's (b) and 2d's suites.
+- **The harness's contract, for any later planner in Genesis:**
+  - the route's waypoint is a look-ahead point under 0.4 m away;
+  - the reflex sweeps a 0.45-m disk before each dispatch;
+  - the Go2 does not execute closing commands under 0.1 m/s or reverse pulses;
+  - an arrival is a 2-cm disk held for 10 quiet intervals;
+  - P18's cost meets these through its look-ahead to the reflex and its terminal approach.
+
 ### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
 
-- **P24** is set out above.
+- **P24** is set out above, and closed.
 - **P25, a second world.** Zhu et al.'s bouncing-ball task rebuilt (64 x 64 frames; a ball the agent controls among
   balls that move on their own): LeWM as ported here, and the object recipe. Their figures (LeWM 0-3%; with their
   supervised targets 60-92%) are a reference, not a like-for-like comparison.
