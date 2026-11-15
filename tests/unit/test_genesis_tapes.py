@@ -64,6 +64,19 @@ def test_the_planner_without_sideways_commands_turns_onto_a_target_beside_it(mon
     assert target[0, 2] > 0                                                           # it turns left, to the target
 
 
+def test_the_final_approach_is_never_slower_than_the_go2_executes_and_stops_inside_the_arrival(monkeypatch):
+    for k, v in FROZEN.items():
+        monkeypatch.setenv(k, v)
+    from go2nav.planning.sampling import MIN_APPROACH_M_S, Planner
+    g = MapGeometry(corridor(), robot_xy=(0., 0.))
+    planner = Planner(g, horizon_s=6.4, terminal='walkers', model='frozen', cells=False, lateral=False, arrive_m=.015)
+    start = dict(xy=np.array([0., 0.]), yaw=0., executed=np.zeros(3), walkers=[], walkers_xy=np.zeros((0, 2)))
+    near = planner.follow(start, np.array([.03, 0.]), [(None, 0, False, .4)])[0]
+    assert np.isclose(near[0, 0], MIN_APPROACH_M_S)                                   # 3 cm out: 0.06 m/s, raised
+    inside = planner.follow(start, np.array([.012, 0.]), [(None, 0, False, .4)])[0]
+    assert not inside[0].any()                                                        # inside the arrival: hold
+
+
 def test_the_decision_plans_a_tape_turns_to_look_and_keeps_off_floor_not_yet_seen(monkeypatch):
     for k, v in FROZEN.items():
         monkeypatch.setenv(k, v)

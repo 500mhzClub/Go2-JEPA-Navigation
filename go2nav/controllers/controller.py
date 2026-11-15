@@ -391,6 +391,8 @@ class NavigationController:
                 self.planner.candidates = saved
         commands, record = self.tapes.plan(xy=xy, yaw=yaw, executed=executed, prefix=prefix, target=target,
                                            look=None if scan_error is None else yaw+scan_error, uncovered=uncovered)
+        if self.planner.pulse and np.any(np.asarray(commands, float)[0, :2]):
+            commands = commands[:1]     # the harness's terminal approach: a translation is a 100-ms pulse (P18's too)
         if record.get('coverage'):
             self.planner.want_coverage(record['coverage'], xy)
         first = np.asarray(commands[0], float)

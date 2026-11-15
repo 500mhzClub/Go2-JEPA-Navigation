@@ -59,6 +59,7 @@ FLOOR_M, SOFT_M, CLEARANCE_RATE, SEALED_S, DISCARD = .08, .20, 2., 200., 1e4
 HOPS, WAITS_S, SPEEDS, REVERSE_M_S = 3, (2., 5., 10., 20.), (.4, .25, .12), .25
 RING_M, RING, AT_CELL_M, TURN_GAIN, ALIGNED_RAD = .3, 16, .15, 2., .8
 GAUSSIANS, SIGMA = 16, (.12, .06, .25)
+MIN_APPROACH_M_S = .10    # P24 (Genesis, no sideways commands): the slowest the Go2 executes as asked (STATUS P24 2c)
 DIRECTIONS = np.stack([np.cos(np.arange(RING)*2*np.pi/RING), np.sin(np.arange(RING)*2*np.pi/RING)], 1)
 ANGLES = np.arange(RING)*2*np.pi/RING
 
@@ -299,11 +300,13 @@ class Planner:
             if self.lateral:
                 approach = np.stack((np.clip(2*body[:, 0], -REVERSE_M_S, speed), np.clip(2*body[:, 1], -.2, .2),
                                      np.zeros(count)), 1)
-            else:                  # P24: no sideways command; turn the body's axis onto the target and close along it
-                bearing = np.where(body[:, 0] >= 0., np.arctan2(body[:, 1], body[:, 0]),
-                                   np.arctan2(-body[:, 1], -body[:, 0]))
-                approach = np.stack((np.clip(2*body[:, 0], -REVERSE_M_S, speed)*np.cos(bearing)**2, np.zeros(count),
+            else:                  # P24: no sideways command; turn the body's axis onto the target and close along it,
+                bearing = np.where(body[:, 0] >= 0., np.arctan2(body[:, 1], body[:, 0]),   # no slower than the Go2
+                                   np.arctan2(-body[:, 1], -body[:, 0]))                   # executes (MIN_APPROACH)
+                closing = np.sign(body[:, 0])*np.maximum(np.abs(2*body[:, 0]), MIN_APPROACH_M_S)
+                approach = np.stack((np.clip(closing, -REVERSE_M_S, speed)*np.cos(bearing)**2, np.zeros(count),
                                      np.clip(TURN_GAIN*bearing, -.8, .8)), 1)
+                approach[distance < self.arrive_m] = 0.
             approach[distance < self.arrive_m/2] = 0.
             command = np.where(close[:, None], approach, command)
             command[mode == 1] = 0.

@@ -2475,3 +2475,30 @@ command, under the recorded requests, against the Go2's own path (43,682 starts,
 - Every kind of unit reads alike (0.020-0.028 m at 3.2 s).
 - **By the rule set beforehand** (at most M5's walker error at 3.2 s, 0.074 m), the kinematic model is used. The robot's
   own path is about three times more certain than the walkers'.
+
+## P24 stage 2b and 2c: the tapes decision in Genesis, and its smoke (15 November)
+
+**2b** (`decision='tapes'`, `planning.genesis_tapes`; PLAN P24 2b): P17's planner under the frozen rule in place of the
+forecaster's lattice, with M5 on the ring tracker's tracks from the Genesis range scans and the built map as the
+layout. 24 recorded ring-world missions repeat exactly, and the unit tests pass (302).
+
+**2c, the smoke** (`configs/experiments/p24_tapes.yaml`, from a pinned checkout at d2880ac; 6 at once on the R9700):
+
+| | Round trips | Crashes | Contact stops | Lowest clearance | P18's smoke |
+|---|---|---|---|---|---|
+| Still mazes (6) | 5 | 0 | 0 | 0.147 m | 5 |
+| One polite walker (6) | 6 | 0 | 0 | 0.122 m | 5 |
+
+- **It passes** (no crash, no contact stop, at least 4 still round trips). Round trips took 86-122 s still and
+  130-305 s with a walker (P18's smoke 94-160 s).
+- **The one failure, fixed before the suites (approved):** maze 10, episode 0, stalled at home's arrival.
+  - The robot sat on the edge of the 2-cm disk (1.9-2.0 cm by the registered pose).
+  - The planner asked for closing commands of about 0.04 m/s, which the Go2's gait barely executes (0.002-0.01 m/s).
+  - The dwell, 10 quiet intervals, was reset each time pose jitter crossed the edge.
+  - P17's kinematic model executes any command exactly. Corpus v2 has no forward commands between 0.02 and 0.08 m/s
+    to show otherwise. From 0.1 m/s the model matches the Go2 (0.145 against 0.150 m/s; 0.302 against 0.300).
+- **The fix:**
+  - Without sideways commands, the final approach is no slower than `MIN_APPROACH_M_S` (0.10 m/s, the slowest the Go2
+    is seen to execute as asked), and holds inside the planner's arrival radius.
+  - In the harness's terminal approach (within 10 cm of the mission's exact target), a translation is a 100-ms pulse,
+    as P18's cost had it.
