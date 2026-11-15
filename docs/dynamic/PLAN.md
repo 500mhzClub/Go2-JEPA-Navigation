@@ -2003,6 +2003,54 @@ still. Stage 2 puts in P17's planner under the frozen rule, with M5 for the walk
 The suites would be P18's (still mazes 40, polite walkers 80, four walkers 40), 6 missions at once, with walkers that do
 not yield beside them (the hand reference 7 of 80). Bars to be set with the design.
 
+**Stage 1's outcome (STATUS P24 stage 1).** M5 passes over all walkers. It fails for walkers waiting on the robot at
+3.2 and 6.4 s (0.74 and 0.69 of constant velocity's error), though it is better than constant velocity there too.
+**Stage 2 is set out anyway, by an explicit override** (approved 15 November): M5 is never worse than constant velocity
+in Genesis, and the shortfall is in one stratum. The risk: that stratum is the stand-offs, which decide missions.
+
+**Stage 2, set out in full (15 November).**
+- **2a, the robot's path, offline, before any mission.**
+  - On corpus v2's validation units: the kinematic model's path (`planning.sampling.integrate`, from the recorded
+    pose and executed command) under the recorded requests, against the true path.
+  - Measured: the median position error at 1.6, 3.2 and 6.4 s, and the heading's.
+  - **Rule, set now:** the kinematic model is used if its median error at 3.2 s is at most M5's walker error there
+    (0.074 m), so the robot's own path is no less certain than the walkers'. Otherwise the stage stops to choose a
+    robot model (the fitted command-history model, C1's, is the alternative).
+- **2b, the integration** (`decision='tapes'` in `controllers.controller`; nothing else in the controller changes):
+  - **The map as a layout** (`perception.map_geometry`): walls are the map's occupied cells never seen as floor (a
+    walker stands on floor once seen free, as `perception.tracks` already reasons). The adapter gives their distance
+    (a distance transform), line of sight, and the map's bounds. There are no maze cells, so no walk-to-a-cell tapes.
+  - **The planner:** P17's sampling planner under the frozen rule, 6.4 s, replanning every 0.4 s at each map update
+    (the controller's own cadence).
+    - Its target is the route's waypoint (`Planner.objective`: frontiers, views and the mission's target, as today),
+      through the map's walls.
+    - The hand harness's rule stays: a tape must not sweep floor not yet seen (`planning.selection
+      .footprint_extension`), as a discard.
+  - **The walkers:** the ring tracker (`perception.ring_walkers`) on the frame's range scan, with the adapter's walls,
+    and M5 on its tracks (`objects:`, on the GPU), M5's walls likewise.
+  - **Dispatch:** the chosen tape's first 0.4 s, each 100-ms request held for its five 50-Hz ticks, through the
+    dispatch check (the reflex) unchanged.
+  - **What stays:** the route and its views, the map, visual odometry, the mission, the reflex.
+- **2c, smoke,** as P18's: mazes 10-12, two episodes each, in still mazes and then with one polite walker.
+  - **To go on:** no crash, no contact stop, and at least 4 of the 6 still missions make the round trip.
+  - Otherwise the stage stops and the record says what failed.
+- **2d, suites** (6 at once on the R9700, under the stop rule). Beside M5, the same planner with constant velocity
+  (`ring_velocity`, the same tracker) isolates what M5 adds.
+
+| Suite | M5 | Constant velocity | P18 | Bar (M5) |
+|---|---|---|---|---|
+| Still mazes (40) | yes | | 40 | at least 37 |
+| Polite walkers, 1-2 (80) | yes | | 64 | at least 62 |
+| Four polite walkers (40) | yes | yes | 18 | at least 18 |
+| Walkers that do not yield (80) | yes | yes | the hand reference 7 | above 7 |
+
+  - No contact stops in still mazes.
+  - **M5's own bar,** on the four-walker and not-yielding suites: at most half the contact stops of constant velocity
+    in the same planner, with round trips within 3 of its.
+  - Reported beside them: timeouts, pose losses, the time of a round trip, and how often every tape was discarded.
+- **Compute:** 2a minutes; 2b about a day of building, with unit tests and a replay check; 2c under an hour; 2d about
+  360 missions, 12-15 hours at 6 at once.
+
 ### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
 
 - **P24** is set out above.
