@@ -66,3 +66,14 @@ authoritative as later work runs. No new full training has run concurrently with
 
 No claim is yet supported about O1's planning margins, position-probe thresholds, P26's detection/error bars, superiority
 over dense DINO-WM, or deployment beyond conditional offline simulation. See the [runbook](RUNBOOK.md) for commands.
+
+## Continuation audit
+
+While the six original trainers and A003 queue remain active, `feature/p25-p26-measures` adds the missing P25
+mask-binding report, paired final comparison tables and explicit incomplete-evidence handling. Eight synthetic
+measurement tests pass; the combined new measurement/regression/custody suite passes 11 tests. C002 records
+per-image versus temporal binding limits and the local probe's deviation from the paper's training size/ridge.
+
+D002 adds the full historical 400-unit M5 CPU reference regression. Its comparator is tested, but aggregate
+equivalence remains pending until that replay finishes and receives a literature/source review. These changes
+are kept in a separate checkout so the source hashes of the running A003 queue remain unchanged.

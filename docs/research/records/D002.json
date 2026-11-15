@@ -1,0 +1,20 @@
+{
+  "id": "D002",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "Does the unchanged default M5 observation/evaluation path still reproduce the full historical offline Genesis summary after the P26 adapter additions?",
+  "hypothesis": "An additive recorded-track input method should leave every historical default-path cohort and reported metric unchanged.",
+  "sources": [
+    {"url": "go2nav/eval/object_measures.py", "version": "161fe8b, unchanged from 7dfc837", "sections": "_setup, _offline_episode and offline aggregation, read in full", "consequence": "Use the historical CPU model factory, every-eighth-frame cohort, visibility/range filter, nearest-slot match and all waiting/kind breakdowns exactly."},
+    {"url": "go2nav/planning/sampling.py", "version": "161fe8b", "sections": "make_model objects branch and ObjectModel.__init__ device selection", "consequence": "The evaluator documents CPU execution, but its factory defaults to GPU when visible. Explicitly hide CUDA/HIP for this CPU reference regression; no new training moves to CPU."},
+    {"url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html", "version": "2.12", "sections": "Floating-point accuracy and batched/slice computations", "consequence": "Require exact cohort counts/keys and compare the published rounded errors at an absolute 1e-4 tolerance; numerical regression is distinct from new model efficacy."},
+    {"url": "https://docs.pytorch.org/docs/2.12/generated/torch.set_num_threads.html", "version": "2.12", "sections": "API semantics and execution-order note", "consequence": "Set one intra-op thread per worker before model work; use two CPU workers while the original GPU trainers continue."}
+  ],
+  "differences": "This is a complete legacy CPU reference regression on the original 400-unit export, not the new matched 100-unit P26 scientific comparison. The earlier D001 three-window equality check is insufficient to establish this aggregate invariant.",
+  "contrary_evidence": "Unchanged high-level code can still produce drift through input data, imported functions, dependency versions or cohort selection. Preserve any discrepancy and investigate before claiming backward compatibility.",
+  "protocol": {"scope": ["legacy regression wrapper", "full summary comparison", "comparison correctness tests"], "model": "existing M5, frozen", "corpus": "original outputs/genesis/units_val validation export", "units": 400, "reference": "outputs/genesis/m5_genesis_offline.json", "every": 8, "workers": 2, "intraop_threads_per_worker": 1, "device": "original CPU reference path", "checks": "all nested keys and counts exactly equal; every reported model/velocity/frozen median within absolute 1e-4; finite numeric values", "provenance": "hash every original metadata/data file, M5 checkpoint, historical summary and evaluated source"},
+  "success": "The full reference summary reproduces within the declared reporting precision; this does not establish the new P26 model-performance bars.",
+  "stop": "No new simulation, training, checkpoint selection or modification of historical files. A mismatch is a technical regression requiring literature/source review before interpretation.",
+  "resources": {"gpu_hours_max": 0, "cpu_workers_max": 2, "training_device": "none; CPU reference evaluation only"},
+  "predecessors": [{"review": "../../../outputs/gated/D001/adapter_check/review.json", "allow": ["passed"]}]
+}

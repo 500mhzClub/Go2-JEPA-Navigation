@@ -1,0 +1,26 @@
+{
+  "id": "C002",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "Do the selected balls encoders bind objects, and do the reviewed paired results satisfy the originally declared P25 bars?",
+  "hypothesis": "Object binding, positional decodability and action planning are distinct; reconstruction loss alone cannot establish any of these downstream claims.",
+  "sources": [
+    {"url": "https://arxiv.org/pdf/2306.04829v2", "version": "v2, full local PDF/text revisited", "sections": "Section 4, Metrics, and Appendix A image metrics", "consequence": "Score decoder masks by best intersection-over-union; distinguish per-image binding from temporal tracking. Include background area in each mask union."},
+    {"url": "https://arxiv.org/html/2602.11389v2", "version": "v2", "sections": "Appendix D.2, Appendix G, Appendix B discussion", "consequence": "Freeze the selected RGB encoder; latent Hungarian goal cost and object-mask binding measure different properties. Neither establishes a recovered causal graph."},
+    {"url": "https://arxiv.org/html/2609.04264v3", "version": "v3", "sections": "Appendix A.10, full probe methods and Table 10; Section 5.1", "consequence": "Report current and future positional probes separately from planning. Local C001 probes use 4096 training windows and ridge 0.001, rather than the paper's 50000 and 1e-6, so do not call them an exact reproduction."},
+    {"url": "docs/research/records/B001.json", "version": "161fe8b", "sections": "Fixed paired task and episode-bootstrap protocol", "consequence": "Compare identical episode/start/horizon/CEM-seed cases; retain training seeds separately and bootstrap paired episode differences."},
+    {"url": "docs/dynamic/PLAN.md", "version": "161fe8b", "sections": "P25 items 3 and 4; active execution revision", "consequence": "Implement the missing IoU >=0.5 binding report and the pre-existing planning/probe bars without changing models, thresholds or selecting results."}
+  ],
+  "differences": "The primary binding measure is per-frame best IoU against each full geometric disc, with pixel centres as sim.balls defines them (equivalently rendered alpha >=0.5). It is not VideoSAUR's video mBO or a tracking metric. Overlap/occlusion is retained; visible painted-disc area and a >=90% visible subset are diagnostics. C001's fixed sorted-white/global-latent probe convention remains unchanged; all local probe adaptations are explicit.",
+  "contrary_evidence": "Good image masks may switch identity or encode poor dynamics. Full discs can overlap, while hard slot masks partition the image; low binding may partly reflect occlusion. A strong L0 or weak L1 is a mismatch with the reference phenomenon, not grounds to tune the test or discard the run.",
+  "protocol": {
+    "scope": ["binding evaluator", "paired result summary", "requirement audit", "correctness tests"],
+    "binding": {"split": "test", "episodes": 1000, "windows_per_episode": 5, "seed": 2026111511, "history": 3, "starts": "same deterministic current-frame selection as C001 probes", "mask": "argmax over decoder slot masks, no label-dependent threshold", "truth": "all n+1 geometric discs at pixel-centre radius <=3", "success": "each ball's maximum mask IoU >=0.5", "diagnostics": ["red/white/all binding share", "mean best IoU", "visible painted-disc fraction", ">=90% visible subset", "best-slot reuse"], "bootstrap": "2000 resamples of complete episodes, seed 2026111512"},
+    "comparison": {"seeds": "n3 seeds0/1/2 for L0/L1/O0/O1; n1/n6 seed0 L0/L1/O1", "primary": "H4 O1-L1 >=-0.10 and O1-L0 >=0.30 at each n; report H6/H8 and O0 separately", "reference": "n3 L0 H4 <0.10 and mean red-coordinate Pearson <0.5; L1 H4 >=0.5", "probes": "n3 O1 each current coordinate r>=0.9; each white coordinate at four steps r>=0.8", "uncertainty": "paired episode difference CI, 2000 bootstrap samples; no pooling training seeds", "missing": "show incomplete or technically blocked evidence explicitly; never convert a missing cell to zero or a pass", "review": "all numeric input results must have a passing or measured-negative literature review; stale/unreviewed results block aggregation"},
+    "checks": ["perfect versus merged slot masks", "slot permutation invariance", "full-disc occlusion retained", "paired cases align or reject", "missing models cannot pass", "training seeds remain separate", "reported thresholds equal original bars"]
+  },
+  "success": "All declared measures and bars can be reproduced from reviewed per-case artifacts; this record has no new training or model-performance threshold.",
+  "stop": "Do not use test masks or probes for checkpoint selection or hyperparameter tuning. Do not run a new full GPU stage concurrently with the preserved trainers. Report partial evidence as incomplete.",
+  "resources": {"gpu_hours_max": 1, "allocation": "within the existing B/C allowance, not an additional allowance", "memory_fraction_max": 0.85, "training_device": "dedicated_gpu"},
+  "predecessors": []
+}

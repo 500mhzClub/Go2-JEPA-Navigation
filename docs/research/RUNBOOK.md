@@ -112,6 +112,35 @@ Report per-axis correlations and uncertainty; retain training seeds separately. 
 allocation on n3 seeds1/2 and n1/n6. Extra L0/L1 seeds use `go2nav.training.balls ... --research C001` with the original
 training recipe. No test-driven tuning to force L0 failure or O1's claimed margin.
 
+## C: binding and final comparison
+
+Before the final P25 report, measure binding with the selected, reviewed RGB encoder:
+
+```sh
+"$PY" -m go2nav.eval.balls_binding --data "$BALLS_DATA" --n 3 --research C002 \
+  --checkpoint outputs/gated/C001/slots_n3_s0/model.pt \
+  --parent-review outputs/gated/C001/slots_n3_s0/review.json --out outputs/gated/binding/slots_n3_s0
+```
+
+The primary measure keeps every geometric disc, including occluded balls; visible-area diagnostics are separate.
+The decoder mask's best IoU must be at least 0.5. These are per-image measures, not proof of temporal identity.
+Consult the literature after this result before interpreting it or changing any successor experiment.
+
+For final comparisons, provide an index of `{n, seed, kind, planning, probes, binding}` entries with paths to
+reviewed result files. A local index of the planned 18 model runs is `outputs/gated/p25_index.json`.
+Legacy result reviews that lack a machine-readable training seed must include `run_identity: {n, seed, kind}`
+verified against their training artifact and parent manifest. Do not infer seed identity from a filename alone.
+
+```sh
+"$PY" -m go2nav.eval.balls_comparison --index outputs/gated/p25_index.json \
+  --out outputs/gated/comparison --research C002
+```
+
+The report retains negative reviewed measurements and lists missing/budget/technical evidence explicitly.
+It reports paired episode intervals and the original numerical bars, separately for each training seed;
+it is itself a result requiring literature review before scientific interpretation. The local probe's 4,096
+training windows and ridge 0.001 differ from Zhu Appendix A.10's 50,000 and 1e-6; report that adaptation.
+
 ## D: frozen s0, offline Genesis
 
 Preparation has completed for the original 600/100 feature-cache unit selection:
@@ -141,6 +170,19 @@ S1 selects minimum mean label-free validation error across 1.6/3.2/6.4s. The pai
 occluded targets, one-to-one matching, detection precision/recall, switches/fragmentation, waiting, quantiles,
 coverage and the common-case comparison. Historical `object_measures offline` remains available unchanged.
 All new Genesis claims remain conditional on simulator pose/full layout and a previously used validation corpus.
+
+The full historical default-path regression is independent of new model training. Run its documented CPU
+reference path with GPUs hidden, two workers and one thread per worker:
+
+```sh
+HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+  "$PY" -m go2nav.eval.legacy_regression --corpus outputs/genesis/units_val --mazes "$MAZES" \
+  --model outputs/object_dynamics/m5/model.pt --reference outputs/genesis/m5_genesis_offline.json \
+  --out outputs/gated/D002/legacy --research D002
+```
+
+D002 checks all 400 historical units, every cohort count and every reported median. It must receive its own
+post-result literature/source review. This reference regression does not establish the new paired P26 bars.
 
 ## Evidence bundle
 
