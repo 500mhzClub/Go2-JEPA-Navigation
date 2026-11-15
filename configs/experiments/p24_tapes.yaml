@@ -5,7 +5,8 @@ description: 'docs/dynamic/PLAN.md, P24 stage 2: the working setup with the rang
   of the forecaster''s lattice, the walkers by M5 (tapes: objects:...) or constant velocity (ring_velocity). tapes_smoke_*
   are 2c (mazes 10-12); the rest are 2d: still mazes, polite walkers (1, 2, 4) and walkers that do not yield (1, 2), M5 beside
   constant velocity on the four-walker and not-yielding suites. tapes_smoke2_still_m5 is the still smoke again after the fix
-  to the final approach (STATUS P24 2c).'
+  to the final approach (STATUS P24 2c). tapes_smoke3_* are both smokes again with the end of each route handed to P18''s
+  cost (planning.genesis_tapes.travelling, approved 15 November).'
 cohorts:
 - name: tapes_smoke_still_m5
   set: validation
@@ -43,6 +44,23 @@ cohorts:
   decision: tapes
   noslip: 'on'
   tapes: objects:outputs/object_dynamics/m5/model.pt
+  episodes: *id001
+- name: tapes_smoke3_still_m5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: tapes
+  noslip: 'on'
+  tapes: objects:outputs/object_dynamics/m5/model.pt
+  episodes: *id001
+- name: tapes_smoke3_obst1_m5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: tapes
+  noslip: 'on'
+  tapes: objects:outputs/object_dynamics/m5/model.pt
+  obstacles: 1
   episodes: *id001
 - name: tapes_still_m5
   set: validation

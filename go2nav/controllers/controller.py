@@ -26,7 +26,8 @@ future positions in place of the tracker's; `walker_mode='truth'` gives it every
 
 `decision='cost'` (PLAN P18): the plan's action is chosen by `planning.cost.select`, an intrinsic cost on the
 forecasts and the range sensor's returns, in place of `Planner.select`'s stages; the route, the map, the mission and
-the dispatch check are unchanged.
+the dispatch check are unchanged. `decision='tapes'` (PLAN P24): travel to a waypoint by P17's planner under the frozen
+rule with the walkers of `tapes` (`planning.genesis_tapes`), the end of a route by `planning.cost.select`.
 
 With no forecaster the controller is the model-free C2: the planner's reactive selection replaces forecasting and
 scoring (`Planner.select_reactive`).
@@ -330,8 +331,11 @@ class NavigationController:
             return
         goal_body, scan_error = objective
         if self.tapes is not None:
-            self._plan_tapes(frame, registered, snapshot, route, goal_body, scan_error, prefix, now)
-            return
+            from go2nav.planning.genesis_tapes import travelling
+            if travelling(goal_body, scan_error, self.planner.pulse):
+                self._plan_tapes(frame, registered, snapshot, route, goal_body, scan_error, prefix, now)
+                return
+            self.tapes.previous = None   # the end of a route is P18's cost's (PLAN P24 2c, approved 15 November)
         forecast_xy = None
         if self.forecaster is None:
             selected = self.planner.select_reactive(goal_body, scan_error, snapshot, registered.position, registered.rotation,
@@ -342,7 +346,7 @@ class NavigationController:
                                   dict(self.registered_poses), tuple(self.ledger.commitments))
             lattice = {} if self.planner.candidates == ACTIONS else dict(candidates=self.planner.candidates)
             prediction = self.forecaster.forecast(context, prefix, pulse=self.planner.pulse, **lattice)
-            if self.decision == 'cost':
+            if self.decision in ('cost', 'tapes'):
                 self.planner.backup_plan = False
                 swept, at = self.planner.uncovered(prediction, snapshot, registered.position, registered.rotation)
                 inputs = dict(prediction=prediction, goal_body=goal_body, scan_error=scan_error,
@@ -391,8 +395,6 @@ class NavigationController:
                 self.planner.candidates = saved
         commands, record = self.tapes.plan(xy=xy, yaw=yaw, executed=executed, prefix=prefix, target=target,
                                            look=None if scan_error is None else yaw+scan_error, uncovered=uncovered)
-        if self.planner.pulse and np.any(np.asarray(commands, float)[0, :2]):
-            commands = commands[:1]     # the harness's terminal approach: a translation is a 100-ms pulse (P18's too)
         if record.get('coverage'):
             self.planner.want_coverage(record['coverage'], xy)
         first = np.asarray(commands[0], float)

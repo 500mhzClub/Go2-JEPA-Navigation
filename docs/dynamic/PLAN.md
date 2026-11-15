@@ -2050,6 +2050,14 @@ in Genesis, and the shortfall is in one stratum. The risk: that stratum is the s
   - Reported beside them: timeouts, pose losses, the time of a round trip, and how often every tape was discarded.
 - **Compute:** 2a minutes; 2b about a day of building, with unit tests and a replay check; 2c under an hour; 2d about
   360 missions, 12-15 hours at 6 at once.
+- **After the smoke (approved 15 November): the end of a route is P18's cost's.**
+  - The smoke's failures were at the end of a route: the last 2 cm of an arrival, where the Go2 does not execute
+    closing commands under 0.1 m/s or reverse pulses, and a frontier waypoint the robot held beside.
+  - A first fix (a 0.10 m/s floor on the approach and 100-ms terminal pulses) made it 4 of 6 (STATUS).
+  - P18's cost needed three rounds of fixes for exactly these, so a waypoint within 0.4 m (P17's own approach
+    radius), the terminal approach and a look around now go to it (`planning.genesis_tapes.travelling`).
+  - The tapes, with M5, travel between waypoints, where walkers are met.
+  - Both smokes run again before any suite, with the same rule to go on.
 
 ### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
 

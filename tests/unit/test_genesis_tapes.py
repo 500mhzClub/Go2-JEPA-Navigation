@@ -106,3 +106,11 @@ def test_the_decision_needs_the_frozen_rule():
     decision = TapesDecision('ring_velocity', arrival_radius_m=.02)
     with pytest.raises(RuntimeError):
         decision.bind(corridor(), (0., 0.))
+
+
+def test_the_tapes_travel_and_the_end_of_a_route_is_p18_s_cost():
+    from go2nav.planning.genesis_tapes import HANDOVER_M, travelling
+    assert travelling(np.array([1., 0.]), None, False)
+    assert not travelling(np.array([HANDOVER_M-.01, 0.]), None, False)            # near the waypoint
+    assert not travelling(np.array([1., 0.]), .5, False)                          # a look around
+    assert not travelling(np.array([1., 0.]), None, True)                         # the terminal approach

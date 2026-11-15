@@ -19,6 +19,9 @@ velocity) for the walkers, in place of the forecaster's lattice (`controllers.co
     the route is asked for a view of that floor (`coverage`, returned to the controller). The hold never sweeps new
     floor, so a tape is always left.
   - The cheapest tape's first `COMMIT_TICKS` commands go to `planning.dispatch.TapeCommand`.
+- **The end of a route** is not the tapes' (`travelling`; approved 15 November, after the smoke): a waypoint within
+  `HANDOVER_M`, the harness's terminal approach and a look around go to P18's cost (`planning.cost`), which has three
+  rounds of fixes there. The tapes travel between waypoints, where walkers are met.
 """
 import math
 from pathlib import Path
@@ -31,8 +34,16 @@ from go2nav.planning.fields import Fields
 from go2nav.planning.sampling import ARRIVE_M, FRAME_S, Planner, advance, integrate, limit, make_model, wrap
 
 HORIZON_S, COVERAGE_TICKS, LOOK_RATE = 6.4, 8, .45
+HANDOVER_M = .4                       # P17's own approach radius (`planning.sampling.NEAR_M`)
 REPO = Path(__file__).resolve().parents[2]
 ARRIVAL_SHARE = ARRIVE_M/.04          # the ring world's 0.03 m of its missions' 0.04-m arrival radius
+
+
+def travelling(goal_body, scan_error, pulse):
+    """Whether a plan is the tapes decision's (PLAN P24 2c, approved 15 November): travel to a waypoint at least
+    `HANDOVER_M` away. The end of a route (a waypoint nearer, the harness's terminal approach, a look around) is P18's
+    cost's, with its three rounds of fixes there: the turn to the arrival disk, no reverse pulse, frontier waypoints."""
+    return scan_error is None and not pulse and float(np.linalg.norm(goal_body)) >= HANDOVER_M
 
 
 class Prefixed:
