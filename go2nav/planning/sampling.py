@@ -220,7 +220,7 @@ def make_model(name, seed=0):
 
 class Planner:
     def __init__(self, geometry, *, horizon_s, terminal='static', seed=0, model='true', max_speed=None, cells=True,
-                 value=None):
+                 value=None, lateral=True, arrive_m=ARRIVE_M):
         if terminal not in ('static', 'walkers'):
             raise ValueError("terminal is 'static' or 'walkers'")
         self.geometry, self.fields, self.terminal = geometry, Fields(geometry), terminal
@@ -235,6 +235,7 @@ class Planner:
             self.value.bind(self.fields)
         self.speeds = SPEEDS if max_speed is None else tuple(v*max_speed/SPEEDS[0] for v in SPEEDS)
         self.max_speed, self.use_cells = max_speed, cells
+        self.lateral, self.arrive_m = lateral, arrive_m     # P24: no sideways commands, the mission's own arrival
         self.rng = np.random.default_rng(seed)
         self.exact = os.environ.get('GO2NAV_EXACT', '0') == '1'          # P22 item 12: `expected_costs` when set
         self.recover = os.environ.get('GO2NAV_RECOVER', '0') == '1'      # ... with a way out from under the floor
@@ -295,9 +296,15 @@ class Planner:
             close = (mode == 2) & (distance < NEAR_M) & (here < 2*NEAR_M)
             c, s = np.cos(yaw), np.sin(yaw)
             body = np.stack((c*offset[:, 0]+s*offset[:, 1], -s*offset[:, 0]+c*offset[:, 1]), 1)
-            approach = np.stack((np.clip(2*body[:, 0], -REVERSE_M_S, speed), np.clip(2*body[:, 1], -.2, .2),
-                                 np.zeros(count)), 1)
-            approach[distance < ARRIVE_M/2] = 0.
+            if self.lateral:
+                approach = np.stack((np.clip(2*body[:, 0], -REVERSE_M_S, speed), np.clip(2*body[:, 1], -.2, .2),
+                                     np.zeros(count)), 1)
+            else:                  # P24: no sideways command; turn the body's axis onto the target and close along it
+                bearing = np.where(body[:, 0] >= 0., np.arctan2(body[:, 1], body[:, 0]),
+                                   np.arctan2(-body[:, 1], -body[:, 0]))
+                approach = np.stack((np.clip(2*body[:, 0], -REVERSE_M_S, speed)*np.cos(bearing)**2, np.zeros(count),
+                                     np.clip(TURN_GAIN*bearing, -.8, .8)), 1)
+            approach[distance < self.arrive_m/2] = 0.
             command = np.where(close[:, None], approach, command)
             command[mode == 1] = 0.
             waits = np.where(mode == 1, waits-1, waits)
@@ -333,6 +340,8 @@ class Planner:
         steps = np.arange(frames)
         smooth = np.stack([np.stack([np.interp(steps, knots, noise[g, :, a]) for a in range(3)], 1)
                            for g in range(GAUSSIANS)])
+        if not self.lateral:
+            smooth[..., 1] = 0.
         tapes.append(np.stack([bases[g % len(bases)] for g in range(GAUSSIANS)])+smooth)
         names += [f'gaussian{g}' for g in range(GAUSSIANS)]
         requested = np.concatenate(tapes)
@@ -366,7 +375,7 @@ class Planner:
         breached = breach.any(1)
         first = np.where(breached, breach.argmax(1), frames)
         counted = np.arange(frames)[None] < first[:, None]
-        away = np.linalg.norm(xy-np.asarray(target, float), axis=-1) > ARRIVE_M
+        away = np.linalg.norm(xy-np.asarray(target, float), axis=-1) > self.arrive_m
         time = (away & counted).sum(1)*FRAME_S
         soft = (np.clip((SOFT_M-clearance)/(SOFT_M-FLOOR_M), 0., 1.)*counted).sum(1)*FRAME_S*CLEARANCE_RATE
         end = xy[:, -1]
@@ -423,7 +432,7 @@ class Planner:
         walker = np.arange(frames)[None] < wall_first[:, None]           # before the wall's frame: a walker's breach
         price = DISCARD if self.walker_price is None else self.walker_price
         discard = (np.where(walker, price, DISCARD)*breach_at*late).sum(1)
-        away = np.linalg.norm(xy-np.asarray(target, float), axis=-1) > ARRIVE_M
+        away = np.linalg.norm(xy-np.asarray(target, float), axis=-1) > self.arrive_m
         time = (survive*away).sum(1)*FRAME_S
         wall_soft = np.clip((SOFT_M-walls)/(SOFT_M-FLOOR_M), 0., 1.)
         soft = (survive*np.maximum(wall_soft, nearness)).sum(1)*FRAME_S*CLEARANCE_RATE

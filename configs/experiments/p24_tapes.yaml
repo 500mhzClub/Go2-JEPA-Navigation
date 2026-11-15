@@ -1,0 +1,201 @@
+name: M5 in Genesis
+base: configs/working.yaml
+description: 'docs/dynamic/PLAN.md, P24 stage 2: the working setup with the range sensor and the no-slip pass, as P18''s cost_decision.yaml,
+  with decision: tapes: P17''s planner under the frozen rule (planning.genesis_tapes; the environment sets the rule) in place
+  of the forecaster''s lattice, the walkers by M5 (tapes: objects:...) or constant velocity (ring_velocity). tapes_smoke_*
+  are 2c (mazes 10-12); the rest are 2d: still mazes, polite walkers (1, 2, 4) and walkers that do not yield (1, 2), M5 beside
+  constant velocity on the four-walker and not-yielding suites.'
+cohorts:
+- name: tapes_smoke_still_m5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: tapes
+  noslip: 'on'
+  tapes: objects:outputs/object_dynamics/m5/model.pt
+  episodes: &id001
+  - - 10
+    - 0
+  - - 10
+    - 1
+  - - 11
+    - 0
+  - - 11
+    - 1
+  - - 12
+    - 0
+  - - 12
+    - 1
+- name: tapes_smoke_obst1_m5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: tapes
+  noslip: 'on'
+  tapes: objects:outputs/object_dynamics/m5/model.pt
+  obstacles: 1
+  episodes: *id001
+- name: tapes_still_m5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: tapes
+  noslip: 'on'
+  tapes: objects:outputs/object_dynamics/m5/model.pt
+  episodes: &id002
+  - - 10
+    - 0
+  - - 10
+    - 1
+  - - 11
+    - 0
+  - - 11
+    - 1
+  - - 12
+    - 0
+  - - 12
+    - 1
+  - - 13
+    - 0
+  - - 13
+    - 1
+  - - 14
+    - 0
+  - - 14
+    - 1
+  - - 15
+    - 0
+  - - 15
+    - 1
+  - - 16
+    - 0
+  - - 16
+    - 1
+  - - 17
+    - 0
+  - - 17
+    - 1
+  - - 18
+    - 0
+  - - 18
+    - 1
+  - - 19
+    - 0
+  - - 19
+    - 1
+  - - 20
+    - 0
+  - - 20
+    - 1
+  - - 21
+    - 0
+  - - 21
+    - 1
+  - - 22
+    - 0
+  - - 22
+    - 1
+  - - 23
+    - 0
+  - - 23
+    - 1
+  - - 24
+    - 0
+  - - 24
+    - 1
+  - - 25
+    - 0
+  - - 25
+    - 1
+  - - 26
+    - 0
+  - - 26
+    - 1
+  - - 27
+    - 0
+  - - 27
+    - 1
+  - - 28
+    - 0
+  - - 28
+    - 1
+  - - 29
+    - 0
+  - - 29
+    - 1
+- name: tapes_obst1_m5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: tapes
+  noslip: 'on'
+  tapes: objects:outputs/object_dynamics/m5/model.pt
+  obstacles: 1
+  episodes: *id002
+- name: tapes_obst2_m5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: tapes
+  noslip: 'on'
+  tapes: objects:outputs/object_dynamics/m5/model.pt
+  obstacles: 2
+  episodes: *id002
+- name: tapes_obst4_m5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: tapes
+  noslip: 'on'
+  tapes: objects:outputs/object_dynamics/m5/model.pt
+  obstacles: 4
+  episodes: *id002
+- name: tapes_rude1_m5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: tapes
+  noslip: 'on'
+  tapes: objects:outputs/object_dynamics/m5/model.pt
+  obstacles: 1
+  obstacle_polite: 'off'
+  episodes: *id002
+- name: tapes_rude2_m5
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: tapes
+  noslip: 'on'
+  tapes: objects:outputs/object_dynamics/m5/model.pt
+  obstacles: 2
+  obstacle_polite: 'off'
+  episodes: *id002
+- name: tapes_obst4_cv
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: tapes
+  noslip: 'on'
+  tapes: ring_velocity
+  obstacles: 4
+  episodes: *id002
+- name: tapes_rude1_cv
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: tapes
+  noslip: 'on'
+  tapes: ring_velocity
+  obstacles: 1
+  obstacle_polite: 'off'
+  episodes: *id002
+- name: tapes_rude2_cv
+  set: validation
+  walker_mode: held
+  range_sensor: 'on'
+  decision: tapes
+  noslip: 'on'
+  tapes: ring_velocity
+  obstacles: 2
+  obstacle_polite: 'off'
+  episodes: *id002
