@@ -2080,12 +2080,144 @@ suite. Each round fitted P17's planner to the harness, and none measured M5.
 ### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
 
 - **P24** is set out above, and closed.
-- **P25, a second world.** Zhu et al.'s bouncing-ball task rebuilt (64 x 64 frames; a ball the agent controls among
-  balls that move on their own): LeWM as ported here, and the object recipe. Their figures (LeWM 0-3%; with their
-  supervised targets 60-92%) are a reference, not a like-for-like comparison.
-- **P26, slots in place of the tracker, and after:** P22's predictor over P23's slots in Genesis; whether adapting the
-  encoder improves the dynamics without losing the pretrained geometry; a learned end cost; held-out families; the
-  H-JEPA decision (docs/REVIEW_2026-11-11.md section 5).
+- **P25** (the second world) and **P26's first part** (slots in place of the tracker) are set out below, on 15 November
+  (docs/REVIEW_2026-11-15.md, steps 2 and 3).
+- **P26 after its first part:**
+  - whether adapting the encoder improves the dynamics without losing the pretrained geometry;
+  - a learned end cost;
+  - held-out families;
+  - the H-JEPA decision (docs/REVIEW_2026-11-11.md section 5).
+
+### P25. A second world: bouncing balls (set out 15 November, before any run)
+
+**Why.** Zhu et al. (arXiv 2609.04264) found that LeWM, trained from scratch with one [CLS] vector, fails in
+bouncing-ball worlds:
+- It plans 0-3%. Adding supervised targets in training (the balls' boxes, through a Fourier head) gives 13-92%.
+- Their probes show what it loses. The ball the agent controls is lost (Pearson r 0.16 with one other ball, 0.42 with
+  six). The balls that move on their own are kept with one and three (0.997, 0.914), and everything is lost with six
+  (0.23).
+- The object recipe (slots, and a predictor over them as in C-JEPA) is meant to keep every object without labels.
+
+That is the JEPA claim on a task with a known answer, away from Genesis and its harness. Their figures are a
+reference, not a like-for-like comparison. Branch `feature/second-world`, from main.
+
+**1. The world** (`sim.balls`), rebuilt from the paper. What the paper leaves out is chosen here:
+- **Frames:** 64 x 64 RGB on a black ground. A red ball the agent moves, and n = 1, 3 or 6 white balls that move on
+  their own. Radius 3 px.
+- **Actions:** an action is the red ball's displacement for one step (dx, dy) in pixels, its norm clipped to 3 (the
+  paper's clip). The red ball stops at the walls.
+- **White balls:** each starts at 1-3 px a step in a random direction and bounces elastically off the walls. They pass
+  through each other and through the red ball; the paper describes no contact between balls.
+- One step a frame (no frameskip, as the paper).
+- **Data, per n:**
+  - 1,000 episodes of 100 steps (100,000 frames; the paper's "100k training samples").
+  - The red ball takes random actions held 1-5 steps (direction uniform, norm uniform in 0-3).
+  - 100 validation episodes.
+  - Positions, velocities and boxes are kept, for scoring and for the supervised reference only.
+- **Tasks,** as the paper:
+  - The start is a validation frame, and the goal is the frame H steps later in the same episode (H = 4, 6, 8).
+  - There is no replanning.
+  - **Success:** the red ball ends within 1 px of its position in the goal frame.
+  - 5 draws of 200 tasks per n and H. Reported beside it: success without a collision (centres within 2r at any step).
+- **The planner,** as the paper:
+  - CEM: 100 action sequences, 10 elites, 20 iterations, initial deviation 2.0, norms clipped to 3.0.
+  - **The cost:** the squared distance between the predicted state at H and the goal frame's.
+  - For slots: predicted slots are matched to the goal's by Hungarian matching on latent distance, as C-JEPA does.
+  - **The ceiling:** the same CEM on the true simulator.
+
+**2. Models,** one per n, as the paper:
+- **L0, LeWM as ported here** (`models.lewm`), at the paper's n-ball sizes.
+  - Encoder: patch 8, width 64, 4 blocks of 4 heads, MLP 256, [CLS] to 128.
+  - Predictor: over 3 frames, 4 blocks of 4 heads, MLP 256. Its width is 128, since the port has no input
+    projection; the paper's is 64.
+  - SIGReg weight 0.09. Frames in [-1, 1]. 200 epochs at batch 64.
+- **L1, the supervised reference:** L0 with the paper's Fourier head.
+  - Each ball's box goes through cos and sin of 9 random frequencies, summed over the balls.
+  - A 128-64-18 MLP reads it from the encoded and the predicted states, with weight 0.1.
+  - It is used in training only.
+- **O1, the object recipe, self-supervised:**
+  - **Slots:** Slot Attention on the frames themselves, in SAVi's form, which C-JEPA also used. A small CNN at full
+    resolution; slots carried from frame to frame (P23's `models.slots`); a broadcast decoder that rebuilds the frame;
+    n + 2 slots.
+  - **Why not DINOv2:** on 64 x 64 flat discs, frozen DINOv2's 14-px patches each span a whole ball.
+  - **The predictor:** C-JEPA's, written from its paper's appendix. Its repository (`galilai-group/cjepa`) carries no
+    licence, so its code is read but not ported. A masked transformer over 3 frames' slots with the action as a
+    separate input; 0-2 objects masked through the history; the loss is on the masked and the future slots.
+  - The slots are trained first and then frozen, as in C-JEPA.
+
+**3. Measures** (labels for scoring only):
+- **(a) Planning success** at H = 4, 6 and 8, for n = 1, 3 and 6.
+- **(b) Linear probes** (ridge on training frames, Pearson r on validation, as the paper's Table 10):
+  - the red ball's and the white balls' positions from the encoded state (for slots, each ball from its matched slot);
+  - the white balls' positions 4 steps ahead, from the predicted state: their futures, our addition.
+- **O1's binding,** reported: the share of balls whose best slot mask covers their disc with an IoU of at least 0.5.
+
+**4. Bars** (set before any run):
+- **The rebuild,** read before the claim:
+  - L0 shows the laziness: under 10% at H = 4 with n = 3, and a red-ball probe under 0.5.
+  - L1 reaches at least 50% there.
+  - If either fails, this world differs from theirs in what matters. The claim is not read against it until the
+    difference is found, and it is reported to you.
+- **The claim, O1 at H = 4:**
+  - success at least L1's less 10 points at every n, and at least L0's plus 30 points;
+  - with n = 3, the red and white balls' probes at least 0.9, and the white balls 4 steps ahead at least 0.8.
+- **Seeds:** one training seed per model and n, and two more at n = 3 for the spread. Under the stop rule.
+
+**5. Compute,** on the R9700:
+- data: minutes, on the CPU;
+- L0 and L1: about 1-3 hours a run (6 runs, and 4 more for seeds);
+- slots: 2-4 hours per n; the predictor about an hour per n;
+- planning: under an hour in all;
+- in all, about 30 GPU-hours.
+
+Before that, a day or two of building: the world, the trainer, the Fourier head, the SAVi slots and the C-JEPA port,
+CEM, the probes, and tests.
+
+### P26, first part. Learned objects in place of the ring tracker, in Genesis, offline (set out 15 November, before any run)
+
+**Why.** Stage 1 of P24 showed M5's dynamics carry into Genesis on the ring tracker's objects, which are engineered.
+P23's slots, learned from the camera without labels, bind 85% of the walkers in view. Whether learned objects can
+feed the learned dynamics in place of the tracker is the open half of the object recipe in Genesis. There is no planner
+in this part. Branch `feature/genesis-slots`, after `feature/learned-value` (stage 1's adapter) and
+`feature/camera-slots` (P23) are merged.
+
+**1. Data:** corpus v2's 600 `lewm_train` and 100 `lewm_val` units with DINOv2 features (P23). The validation units
+are among stage 1's 400.
+
+**2. Objects:**
+- **s0 runs over each unit's frames in order.** It is P23's best: 84.9% bound, a median 0.038 m.
+- **A slot's position,** as P23's measure gives it: its mask's columns give bearings, and the ring's nearest return
+  over them, pushed out by one walker radius, gives the point.
+- **A slot is an object at a frame** when it has a position off the layout's walls, as the tracker's objects are.
+- **Tracks:** a track breaks when its slot's position jumps more than 0.5 m in 0.1 s.
+- The tracks are written in the tracker's object format (`data.object_tracks`).
+
+**3. Predictors:**
+- **M5 as trained,** on the slot tracks.
+- **S1:** M5's recipe trained on the slot tracks of the 600 training units. Its targets are the slots' later
+  positions, so no labels are used.
+- **Constant velocity** on the slot tracks.
+- **The ceiling:** M5 on the tracker's tracks of the same 100 units (stage 1's pipeline).
+
+**4. Measure:** stage 1's (a), with the labels for scoring only.
+- It covers walkers in the primary camera's view at the start, matched as stage 1 matches the tracker's objects.
+- **Reported beside it:**
+  - the share found by the slots and by the tracker;
+  - the share of walkers within 3 m that are in the camera's view, which the ring sees and the camera does not.
+
+**5. Bars** (set before any run):
+- **Found:** the slots find at least 90% of what the tracker finds, on the same walker-frames in view.
+- **Error,** on walkers both find:
+  - the better of M5 and S1 (both reported) at most 1.5 times the ceiling's median error at 3.2 s;
+  - below constant velocity on the slot tracks at 3.2 and 6.4 s.
+
+**6. Compute:**
+- slot inference: about a GPU-hour;
+- tracks: minutes on the CPU;
+- S1: 1-2 GPU-hours;
+- measures: under an hour.
+
+It shares the card with P25 at no more than 85% of its memory.
 
 ## Compute and order
 
