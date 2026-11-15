@@ -91,9 +91,10 @@ observations. The earlier two interrupted L1 checkpoints remain preserved at
 A010 subsequently restored all four saved model/head, optimizer, scheduler and
 CPU RNG states exactly under original source, with GPUs hidden. Isolated recovery
 copies and commands are ready in `outputs/gated/A010/continuation_plan.json`.
-This verifies CPU restoration, not successful GPU continuation. The explicit
-exception for stopping these four additional originals is pending; the previous
-permission covered the other two processes.
+This verifies CPU restoration, not successful GPU continuation. The user subsequently
+approved the exception: all four additional originals exited on SIGTERM and cleanup
+passed review. The first serial L1n1 recovery has launched, but no new metrics are
+yet observed. A011 records denied stack reads and a request for user stack evidence.
 
 Next, resolve the runtime stall and complete the authorized original runs,
 then apply the common final inference checks. The discriminating scientific

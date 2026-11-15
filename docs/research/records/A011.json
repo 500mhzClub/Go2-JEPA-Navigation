@@ -1,0 +1,58 @@
+{
+  "id": "A011",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "Where is the first serial original continuation waiting before any new metrics or checkpoint restoration is observed?",
+  "hypothesis": "Process lifetime, CPU usage and GPU utilization do not establish initialization or training progress. A nonblocking Python stack can distinguish the current host execution location without changing the original trainer.",
+  "sources": [
+    {
+      "url": "https://github.com/benfred/py-spy",
+      "version": "official README accessed 2026-11-15; diagnostic binary pinned to 0.4.1",
+      "sections": "dump command, permissions, how py-spy works and avoiding pauses with --nonblocking",
+      "consequence": "Read only Python stack frames with --nonblocking and no locals. Sampling can be incomplete because memory reads are non-atomic. Do not attach a blocking debugger or change ptrace policy."
+    },
+    {
+      "url": "https://rocm.docs.amd.com/projects/amdsmi/en/docs-7.1.0/how-to/amdsmi-cli-tool.html",
+      "version": "ROCm 7.1.0 / AMD SMI 26.1 documentation; installed CLI help 26.2.0",
+      "sections": "CLI monitoring description, process command and engine/general fields",
+      "consequence": "Use only process/metric reads. Per-process zero or unsupported engine fields are not proof of no GPU activity; compare with advancing peers."
+    },
+    {
+      "url": "https://psutil.readthedocs.io/en/latest/#psutil.Process",
+      "version": "installed psutil 7.2.2; documentation consulted in A003",
+      "sections": "Process identity/create_time, status and CPU times",
+      "consequence": "Match the original PID and creation time, and retain state/CPU/log/checkpoint observations separately."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/cuda.html#asynchronous-execution",
+      "version": "2.12",
+      "sections": "Asynchronous execution and synchronization on copies",
+      "consequence": "A host wait may correspond to earlier queued device operations; do not assign a causal kernel from one Python frame."
+    }
+  ],
+  "differences": "First serial recovery PID2445882 after approved A010 cleanup. At196 seconds it has no new metric writes, stable972MiB RSS, about146MB process VRAM and one CPU core busy. No numerical model experiment, no optimizer changes or automatic retry.",
+  "contrary_evidence": "Long initialization can be legitimate. Memory footprint and elapsed time alone do not identify a hang, driver failure or the responsible queued operation. A Python frame identifies location, not cause.",
+  "protocol": {
+    "identity": "Require A010 execution PID2445882, creation1794767868.71, exact original cwd/argv before attachment.",
+    "scope": "Read-only stack and process/GPU/kernel telemetry; no new GPU process, training restart, original code or runtime changes.",
+    "samples": "One nonblocking py-spy0.4.1 dump without locals. If denied, one sudo -n read-only dump may use existing authorization; never prompt for password or change ptrace policy. If a stack is obtained, repeat after at least60 seconds, at most two successful dumps.",
+    "preservation": "Retain exact stdout/stderr/returncode and identity/timestamps/metric/checkpoint status. No stopped-process conclusion from elapsed time alone.",
+    "interpretation": "Revisit py-spy and PyTorch primary documentation after result. Report permissions failure if observed and request the minimum missing stack evidence; do not fabricate execution location."
+  },
+  "success": "Obtain an observed host location or preserve the precise observation failure; distinguish first-start incompleteness from scientific or optimizer failure.",
+  "stop": "No invasive debugging, process signals, GPU reset, reboot, runtime/environment changes, security policy changes or retry. Continue actual-handle monitoring; a new recovery intervention needs its own literature-backed decision.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_workers_max": 1,
+    "disk_mb_max": 100,
+    "training_device": "none; operational observation only"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/A010/cleanup/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

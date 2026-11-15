@@ -151,8 +151,15 @@ status is historical. Resolve this runtime issue before new GPU work. Timing doe
 not establish that the diagnostic caused the stall.
 
 A010 full-state CPU restoration passes for all four155000 snapshots under original
-source. Isolated recovery copies and six sequential continuation commands are
-prepared; stopping these four additional originals awaits the explicit preservation
-exception. No recovery training has started. The operational plan is
-`outputs/gated/A010/continuation_plan.json`; it supersedes A006's waiting schedule
-if cleanup is approved and reviewed, while preserving its earlier two recovery inputs.
+source. The user approved cleanup and serial continuation. All four additional
+originals exited on SIGTERM, unchanged checkpoint digests were verified and the
+60-second follow-up listed no old compute processes or new kernel entries.
+The cleanup review passes; this does not prove successful GPU continuation.
+The operational plan is `outputs/gated/A010/continuation_plan.json`, superseding
+A006's waiting schedule while preserving its earlier two recovery inputs.
+
+The first original L1n1 continuation has launched under pinned source from105000.
+It has not yet modified the retained metrics, so no resumed training update is
+established. A011's nonblocking py-spy attempt was denied; sudo without a password
+also failed. Current execution location is unknown and user stack evidence is
+requested. No second recovery, reset or runtime change has been attempted.
