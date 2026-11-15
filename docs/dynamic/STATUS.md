@@ -2460,3 +2460,18 @@ value:
     0.46).
 - (b), the reaction, was not run (it needs branched Genesis replays).
 - **Stage 1 fails as written.** Stage 2 waits on the decision.
+
+## P24 stage 2a: the kinematic model follows the Go2 in Genesis (15 November)
+
+`eval.robot_path`: on corpus v2's 500 validation units, P17's kinematic model from the recorded pose and executed
+command, under the recorded requests, against the Go2's own path (43,682 starts, every 8th frame):
+
+| Median error | 1.6 s | 3.2 s | 6.4 s |
+|---|---|---|---|
+| Position, all starts | 0.016 m | 0.024 m | 0.036 m |
+| ... where the robot moved more than 0.3 m (16,603) | 0.018 m | 0.027 m | 0.039 m |
+| Heading, all starts | 0.014 rad | 0.022 rad | 0.037 rad |
+
+- Every kind of unit reads alike (0.020-0.028 m at 3.2 s).
+- **By the rule set beforehand** (at most M5's walker error at 3.2 s, 0.074 m), the kinematic model is used. The robot's
+  own path is about three times more certain than the walkers'.
