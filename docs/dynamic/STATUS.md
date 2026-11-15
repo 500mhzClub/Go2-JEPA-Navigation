@@ -2502,3 +2502,21 @@ layout. 24 recorded ring-world missions repeat exactly, and the unit tests pass 
     is seen to execute as asked), and holds inside the planner's arrival radius.
   - In the harness's terminal approach (within 10 cm of the mission's exact target), a translation is a 100-ms pulse,
     as P18's cost had it.
+
+## P24 2c: four smoke rounds of the tapes decision (15 November)
+
+| Round (pinned checkout) | Still mazes | One polite walker | What decided the plans |
+|---|---|---|---|
+| 1 (d2880ac): tapes to the route's look-ahead waypoint | 5 of 6 | 6 of 6 | tapes, always in P17's final approach (the waypoint a median 0.36 m away) |
+| 2 (8d6455e): + a 0.10 m/s approach floor and 100-ms pulses | 4 of 6 | not run | as 1 |
+| 3 (6114296): the end of a route (waypoint within 0.4 m) to P18's cost | 6 of 6 | 6 of 6 | P18's cost: 0-7 tape plans in 206-404 a mission |
+| 4 (89afaa9): tapes to the route's end (a median 1.23 m), P18's cost within 0.4 m of it | 3 of 6 | 2 of 6 | both (tapes 1-1,171 plans a mission) |
+
+- No crash and no contact stop in any round.
+- **Round 4 fails the smoke's rule.** Traced on maze 12, episode 0:
+  - Of 24,000 dispatch ticks, 21,910 were a latched veto by the harness's reflex, and 800 more were vetoed by an
+    obstacle (800 passed).
+  - The tapes kept asking for 0.24 m/s with a turn towards a frontier 0.6 m away. The reflex's 0.45-m disk refused
+    them near the walls, where P17's cost keeps the body 8 cm clear.
+  - P18's cost looks ahead to the reflex; the tapes do not.
+- The rounds tested the planner's fit to the harness, not M5. Re-evaluated in docs/REVIEW_2026-11-15.md.
