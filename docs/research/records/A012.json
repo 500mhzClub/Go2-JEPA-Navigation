@@ -1,0 +1,53 @@
+{
+  "id": "A012",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "Does a fresh process complete basic GPU allocation/copies/arithmetic after retiring the stalled first recovery, and is a copy-engine selection discriminating?",
+  "hypothesis": "The A011 user stack locates the first recovery in initial Module.to, before checkpoint loading. A bounded primitive test can distinguish a general startup/copy failure from model-specific work. If the default copy path times out, disabling SDMA in a separate diagnostic process may discriminate the copy path without changing the original experiments.",
+  "sources": [
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/cuda.html#asynchronous-execution",
+      "version": "2.12, read 2026-11-15",
+      "sections": "Asynchronous execution, automatic synchronization on copies, explicit synchronization",
+      "consequence": "Log before/after each primitive and synchronize arithmetic explicitly. A host wait identifies a boundary, not a particular causal GPU kernel."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/hip.html",
+      "version": "2.12, read 2026-11-15",
+      "sections": "HIP interfaces reuse CUDA interfaces and Tensor.to examples",
+      "consequence": "Use the original PyTorch HIP build and cuda:0 dedicated GPU. No CPU training fallback or alternative package installation."
+    },
+    {
+      "url": "https://rocm.docs.amd.com/projects/HIP/en/docs-7.2.0/how-to/debugging.html",
+      "version": "HIP 7.2.53210 documentation; installed HIP 7.2.53211",
+      "sections": "HSA-related environment variables (Linux), HSA_ENABLE_SDMA",
+      "consequence": "AMD documents SDMA=0 as a copy-engine isolation diagnostic using compute blit kernels. Test it only after reviewing a baseline copy timeout; success would support a path-dependent issue, not identify the driver defect or validate training."
+    },
+    {
+      "url": "https://psutil.io/api/",
+      "version": "official documentation read 2026-11-15; installed 7.2.2",
+      "sections": "Process identity, is_running, terminate, kill, wait",
+      "consequence": "Verify PID, creation, cwd and argv before stopping the owned stalled attempt. Signal only owned children with bounded waits, and preserve all checkpoint bytes."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "Python 3.12",
+      "sections": "Popen environment, wait(timeout), terminate and kill",
+      "consequence": "An external CPU supervisor enforces each child deadline and records return codes. A timeout does not itself terminate a child; cleanup must be explicit."
+    }
+  ],
+  "differences": "Operational follow-up to A011. Original serial continuation remains the approved scientific protocol. Stopping our stalled recovery preserves its unchanged105000 checkpoint and all six original recovery assets. Diagnostic SDMA selection, if reached, applies only to a fresh tiny probe and is not silently applied to any training run.",
+  "contrary_evidence": "One nonblocking stack is not a complete native trace. No observed kernel GPU error establishes neither health nor failure. The GPU also serves desktop clients, so reset/reboot/driver changes are outside this record. A one-off successful transfer cannot establish long-run stability.",
+  "protocol": {
+    "cleanup": "Require A011 user-stack review. Verify recovery PID2445882/create1794767868.71, exact A010 argv/cwd, unchanged checkpoint SHA and no metric writes since start. Preserve execution, stack, source, config, metric and log evidence. SIGTERM owned trainer, wait30 seconds, SIGKILL only if still identity-matched then wait10 seconds. Let its supervisor record the outcome. Review cleanup before starting the probe.",
+    "baseline": "Exactly one fresh process with original interpreter, original env-unset list and PYTORCH_TUNABLEOP_ENABLED=0. Log torch/HIP versions; verify dedicated cuda:0 has at least16GiB. Allocate4096 float32 elements, copy CPU arange to GPU with default blocking to(), synchronize, add1, synchronize, copy back and assert exact equality. Log before/after each phase and a10-second faulthandler stack. No model, data, checkpoint or optimizer access.",
+    "conditional_sdma": "Only after substantive post-result literature review of a baseline copy timeout, repeat the identical probe once in a new process with only HSA_ENABLE_SDMA=0 added. Require the baseline result review digest. Do not repeat any case or change other environment variables.",
+    "deadline": "Per child:45 seconds computation, up to10 seconds SIGTERM cleanup, then up to5 seconds SIGKILL cleanup; CPU supervisor never initializes GPU. Count all elapsed child lifetime in shared ledger using externally opened/closed intervals, since even GPU admission can stall. Stop on unkillable child and leave its interval open for accurate accounting.",
+    "preservation": "Separate immutable output directories for cleanup, baseline and conditional case; raw logs, record/script/source/env hashes, PID/create/returncode, before/after telemetry. No passing scientific claims from diagnostic success.",
+    "review": "After each result revisit primary sources and bind interpretation to exact digest before any successor. A diagnostic success requires a separate reviewed continuation decision before a training retry."
+  },
+  "success": "Localize whether each basic operation returns and whether round-trip values are exact within the deadline. Record technical_blocked on timeout/error; passed applies only to the completed primitive test or preserved cleanup.",
+  "stop": "Two diagnostic cases maximum, each60 seconds including cleanup. No GPU reset, reboot, driver/package change, host security change, extra training launch or repeated retry. Stop immediately on identity mismatch, unexpected artifact writes, memory ceiling or kernel GPU fault.",
+  "resources": {"gpu_hours_max": 0.04, "cpu_workers_max": 2, "disk_mb_max": 100, "training_device": "none; dedicated GPU primitive diagnostics only"},
+  "predecessors": [{"review": "../../../outputs/gated/A011/user_stacks/review.json", "allow": ["technical_blocked"]}]
+}

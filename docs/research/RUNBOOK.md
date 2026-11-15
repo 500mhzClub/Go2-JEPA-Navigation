@@ -4,11 +4,14 @@ Runtime update: the user approved A010 cleanup and serial continuation. All four
 additional original trainers exited on SIGTERM; checkpoint digests are unchanged,
 AMD SMI lists no remaining old compute contexts and no new kernel errors appeared.
 The cleanup is reviewed at `outputs/gated/A010/cleanup/review.json`.
-The first L1n1 continuation has launched from the105000 clone, but its metrics have
-not yet changed; do not mistake retained pre-interruption rows for resumed progress.
-A011 records denied nonblocking stack observation and a pending user-supplied stack.
-Use `outputs/gated/A010/runs/l1_n1_s0/execution.json` for the current process identity.
-No additional cleanup/continuation permission is needed within the approved plan.
+The first L1n1 continuation stalled before checkpoint loading, as shown by the
+A011 user stack. A012 retired it with unchanged artifacts. Both isolated16KiB
+copy diagnostics also stalled, including the SDMA-disabled case. All children
+have exited; no training is currently running. The failed A010 attempt is retained.
+Follow [the runtime handoff](RUNTIME_RECOVERY_2026-11-15.md): user-coordinated
+reboot, changed-boot A013 primitive check, then literature review before recovery.
+No additional cleanup/continuation permission is needed within the approved plan;
+restarting the workstation requires user coordination because it affects the desktop.
 Launch no concurrent GPU work or silent retry. After each reviewed recovery result,
 follow `outputs/gated/A010/continuation_plan.json`, then run unchanged A003 on all
 six resolved final paths. A007's preliminary GPU diagnostic exhausted its declared

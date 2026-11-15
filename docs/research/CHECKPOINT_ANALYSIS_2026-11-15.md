@@ -93,8 +93,12 @@ CPU RNG states exactly under original source, with GPUs hidden. Isolated recover
 copies and commands are ready in `outputs/gated/A010/continuation_plan.json`.
 This verifies CPU restoration, not successful GPU continuation. The user subsequently
 approved the exception: all four additional originals exited on SIGTERM and cleanup
-passed review. The first serial L1n1 recovery has launched, but no new metrics are
-yet observed. A011 records denied stack reads and a request for user stack evidence.
+passed review. The first serial L1n1 recovery then stalled before checkpoint load;
+the A011 user stack places it in initial Module.to. A012 retired it without
+artifact changes and reproduced a16KiB copy timeout in two fresh processes,
+including a documented alternative copy path. No model/checkpoint was used in
+either probe. No trainer remains active. A013 prepares a user-coordinated reboot
+and guarded postboot check; see [the recovery handoff](RUNTIME_RECOVERY_2026-11-15.md).
 
 Next, resolve the runtime stall and complete the authorized original runs,
 then apply the common final inference checks. The discriminating scientific

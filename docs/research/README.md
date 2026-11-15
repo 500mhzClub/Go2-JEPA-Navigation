@@ -24,13 +24,15 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [A002](records/A002.json) | Does precision explain the remaining L1 discrepancy? | All six pass float64 math inference; reviewed |
 | [A003](records/A003.json) | Do final checkpoints pass the selected common inference policy? | Waiting for existing training |
 | [A004](records/A004.json) | Why are two live original trainers no longer logging steps? | User-supplied stacks locate a GPU scalar synchronization boundary; root cause unresolved |
-| [A005](records/A005.json) | Can full checkpoint state be restored for the interrupted experiments? | Both step105000 checkpoints pass CPU preflight; A010 launched first serial L1n1 recovery, new training progress unverified |
+| [A005](records/A005.json) | Can full checkpoint state be restored for the interrupted experiments? | Both step105000 checkpoints pass CPU preflight; first GPU recovery stalled before checkpoint load and was retired |
 | [A006](records/A006.json) | Can the two hung processes be retired immediately with all evidence preserved? | Both exited on SIGTERM; all four peers continued advancing, no kernel errors observed; reviewed |
 | [A007](records/A007.json) | What do intermediate learning curves and frozen probes establish? | Curves/source audit reviewed; GPU diagnostic budget incomplete, no probe scores |
 | [A008](records/A008.json) | Does matched intermediate latent geometry track physical positions? | n3 step40000 CPU reference reviewed: L1 geometry associates with red and white positions; preliminary, no planning claim |
 | [A009](records/A009.json) | Have the four remaining originals stopped making observable progress? | Live identities with stale logs near A007 launch; step155000 checkpoints preserved and finite; no signals to originals |
-| [A010](records/A010.json) | Can the four additional originals be restored for sequential continuation? | User approved; all four exited on SIGTERM, cleanup reviewed passed; first serial L1n1 recovery launched |
-| [A011](records/A011.json) | Where is the first serial recovery waiting before new metrics appear? | Nonblocking stack reads denied; user stack requested, execution location unknown |
+| [A010](records/A010.json) | Can the four additional originals be restored for sequential continuation? | User approved; cleanup passed; first serial L1n1 attempt retired without progress, reviewed technical_blocked |
+| [A011](records/A011.json) | Where is the first serial recovery waiting before new metrics appear? | User stack locates initial Module.to before checkpoint loading; reviewed technical_blocked |
+| [A012](records/A012.json) | Does a fresh primitive GPU copy complete? | Both default and SDMA-disabled16KiB copies timed out; children exited, checkpoints unchanged; reviewed technical_blocked |
+| [A013](records/A013.json) | Does the unchanged primitive complete after an orderly reboot? | Handoff and same-boot guard prepared; user-coordinated reboot and postboot GPU result pending |
 | [C001](records/C001.json) | Do RGB slots and anchored masking support physical prediction/planning? | Small-batch numerical checks pass; training pending |
 | [C002](records/C002.json) | Do slot masks bind objects; do paired reviewed results satisfy the declared bars? | Evaluators verified on synthetic cases; trained-model measurements pending |
 | [C003](records/C003.json) | Does optimizer recovery preserve subsequent updates and updated-weight numerics? | Both default n3 models pass the small GPU recovery/forward/gradient/grouping diagnostic; reviewed |
@@ -46,3 +48,5 @@ See [commands and remaining gates](RUNBOOK.md) and [measured implementation evid
 
 See the [preliminary checkpoint analysis](CHECKPOINT_ANALYSIS_2026-11-15.md) for
 the matched-step measurements, literature interpretation and current runtime limitation.
+See the [runtime recovery handoff](RUNTIME_RECOVERY_2026-11-15.md) for the current
+infrastructure evidence, preserved checkpoints and postboot gate.

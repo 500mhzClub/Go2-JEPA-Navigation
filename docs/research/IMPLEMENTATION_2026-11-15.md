@@ -158,8 +158,14 @@ The cleanup review passes; this does not prove successful GPU continuation.
 The operational plan is `outputs/gated/A010/continuation_plan.json`, superseding
 A006's waiting schedule while preserving its earlier two recovery inputs.
 
-The first original L1n1 continuation has launched under pinned source from105000.
-It has not yet modified the retained metrics, so no resumed training update is
-established. A011's nonblocking py-spy attempt was denied; sudo without a password
-also failed. Current execution location is unknown and user stack evidence is
-requested. No second recovery, reset or runtime change has been attempted.
+The first original L1n1 continuation stalled before loading its105000 checkpoint.
+The A011 user stack locates initial Module.to; A012 retired the attempt with all
+artifact hashes unchanged. Two fresh primitive processes also stalled on their
+first16KiB host-to-device copy, with default settings and with only SDMA disabled.
+Both bounded probes exited; no training or diagnostic remains active. These are
+reviewed infrastructure failures, not scientific model negatives.
+
+A013 preserves all six inputs and prepares a guarded postboot primitive check.
+The R9700 drives two connected displays, so a workstation reboot requires user
+coordination. See [the recovery handoff](RUNTIME_RECOVERY_2026-11-15.md). No reset,
+reboot, package change or training-environment change has been executed.

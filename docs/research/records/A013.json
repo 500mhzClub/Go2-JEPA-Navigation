@@ -1,0 +1,28 @@
+{
+  "id": "A013",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "After a user-coordinated orderly host reboot, does the unchanged default-environment primitive transfer test complete?",
+  "hypothesis": "A012 reproduced the first host-to-device copy timeout with and without SDMA, outside all project model/checkpoint logic. A fresh boot may clear persistent runtime/device state; a successful postboot test would support a state-dependent failure without identifying the original cause.",
+  "sources": [
+    {"url": "https://docs.pytorch.org/docs/2.12/notes/cuda.html#asynchronous-execution", "version": "2.12", "sections": "Asynchronous execution and copies", "consequence": "Retain explicit stage logging and synchronization; require the whole copy/arithmetic round trip, not allocation alone."},
+    {"url": "https://rocm.docs.amd.com/projects/HIP/en/docs-7.2.0/how-to/debugging.html", "version": "HIP7.2.53210; local7.2.53211", "sections": "HSA-related environment variables", "consequence": "SDMA disabling did not restore copying. Return to unchanged default settings after reboot; no extra environment-variable sweep or production workaround is authorized by this diagnostic."},
+    {"url": "https://www.freedesktop.org/software/systemd/man/latest/systemctl.html", "version": "official systemd documentation read2026-11-15", "sections": "reboot command and force behavior", "consequence": "Propose an orderly user-coordinated reboot; never force it, bypass inhibitors, or schedule it without authorization. Host shutdown affects desktop applications as well as compute."},
+    {"url": "https://docs.kernel.org/admin-guide/sysctl/kernel.html", "version": "official Linux documentation read2026-11-15", "sections": "random: boot_id", "consequence": "Record the current boot UUID and refuse the postboot probe until it changes. Elapsed time or a missing PID is not evidence of a reboot."},
+    {"url": "https://rocm.docs.amd.com/projects/amdsmi/en/docs-7.2.0/how-to/amdsmi-cli-tool.html", "version": "AMD SMI26.2.1 docs; installed26.2.0", "sections": "process, list and reset command help", "consequence": "Map GPU0 to BDF0000:03:00.0 and inspect actual DRM clients/connectors. It drives two connected displays; do not issue a live device reset or driver reload."},
+    {"url": "https://docs.python.org/3.12/library/subprocess.html", "version": "Python3.12", "sections": "Popen wait, timeouts, terminate/kill and environment", "consequence": "Reuse the externally supervised primitive with45-second work deadline and bounded10/5-second cleanup. Close shared budget only after child exit."}
+  ],
+  "differences": "This record adds only a host-state intervention proposal and one postboot diagnostic. Reboot execution requires user coordination because it interrupts a live workstation. The existing approval for six serial checkpoint continuations persists. No training recipe, package, driver, model or data change is proposed.",
+  "contrary_evidence": "Reboot may not repair a persistent software/configuration/hardware issue. A passing tiny probe cannot establish full-training stability. The related R9700 issue9279 uses different hardware/runtime/workload and does not diagnose this machine.",
+  "protocol": {
+    "preparation": "Preserve current boot ID, A012 records/logs/reviews, GPU/DRM/kernel observations and six recovery checkpoint/config/metric hashes. Verify exact original7dfc837 source and all expected checkpoint hashes. No trainers or diagnostic children remain. Record a concrete handoff before asking for user action.",
+    "host_action": "User performs an orderly reboot after saving desktop work, or explicitly authorizes an agent action separately. This record is not reboot authorization. Do not reset a live display GPU, stop display services, force shutdown, install packages or alter driver/runtime settings.",
+    "postboot": "Require changed boot_id, unchanged six checkpoint/config/metric hashes and original source. Run exactly the A012 baseline probe bytes once, original interpreter/env, dedicated GPU0, same4096float32 allocation/H2D/synchronize/add/synchronize/D2H/equality sequence, external45+10+5second cap. Refuse before boot change, active compute process, changed source/artifact, exhausted ledger or memory ceiling. Preserve exact script and predecessor review hashes.",
+    "review": "Literature-review the postboot result before any continuation. On success prepare a distinct attempt directory for the first unchanged original continuation; preserve failed A010 attempt and require observable new progress. On failure stop retries and prepare a runtime issue reproducer. No automatic review or training launch.",
+    "verification": "CPU-only syntax and same-boot refusal checks before handoff; validate research/review digests and repository custody. The refusal check must create no GPU context, result directory or budget interval."
+  },
+  "success": "Postboot primitive exits0 with exact full round trip inside deadline. Preparation success refers only to verified preserved artifacts and guarded handoff.",
+  "stop": "No host action without user coordination. One postboot primitive maximum; no same-boot retry or SDMA variation. Stop on changed evidence, process conflict or test failure, preserving technical_blocked rather than treating it as a model negative.",
+  "resources": {"gpu_hours_max": 0.02, "cpu_workers_max": 2, "disk_mb_max": 100, "training_device": "none; one dedicated GPU primitive only after boot change"},
+  "predecessors": [{"review": "../../../outputs/gated/A012/sdma_disabled/review.json", "allow": ["technical_blocked"]}]
+}
