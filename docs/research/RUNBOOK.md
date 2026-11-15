@@ -304,3 +304,9 @@ text and recovery scripts. Hashes and archive members use the same captured byte
 before the final archive filename is published. `verification.json` records its digest and payload count.
 Large datasets and checkpoints remain local at their recorded paths and digests; this is not a standalone
 dataset release. An interim bundle is not evidence that pending P25/P26 experiments are complete.
+
+The latest reviewed interim capture through A017 is
+`outputs/gated/report_checkpoint_progress_20261115/reproducibility.tar.gz` (2,103
+payload files, 58 reviewed result rows). Its independent verification and substantive
+review are under `outputs/gated/E002/progress_archive`. Keep it unchanged; final
+training, planning and P26 results must enter a later bundle after their own reviews.

@@ -44,7 +44,7 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [D001](records/D001.json) | Can frozen camera slots replace engineered tracks in Genesis? | Matched 600/100 units prepared; model comparison pending |
 | [D002](records/D002.json) | Does the full historical M5 offline summary still reproduce? | All 400 units replayed; all 144 reported numeric fields exactly match; reviewed |
 | [E001](records/E001.json) | Does the repeat-based value estimate establish impossibility? | Documentation corrected; V2 remains a measured negative |
-| [E002](records/E002.json) | Does the evidence archive preserve source/artifact identity and distinguish unreviewed results? | Fault-injection tests pass; actual interim archive independently verifies1859 payload files and historical source identity; reviewed |
+| [E002](records/E002.json) | Does the evidence archive preserve source/artifact identity and distinguish unreviewed results? | Fault-injection tests pass; latest interim archive independently verifies 2,103 payload files, 58 reviewed result rows and historical source identity; pending experiments remain incomplete |
 
 Results and review digests live beside run artifacts. This index must be updated when a result is interpreted. Status vocabulary: `passed`, `measured_negative`, `technical_blocked`, `budget_incomplete`. Separate implementation validity, representation, prediction, planning and generalization evidence.
 

@@ -229,3 +229,19 @@ literature review; these single-seed validation diagnostics cannot pass final
 planning or generalization gates. See the
 [checkpoint progress report](CHECKPOINT_PROGRESS_2026-11-15.md) and the exact
 artifacts under `outputs/gated/A017`.
+
+The subsequent interim evidence archive is
+`outputs/gated/report_checkpoint_progress_20261115/reproducibility.tar.gz`.
+Independent verification covers all 2,103 payload digests and the 58 result/review
+rows, which retain 44 passed, 13 technical-blocked and one budget-incomplete outcome.
+All 31 selected A017 artifacts match local bytes, as do the selected recovery and
+supervision scripts. Five key modules from the three pinned historical revisions
+also match raw Git blobs. The archive is 19,582,783 bytes, SHA-256
+`358973875b809f2d2a0073c9bace899db4f4ef6ce5df865cd172120ad4b15a05`.
+Its post-result literature review is `outputs/gated/E002/progress_archive/review.json`.
+
+This is a snapshot through A017, with all scientific work still pending where no
+result exists. Large datasets/checkpoints and rendered figures remain outside the
+archive; source, plot code, sampled arrays and figure hashes are included. Live
+monitor files reflect individual read times. This verification and its review
+postdate the archive and must enter the eventual final bundle.
