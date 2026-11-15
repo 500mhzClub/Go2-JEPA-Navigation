@@ -1950,6 +1950,15 @@ input.
   - (c) as before.
 - **Runs:** V2. V0's round-1 data are not used: the costs they realised are V0's planner's, not the frozen rule's.
 - **Compute:** the branches about 4-5 hours on 26 cores; training and measures about an hour.
+- **Outcome** (STATUS P22b item 8, 15 November).
+  - V2 fails (a′): its regret is 0.99 of the frozen rule's. It passes (a) and (b), and (c) was not run.
+  - The noise floor (`eval.value_noise`, approved 15 November): even a chooser that knows each tape's expected cost,
+    from the true state, cuts the rule's regret by only 42%. So no value could have met the bar, and V2 takes none of
+    that 42%.
+  - **P22b closes as a measured negative** (approved 15 November). A value learnt from the robot's own missions, on
+    and off its planner's choices, chooses no better than the frozen rule at a 3.2 s cut. The planner's value hook
+    stays for P26's learned end cost.
+  - Next: P24.
 
 ### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
 
