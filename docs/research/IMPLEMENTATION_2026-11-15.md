@@ -119,3 +119,18 @@ Continue the four surviving originals, then resume the two interrupted experimen
 original code/configuration. Review each recovery outcome before the next run. Resolve all six final paths
 explicitly and execute the unchanged A003 suite before dependent research. The stopped PID-bound queue must
 not be mistaken for an active follow-up; the persistent research goal is responsible for continuation.
+
+## Evidence archive verification
+
+E002 corrects a report ambiguity: a result marked passed without a literature review now remains explicitly
+`awaiting_literature_review` in the review-status column. The reporter captures payload bytes once for review
+validation, manifest hashes and tar members; it preserves raw diagnostics/recovery scripts and can include exact
+historical Git blobs alongside current code. Nine targeted cases exercise stale reviews, changed live files,
+historical source/export attributes and corrupt/duplicate/missing/unlisted/unsafe archive members. The combined
+report/custody suite passes11 cases.
+
+An actual interim archive independently verifies1859 payload files,24 evidence rows and all requested original
+trainer, diagnostic and frozen-camera source versions; size9,403,412 bytes. Known stack traces, preflight script
+and recovery records match their source bytes. The reviewed result is `outputs/gated/E002/archive/review.json`.
+This snapshot preserves completed evidence only; large data/checkpoints remain local and pending P25/P26 work
+still needs completion. Regenerate the final report/bundle after the remaining experiments and reviews.

@@ -230,8 +230,14 @@ including counts and all waiting/kind breakdowns. Its positive review is `output
 ## Evidence bundle
 
 ```sh
-"$PY" -m go2nav.eval.research_report --root outputs/gated --out outputs/gated/report --bundle
+"$PY" -m go2nav.eval.research_report --root outputs/gated --out outputs/gated/report_final --bundle \
+  --source-commit 7dfc837 --source-commit 161fe8b --source-commit 98e6fcf
 ```
 
-The archive contains source/configs/research records and small evidence artifacts with a digest manifest. Large
-datasets and checkpoints remain local at the paths and digests recorded in run manifests; they are not published.
+Use a new output directory for every snapshot; existing reports are preserved. E002 separates measured result
+status from reviewed status, and leaves missing reviews explicitly awaiting literature review. The archive
+contains current source/configs/docs, exact historical source blobs, small evidence artifacts, raw diagnostic
+text and recovery scripts. Hashes and archive members use the same captured bytes; every member is verified
+before the final archive filename is published. `verification.json` records its digest and payload count.
+Large datasets and checkpoints remain local at their recorded paths and digests; this is not a standalone
+dataset release. An interim bundle is not evidence that pending P25/P26 experiments are complete.
