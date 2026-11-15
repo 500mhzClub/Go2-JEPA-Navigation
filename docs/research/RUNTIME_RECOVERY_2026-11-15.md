@@ -49,10 +49,11 @@ retained. None of the six final step303000 results exists yet.
 An orderly workstation reboot is proposed. GPU0 maps to BDF `0000:03:00.0` /
 DRM card1, is the boot VGA device, drives connected DP3 and DP4, and has live
 desktop clients. A live GPU reset or driver reload would affect that session.
-The user must coordinate the reboot after saving desktop work; approval for
-trainer cleanup does not authorize restarting the workstation. No reboot or
-device reset is scheduled. Use the normal desktop restart action; no forced
-shutdown, driver upgrade or runtime-setting change is part of this proposal.
+The user subsequently authorized the proposed orderly reboot. Systemd accepted
+and confirmed a schedule for2026-11-15 at19:06:50GMT, with a one-minute delay
+to save desktop work. This confirms scheduling, not completed reboot or GPU
+recovery; see `outputs/gated/A013/host_action/review.json`. No forced shutdown,
+driver upgrade or runtime-setting change is part of this action.
 
 After the host returns, the agent will:
 
