@@ -331,9 +331,10 @@ class NavigationController:
             return
         goal_body, scan_error = objective
         if self.tapes is not None:
-            from go2nav.planning.genesis_tapes import travelling
-            if travelling(goal_body, scan_error, self.planner.pulse):
-                self._plan_tapes(frame, registered, snapshot, route, goal_body, scan_error, prefix, now)
+            from go2nav.planning.genesis_tapes import route_end, travelling
+            end = route_end(route)
+            if travelling(end, map_pose(snapshot, registered)[0], scan_error, self.planner.pulse):
+                self._plan_tapes(frame, registered, snapshot, route, end, prefix, now)
                 return
             self.tapes.previous = None   # the end of a route is P18's cost's (PLAN P24 2c, approved 15 November)
         forecast_xy = None
@@ -376,13 +377,11 @@ class NavigationController:
         self.ledger.commit(plan, now, prefix)
         self.plans.append(plan)
 
-    def _plan_tapes(self, frame, registered, snapshot, route, goal_body, scan_error, prefix, now):
-        """A plan by `planning.genesis_tapes` (PLAN P24 2b): the route's waypoint, or the heading of a look around,
-        in the map frame; the coverage rule through the hand planner's bookkeeping; the tape's first ticks
-        committed as one plan (`planning.dispatch.TapeCommand`)."""
+    def _plan_tapes(self, frame, registered, snapshot, route, target, prefix, now):
+        """A plan by `planning.genesis_tapes` (PLAN P24 2b, 2c): travel to the route's end (`target`, map frame);
+        the coverage rule through the hand planner's bookkeeping; the tape's first ticks committed as one plan
+        (`planning.dispatch.TapeCommand`)."""
         xy, yaw = map_pose(snapshot, registered)
-        c, s = math.cos(yaw), math.sin(yaw)
-        target = xy+np.array([c*goal_body[0]-s*goal_body[1], s*goal_body[0]+c*goal_body[1]])
         sent = [ns for ns in self.ledger.requests if ns <= now]
         executed = self.ledger.requests[max(sent)] if sent else (0., 0., 0.)
 
@@ -394,7 +393,7 @@ class NavigationController:
             finally:
                 self.planner.candidates = saved
         commands, record = self.tapes.plan(xy=xy, yaw=yaw, executed=executed, prefix=prefix, target=target,
-                                           look=None if scan_error is None else yaw+scan_error, uncovered=uncovered)
+                                           uncovered=uncovered)
         if record.get('coverage'):
             self.planner.want_coverage(record['coverage'], xy)
         first = np.asarray(commands[0], float)

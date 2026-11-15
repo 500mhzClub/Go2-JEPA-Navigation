@@ -19,9 +19,11 @@ velocity) for the walkers, in place of the forecaster's lattice (`controllers.co
     the route is asked for a view of that floor (`coverage`, returned to the controller). The hold never sweeps new
     floor, so a tape is always left.
   - The cheapest tape's first `COMMIT_TICKS` commands go to `planning.dispatch.TapeCommand`.
-- **The end of a route** is not the tapes' (`travelling`; approved 15 November, after the smoke): a waypoint within
-  `HANDOVER_M`, the harness's terminal approach and a look around go to P18's cost (`planning.cost`), which has three
-  rounds of fixes there. The tapes travel between waypoints, where walkers are met.
+- **The tapes' target is the end of the harness's route** (`route_end`: the mission's goal, or a frontier), through
+  the built map's walls, so that they plan 6.4 s ahead to it, as in the ring world.
+- **The end of a route** is not the tapes' (`travelling`; approved 15 November, after the smoke): within `HANDOVER_M`
+  of it, the harness's terminal approach and a look around go to P18's cost (`planning.cost`), which has three rounds of
+  fixes there. The tapes travel to it, where walkers are met.
 """
 import math
 from pathlib import Path
@@ -39,11 +41,22 @@ REPO = Path(__file__).resolve().parents[2]
 ARRIVAL_SHARE = ARRIVE_M/.04          # the ring world's 0.03 m of its missions' 0.04-m arrival radius
 
 
-def travelling(goal_body, scan_error, pulse):
-    """Whether a plan is the tapes decision's (PLAN P24 2c, approved 15 November): travel to a waypoint at least
-    `HANDOVER_M` away. The end of a route (a waypoint nearer, the harness's terminal approach, a look around) is P18's
-    cost's, with its three rounds of fixes there: the turn to the arrival disk, no reverse pulse, frontier waypoints."""
-    return scan_error is None and not pulse and float(np.linalg.norm(goal_body)) >= HANDOVER_M
+def route_end(route):
+    """The end of the harness's route in the map frame: the mission's goal on a route to its cell, else the route's
+    target (a frontier); None without one."""
+    end = route.get('goal_map_xy_m') if route.get('status') == 'OBSERVED_FLOOR_ROUTE_TO_GOAL_CELL' else \
+        route.get('target_map_xy_m')
+    return None if end is None else np.asarray(end, float)
+
+
+def travelling(end, xy, scan_error, pulse):
+    """Whether a plan is the tapes decision's (PLAN P24 2c, approved 15 November): travel to the route's end (`end`,
+    map frame) at least `HANDOVER_M` from the robot (`xy`). The end of a route (nearer, the harness's terminal approach,
+    a look around, no route) is P18's cost's, with its three rounds of fixes there: the turn to the arrival disk, no
+    reverse pulse, frontier waypoints. Not the route's next waypoint: the harness's waypoint is a look-ahead point,
+    under 0.4 m away at every plan of the smoke (median 0.36 m), where the route's end was a median 1.23 m away."""
+    return (end is not None and scan_error is None and not pulse
+            and float(np.linalg.norm(np.asarray(end, float)-np.asarray(xy, float))) >= HANDOVER_M)
 
 
 class Prefixed:

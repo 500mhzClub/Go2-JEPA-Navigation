@@ -108,9 +108,15 @@ def test_the_decision_needs_the_frozen_rule():
         decision.bind(corridor(), (0., 0.))
 
 
-def test_the_tapes_travel_and_the_end_of_a_route_is_p18_s_cost():
-    from go2nav.planning.genesis_tapes import HANDOVER_M, travelling
-    assert travelling(np.array([1., 0.]), None, False)
-    assert not travelling(np.array([HANDOVER_M-.01, 0.]), None, False)            # near the waypoint
-    assert not travelling(np.array([1., 0.]), .5, False)                          # a look around
-    assert not travelling(np.array([1., 0.]), None, True)                         # the terminal approach
+def test_the_tapes_travel_to_the_route_s_end_and_near_it_the_route_is_p18_s_cost():
+    from go2nav.planning.genesis_tapes import HANDOVER_M, route_end, travelling
+    frontier = dict(status='OBSERVED_FLOOR_ROUTE_TO_FRONTIER', target_map_xy_m=[2., 0.], goal_map_xy_m=[5., 5.])
+    goal = dict(frontier, status='OBSERVED_FLOOR_ROUTE_TO_GOAL_CELL')
+    assert np.allclose(route_end(frontier), [2., 0.]) and np.allclose(route_end(goal), [5., 5.])
+    assert route_end(dict(status='NO_ROUTE')) is None
+    xy = np.zeros(2)
+    assert travelling(route_end(frontier), xy, None, False)
+    assert not travelling(np.array([HANDOVER_M-.01, 0.]), xy, None, False)        # near the route's end
+    assert not travelling(route_end(frontier), xy, .5, False)                     # a look around
+    assert not travelling(route_end(frontier), xy, None, True)                    # the terminal approach
+    assert not travelling(None, xy, None, False)                                  # no route

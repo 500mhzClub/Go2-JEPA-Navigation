@@ -2058,6 +2058,11 @@ in Genesis, and the shortfall is in one stratum. The risk: that stratum is the s
     radius), the terminal approach and a look around now go to it (`planning.genesis_tapes.travelling`).
   - The tapes, with M5, travel between waypoints, where walkers are met.
   - Both smokes run again before any suite, with the same rule to go on.
+  - **Corrected (approved 15 November).** The harness's waypoint is a look-ahead point: under 0.4 m away at every plan
+    of the smoke (median 0.36 m), so that rule handed nearly every plan to P18's cost. It made both smokes 6 of 6 on
+    P18's cost, with 0-7 tape plans in about 300 a mission.
+  - The tapes now aim at the end of the route (the mission's goal or a frontier, a median 1.23 m away), and the end of
+    a route is within 0.4 m of it (13% of the smoke's plans).
 
 ### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
 
