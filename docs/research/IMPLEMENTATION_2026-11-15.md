@@ -58,6 +58,8 @@ success is recorded separately. Balls pass through one another, so this test can
 
 1. Finish the six preserved jobs; calibrate/review final checkpoints under A003.
 2. Train/review n3 seed 0 slots, frozen cache, O0/O1; run learned planning and probes.
+   Validate each selected learned checkpoint under C004 before its downstream stage; the synthetic C003 result
+   does not establish numerical validity after full training.
 3. Export/review frozen-s0 tracks, train/review S1 and run the paired P26 comparison. Full legacy-summary regression has passed.
 4. Subject to the remaining 48-hour allowance, run the additional n3 seeds and n1/n6 object models; report all seeds.
 5. Consult literature after each result before its successor. Report any negative/technical/budget outcome without
@@ -81,3 +83,9 @@ review. Counts and all reported medians exactly match. C003 adds and passes actu
 numerical checks; 57 RGB and 83 predictor parameter gradients were checked with none missing. Nine focused
 recovery/slot/custody tests pass (overlapping earlier counts). These changes live in the descendant
 `feature/p25-p26-validation` checkout so the source hashes of the running A003 queue remain unchanged.
+
+C004 adds validation of selected learned slot checkpoints using 16 fixed train and 16 validation windows,
+all parameter gradients, and predictor grouping at 100 candidates over eight rollout steps. It checks actual
+cache bytes, encoder identity and unchanged weights. Four new failure-detection/sampling tests pass within
+an 11-test slot/recovery suite. No learned-checkpoint C004 result exists yet; passing software tests do not
+fill that evidence gap.

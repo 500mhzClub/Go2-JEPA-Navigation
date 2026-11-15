@@ -1,0 +1,35 @@
+{
+  "id": "C004",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "Are the selected learned slot checkpoints numerically valid on real train/validation inputs and at the predictor's planning batch size?",
+  "hypothesis": "Passing initialization and short synthetic-update checks does not establish validity of selected learned weights; real-input forward/gradient and grouping checks should pass before downstream interpretation.",
+  "sources": [
+    {"url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html", "version": "2.12", "sections": "Floating-point accuracy, batched/slice computations and nonfinite values", "consequence": "Check actual learned weights and the deployed candidate batch under the existing rtol=1e-4/atol=1e-5, with explicit finite-output/gradient checks. Keep any failure rather than relax tolerance."},
+    {"url": "https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html", "version": "official tutorial accessed 2026-11-15, page build 2.15", "sections": "Saving/loading for inference; state_dict copy warning; loading across devices", "consequence": "Load the immutable selected checkpoint in eval mode, bind reviews to its exact digest, and verify no weight or checkpoint mutation."},
+    {"url": "https://arxiv.org/html/2602.11389v2", "version": "v2", "sections": "Appendix G planning configuration, CEM and Hungarian matching; Appendix D/E frozen embeddings", "consequence": "Exercise full autoregressive candidate rollouts on frozen encoder representations; numerical consistency is distinct from goal-cost quality or planning success. Retain this project's previously frozen B001 settings."},
+    {"url": "docs/research/records/B001.json", "version": "35a2b30", "sections": "100 candidates, three-frame history, maximum eight-step horizon", "consequence": "Use 100 candidates and eight rollout steps for the predictor's batch-grouping test without running or tuning CEM."},
+    {"url": "go2nav/training/balls_slots.py", "version": "35a2b30", "sections": "selected checkpoint save, load_encoder, extract index and load_world", "consequence": "Bind predictor checks to actual frozen cache bytes, encoder digest and matching n/seed. Load only executed commands from labels files."}
+  ],
+  "differences": "Numerical validation on train/val only, not a new learning or planning experiment. Local B001 uses 100 candidates and horizons 4/6/8, unlike C-JEPA's Push-T settings. No optimizer updates, calibration, precision changes or checkpoint selection. Original L0/L1 final checks remain A003.",
+  "contrary_evidence": "A finite, numerically consistent model can still bind objects poorly or fail dynamics and planning. Sixteen windows per split and one 100-candidate rollout batch per split are sampled checks, not a proof over all inputs. Slot training and planning use different temporal initialization contexts; cache-fed and independently encoded-history checks remain separate.",
+  "protocol": {
+    "scope": ["selected-checkpoint validator", "explicit nonfinite detection", "actual-input support in existing numerical helper", "correctness tests", "runbook integration"],
+    "models": "All selected C001 RGB encoders and O0/O1 predictors in the approved n/seed schedule",
+    "seed": 2026111516,
+    "splits": ["train", "val"],
+    "windows_per_split": 16,
+    "windows": "Uniformly sample distinct four-frame flat window indices without replacement with seed,n,split; same selected windows for paired O0/O1. RGB checks use the first three frames. Predictor checks use four cached states and three executed commands /3.",
+    "small_batch": 2,
+    "checks": "CPU/GPU eval outputs and every trainable parameter gradient; GPU repeat, reversal and separate-item outputs. RGB includes decoder reconstruction/masks. Predictor checks unmasked inference plus the fixed two-example history masks for O1. Reject nonfinite values explicitly.",
+    "planning_batch": "For each split, independently encode the first selected three-frame history, replicate to 100 candidates, append eight norm-capped Gaussian actions (std2) to the two executed history commands, then compare eight-step GPU predictor rollouts batched, repeated, reversed and in batches of two. No CEM or score optimization; no future observations in the rollout input.",
+    "rtol": 1e-4,
+    "atol": 1e-5,
+    "lineage": "Require reviewed selected checkpoint; predictors also require a passing C004 encoder review, matching encoder/cache/seed/n and actual cache bytes. Hash train/val frames, actions container and metadata; record sampled indices. Verify learned state and source checkpoint unchanged after checks.",
+    "verification": ["fixed split-specific sampling with valid history/future indices", "sampling has no duplicates", "nonfinite outputs rejected", "candidate grouping detects cross-batch dependence", "tampered cache or mismatched n/seed rejected before GPU work"]
+  },
+  "success": "Every declared check passes at the unchanged tolerance and weights/checkpoint are unchanged. A hash-bound C004 review then supplies the inference artifact review for cache extraction, binding, learned planning or probes as applicable.",
+  "stop": "Any missing gradient, nonfinite value, state mutation or numerical mismatch blocks downstream interpretation pending substantive review. Preserve failed measurements. No retry with altered precision, samples or tolerance without a new preregistration. No new full GPU work alongside original trainers.",
+  "resources": {"gpu_hours_max": 0.5, "scope": "per selected checkpoint, within the shared validation reserve and 48-hour allowance", "memory_fraction_max": 0.8, "training_device": "none; CPU reference derivatives and dedicated GPU inference only"},
+  "predecessors": [{"review": "../../../outputs/gated/C003/recovery/review.json", "allow": ["passed"]}]
+}

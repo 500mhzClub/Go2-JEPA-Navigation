@@ -103,8 +103,17 @@ def evaluate(kind, model, data):
     return value, dict(predicted=model(data[0][:, :3], data[1], data[2])[0])
 
 
-def numerics(kind, model, check_budget):
-    data, outputs, gradients, missing = inputs(kind), [], [], {}
+def finite_values(values, context):
+    bad = [name for name, value in values.items() if not torch.isfinite(value).all()]
+    if bad:
+        raise FloatingPointError(f'{context}: nonfinite tensors {bad}')
+
+
+def numerics(kind, model, check_budget, data=None):
+    data = inputs(kind) if data is None else data
+    if any(len(v) != 2 for v in data):
+        raise ValueError('Numerical derivative checks require exactly two examples')
+    outputs, gradients, missing = [], [], {}
     for device in ('cpu', 'cuda:0'):
         check_budget()
         current = copy.deepcopy(model).to(device).eval()
@@ -113,6 +122,8 @@ def numerics(kind, model, check_budget):
         loss.backward()
         outputs.append({k: v.detach().cpu() for k, v in values.items()})
         gradients.append({k: p.grad.detach().cpu().clone() for k, p in current.named_parameters() if p.grad is not None})
+        finite_values(dict(loss=loss, **values), f'{device} outputs')
+        finite_values(gradients[-1], f'{device} gradients')
         missing[device] = [k for k, p in current.named_parameters() if p.requires_grad and p.grad is None]
         del current, loss, values
     result = dict(outputs={k: difference(outputs[0][k], outputs[1][k]) for k in outputs[0]},
@@ -125,6 +136,9 @@ def numerics(kind, model, check_budget):
         _, repeated = evaluate(kind, model, gpu)
         _, reversed_ = evaluate(kind, model, [v.flip(0) for v in gpu])
         separate = [evaluate(kind, model, [v[i:i+1] for v in gpu])[1] for i in range(2)]
+    for mode, values in (('batched', batched), ('repeated', repeated), ('reversed', reversed_),
+                         *((f'separate_{i}', row) for i, row in enumerate(separate))):
+        finite_values(values, mode)
     result['grouping'] = {k: dict(repeat=difference(batched[k], repeated[k]),
                                   reversed=difference(batched[k], reversed_[k].flip(0)),
                                   separate=difference(batched[k], torch.cat([row[k] for row in separate])))

@@ -26,6 +26,7 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [C001](records/C001.json) | Do RGB slots and anchored masking support physical prediction/planning? | Small-batch numerical checks pass; training pending |
 | [C002](records/C002.json) | Do slot masks bind objects; do paired reviewed results satisfy the declared bars? | Evaluators verified on synthetic cases; trained-model measurements pending |
 | [C003](records/C003.json) | Does optimizer recovery preserve subsequent updates and updated-weight numerics? | Both default n3 models pass the small GPU recovery/forward/gradient/grouping diagnostic; reviewed |
+| [C004](records/C004.json) | Are selected learned slot checkpoints numerically valid on real inputs and planning-sized batches? | Validator and failure-detection tests implemented; learned-checkpoint results pending |
 | [D001](records/D001.json) | Can frozen camera slots replace engineered tracks in Genesis? | Matched 600/100 units prepared; model comparison pending |
 | [D002](records/D002.json) | Does the full historical M5 offline summary still reproduce? | All 400 units replayed; all 144 reported numeric fields exactly match; reviewed |
 | [E001](records/E001.json) | Does the repeat-based value estimate establish impossibility? | Documentation corrected; V2 remains a measured negative |

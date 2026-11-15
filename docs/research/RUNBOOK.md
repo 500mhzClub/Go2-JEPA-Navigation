@@ -92,12 +92,21 @@ Use it as the numerical-verification review for the following training stages; m
   --verification-review outputs/gated/C003/recovery/review.json --out outputs/gated/C001/slots_n3_s0
 ```
 
-Review the selected validation reconstruction result before extracting the frozen cache:
+Review the selected validation reconstruction result, then validate that selected encoder on the fixed real
+train/validation windows. The numerical check uses no test examples or optimizer updates:
+
+```sh
+"$PY" -m go2nav.eval.slots_checkpoint --data "$BALLS_DATA" --research C004 \
+  --checkpoint outputs/gated/C001/slots_n3_s0/model.pt \
+  --parent-review outputs/gated/C001/slots_n3_s0/review.json --out outputs/gated/C004/slots_n3_s0
+```
+
+Review C004's actual result before extracting the frozen cache:
 
 ```sh
 "$PY" -m go2nav.training.balls_slots extract --data "$BALLS_DATA" --n 3 --research C001 \
   --checkpoint outputs/gated/C001/slots_n3_s0/model.pt \
-  --parent-review outputs/gated/C001/slots_n3_s0/review.json --out outputs/gated/C001/cache_n3_s0
+  --parent-review outputs/gated/C004/slots_n3_s0/review.json --out outputs/gated/C001/cache_n3_s0
 ```
 
 Review cache integrity, then run `o0` and `o1` sequentially with identical seed/cache:
@@ -109,12 +118,23 @@ Review cache integrity, then run `o0` and `o1` sequentially with identical seed/
 ```
 
 The source-corrected O1 mask retains the earliest identity anchor. The RGB encoder is a deterministic SAVi-style
-adaptation, not stochastic SAVi or a claimed exact reproduction. Probe extraction/fitting uses current train labels
-only; a fixed linear decoder then scores current and four-step future positions, with action-reversal/no-rollout controls:
+adaptation, not stochastic SAVi or a claimed exact reproduction. After reviewing each selected predictor's training
+result, validate its real-input derivatives and 100-candidate/eight-step inference grouping (shown for O1; also run O0):
+
+```sh
+"$PY" -m go2nav.eval.slots_checkpoint --data "$BALLS_DATA" --research C004 \
+  --checkpoint outputs/gated/C001/o1_n3_s0/model.pt --parent-review outputs/gated/C001/o1_n3_s0/review.json \
+  --encoder-review outputs/gated/C004/slots_n3_s0/review.json --out outputs/gated/C004/o1_n3_s0
+```
+
+Use its passing C004 review as `--inference-review` for B001 learned planning and `--parent-review` for probes.
+Never relax numerical tolerance after a failure without a new preregistration and literature review. Probe
+extraction/fitting uses current train labels only; a fixed decoder scores current and four-step future positions,
+with action-reversal/no-rollout controls:
 
 ```sh
 "$PY" -m go2nav.eval.balls_probes --data "$BALLS_DATA" --n 3 --research C001 \
-  --checkpoint outputs/gated/C001/o1_n3_s0/model.pt --parent-review outputs/gated/C001/o1_n3_s0/review.json \
+  --checkpoint outputs/gated/C001/o1_n3_s0/model.pt --parent-review outputs/gated/C004/o1_n3_s0/review.json \
   --out outputs/gated/probes/o1_n3_s0
 ```
 
@@ -131,7 +151,7 @@ Before the final P25 report, measure binding with the selected, reviewed RGB enc
 ```sh
 "$PY" -m go2nav.eval.balls_binding --data "$BALLS_DATA" --n 3 --research C002 \
   --checkpoint outputs/gated/C001/slots_n3_s0/model.pt \
-  --parent-review outputs/gated/C001/slots_n3_s0/review.json --out outputs/gated/binding/slots_n3_s0
+  --parent-review outputs/gated/C004/slots_n3_s0/review.json --out outputs/gated/binding/slots_n3_s0
 ```
 
 The primary measure keeps every geometric disc, including occluded balls; visible-area diagnostics are separate.
