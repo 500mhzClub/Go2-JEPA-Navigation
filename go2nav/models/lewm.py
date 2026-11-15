@@ -386,7 +386,7 @@ class Embedder(nn.Module):
         self.embed = nn.Sequential(nn.Linear(smoothed_dim, mlp_scale*emb_dim), nn.SiLU(), nn.Linear(mlp_scale*emb_dim, emb_dim))
 
     def forward(self, x):
-        return self.embed(self.patch_embed(x.float().transpose(1, 2)).transpose(1, 2))
+        return self.embed(self.patch_embed(x.to(self.patch_embed.weight.dtype).transpose(1, 2)).transpose(1, 2))
 
 
 class MLP(nn.Module):

@@ -1,0 +1,26 @@
+{
+  "id": "C001", "stage": "preregistered", "reviewed_at": "2026-11-15",
+  "question": "Can unsupervised object slots and masked latent prediction support balls planning and position probes; does masking help over O0?",
+  "hypothesis": "Explicit object slots can preserve physical information absent from global latents; masking need not help for independently moving white balls.",
+  "sources": [
+    {"url": "https://arxiv.org/html/2602.11389v2", "version": "v2", "sections": "Section 4.2 equations 3-6, Appendices B, D.2, D.3, E, G and H", "consequence": "Keep an earliest-frame identity anchor, use bidirectional masked prediction, distinct action tokens, history/future losses and paired unmasked ablation."},
+    {"url": "https://arxiv.org/pdf/2306.04829v2", "version": "v2", "sections": "Sections 3.1-3.3; Appendices C.1, C.5 and C.6 (local full PDF/text)", "consequence": "Reuse sequential Slot Attention and transformer carry; RGB reconstruction is a local SAVi-style adaptation, not VideoSAUR training."},
+    {"url": "https://arxiv.org/html/2609.04264v3", "version": "v3", "sections": "Sections 3-5, Appendices A.1 and A.10", "consequence": "Keep L0/L1 reference runs and separate representation probes from planning success."}
+  ],
+  "differences": "Approved local deterministic RGB reconstruction replaces stochastic SAVi's KL term. n+2 slots rather than fixed seven. Stride one instead of Push-T frame skip five. Source inspection corrects the initial whole-history-mask wording: the first history frame remains the identity anchor; selected identities are masked in the remaining two history frames, using a linear projection of that anchor. No entity position embeddings. This correction is made before training, as authorized by the source-inspection clause of the plan. No paper code is copied.",
+  "contrary_evidence": "Objects in this world do not interact; a hidden independently moving ball cannot be inferred from other balls alone. Masking can hurt. Reconstruction can bind background or split one object; no label-driven checkpoint selection is allowed. Dense DINO-WM is deferred, so no slots-versus-dense superiority claim.",
+  "protocol": {
+    "encoder": {"convolutions": 4, "kernel": 5, "stride": 1, "channels": 64, "features": 128, "slot_dim": 128, "slots": "n+2", "iterations": 2, "carry": "one 4-head transformer block, math SDPA", "coordinates": "x,y,1-x,1-y", "decoder": "8x8 broadcast, three stride-2 transpose convolutions of width64, RGB and mask"},
+    "slot_training": {"clip_frames": 6, "batch": 32, "optimizer": "Adam", "lr": 0.0001, "epochs": 8, "warmup_fraction": 0.025, "schedule": "cosine", "grad_clip": 0.05, "loss": "RGB MSE", "selection": "minimum fixed validation reconstruction", "epoch": "all 95 six-frame windows per episode once, shuffled"},
+    "predictor": {"width": 128, "depth": 6, "heads": 16, "head_dim": 64, "mlp": 2048, "history": 3, "future": 1, "dropout": 0, "action_encoder": "kernel-1 temporal convolution 2-to-128; separate tokens", "mask_count": [0, 1, 2], "loss": "masked history MSE plus future MSE", "entity_embedding": false},
+    "predictor_training": {"optimizer": "Adam", "lr": 0.0005, "batch": 256, "epochs": 30, "slot_encoder": "frozen selected checkpoint", "selection": "minimum fixed validation future latent MSE", "pairing": "O0 and O1 same initialization, pre-extracted slots and per-epoch order; masks have their own generator"},
+    "inference": "Deterministic initial slots from one fixed Gaussian sample per slot, repeated across batch; continuous carry within history, independently initialized goal; B001 CEM and Hungarian final-goal cost.",
+    "order": ["n3 seed0 slots/O0/O1", "P26", "n3 seeds1,2 all L0/L1/O0/O1", "O1 n1,n6 seed0"],
+    "probes": "Train-only linear readout; red position and lexicographically sorted white positions, at current and four-step future time. Apply same sorting at fit/score, no label-dependent latent matching. Report per-axis Pearson and episode-cluster CI; shuffle actions and no-rollout controls. Training seeds separate.",
+    "checks": ["finite CPU/GPU forward/backward", "permutation-equivariant predictor", "masked identities retain first anchor only", "no future target input", "O0/O1 initial weights and order equal", "no labels loaded by slot/predictor trainer", "resume/RNG roundtrip", "goal independent initialization"]
+  },
+  "success": "At H4, O1 >= L1 minus 10 percentage points and >= L0 plus 30 at every n; n3 current position Pearson >=0.9 and four-step white position Pearson >=0.8. Retain unexpected L0 success; do not tune to force the claimed gap.",
+  "stop": "Failed numerical checks block training or interpretation; budget exhaustion is incomplete, not a negative result. Reserve P26 allocation before extra seeds.",
+  "resources": {"gpu_hours_max": 28, "memory_fraction_max": 0.85, "training_device": "dedicated_gpu"},
+  "predecessors": []
+}

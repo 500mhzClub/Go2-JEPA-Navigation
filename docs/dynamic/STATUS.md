@@ -2400,7 +2400,7 @@ corpus's layouts):
   term's 17,230): V2 memorised its 21,843 cuts.
 - (c) was not run (the stop rule).
 
-**3. The noise floor** (`eval.value_noise`). Each validation moment's six tapes were run again three times, with the
+**3. The repeat-variability estimate** (`eval.value_noise`). Each validation moment's six tapes were run again three times, with the
 walkers' dice drawn anew. The original dice reproduced every branch exactly. Choosers are scored as (a′) scores the
 value:
 
@@ -2409,7 +2409,7 @@ value:
 | A tape at random | 31.53 |
 | The frozen rule | 30.54 |
 | V2 | 30.24 |
-| One that knows each tape's expected cost (from the new samples) | 17.76 |
+| One that estimates each tape's expected cost from three new samples | 17.76 |
 | ... with the scored sample among its means (optimistic) | 2.52 |
 
 - The rule's regret is concentrated. Its median is 0.3 s, and the 50 moments (9%) of more than 100 s carry 91% of
@@ -2417,15 +2417,16 @@ value:
 - In 70% of those 50, the rule's tape fails again with new dice: the disasters are fixed by the state and the tape,
   not by chance.
 - At a 3.2 s cut the frozen rule chooses barely better than at random (30.54 against 31.53).
-- A chooser that knows each tape's expected cost cuts the rule's regret by 42% (to 0.58). So no value could meet bar
-  (a′), half, with this measure; it should have been set against a measured floor. V2 takes none of the 42%.
+- The finite-sample expected-cost estimate cuts regret by 42% (ratio 0.58). Three repeats per tape do not establish
+  an exact expected-cost oracle or an irreducible floor. The earlier claim that no value could meet the 0.5 bar
+  is withdrawn; V2's measured failure remains. See [research E001](../research/records/E001.json).
 
 **4. Read.**
 - The headroom is real but narrower than the bar assumed. It lies in the true state: the expected costs come from
   the world itself, walkers' kinds and pause timers included, which no honest value sees.
 - A value learnt from 1 million visited moments and 22,000 branched tapes chooses no better than the rule.
-- **Lesson:** measure the ceiling (here, a chooser that knows the expected costs) before setting a bar on a learnt
-  quantity, as the honest oracle was for prediction.
+- **Lesson:** estimate headroom and its uncertainty before setting a bar; retain correlated moments within their
+  mission when resampling. The repeat-based chooser is an estimate of a ceiling, not an exact one.
 
 ## P24 stage 1: M5's dynamics carry into Genesis, but not for walkers held up by the robot (15 November)
 
@@ -2522,3 +2523,13 @@ layout. 24 recorded ring-world missions repeat exactly, and the unit tests pass 
 - The rounds tested the planner's fit to the harness, not M5. Re-evaluated in docs/REVIEW_2026-11-15.md.
 - **P24 closed (approved 15 November)** on stage 1 and 2a, with stage 2 stopped before its suites. Next: P25 (the
   second world) and P26's first part (slots in place of the tracker, in Genesis, offline), each set out before any run.
+
+## P25/P26 implementation and validity gates (15 November)
+
+The isolated implementation is on `feature/p25-p26-gated`. [Completed measurements and limits](../research/IMPLEMENTATION_2026-11-15.md):
+all simulator controls pass; train-only BN recalibration reduces intermediate-checkpoint errors; float64/math inference
+passes the numerical gate for all six snapshots; the new object model passes small-batch CPU/GPU checks. The 600/100
+Genesis adapter is prepared. Final-checkpoint planning, object training and P26 performance remain pending.
+
+Every experiment and every positive, negative or inconclusive interpretation now requires a documented literature
+consultation. [Execution commands](../research/RUNBOOK.md) enforce prerequisite reviews on dependent artifacts.

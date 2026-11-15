@@ -1,0 +1,32 @@
+{
+  "id": "B001",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "Does a paired, held-out evaluator distinguish simulator/planner validity from learned-model planning performance?",
+  "hypothesis": "Recorded and direct commands solve the reachable red-position goals exactly; true-model CEM is a useful optimizer control.",
+  "sources": [
+    {"url": "https://arxiv.org/html/2609.04264v3", "version": "v3", "sections": "Section 4.4, Section 5.1, Appendix A.1.1", "consequence": "Freeze 100 candidates, 10 elites, 20 iterations, initial std 2, action norm cap 3, horizons 4/6/8, no replanning, one-pixel endpoint success."},
+    {"url": "https://arxiv.org/html/2602.11389v2", "version": "v2", "sections": "Appendices B and G", "consequence": "Match unordered goal slots by Hungarian assignment; do not interpret masked completion as identification of physical causal graphs."}
+  ],
+  "differences": "Local ball dynamics allow pass-through and do not impose collision avoidance. Endpoint success is primary, collision-free endpoint success secondary. Five groups of 200 distinct episodes approximate the paper's evaluation size without confusing groups with training seeds. Full-frame goal pixels include white balls, but control scoring is red endpoint.",
+  "contrary_evidence": "Independent white-ball dynamics offer little information for reconstructing a fully hidden object's location. A representation can be sufficient while CEM or the latent cost fails. Strong L0 results remain valid and are not tuned away.",
+  "protocol": {
+    "test_seed_index": 2,
+    "episodes_per_n": 1000,
+    "groups": 5,
+    "ns": [1, 3, 6],
+    "horizons": [4, 6, 8],
+    "history": 3,
+    "task_seed": 2026111503,
+    "cem_seed": 2026111504,
+    "cem": {"candidates": 100, "elites": 10, "iterations": 20, "std": 2.0, "return": "final elite mean", "minimum_std": 0.001},
+    "arms": ["recorded", "direct", "true_cem", "hold", "random", "l0", "l1", "o0", "o1"],
+    "cost": "Squared final latent distance, Hungarian summed distance for slots; true CEM squared red endpoint error. Collision-free success checks frame-time centre distances, not continuous contact dynamics.",
+    "report": ["per-case commands/start/goal/seed", "endpoint error", "endpoint success", "collision-free success", "latency", "episode-cluster uncertainty", "group and training-seed breakdown"],
+    "checks": ["split seed disjointness", "action/goal indexing", "no future-frame model inputs", "permutation-invariant slot cost", "recorded/direct exact endpoint", "deterministic paired CEM samples"]
+  },
+  "success": "Recorded/direct 100% within one pixel; true-model CEM >=95% for each horizon before interpreting learned planning.",
+  "stop": "Failed controls block learned interpretation. Changed controls require a new record, never hidden test tuning.",
+  "resources": {"gpu_hours_max": 2, "memory_fraction_max": 0.85, "training_device": "dedicated_gpu"},
+  "predecessors": []
+}

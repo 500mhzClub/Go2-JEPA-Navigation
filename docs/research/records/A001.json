@@ -1,0 +1,35 @@
+{
+  "id": "A001",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "Are the six existing balls checkpoints numerically sound and batch-independent at inference; does fixed-weight train-only BatchNorm recalibration explain the saved/batch discrepancy?",
+  "hypothesis": "Stale or mismatched population moments can inflate evaluation prediction error without proving representation failure.",
+  "sources": [
+    {"url": "https://arxiv.org/pdf/1502.03167v3", "version": "v3", "sections": "Section 3.1 and Algorithm 2, full inference derivation", "consequence": "Estimate inference moments using training examples with frozen weights; require deterministic population-statistics inference."},
+    {"url": "https://docs.pytorch.org/docs/2.12/generated/torch.nn.BatchNorm1d.html", "version": "2.12", "sections": "Estimator definitions, running statistics, momentum and track_running_stats", "consequence": "Training normalizes with biased batch variance, stored running variance uses the unbiased estimate. Batch-statistics evaluation is diagnostic only."},
+    {"url": "https://arxiv.org/html/2609.04264v3", "version": "v3", "sections": "Sections 3-5 and Appendix A.1", "consequence": "A low JEPA loss alone does not establish physical sufficiency; inference validity must precede the planning comparison."}
+  ],
+  "differences": "Local LeWM predictor width is 128 rather than the paper's projected 64. Calibration pools exact activation moments rather than averaging moving estimates; predictor moments are measured after encoder calibration, dropout disabled. Calibration does not repair poorly learned representations.",
+  "contrary_evidence": "A train/batch discrepancy may also reflect small effective batch size, encoder drift, numerical kernels, or true prediction failure. Lower calibrated MSE alone does not establish causation or planning utility.",
+  "protocol": {
+    "scope": ["research/provenance/budget implementation", "resume safety", "inference diagnostics", "train-only calibration"],
+    "models": ["l0_n1_s0", "l0_n3_s0", "l0_n6_s0", "l1_n1_s0", "l1_n3_s0", "l1_n6_s0"],
+    "snapshot": "Copy atomically replaced source checkpoint through one open file; hash snapshot; preserve source.",
+    "diagnostic_windows": 64,
+    "sampling_seed": 42,
+    "splits": ["train", "val"],
+    "batch_modes": ["saved", "encoder_batch", "predictor_batch", "both_batch"],
+    "calibration_windows": 4096,
+    "calibration_seed": 17,
+    "calibration_split": "train",
+    "calibration_batch": 64,
+    "calibration_order": ["projector", "pred_proj"],
+    "rtol": 0.0001,
+    "atol": 0.00001,
+    "checks": ["finite parameters/buffers/gradients", "CPU/GPU forward and gradients", "repeat determinism", "single versus batch", "batch permutation", "unchanged learned weights", "resume rejects incompatible args before writes", "RNG and atomic checkpoint roundtrip", "gate rejects incomplete or stale reviews", "budget union accounting"]
+  },
+  "success": "Finite outputs/weights/gradients, CPU/GPU and inference grouping checks within declared tolerances; discrepancy corrected or explicitly explained before interpretation.",
+  "stop": "Unresolved validity failure blocks learned conclusions; reproduced numerical corruption warrants preserving checkpoint and stopping the affected old run only.",
+  "resources": {"gpu_hours_max": 4, "memory_fraction_max": 0.85, "training_device": "dedicated_gpu"},
+  "predecessors": []
+}

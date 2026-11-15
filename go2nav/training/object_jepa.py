@@ -31,6 +31,9 @@ import numpy as np
 import torch
 import yaml
 
+from go2nav.research import (atomic_json, budget_remaining, digest, gpu_run, require_record,
+                            require_training_slot, reviewed_artifact, verify_files)
+
 from go2nav.models.object_jepa import (OBJECT_GRID, OBJECT_SPACING, ROBOT_GRID, ROBOT_SPACING, STEP_FRAMES, STEP_S,
                                        ObjectConfig, ObjectJEPA, actions_input, object_features, offsets,
                                        robot_features)
@@ -288,11 +291,29 @@ def schedule(warmup, total):
     return factor
 
 
-def train(corpus, out, config):
+def train(corpus, out, config, research_id=None, parent_review=None):
+    if not research_id or not parent_review:
+        raise ValueError('New object training needs --research and --parent-review for its track artifact')
+    require_record(research_id)
+    reviewed_artifact(parent_review, Path(corpus)/'tracks_index.json', 'tracks_sha256')
+    verify_files(corpus, json.loads((Path(corpus)/'tracks_index.json').read_text())['files'])
+    require_training_slot()
+    checkpoint = Path(out)/'checkpoint.pt'
+    state = torch.load(checkpoint, map_location='cpu', weights_only=False) if checkpoint.exists() else None
+    if state is not None and (state['config'] != config or state.get('tracks_sha256') != digest(Path(corpus)/'tracks_index.json')):
+        raise ValueError('Incompatible object-model resume; outputs preserved')
+    if state is not None and not all(k in state for k in ('rng', 'cuda_rng')):
+        raise ValueError('Legacy object checkpoint lacks RNG state; exact resume is unavailable')
+    with gpu_run(out, research_id, config, [Path(corpus)/'tracks_index.json', Path(parent_review)]) as manifest:
+        return _train(corpus, out, config, state, manifest)
+
+
+def _train(corpus, out, config, state, manifest):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     (out/'config.json').write_text(json.dumps(config, indent=1)+'\n')
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:0')
+    torch.cuda.set_per_process_memory_fraction(.80)
     torch.manual_seed(config['seed'])
     model_config = ObjectConfig(**config['model'])
     model = ObjectJEPA(model_config).to(device)
@@ -304,16 +325,23 @@ def train(corpus, out, config):
     train_split = Split(corpus, 'train', rasters, device, STEP_FRAMES*(h-1+data['rollout'])+1)
     val_split = Split(corpus, 'val', rasters, device, STEP_FRAMES*(h-1+VALIDATION_STEPS)+1)
     pick = torch.as_tensor(np.random.default_rng(config['seed']).choice(len(val_split.windows),
-                                                                        run['validation_windows'], replace=False))
+                                             min(len(val_split.windows), run['validation_windows']), replace=False))
     val_starts = val_split.windows[pick.to(device)]
     optimiser = torch.optim.AdamW(model.parameters(), lr=optim['lr'], weight_decay=optim['weight_decay'])
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(optim['warmup'], optim['steps']))
-    step, checkpoint = 0, out/'checkpoint.pt'
-    if checkpoint.exists():
-        state = torch.load(checkpoint, map_location=device, weights_only=False)
+    step, checkpoint, best = 0, out/'checkpoint.pt', math.inf
+    if state is not None:
         model.load_state_dict(state['model']), optimiser.load_state_dict(state['optimiser'])
         scheduler.load_state_dict(state['scheduler'])
         step = state['step']
+        best = state['best']
+        torch.set_rng_state(state['rng'])
+        torch.cuda.set_rng_state(state['cuda_rng'])
+        for name in ('train.jsonl', 'validation.jsonl'):
+            path = out/name
+            if path.exists():
+                rows = [r for r in path.read_text().splitlines() if json.loads(r)['step'] <= step]
+                path.write_text(''.join(r+'\n' for r in rows))
     log, vlog = (out/'train.jsonl').open('a'), (out/'validation.jsonl').open('a')
     generator = torch.Generator(device=device)
     sums, started, n = {}, time.time(), 0
@@ -333,25 +361,47 @@ def train(corpus, out, config):
         optimiser.zero_grad(set_to_none=True)
         total.backward()
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), optim['grad_clip'])
+        if not torch.isfinite(total) or not torch.isfinite(norm):
+            log.close(), vlog.close()
+            raise FloatingPointError('Nonfinite S1 loss/gradient; previous checkpoint retained')
         optimiser.step(), scheduler.step()
         step, n = step+1, n+1
         for key, value in terms.items():
             sums[key] = sums.get(key, 0.)+float(value)
         sums['grad_norm'] = sums.get('grad_norm', 0.)+float(norm)
         if step % run['log_every'] == 0:
-            log.write(json.dumps(dict(step=step, lr=scheduler.get_last_lr()[0], s_per_step=round((time.time()-started)/n, 4),
+            log.write(json.dumps(dict(research_id=manifest['research_id'], step=step, lr=scheduler.get_last_lr()[0], s_per_step=round((time.time()-started)/n, 4),
                                       **{k: round(v/n, 6) for k, v in sums.items()}))+'\n')
             log.flush()
             sums, started, n = {}, time.time(), 0
         if step % run['validate_every'] == 0 or step == optim['steps']:
-            vlog.write(json.dumps(dict(step=step, **validate(model, val_split, val_starts, h)))+'\n')
+            validation = validate(model, val_split, val_starts, h)
+            score = np.mean([validation[f'model@{k*.4:.1f}s'] for k in REPORT])
+            if not np.isfinite(score):
+                raise ValueError('No finite validation trajectory score; cannot select S1')
+            if score < best:
+                best = float(score)
+                partial = out/'model.partial'
+                torch.save(dict(model=model.state_dict(), config=model_config.to_dict(), step=step,
+                                research_id=manifest['research_id']), partial)
+                partial.replace(out/'model.pt')
+            vlog.write(json.dumps(dict(step=step, research_id=manifest['research_id'], **validation))+'\n')
             vlog.flush()
-        if step % run['checkpoint_every'] == 0 or step == optim['steps']:
+        exhausted = budget_remaining(manifest) <= 0 if step % 100 == 0 else False
+        if step % run['checkpoint_every'] == 0 or step == optim['steps'] or exhausted:
             partial = checkpoint.with_suffix('.tmp')
             torch.save(dict(model=model.state_dict(), optimiser=optimiser.state_dict(), scheduler=scheduler.state_dict(),
-                            step=step, config=config), partial)
+                            step=step, config=config, best=best, rng=torch.get_rng_state(),
+                            cuda_rng=torch.cuda.get_rng_state(),
+                            tracks_sha256=digest(Path(corpus)/'tracks_index.json')), partial)
             partial.rename(checkpoint)
-    torch.save(dict(model=model.state_dict(), config=model_config.to_dict(), step=step), out/'model.pt')
+        if exhausted:
+            log.close(), vlog.close()
+            atomic_json(out/'result.json', dict(research_id=manifest['research_id'], status='budget_incomplete', step=step))
+            return step
+    log.close(), vlog.close()
+    atomic_json(out/'result.json', dict(research_id=manifest['research_id'], step=step, best_validation=best,
+                checkpoint_sha256=digest(out/'model.pt'), status='awaiting_literature_review'))
     return step
 
 
@@ -370,8 +420,10 @@ def main():
     t.add_argument('--out', required=True, type=Path)
     t.add_argument('--config', type=Path)
     t.add_argument('--set', action='append', default=[])
+    t.add_argument('--research', required=True)
+    t.add_argument('--parent-review', required=True)
     a = p.parse_args()
-    print(train(a.corpus, a.out, load_config(a.config, a.set)))
+    print(train(a.corpus, a.out, load_config(a.config, a.set), a.research, a.parent_review))
 
 
 if __name__ == '__main__':

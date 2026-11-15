@@ -7,6 +7,11 @@
 When do JEPA world-model representations carry decision-relevant information for robot navigation, beyond kinematic
 prediction, reactive control and explicit memory?
 
+**Current work (15 November 2026):** [P25 balls and P26 offline camera-slot dynamics](docs/research/RUNBOOK.md).
+Every new experiment and result interpretation is [literature-gated](docs/research/README.md). The evaluator's
+simulator controls and initial numerical checks have passed; learned planning and P26 performance remain pending.
+The controller catalogue and demo below describe earlier stages, not completion of these research gates.
+
 This repository is a simulated Unitree Go2 navigation testbed in [Genesis](https://github.com/Genesis-Embodied-AI/Genesis).
 It compares nine controller types on procedurally generated mazes: each must reach a beacon, given as a position in
 its starting frame, and return home, from onboard RGB-D only.

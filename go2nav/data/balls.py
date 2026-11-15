@@ -18,8 +18,8 @@ import numpy as np
 from go2nav.sim import balls
 
 SEED, FRAMES, CHUNK = 2026111501, 100, 50
-SPLITS = dict(train=1000, val=100)
-SPLIT_INDEX = dict(train=0, val=1)
+SPLITS = dict(train=1000, val=100, test=1000)
+SPLIT_INDEX = dict(train=0, val=1, test=2)
 
 
 def chunk(args):
@@ -28,11 +28,26 @@ def chunk(args):
     return index, balls.episodes(rng, count, n, FRAMES)
 
 
-def build(out, ns=(1, 3, 6), workers=16):
+def build(out, ns=(1, 3, 6), workers=16, splits=('train', 'val'), research_id=None):
+    if 'test' in splits:
+        from go2nav.research import require_record
+        if not research_id:
+            raise ValueError('Building the test split requires --research')
+        require_record(research_id)
+    if not set(splits) <= set(SPLITS):
+        raise ValueError('Unknown split')
     out = Path(out)
     for n in ns:
-        for split, episodes in SPLITS.items():
+        for split in splits:
+            episodes = SPLITS[split]
             folder = out/f'n{n}'/split
+            if (folder/'meta.json').exists():
+                meta = json.loads((folder/'meta.json').read_text())
+                if all(meta.get(k) == v for k, v in dict(n=n, split=split, episodes=episodes, frames=FRAMES,
+                                                       seed=SEED).items()) and all((folder/f).exists() for f in ('frames.npy', 'labels.npz')):
+                    print(f'n{n} {split}: existing split preserved', flush=True)
+                    continue
+                raise ValueError(f'{folder}: incompatible existing split; will not overwrite')
             folder.mkdir(parents=True, exist_ok=True)
             frames = np.lib.format.open_memmap(folder/'frames.npy.partial', mode='w+', dtype=np.uint8,
                                                shape=(episodes, FRAMES, balls.SIZE, balls.SIZE, 3))
@@ -50,10 +65,13 @@ def build(out, ns=(1, 3, 6), workers=16):
             frames.flush()
             del frames
             (folder/'frames.npy.partial').rename(folder/'frames.npy')
-            np.savez(folder/'labels.npz', **labels)
+            with (folder/'labels.npz.partial').open('wb') as f:
+                np.savez(f, **labels)
+            (folder/'labels.npz.partial').replace(folder/'labels.npz')
             meta = dict(schema='go2nav_balls.v1', n=n, split=split, episodes=episodes, frames=FRAMES, size=balls.SIZE,
                         radius=balls.RADIUS, max_action=balls.MAX_ACTION, speed=list(balls.SPEED),
-                        hold=list(balls.HOLD), seed=SEED)
+                        hold=list(balls.HOLD), seed=SEED, split_seed_index=SPLIT_INDEX[split],
+                        research_id=research_id)
             (folder/'meta.json').write_text(json.dumps(meta, indent=1))
             print(f'n{n} {split}: {episodes} episodes', flush=True)
 
@@ -72,8 +90,10 @@ def main():
     b.add_argument('--out', required=True)
     b.add_argument('--n', type=int, nargs='+', default=[1, 3, 6])
     b.add_argument('--workers', type=int, default=16)
+    b.add_argument('--split', nargs='+', choices=list(SPLITS), default=['train', 'val'])
+    b.add_argument('--research')
     args = parser.parse_args()
-    build(args.out, tuple(args.n), args.workers)
+    build(args.out, tuple(args.n), args.workers, tuple(args.split), args.research)
 
 
 if __name__ == '__main__':

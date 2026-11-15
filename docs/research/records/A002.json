@@ -1,0 +1,20 @@
+{
+  "id": "A002", "stage": "preregistered", "reviewed_at": "2026-11-15",
+  "question": "Are L1's finite, deterministic but batching-sensitive deviations floating-point amplification or an incorrect kernel?",
+  "hypothesis": "Higher inference precision will reduce discrepancies while retaining learned parameters and the declared tolerances.",
+  "sources": [
+    {"url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html", "version": "2.12, updated 2026-01-29", "sections": "Floating-point precision; batched versus sliced computations; CPU/GPU differences", "consequence": "Test precision and attention backend separately; do not infer corruption from small absolute deviations alone."},
+    {"url": "https://arxiv.org/pdf/1502.03167v3", "version": "v3", "sections": "Section 3.1 and Algorithm 2", "consequence": "Keep calibrated inference moments fixed during this precision experiment."}
+  ],
+  "differences": "This is an inference/runtime precision intervention on local ROCm kernels, not a new scientific architecture or training run. CPU is used solely as a numerical reference.",
+  "contrary_evidence": "Float64 agreement alone cannot show that all original float32 training updates were accurate; it only establishes a stable inference implementation for these learned weights.",
+  "protocol": {"inputs": "All six A001 step-40000 calibrated snapshots", "modes": ["float32_math", "float64_math"], "windows": 8, "parity_windows": 4, "split": "val", "seed": 42, "rtol": 0.0001, "atol": 0.00001, "selection": "Prefer float32_math only if all six pass; otherwise use float64_math for all six if all pass; otherwise block. Do not change tolerances."},
+  "success": "Every encoder/predictor output and gradient passes CPU/GPU and grouping checks under a common policy, with finite state.",
+  "stop": "No passing common policy blocks learned interpretation; no change to original training jobs without reproduced corruption.",
+  "resources": {"gpu_hours_max": 1, "memory_fraction_max": 0.85, "training_device": "dedicated_gpu"},
+  "predecessors": [
+    {"review": "../../../outputs/gated/A001/l1_n1_s0/review.json", "allow": ["technical_blocked"]},
+    {"review": "../../../outputs/gated/A001/l1_n3_s0/review.json", "allow": ["technical_blocked"]},
+    {"review": "../../../outputs/gated/A001/l1_n6_s0/review.json", "allow": ["technical_blocked"]}
+  ]
+}

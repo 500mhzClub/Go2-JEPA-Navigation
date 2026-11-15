@@ -1,0 +1,24 @@
+{
+  "id": "D001", "stage": "preregistered", "reviewed_at": "2026-11-15",
+  "question": "Can frozen camera slots replace engineered object tracks for offline Genesis prediction?",
+  "hypothesis": "Temporal slots can supply sufficiently persistent object observations for M5 or a matched S1 predictor, without labels in representation or dynamics training.",
+  "sources": [
+    {"url": "https://arxiv.org/pdf/2306.04829v2", "version": "v2", "sections": "Sections 3.1-3.3, temporal recurrence; Appendices C.1, C.5, C.6", "consequence": "Carry slots across every frame; learned grouping is not a guarantee of stable physical identity, so measure switches and fragmentation."},
+    {"url": "https://arxiv.org/html/2602.11389v2", "version": "v2", "sections": "Section 4.1, Appendices B and D.1", "consequence": "Use frozen DINO features and slot encoder; distinguish predictive object state from causal-mechanism identification."}
+  ],
+  "differences": "Use existing local s0 unchanged, with DINOv2 cached features and range-assisted positions. Six slots, real simulator pose/full layout, previously used validation corpus. Our world-position adapter and visibility/track metrics are local engineering extensions, not claims reproduced from VideoSAUR.",
+  "contrary_evidence": "Binding at one frame does not establish identity continuity; missing objects can make conditional error look good. Full map and true pose simplify localization. A predictor trained on engineered tracks can fail under slot observation noise even when slots identify walkers.",
+  "protocol": {
+    "code_parent": "feature/camera-slots@98e6fcf",
+    "data": {"train_units": 600, "val_units": 100, "features": "existing DINOv2 cache", "encoder": "existing s0, frozen"},
+    "tracks": {"slots": 6, "positions": "mask column bearing, nearest valid range plus walker radius, exclude walls", "break": "absence or >0.5m jump per 0.1s", "velocity": "least-squares existing tracker 0.3s window", "schema": "object_tracks xy/seen/id/velocity/memory, same unit indexing"},
+    "arms": ["M5 engineered tracks", "frozen M5 slot tracks", "S1 slot tracks", "CV slot tracks", "persistence slot tracks"],
+    "S1": {"recipe": "configs/object/m5.yaml", "rollout_steps": 6, "distance_loss": true, "mask_probability": 0, "steps": 20000, "seed": 0, "targets": "future slot positions only", "selection": "minimum label-free validation trajectory error"},
+    "evaluation": "Same 100 units and same matched initially-in-view cases. Preserve legacy visible-at-target summary and add initially-visible after-occlusion cohort. Report found share and precision, ID switches, fragmentation, missing prediction coverage, p50/p90/p95 at 1.6/3.2/6.4s and waiting subset; arms compared on intersection with coverage reported.",
+    "checks": ["train/val indexing cannot collide", "absence/jump breaks identity", "velocity resets at track break", "recorded observations bypass tracker", "old M5 summary unchanged with default adapter", "no walker labels in tracks or S1 targets"]
+  },
+  "success": "Slot found share >=0.9 of tracker on same in-view frames; better of M5/S1 median3.2s <=1.5x engineered M5, both reported; beat slot CV at3.2s and6.4s.",
+  "stop": "Do not run Genesis missions or collect new data. Missing coverage or failed gate must be reported, not hidden through matching. No s0 retraining.",
+  "resources": {"gpu_hours_max": 8, "memory_fraction_max": 0.85, "training_device": "dedicated_gpu"},
+  "predecessors": []
+}

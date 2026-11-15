@@ -31,7 +31,7 @@ def track_episode(npz, meta, mazes_root):
     from go2nav.perception import ring_walkers as rw
     from go2nav.planning.fields import Fields
     from go2nav.sim import kinematic as kin
-    spec, _ = episode_spec(SET, meta['maze'], meta['home_episode'], root=Path(mazes_root))
+    spec, _ = episode_spec(meta.get('set', SET), meta['maze'], meta['home_episode'], root=Path(mazes_root))
     geometry = kin.Geometry(spec)
     fields = Fields(geometry)
     with np.load(npz) as data:

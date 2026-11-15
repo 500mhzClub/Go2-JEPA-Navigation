@@ -1,0 +1,15 @@
+{
+  "id": "E001", "stage": "preregistered", "reviewed_at": "2026-11-15",
+  "question": "Does the three-repeat tape experiment establish that a regret ratio below 0.5 is impossible?",
+  "hypothesis": "The reported ratio is an uncertain finite-sample estimate, not a proof of an irreducible bound.",
+  "sources": [
+    {"url": "https://blogs.helsinki.fi/bk-club/files/2012/05/Efron_Bootstrap_AS1979.pdf", "version": "Annals of Statistics 7(1), 1979, pp1-26", "sections": "Section2, equations2.1-2.8 and bootstrap steps1-3; scanned full-method pages inspected", "consequence": "Distinguish a statistic from its sampling distribution. Any future interval must resample independent mission units, retaining their correlated moments."},
+    {"url": "go2nav/eval/value_noise.py", "version": "7dfc837", "sections": "Repeat generation, expected-cost chooser and reported regret ratio", "consequence": "Three rollouts per tape estimate expected cost noisily; selecting among noisy means is not an exact expected-cost oracle."}
+  ],
+  "differences": "Efron describes independent sampling; local moments are nested in missions. This record corrects documentation only and does not claim a new interval or rerun a value experiment.",
+  "contrary_evidence": "Substantial repeat variability is real evidence of stochastic difficulty. It does not demonstrate that all conditioning variables or achievable policies have been exhausted.",
+  "protocol": {"change": "Keep observed V2 failure and point estimates; replace impossible/no-value-could claims with finite-sample qualification.", "new_training": false},
+  "success": "Docs distinguish the measured negative V2 result from the unestablished impossibility claim.",
+  "stop": "No value retraining or extra simulation in P25/P26.",
+  "resources": {"gpu_hours_max": 0, "training_device": "none"}, "predecessors": []
+}

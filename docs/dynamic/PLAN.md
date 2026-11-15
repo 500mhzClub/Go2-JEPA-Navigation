@@ -1,5 +1,10 @@
 # Dynamic environments and a continuous action contract (plan, draft for review)
 
+**Active P25/P26 execution revision (15 November):** the approved literature gate, 48-hour allowance,
+sequential new GPU work, source-corrected identity anchor, and offline endpoint are specified in
+[research records](../research/README.md) and the [runbook](../research/RUNBOOK.md). These supersede the earlier
+compute estimates and concurrency wording below. Existing six jobs remain pinned and unchanged.
+
 Branch `feature/dynamic-continuous`. This follows the frozen static-maze baselines (round trips of 100: C1 72, C5 71,
 C6 71, C7 70, C8 70; C3 50/60, C4 55/80) and `docs/ACTION_CONTRACT.md`.
 
@@ -1952,9 +1957,9 @@ input.
 - **Compute:** the branches about 4-5 hours on 26 cores; training and measures about an hour.
 - **Outcome** (STATUS P22b item 8, 15 November).
   - V2 fails (a′): its regret is 0.99 of the frozen rule's. It passes (a) and (b), and (c) was not run.
-  - The noise floor (`eval.value_noise`, approved 15 November): even a chooser that knows each tape's expected cost,
-    from the true state, cuts the rule's regret by only 42%. So no value could have met the bar, and V2 takes none of
-    that 42%.
+  - The repeat experiment (`eval.value_noise`, approved 15 November) estimates each tape's expected cost from
+    three new rollouts and reduces regret by about 42%. This noisy estimate does not establish an irreducible
+    floor or prove that the 50% bar is impossible. V2 captures little of the measured headroom. See research E001.
   - **P22b closes as a measured negative** (approved 15 November). A value learnt from the robot's own missions, on
     and off its planner's choices, chooses no better than the frozen rule at a 3.2 s cut. The planner's value hook
     stays for P26's learned end cost.

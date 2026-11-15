@@ -59,6 +59,16 @@ class ObjectModel:
     def record(self, requested):
         self.frames[-1]['requested'] = np.asarray(requested, np.float32)
 
+    def observe_tracks(self, tracks, index, pose):
+        """Offline recorded object observations; no detection/tracker or scoring labels are read."""
+        row = {key: np.array(tracks[key][index], copy=True) for key in ('xy', 'seen', 'id', 'velocity', 'memory')}
+        if row['xy'].shape != (self.model.config.slots, 2):
+            raise ValueError('Recorded tracks have the wrong slot count')
+        row.update(pose=np.asarray(pose, float).copy(), requested=None)
+        self.frames.append(row)
+        self.frames = self.frames[-(STEP_FRAMES*(self.history-1)+1):]
+        self.frame += 1
+
     def _tokens(self, grid=(OBJECT_GRID, OBJECT_SPACING), velocity=None):
         """The history's object and robot tokens, and the recorded actions of its steps before the last. `grid`: the
         walls' grid round an object; `velocity`: whether the tokens hold it (default: a residual model's do)."""

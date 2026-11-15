@@ -38,6 +38,8 @@ from torch import nn
 from go2nav.data import balls as data
 from go2nav.models.lewm import LeWMConfig, LeWorldModel, SIGReg
 from go2nav.sim import balls as world
+from go2nav.research import atomic_json, budget_remaining, digest, gpu_run, require_record, require_training_slot
+from go2nav.training.common import write_lineage
 
 WINDOW, HISTORY = 4, 3
 FREQUENCIES, FOURIER_SCALE, FOURIER_SEED = 9, .15, 2026111502
@@ -141,6 +143,8 @@ def load(path, device='cpu'):
     config = dict(state['config'])
     config['image_hw'], config['grid'] = tuple(config['image_hw']), tuple(config.get('grid', ()))
     model = LeWorldModel(LeWMConfig(**config))
+    if state.get('inference_dtype') == 'float64':
+        model.double()
     model.load_state_dict(state['model_state_dict'])
     head = None
     if state.get('head_state_dict') is not None:
@@ -170,7 +174,49 @@ def validate(model, head, sigreg, w, val, cfg, device):
     return {k: v/count for k, v in sums.items()}
 
 
-def train(root, n, kind, out, seed=0, overrides=None):
+def resume_state(out, n, kind, seed, cfg):
+    """Validate before touching logs/configs or allocating a model; old checkpoints use their config sidecar."""
+    out = Path(out)
+    if not (out/'checkpoint.pt').exists():
+        return None
+    state = torch.load(out/'checkpoint.pt', map_location='cpu', weights_only=False)
+    if state.get('inference_only'):
+        raise ValueError('Cannot resume an inference-only calibrated artifact')
+    identity = state.get('identity')
+    if identity is None:
+        if not (out/'config.json').exists():
+            raise ValueError('Legacy checkpoint needs its original config.json to establish seed identity')
+        identity = json.loads((out/'config.json').read_text())
+    expected = dict(kind=kind, n=n, seed=seed, train=cfg, model=asdict(model_config()))
+    for key, value in expected.items():
+        if json.dumps(identity.get(key), sort_keys=True) != json.dumps(value, sort_keys=True):
+            raise ValueError(f'Incompatible resume {key}; existing run left unchanged')
+    for key in ('kind', 'n', 'train', 'config'):
+        value = expected['model' if key == 'config' else key]
+        if json.dumps(state.get(key), sort_keys=True) != json.dumps(value, sort_keys=True):
+            raise ValueError(f'Checkpoint disagrees with resume {key}')
+    for key in ('optimiser', 'scheduler', 'rng', 'cuda_rng', 'step'):
+        if key not in state:
+            raise ValueError(f'Not a resumable checkpoint: missing {key}')
+    return state
+
+
+def train(root, n, kind, out, seed=0, overrides=None, research_id=None):
+    if not research_id:
+        raise ValueError('New training/resume requires a literature preregistration (--research)')
+    require_record(research_id)
+    unknown = set(overrides or {})-set(DEFAULTS)
+    if unknown:
+        raise ValueError(f'Unknown training options: {sorted(unknown)}')
+    cfg = DEFAULTS | (overrides or {})
+    state = resume_state(out, n, kind, seed, cfg)
+    require_training_slot()
+    config = dict(kind=kind, n=n, seed=seed, train=cfg, model=asdict(model_config()))
+    with gpu_run(out, research_id, config, [Path(root)/f'n{n}'/s/'meta.json' for s in ('train', 'val')]) as manifest:
+        return _train(root, n, kind, out, seed, overrides, state, manifest)
+
+
+def _train(root, n, kind, out, seed, overrides, state, manifest):
     cfg = DEFAULTS | (overrides or {})
     device = torch.device('cuda')
     torch.cuda.set_per_process_memory_fraction(cfg['memory_fraction'])
@@ -187,8 +233,7 @@ def train(root, n, kind, out, seed=0, overrides=None):
     optimiser = torch.optim.AdamW(params, lr=cfg['lr'], weight_decay=cfg['weight_decay'])
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(cfg['warmup'], total))
     step, checkpoint, metrics = 0, out/'checkpoint.pt', out/'metrics.jsonl'
-    if checkpoint.exists():
-        state = torch.load(checkpoint, map_location='cpu', weights_only=False)
+    if state is not None:
         model.load_state_dict(state['model_state_dict'])
         if head is not None:
             head.load_state_dict(state['head_state_dict'])
@@ -200,8 +245,9 @@ def train(root, n, kind, out, seed=0, overrides=None):
         if metrics.exists():
             rows = [r for r in metrics.read_text().splitlines() if json.loads(r).get('step', 0) <= step]
             metrics.write_text(''.join(r+'\n' for r in rows))
-    (out/'config.json').write_text(json.dumps(dict(kind=kind, n=n, seed=seed, run_seed=run_seed, train=cfg,
-                                                   model=asdict(model.config), total_steps=total), indent=1))
+    identity = dict(kind=kind, n=n, seed=seed, run_seed=run_seed, train=cfg,
+                    model=asdict(model.config), total_steps=total)
+    (out/'config.json').write_text(json.dumps(identity, indent=1))
     model.train()
     log, started, epoch, order = metrics.open('a'), time.time(), None, None
     while step < total:
@@ -216,26 +262,39 @@ def train(root, n, kind, out, seed=0, overrides=None):
         optimiser.zero_grad(set_to_none=True)
         out_terms['loss'].backward()
         grad = torch.nn.utils.clip_grad_norm_(params, cfg['grad_clip'])
-        if torch.isfinite(out_terms['loss']):
-            optimiser.step()
+        if not torch.isfinite(out_terms['loss']) or not torch.isfinite(grad):
+            log.close()
+            raise FloatingPointError(f'Nonfinite loss/gradient at step {step}; last checkpoint preserved')
+        optimiser.step()
         scheduler.step()
         step += 1
         if step % cfg['log_every'] == 0:
-            row = dict(step=step, epoch=epoch, lr=scheduler.get_last_lr()[0], grad=float(grad),
+            row = dict(research_id=manifest['research_id'], step=step, epoch=epoch, lr=scheduler.get_last_lr()[0], grad=float(grad),
                        steps_per_s=round(cfg['log_every']/(time.time()-started), 1),
                        **{k: round(float(v), 6) for k, v in out_terms.items()})
             log.write(json.dumps(row)+'\n')
             log.flush()
             started = time.time()
         if step % cfg['validate_every'] == 0 or step == total:
-            row = dict(step=step, validation=validate(model, head, sigreg, w, val, cfg, device))
+            row = dict(research_id=manifest['research_id'], step=step, validation=validate(model, head, sigreg, w, val, cfg, device))
             log.write(json.dumps(row)+'\n')
             log.flush()
-        if step % cfg['checkpoint_every'] == 0 or step == total:
+        exhausted = budget_remaining(manifest) <= 0 if step % 100 == 0 else False
+        if step % cfg['checkpoint_every'] == 0 or step == total or exhausted:
             save(checkpoint, model, head, kind, n, cfg, dict(optimiser=optimiser.state_dict(),
                  scheduler=scheduler.state_dict(), step=step, rng=torch.get_rng_state(),
-                 cuda_rng=torch.cuda.get_rng_state()))
-    save(out/'model.pt', model, head, kind, n, cfg, dict(step=step))
+                 cuda_rng=torch.cuda.get_rng_state(), identity=identity, research_id=manifest['research_id']))
+        if exhausted:
+            log.close()
+            atomic_json(out/'result.json', dict(research_id=manifest['research_id'], status='budget_incomplete', step=step))
+            return
+    log.close()
+    save(out/'model.pt', model, head, kind, n, cfg, dict(step=step, identity=identity,
+                                                     research_id=manifest['research_id']))
+    write_lineage(out, component=f'balls_{kind}', seed=seed, config=identity, parents={},
+                  data=manifest['inputs'], checkpoint=out/'model.pt')
+    atomic_json(out/'result.json', dict(research_id=manifest['research_id'], kind=kind, n=n, seed=seed, step=step,
+                checkpoint_sha256=digest(out/'model.pt'), status='awaiting_literature_review'))
     print(f'done: {out}/model.pt at step {step}', flush=True)
 
 
@@ -248,10 +307,11 @@ def main():
     t.add_argument('--model', choices=['l0', 'l1'], required=True)
     t.add_argument('--out', required=True)
     t.add_argument('--seed', type=int, default=0)
+    t.add_argument('--research', required=True)
     t.add_argument('--set', action='append', default=[], help='key=value (a DEFAULTS key; the value parsed as JSON)')
     args = parser.parse_args()
     overrides = {k: json.loads(v) for k, v in (s.split('=', 1) for s in args.set)}
-    train(args.data, args.n, args.model, args.out, args.seed, overrides)
+    train(args.data, args.n, args.model, args.out, args.seed, overrides, args.research)
 
 
 if __name__ == '__main__':
