@@ -1,0 +1,65 @@
+{
+  "id": "A006",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "Can the two identified hung processes be retired now, as explicitly requested, while preserving all six recoverable experiments?",
+  "hypothesis": "Identity-checked process termination may release the two stale GPU contexts while healthy peers continue. Checkpoint snapshots preserve a recovery path if the device is affected; successful teardown does not identify the original fault.",
+  "sources": [
+    {
+      "url": "https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html",
+      "version": "official tutorial, updated 2025-06-26, read 2026-11-15",
+      "sections": "General checkpoint for resuming training, multiple models, GPU checkpoint loading on CPU",
+      "consequence": "Preflight all saved components against the original implementation, preserving the source artifact. A weights-only load is insufficient for resumption."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/randomness.html",
+      "version": "2.12",
+      "sections": "Reproducibility limitations, RNGs and nondeterministic algorithms",
+      "consequence": "Restore CPU/GPU RNG and retain the same environment and deterministic per-epoch/per-step seeds. Do not promise bitwise identity or change backend determinism settings mid-experiment."
+    },
+    {
+      "url": "https://psutil.io/api/",
+      "version": "current official documentation read 2026-11-15; installed psutil 7.2.2",
+      "sections": "Process identity, is_running, terminate, kill and wait",
+      "consequence": "Bind any approved process action to PID plus creation time and command/cwd. Treat zombies and absent processes distinctly; never signal a reused PID."
+    },
+    {
+      "url": "https://github.com/ROCm/TheRock/issues/9279",
+      "version": "firsthand report opened 2026-08-19, read 2026-11-15",
+      "sections": "Summary, environment and reproducer",
+      "consequence": "On the same GPU model, a different runtime/workload reports device resets during hung-process teardown. Wait until healthy peers finish and their final artifacts are preserved before any process cleanup. This report does not diagnose our hang or authorize its workaround."
+    }
+  ],
+  "differences": "Supersedes only the deferred execution proposal in A005. User explicitly prefers killing the two hung processes now rather than waiting for healthy peers; accepts checkpoint recovery if other work is interrupted. A005 CPU preparation remains valid and is retained unchanged. No change to scientific data/configuration or model code.",
+  "contrary_evidence": "The same-GPU firsthand report describes a reset on hung-process teardown. Our four progressing peers and lack of kernel errors do not establish that teardown is safe. Checkpoints cannot preserve unsaved updates.",
+  "protocol": {
+    "authorization": "User: I would rather we killed the two hung processes, worst case we can restart all3 from the checkpoints. Apply to PIDs2407193 and2407195 only; healthy jobs receive no signals. Retiring the obsolete waiting A003 CPU queue is necessary to prevent an evaluation race.",
+    "preservation": "Before signals, copy latest full checkpoints, configs, metrics and logs for all six original runs through open inodes; CPU-verify steps, configuration and finite state, and record hashes. Preserve queue manifest/state/log and verify pinned source hashes.",
+    "cleanup": "Confirm PID/create_time/command/cwd and stale target step immediately before each action. Stop waiting queue2425797 first and confirm exit. Send SIGTERM to the two specified trainers; allow30 seconds for exit, then one identity-checked SIGKILL if required. Record actions and outcomes. No GPU reset, reboot, runtime/driver changes or signals to healthy trainers.",
+    "observation": "Read kernel/GPU telemetry and all original process/step histories before and after. Observe healthy step advancement at least60 seconds after cleanup. CPU busy alone is not progress. Review outcome against primary sources before recovery.",
+    "continuation": "Original experiments may resume from preserved full state under the unchanged pinned trainer, one replacement at a time, with exact source/data/config lineage and review before each dependent action. If healthy peers survive, finish them before serial replacement training. If device-wide failure interrupts peers, prepare continuation for affected runs from latest intact checkpoints; device-level repair needs a separate reviewed decision. Replace old queue with explicit six-run final-path resolution and unchanged A003 checks after all final artifacts exist.",
+    "checks": "No overwritten original evidence; exact process identities; queue exited before trainer cleanup; all checkpoints load on CPU and remain finite; surviving useful progress recorded. Preparation alone is not numerical/scientific success."
+  },
+  "success": "Both target contexts exit and four peers continue advancing; otherwise record exact collateral impact and preserved recovery state. Later continuation completion and A003 validity are separate gates.",
+  "stop": "Stop escalation after bounded signals or on identity mismatch/device fault. No automatic device reset or repeated restart loop. Never declare a model failure from a runtime hang.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_workers_max": 2,
+    "disk_gb_max": 1,
+    "training_device": "none during cleanup; future original-training continuation accounted separately as in A005"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/A004/user_stacks/review.json",
+      "allow": [
+        "technical_blocked"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/A005/preparation/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

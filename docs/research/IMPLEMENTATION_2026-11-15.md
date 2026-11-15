@@ -1,7 +1,8 @@
 # Implementation evidence, 15 November 2026
 
-Implementation branch: `feature/p25-p26-gated`, based on `7dfc837`. The six existing L0/L1 trainers continue on
-their original pinned checkout. Camera-slot components were imported from `98e6fcf`; s0 weights remain frozen.
+Implementation branch: `feature/p25-p26-gated`, based on `7dfc837`. Four original L0/L1 trainers continue on
+their pinned checkout; two hung L1 jobs were retired with explicit user authorization (A006 below).
+Camera-slot components were imported from `98e6fcf`; s0 weights remain frozen.
 This document reports completed implementation checks and outstanding experiments, not completion of P25/P26.
 
 ## Completed measurements
@@ -90,12 +91,31 @@ cache bytes, encoder identity and unchanged weights. Four new failure-detection/
 an 11-test slot/recovery suite. No learned-checkpoint C004 result exists yet; passing software tests do not
 fill that evidence gap.
 
-## Operational observation awaiting diagnosis
+## Operational interruption and recovery
 
-A004 records a later log gap in the original L1 n1/n3 jobs at logged steps 106,000/105,000. Both process handles
-remain live and CPU-busy while four peers continue advancing. This is not a numerical result or proof that the
-jobs have terminated. Nonblocking Python stack reads were denied for the affected jobs and an advancing peer;
-Linux `ptrace_scope=1` is active and noninteractive sudo requires a password. The reviewed diagnostic is
-`outputs/gated/A004/diagnostic/review.json`. Narrowly scoped privileged stack output has been requested from
-the user. No trainer, checkpoint, security setting or GPU state was changed. Preserve the jobs and investigate
-the cause before proposing recovery; the A003 queue remains waiting for final artifacts.
+A004 records a log gap in the original L1 n1/n3 jobs at logged steps 106,000/105,000 while four peers advance.
+Our nonblocking Python stack reads were denied by OS permissions. The user supplied privileged snapshots:
+both main threads were at original trainer line219, the loss-finiteness predicate. Exact installed PyTorch
+source shows tensor truth evaluation synchronizes a GPU scalar; a queued earlier operation can be responsible.
+This does not establish a NaN loss or identify the underlying fault. The review is
+`outputs/gated/A004/user_stacks/review.json`.
+
+A005 preserves both full checkpoints at105000 and passes CPU restoration of model/head, AdamW, LambdaLR and
+CPU RNG under the original7dfc837 source. Saved floating state is finite; GPU RNG is present but was not executed.
+Prepared copies live in `outputs/balls/recovery_A005`; data and source hashes are retained. This establishes
+restorability of saved state, not successful GPU continuation or bitwise reproducibility.
+
+The user then explicitly preferred immediate termination of the two hung processes, accepting checkpoint
+recovery if other work was interrupted. A006 records that exception to the earlier preservation instruction
+and supersedes A005's proposed wait for healthy peers. Before cleanup, all six current full checkpoints were
+copied and CPU-verified: four at135000, two at105000. The original A003 queue and its manifest/state/log were
+preserved; its waiting process was stopped to prevent a race with replacement outputs. Both affected trainer
+PIDs exited on SIGTERM, without SIGKILL or a device reset. At85.6 seconds after cleanup all four peers were
+still advancing, each1500 logged steps beyond the pre-cleanup snapshot, with no recent kernel entries.
+The cleanup result was reviewed as passed; this observation does not exclude a later runtime fault.
+The unresolved original hang remains an operational limitation, not a scientific negative.
+
+Continue the four surviving originals, then resume the two interrupted experiments sequentially under the
+original code/configuration. Review each recovery outcome before the next run. Resolve all six final paths
+explicitly and execute the unchanged A003 suite before dependent research. The stopped PID-bound queue must
+not be mistaken for an active follow-up; the persistent research goal is responsible for continuation.

@@ -49,6 +49,15 @@ waits up to 24 hours without signalling them, verifies final step counts and unc
 runs only the A003 suite. `outputs/gated/A003/state.json` records progress. It exits awaiting literature review;
 it cannot approve its own results or launch a dependent experiment. Keep this checkout unchanged while it waits.
 
+Operational exception A006: the user authorized immediate retirement of two hung original L1 processes.
+The original waiting A003 queue was stopped before them and archived in `outputs/gated/A006/queue_before`.
+It is no longer active. Four originals continue; two full-state copies at105000 have passed the A005 CPU
+preflight and await serial continuation under the original7dfc837 trainer. Do not relaunch the old six-PID
+queue or assume that all final files will appear under `outputs/balls/runs`. Resolve original/recovery paths
+with their checkpoint lineage, verify final303000/configuration, then run this same A003 suite sequentially.
+Literature review is required after each recovery result and each numerical result. The user-approved
+exception changes process handling only; it does not authorize device resets or changes to the experiments.
+
 ## B: fixed test tasks and planning
 
 These test splits and controls have already been generated and evaluated in this workspace:
