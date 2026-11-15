@@ -2377,3 +2377,52 @@ corpus's layouts):
 - **Training:** consistency along each mission, beside the branches and round 0's costs.
 - **The bar before any mission, (a′):** at held-out moments, the value's choice among the tapes must have at most half
   the frozen rule's regret.
+
+## P22b item 8: V2 fails the ranking bar, and no value could meet it here (15 November)
+
+**1. The branches** (`data.value_branches`, 91 minutes on 26 cores):
+- 2,000 training and 300 validation missions of round 0, run again exactly (exits and frames checked);
+- two moments each: 3,900 and 582 moments;
+- six tapes each: 23,202 and 3,458 tapes.
+
+**2. V2**, trained on the branches, round 0's moments and consistency along them (8,000 steps; the checkpoint at step
+1,000, chosen on the validation loss):
+
+| | V2 | Bar |
+|---|---|---|
+| (a′) Ranking: mean regret, the value / the frozen rule | 30.24 / 30.54 s (0.99) | at most 0.5 |
+| ... rank correlation with the realised costs | 0.07 | |
+| (a) Mean squared error over the distance term's, all / near walkers | 0.39 / 0.37 | at most 0.5 |
+| (b) Traps above 300 s once boxed in | 9 of 11 | at least 9 |
+
+- The ranking ratio stayed between 0.94 and 1.17 at every evaluation in training.
+- The branches' training loss fell to 0.02 while their validation error barely moved (11,760 against the distance
+  term's 17,230): V2 memorised its 21,843 cuts.
+- (c) was not run (the stop rule).
+
+**3. The noise floor** (`eval.value_noise`). Each validation moment's six tapes were run again three times, with the
+walkers' dice drawn anew. The original dice reproduced every branch exactly. Choosers are scored as (a′) scores the
+value:
+
+| Chooser | Mean regret (s) |
+|---|---|
+| A tape at random | 31.53 |
+| The frozen rule | 30.54 |
+| V2 | 30.24 |
+| One that knows each tape's expected cost (from the new samples) | 17.76 |
+| ... with the scored sample among its means (optimistic) | 2.52 |
+
+- The rule's regret is concentrated. Its median is 0.3 s, and the 50 moments (9%) of more than 100 s carry 91% of
+  it.
+- In 70% of those 50, the rule's tape fails again with new dice: the disasters are fixed by the state and the tape,
+  not by chance.
+- At a 3.2 s cut the frozen rule chooses barely better than at random (30.54 against 31.53).
+- A chooser that knows each tape's expected cost cuts the rule's regret by 42% (to 0.58). So no value could meet bar
+  (a′), half, with this measure; it should have been set against a measured floor. V2 takes none of the 42%.
+
+**4. Read.**
+- The headroom is real but narrower than the bar assumed. It lies in the true state: the expected costs come from
+  the world itself, walkers' kinds and pause timers included, which no honest value sees.
+- A value learnt from 1 million visited moments and 22,000 branched tapes chooses no better than the rule.
+- **Lesson:** measure the ceiling (here, a chooser that knows the expected costs) before setting a bar on a learnt
+  quantity, as the honest oracle was for prediction.
