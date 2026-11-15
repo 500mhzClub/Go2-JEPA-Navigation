@@ -75,9 +75,21 @@ the learned planner. CEM uses final elite mean; goal slots are independently enc
 
 ## C: three-ball core, then extra seeds/counts
 
+C003 has also passed a bounded three-update GPU diagnostic of the actual checkpoint helpers, optimizer state,
+schedule, cursor and RNG restoration, followed by CPU/GPU output/gradient and batch-grouping checks. Its synthetic
+inputs and short run do not establish full-loop crash recovery, convergence or final trained-checkpoint validity.
+To reproduce in a new output directory:
+
+```sh
+"$PY" -m go2nav.eval.slots_recovery --out outputs/gated/C003/recovery --research C003
+```
+
+Review that result before dependent work. The completed review is `outputs/gated/C003/recovery/review.json`.
+Use it as the numerical-verification review for the following training stages; model-source hashes must match.
+
 ```sh
 "$PY" -m go2nav.training.balls_slots slots --data "$BALLS_DATA" --n 3 --seed 0 --research C001 \
-  --verification-review outputs/gated/C001/numerics/review.json --out outputs/gated/C001/slots_n3_s0
+  --verification-review outputs/gated/C003/recovery/review.json --out outputs/gated/C001/slots_n3_s0
 ```
 
 Review the selected validation reconstruction result before extracting the frozen cache:
@@ -93,7 +105,7 @@ Review cache integrity, then run `o0` and `o1` sequentially with identical seed/
 ```sh
 "$PY" -m go2nav.training.balls_slots o0 --data "$BALLS_DATA" --n 3 --seed 0 --research C001 \
   --cache outputs/gated/C001/cache_n3_s0 --parent-review outputs/gated/C001/cache_n3_s0/review.json \
-  --verification-review outputs/gated/C001/numerics/review.json --out outputs/gated/C001/o0_n3_s0
+  --verification-review outputs/gated/C003/recovery/review.json --out outputs/gated/C001/o0_n3_s0
 ```
 
 The source-corrected O1 mask retains the earliest identity anchor. The RGB encoder is a deterministic SAVi-style
@@ -183,6 +195,8 @@ HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 MKL_NUM_THREADS
 
 D002 checks all 400 historical units, every cohort count and every reported median. It must receive its own
 post-result literature/source review. This reference regression does not establish the new paired P26 bars.
+The first replay completed in 296.74 seconds: all 144 numeric fields exactly matched the published summary,
+including counts and all waiting/kind breakdowns. Its positive review is `outputs/gated/D002/legacy/review.json`.
 
 ## Evidence bundle
 

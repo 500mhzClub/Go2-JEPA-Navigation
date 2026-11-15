@@ -1,0 +1,35 @@
+{
+  "id": "C003",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "Does the slot trainer restore its optimizer, schedule, cursor and random streams so that subsequent GPU updates agree; do briefly updated weights retain numerical validity?",
+  "hypothesis": "The existing atomic save/resume helpers restore all state used by these models. Initialization-only numerical checks are insufficient evidence about updated weights.",
+  "sources": [
+    {"url": "https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html", "version": "official tutorial accessed 2026-11-15 (page build 2.15)", "sections": "Saving and Loading a General Checkpoint; Saving and Loading Models Across Devices", "consequence": "Exercise actual model and Adam state restoration, with a new model/optimizer and explicit train/eval mode. Loading weights alone is insufficient."},
+    {"url": "https://docs.pytorch.org/docs/2.12/notes/randomness.html", "version": "2.12", "sections": "Reproducibility, controlling sources of randomness, convolution benchmarking and deterministic algorithms", "consequence": "Test CPU and GPU RNG draws exactly in the same environment, and separately test step-keyed local generators. Do not infer cross-platform bitwise reproducibility."},
+    {"url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html", "version": "2.12", "sections": "Floating-point accuracy, batched and slice computations, nonfinite values", "consequence": "Use declared numerical tolerances for outputs, gradients and optimizer updates; report repeat/batch regrouping separately from resumed-state agreement."},
+    {"url": "go2nav/training/balls_slots.py", "version": "eab0a53", "sections": "save, resume, generator, train_stage loss/checkpoint/optimizer sequence", "consequence": "Use the actual save/resume/generator helpers and model losses. Keep epoch-loss accumulator, best score and next-batch cursor in the roundtrip."}
+  ],
+  "differences": "A small synthetic-input implementation diagnostic, not a balls learning result or an end-to-end full trainer test. Default n3 models, batch two; RGB clips have three frames rather than six. A six-step warmup/cosine schedule compresses the slot schedule to exercise LR changes in three updates. CPU work is forward/backward comparison only; every optimizer update runs on the dedicated GPU. Original trainers and their source are untouched.",
+  "contrary_evidence": "RNG restoration alone cannot eliminate nondeterministic kernels; a short same-process checkpoint roundtrip does not establish crash recovery at every trainer boundary or long-horizon learning stability. Passing synthetic updated-weight checks does not validate final trained checkpoints.",
+  "protocol": {
+    "scope": ["small checkpoint recovery diagnostic", "updated-weight numerical diagnostic", "diagnostic comparison tests"],
+    "models": ["default RGBSlots n3", "default ObjectMaskedPredictor with O1 masking"],
+    "seed": 2026111514,
+    "updates": 3,
+    "checkpoint_after": 1,
+    "batch": 2,
+    "rgb_frames": 3,
+    "optimizer": "Adam, RGB lr=1e-4 clip=0.05; predictor lr=5e-4 no clipping",
+    "schedule": "RGB warmup two steps then cosine to step six; predictor constant",
+    "resume": "Save with actual trainer save, continue two updates, instantiate fresh model/Adam/scheduler, restore with actual resume and repeat those updates. Compare every model/optimizer tensor, scheduler scalar, saved cursor/best/epoch-loss fields, next CPU/GPU RNG draws and per-step losses. Assert checkpoint bytes are unchanged by loading.",
+    "rng": "Global CPU/GPU random draws and actual independently seeded step-keyed slot/mask generators; no Python/NumPy random input pipeline in this diagnostic",
+    "tolerances": {"resume_rtol": 1e-6, "resume_atol": 1e-7, "numerics_rtol": 1e-4, "numerics_atol": 1e-5, "rng": "exact"},
+    "numerics": "After three updates: eval CPU/GPU outputs and every trainable parameter gradient, including RGB decoder reconstruction/masks; GPU batched, separate-item, reversed-batch and repeat outputs. Report finite values and missing-gradient names explicitly.",
+    "checks": ["nested tensor/state comparison rejects a changed optimizer tensor", "missing state keys rejected", "RNG equality rejects a changed draw", "finite outputs and all gradients", "unchanged checkpoint digest"]
+  },
+  "success": "Both models pass the scoped resume and updated-weight numerical checks. This authorizes only the already-preregistered C001 implementation validity claim; final learned-model performance remains unmeasured.",
+  "stop": "Preserve any failure and consult literature before changing numerical policy or implementing a fix. No full training, no model hyperparameter changes, no selection on synthetic diagnostic performance. Stop at the shared or local time limit.",
+  "resources": {"gpu_hours_max": 0.1, "allocation": "existing validation reserve within the shared 48 hours", "memory_fraction_max": 0.1, "total_memory_ceiling": 0.85, "training_device": "dedicated_gpu", "concurrency": "small diagnostic may coexist with original six trainers"},
+  "predecessors": [{"review": "../../../outputs/gated/C001/numerics/review.json", "allow": ["passed"]}]
+}
