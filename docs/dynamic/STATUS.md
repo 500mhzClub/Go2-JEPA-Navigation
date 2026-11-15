@@ -2514,8 +2514,8 @@ layout. 24 recorded ring-world missions repeat exactly, and the unit tests pass 
 
 - No crash and no contact stop in any round.
 - **Round 4 fails the smoke's rule.** Traced on maze 12, episode 0:
-  - Of 24,000 dispatch ticks, 21,910 were a latched veto by the harness's reflex, and 800 more were vetoed by an
-    obstacle (800 passed).
+  - Of 23,984 dispatch ticks, 800 passed. The harness's reflex vetoed 22,264: 21,910 latched, 354 on the stopping
+    margin. 800 more were vetoed by an observed obstacle, and 120 had no plan on time or a prefix not executed.
   - The tapes kept asking for 0.24 m/s with a turn towards a frontier 0.6 m away. The reflex's 0.45-m disk refused
     them near the walls, where P17's cost keeps the body 8 cm clear.
   - P18's cost looks ahead to the reflex; the tapes do not.
