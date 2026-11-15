@@ -85,6 +85,14 @@ def test_the_value_reads_each_slot_where_the_model_leaves_its_walker(tmp_path, m
     assert np.allclose(seen['xy'][:, 0], [[2.03, 1.], [1., 2.04]]) and np.allclose(seen['v'][:, 0], [[.3, 0.], [0., .4]])
 
 
+def test_a_genesis_unit_s_yaw_comes_from_its_quaternion():
+    from scipy.spatial.transform import Rotation
+    from go2nav.data.genesis_units import yaw_of
+    yaws = np.array([-3., -1.2, 0., .4, 2.9])
+    quaternions = Rotation.from_euler('ZYX', np.stack((yaws, np.full(5, .03), np.full(5, -.02)), 1)).as_quat()
+    assert np.allclose(yaw_of(quaternions), yaws, atol=1e-9)                   # x, y, z, w; small pitch and roll
+
+
 def test_the_cost_to_go_counts_to_the_leg_s_arrival_or_to_the_failure_and_its_price():
     from go2nav.data.value_missions import cost_to_go
     out = cost_to_go([0, 4, 8, 12], [0, 0, 1, 1], [dict(phase='OUTBOUND', frame=6)], 20, 300.)

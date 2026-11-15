@@ -101,7 +101,8 @@ def _offline_episode(args):
                     target = truth[t+h, j]
                     if not sight[t+h, j] or np.linalg.norm(target-pose[t+h, :2]) > NEAR_M:
                         continue
-                    rows.append(dict(episode=index, kind=meta['kind'], horizon=h, waiting=bool(waiting[t, j]),
+                    rows.append(dict(episode=index, kind=meta['kind'], unit_kind=meta.get('unit_kind'), horizon=h,
+                                     waiting=bool(waiting[t, j]),
                                      model=float(np.linalg.norm(predicted[h-1, k]-target)),
                                      velocity=float(np.linalg.norm(cv[h-1]-target)),
                                      frozen=float(np.linalg.norm(at[r]-target))))
@@ -120,6 +121,13 @@ def offline(model_path, every=8, workers=None):
             if sel:
                 report[f'{h/10:.1f}s_{name}'] = dict(count=len(sel), **{m: round(float(np.median([r[m] for r in sel])), 4)
                                                                          for m in ('model', 'velocity', 'frozen')})
+    for field in ('kind', 'unit_kind'):            # read beside: by the walkers' kind, and by a unit's (P24 stage 1)
+        for value in sorted({r[field] for r in rows if r.get(field) is not None}):
+            for h in HORIZONS:
+                sel = [r for r in rows if r['horizon'] == h and r.get(field) == value]
+                report.setdefault('by', {})[f'{field}={value} {h/10:.1f}s'] = dict(
+                    count=len(sel), **{m: round(float(np.median([r[m] for r in sel])), 4) for m in ('model', 'velocity',
+                                                                                                      'frozen')})
     return report
 
 
