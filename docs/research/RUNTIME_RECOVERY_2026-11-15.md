@@ -1,9 +1,9 @@
 # GPU startup failure and recovery handoff
 
-Current state: L1 n1, L1 n3 and L0 n1 have completed 303,000 steps and passed
-their actual A015 artifact audits and A014 completion literature reviews. L0 n3
-is running from 155,000, with fresh training progress verified. L0 n6 and L1 n6
-follow. Use `outputs/gated/A014/runs/l0_n3_s0/` for the current process identity
+Current state: L1 n1/n3 and L0 n1/n3 have completed 303,000 steps and passed
+their actual A015 artifact audits and A014 completion literature reviews. L0 n6
+is running from 155,000, with fresh training progress verified. L1 n6 follows.
+Use `outputs/gated/A014/runs/l0_n6_s0/` for the current process identity
 and observations, and [the runbook](RUNBOOK.md) for the next audit command.
 Final A003 numerical checks and scientific evaluations remain pending.
 
@@ -140,8 +140,15 @@ deficit, and complete finite 606 training plus 16 validation rows. Its A014
 completion review binds to that exact audit review. Scientific evaluation remains
 pending.
 
-The fourth continuation, L0 n3, now runs from its preserved 155,000-step checkpoint,
+The fourth continuation, L0 n3, completed 303,000 steps after 57.44 minutes,
+with exit code 0 and no watchdog signals. Its actual A015 audit and literature
+review verify matching final/full states, exact CPU restoration, all 148,000
+resumed updates across 127 populated optimizer states, zero prior counter deficit,
+and complete finite 606 training plus 16 validation rows. The A014 completion
+review binds to that actual audit. No final physical or planning conclusion is
+inferred from these checks.
+
+The fifth continuation, L0 n6, now runs from its preserved 155,000-step checkpoint,
 with fresh progress observed. Original source, package/runtime and training recipe
-are unchanged. L0 n6 and L1 n6 follow. Each remaining completion still needs
-its own audit and review, and all six final checkpoints require A003 before
-scientific evaluation.
+are unchanged. L1 n6 follows. Both remaining completions need their own audits and
+reviews, and all six final checkpoints require A003 before scientific evaluation.

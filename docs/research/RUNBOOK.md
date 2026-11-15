@@ -2,10 +2,10 @@
 
 Runtime update: the authorized reboot completed and A013's unchanged default-env
 GPU primitive passed and was reviewed. A014 now resumes the six original experiments
-serially in distinct `outputs/balls/recovery_A014` directories. L1 n1, L1 n3 and L0 n1 each
+serially in distinct `outputs/balls/recovery_A014` directories. L1 n1/n3 and L0 n1/n3 each
 completed 303,000 steps and passed their actual A015 artifact audits and A014
-completion reviews. L0 n3 is now running from 155,000, with fresh progress observed. Use
-`outputs/gated/A014/runs/l0_n3_s0`
+completion reviews. L0 n6 is now running from 155,000, with fresh progress observed. Use
+`outputs/gated/A014/runs/l0_n6_s0`
 for actual process identity/status and `outputs/gated/A014/continuation_plan.json`
 for the ordered lineage. The supervisor watches progress every60 seconds and
 enforces the declared no-progress/wall limits; it cannot review results or launch
@@ -25,7 +25,7 @@ unchanged original checkout (replace the run name for each successor):
 ```sh
 cd ../Go2-JEPA-Navigation-p25
 env -u PYTHONPATH HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
-  "$PY" outputs/gated/A015/verify_final.py --run l0_n3_s0
+  "$PY" outputs/gated/A015/verify_final.py --run l0_n6_s0
 cd ../Go2-JEPA-Navigation-p25-validation
 ```
 

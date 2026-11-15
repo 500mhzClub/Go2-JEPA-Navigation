@@ -1,5 +1,10 @@
 # Baseline checkpoint observations — 15 November 2026
 
+Runtime update at 23:56 UTC: L0 n3 has completed 303,000 steps and passed its
+actual artifact audit and completion literature review. L0 n6 is now active.
+The descriptive assessments below remain tied to their stated snapshots;
+final L0 n3 physical prediction and planning are still unevaluated.
+
 Latest assessment at 23:47 UTC: the preserved L0 n3 checkpoint is now at 280,000.
 Its raw validation prediction error continues to decrease; the later update below
 supersedes the 250,000-step snapshot for current descriptive measurements.
