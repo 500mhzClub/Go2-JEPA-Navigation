@@ -50,6 +50,8 @@ Results and review digests live beside run artifacts. This index must be updated
 
 See [commands and remaining gates](RUNBOOK.md) and [measured implementation evidence](IMPLEMENTATION_2026-11-15.md).
 
+See the [baseline checkpoint report](BASELINE_PROGRESS_2026-11-15.md) for the
+completed L1 n1/n3 logs, the frozen L0 n1 snapshot and what their comparisons test.
 See the [CPU checkpoint progress report](CHECKPOINT_PROGRESS_2026-11-15.md) for
 the reviewed temporal comparison, physical prediction controls and figures.
 See the [preliminary checkpoint analysis](CHECKPOINT_ANALYSIS_2026-11-15.md) for
