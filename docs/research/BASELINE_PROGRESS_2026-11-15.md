@@ -1,5 +1,9 @@
 # Baseline checkpoint observations — 15 November 2026
 
+Update at 23:35 UTC: L0 n1 has now also completed 303,000 steps and passed its
+actual artifact audit. The active arm is L0 n3. Its frozen 250,000-step checkpoint
+is assessed in the update below; the earlier 22:11 capture remains historical.
+
 This report records the reviewed observations captured at 22:11 UTC: completed
 L1 n1 and L1 n3 runs, and a frozen L0 n1 checkpoint at 190,000 steps. Training
 continues beyond that snapshot; consult the runtime record for current status.
@@ -56,7 +60,7 @@ target is a sum of Fourier features, so these errors are not pixel distances or
 proof that each object is individually represented. The n1/n3 raw loss ranking
 also does not rank physical prediction or planning ability.
 
-## Current arm: L0 n1 at the frozen snapshot
+## Earlier arm: L0 n1 at the 22:11 frozen snapshot
 
 The captured checkpoint identifies L0, n1 and step 190,000, with no auxiliary
 head. Its last available validation in the captured history is at 180,000.
@@ -97,6 +101,51 @@ position readouts for controlled and autonomous objects; future-position probes
 and action controls; and paired planning on the fixed tasks. The earlier A017
 physical gains apply only to L1 n1 at 220,000, not to L1 n3 or this L0 checkpoint.
 No robot transfer or scientific performance gate is established by this report.
+
+## Update: L0 n3 at 250,000 steps
+
+The fourth continuation now tests the same three-white-ball scenes as the second
+run, L1 n3. It retains the base model, data, schedule and seed while removing the
+Fourier position head and its auxiliary losses. This is the original independent
+L0 arm, resumed from 155,000, rather than a fine-tune of L1. No recipe was changed
+in response to the second run's results.
+
+The preserved checkpoint is at 250,000, with its latest validation at 240,000.
+Training continues beyond the captured snapshot. All captured log values are
+finite, and the latest ten training rows have median throughput 42.95 steps/s.
+
+| Raw validation latent prediction MSE | L0 n3 | L1 n3 |
+|---|---:|---:|
+| 200,000 | 0.00230679 | 0.02153805 |
+| 220,000 | 0.00269522 | 0.01216016 |
+| 240,000 | 0.00147287 | 0.01369141 |
+
+L0's prediction term decreased 45.35% from 220,000 to 240,000, following a rise
+over the previous interval. At matched 240,000, L1's raw value is 9.30 times
+larger. These are losses in separately learned latent spaces, affected by saved
+normalization statistics. They cannot distinguish useful L0 dynamics from a
+representation that makes prediction easier by omitting important information.
+The completed L0 n1 final latent loss, 0.000737697, has the same interpretive limit.
+
+The primary sources above were revisited before capture and after the result.
+The paper's Appendix A.10 also reports weaker environmental-object readouts in
+some supervised cases. Accordingly, test controlled and autonomous objects
+separately and retain unexpected L0 success. Current/future position readouts,
+action controls and paired planning remain the decisive measurements after common
+final inference checks. This update establishes no physical or robot performance
+gain.
+
+The exact capture and review are under
+`outputs/gated/A014/user_assessment_n3_final_l0n3_current/`:
+
+- Result SHA256: `52c8d27bc16b3de2bb319c7da976623d4e78081a7cfaed49133250d4e68a6ad5`.
+- Review SHA256: `23f47ab9c9fdd170dbe7a1f1cf91ffba61438e9a31efae5dc045adfb65f3b90a`.
+- Checkpoint SHA256: `13ed29efd7241b8a96335da122d64cfb0d710182c527df5a7d4f5653bcc37640`.
+
+An initial summary-script field-name error was preserved and source-checked before
+correction. The same snapshot was retained; training and source artifacts were
+untouched. Digests, complete log coverage, validation rows and medians were
+independently checked. No model forward pass or GPU work was performed.
 
 ## Preserved evidence
 
