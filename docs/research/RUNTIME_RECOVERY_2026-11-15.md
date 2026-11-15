@@ -1,16 +1,25 @@
 # GPU startup failure and recovery handoff
 
+Current state: L1 n1, L1 n3 and L0 n1 have completed 303,000 steps and passed
+their actual A015 artifact audits and A014 completion literature reviews. L0 n3
+is running from 155,000, with fresh training progress verified. L0 n6 and L1 n6
+follow. Use `outputs/gated/A014/runs/l0_n3_s0/` for the current process identity
+and observations, and [the runbook](RUNBOOK.md) for the next audit command.
+Final A003 numerical checks and scientific evaluations remain pending.
+
+## Historical startup observations
+
 After the authorized reboot, the unchanged default-environment primitive passed
 in2.025seconds and the first A014 L1n1 continuation advanced from105000 to a fresh
-105500. Final training and numerical validity remain pending. All six original
+105500. Final training and numerical validity were then pending. All six original
 recovery inputs and the failed preboot attempts are preserved.
 
-The first run has subsequently passed143000 while remaining the only GPU trainer.
-Use `outputs/gated/A014/runs/l1_n1_s0/monitor_latest.json` for the latest observation;
-the startup pass is not final completion. The CPU-only A015 completion checker has
+The first run subsequently passed143000 while remaining the only GPU trainer.
+Its historical observations are under `outputs/gated/A014/runs/l1_n1_s0/`;
+the startup pass was not final completion. The CPU-only A015 completion checker has
 passed and received literature review for21 software checks across all six preserved
 schemas, including deliberate corruption and refusal of the current live run.
-Its actual final audits remain pending; commands and review requirements are in
+Its actual final audits were then pending; commands and review requirements are in
 [the runbook](RUNBOOK.md).
 
 Before reboot, two fresh processes both stalled at their first16KiB CPU-to-GPU
@@ -56,9 +65,9 @@ trainer checkout remains pinned to `7dfc83722da0a9fb805ccc879fe7e5459709a2fd`.
 The handoff stores checkpoint/configuration/metric hashes, source hashes, boot ID,
 device mapping, desktop clients and kernel/SMI observations under
 `outputs/gated/A013`. Existing source, data, checkpoints and failed evidence are
-retained. None of the six final step303000 results exists yet.
+retained. At preparation time, none of the six final step303000 results existed.
 
-## Next action and gate
+## Authorized reboot procedure (historical)
 
 An orderly workstation reboot is proposed. GPU0 maps to BDF `0000:03:00.0` /
 DRM card1, is the boot VGA device, drives connected DP3 and DP4, and has live
@@ -123,8 +132,16 @@ input counter deficit, and 606 training plus 16 validation rows with finite valu
 The A014 completion review binds to that exact A015 review. These are operational
 checks; final physical accuracy and planning remain unevaluated.
 
-The third continuation, L0 n1, now runs from its preserved 155,000-step checkpoint,
+The third continuation, L0 n1, completed 303,000 steps after 57.36 minutes, with
+exit code 0 and no watchdog signals. Its actual A015 audit and post-result
+literature review verify matching final/full states, exact CPU restoration,
+148,000 resumed updates across 127 populated optimizer states, zero input counter
+deficit, and complete finite 606 training plus 16 validation rows. Its A014
+completion review binds to that exact audit review. Scientific evaluation remains
+pending.
+
+The fourth continuation, L0 n3, now runs from its preserved 155,000-step checkpoint,
 with fresh progress observed. Original source, package/runtime and training recipe
-are unchanged. L0 n3, L0 n6 and L1 n6 follow. Each remaining completion still needs
+are unchanged. L0 n6 and L1 n6 follow. Each remaining completion still needs
 its own audit and review, and all six final checkpoints require A003 before
 scientific evaluation.
