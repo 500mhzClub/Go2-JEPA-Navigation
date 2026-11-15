@@ -1,8 +1,13 @@
 # GPU startup failure and recovery handoff
 
-The current blocker reproduces without a model, dataset, checkpoint or optimizer:
-two fresh processes both stalled at their first 16 KiB CPU-to-GPU copy. No trainer
-or diagnostic child remains running. All six recovery checkpoints are preserved.
+After the authorized reboot, the unchanged default-environment primitive passed
+in2.025seconds and the first A014 L1n1 continuation advanced from105000 to a fresh
+105500. Final training and numerical validity remain pending. All six original
+recovery inputs and the failed preboot attempts are preserved.
+
+Before reboot, two fresh processes both stalled at their first16KiB CPU-to-GPU
+copy, without using a model, dataset, checkpoint or optimizer. This history
+motivated the host-state intervention described below.
 
 The user-supplied A011 stack places the first serial continuation at
 `Module.to -> Tensor.to`, original `build` line125 / `train` line180. Checkpoint
@@ -27,8 +32,9 @@ environment remains unchanged. [PyTorch synchronization semantics](https://docs.
 explain the host boundary; [AMD's HIP debugging guidance](https://rocm.docs.amd.com/projects/HIP/en/docs-7.2.0/how-to/debugging.html#hsa-related-environment-variables-linux)
 motivated the second copy-path test. Its failure supplies no working workaround.
 
-The additional-device ledger is closed at **0.290958 hours**, leaving about
-**47.709 hours**. Original training/continuation time is excluded as approved.
+Including the postboot primitive, the additional-device ledger is closed at about
+**0.292 hours**, leaving about **47.708 hours**. Original training/continuation
+time is excluded as approved.
 
 ## Preserved continuation inputs
 
@@ -73,6 +79,23 @@ Do not change the model to address an unlocalized infrastructure failure.
 The postboot supervisor has passed syntax and same-boot refusal checks without
 creating a GPU context or ledger interval. The boot guard uses Linux's
 [documented boot UUID](https://docs.kernel.org/admin-guide/sysctl/kernel.html#random).
-It has **not** run a postboot GPU test yet. The scientific comparison remains
-incomplete; this technical result does not change the preliminary geometry
-findings or establish a model-performance negative.
+The postboot test subsequently passed all phases with exact equality and exit0;
+its digest-bound review is `outputs/gated/A013/postboot_primitive/review.json`.
+The new boot UUID differs from the recorded preboot UUID. Boot logs include an
+iGPU display REG_WAIT timeout before the probe; this is a different BDF from the
+dedicated R9700 and does not justify claiming a wholly error-free boot.
+
+A014 preserves the original runtime/recipe and uses reviewed full-state clones
+at `outputs/balls/recovery_A014`. Its first continuation has fresh training
+progress. The external supervisor records identity and progress every60seconds,
+with bounded no-progress/wall limits; each final result requires review before
+the next child. There is no automatic restart or self-approved successor.
+
+The successful small probe supports a state-dependent runtime/device issue;
+it does not identify the faulty component or establish sustained training
+stability. The scientific comparison remains incomplete, and the preliminary
+geometry findings are unchanged.
+
+A014 follow-up at121seconds confirms5,000 fresh updates through110000 and a new
+checkpoint write. Its startup review is `outputs/gated/A014/startup/review.json`;
+this limited pass does not unlock a successor or replace final-state checks.

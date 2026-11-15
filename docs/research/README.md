@@ -32,7 +32,8 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [A010](records/A010.json) | Can the four additional originals be restored for sequential continuation? | User approved; cleanup passed; first serial L1n1 attempt retired without progress, reviewed technical_blocked |
 | [A011](records/A011.json) | Where is the first serial recovery waiting before new metrics appear? | User stack locates initial Module.to before checkpoint loading; reviewed technical_blocked |
 | [A012](records/A012.json) | Does a fresh primitive GPU copy complete? | Both default and SDMA-disabled16KiB copies timed out; children exited, checkpoints unchanged; reviewed technical_blocked |
-| [A013](records/A013.json) | Does the unchanged primitive complete after an orderly reboot? | Handoff and same-boot guard prepared; user-coordinated reboot and postboot GPU result pending |
+| [A013](records/A013.json) | Does the unchanged primitive complete after an orderly reboot? | New boot confirmed; exact copy/arithmetic round trip passed in2.025s and reviewed |
+| [A014](records/A014.json) | Can the unchanged original experiments finish after reboot? | Six inputs cloned with verified source/data lineage; first L1n1 continuation has new step105500, final303000 pending |
 | [C001](records/C001.json) | Do RGB slots and anchored masking support physical prediction/planning? | Small-batch numerical checks pass; training pending |
 | [C002](records/C002.json) | Do slot masks bind objects; do paired reviewed results satisfy the declared bars? | Evaluators verified on synthetic cases; trained-model measurements pending |
 | [C003](records/C003.json) | Does optimizer recovery preserve subsequent updates and updated-weight numerics? | Both default n3 models pass the small GPU recovery/forward/gradient/grouping diagnostic; reviewed |

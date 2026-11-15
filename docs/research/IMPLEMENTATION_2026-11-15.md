@@ -169,3 +169,15 @@ A013 preserves all six inputs and prepares a guarded postboot primitive check.
 The R9700 drives two connected displays, so a workstation reboot requires user
 coordination. See [the recovery handoff](RUNTIME_RECOVERY_2026-11-15.md). No reset,
 reboot, package change or training-environment change has been executed.
+
+The user subsequently authorized an orderly reboot. It completed; the unchanged
+A013 default-environment primitive passed in2.025seconds and was reviewed. A014
+then cloned all six inputs with exact source/data/artifact lineage and launched
+only L1n1. Its first new logged step105500 confirms progress beyond restored105000.
+Five CPU checks verify that the external monitor distinguishes old metrics,
+restoration truncation and partial writes from actual progress. The original
+trainer is unchanged; full303000 completion and A003 validity remain pending.
+
+A014 follow-up at121seconds confirms5,000 fresh updates through110000 and a new
+checkpoint write. Its startup review is `outputs/gated/A014/startup/review.json`;
+this limited pass does not unlock a successor or replace final-state checks.

@@ -1,19 +1,19 @@
 # P25/P26 execution
 
-Runtime update: the user approved A010 cleanup and serial continuation. All four
-additional original trainers exited on SIGTERM; checkpoint digests are unchanged,
-AMD SMI lists no remaining old compute contexts and no new kernel errors appeared.
-The cleanup is reviewed at `outputs/gated/A010/cleanup/review.json`.
-The first L1n1 continuation stalled before checkpoint loading, as shown by the
-A011 user stack. A012 retired it with unchanged artifacts. Both isolated16KiB
-copy diagnostics also stalled, including the SDMA-disabled case. All children
-have exited; no training is currently running. The failed A010 attempt is retained.
-Follow [the runtime handoff](RUNTIME_RECOVERY_2026-11-15.md): user-coordinated
-reboot, changed-boot A013 primitive check, then literature review before recovery.
-No additional cleanup/continuation permission is needed within the approved plan;
-restarting the workstation requires user coordination because it affects the desktop.
+Runtime update: the authorized reboot completed and A013's unchanged default-env
+GPU primitive passed and was reviewed. A014 now resumes the six original experiments
+serially in distinct `outputs/balls/recovery_A014` directories. First L1n1 has a
+fresh step105500 after restoring105000. Use `outputs/gated/A014/runs/l1_n1_s0`
+for actual process identity/status and `outputs/gated/A014/continuation_plan.json`
+for the ordered lineage. The supervisor watches progress every60 seconds and
+enforces the declared no-progress/wall limits; it cannot review results or launch
+successors. After a complete reviewed run, launch the next index with
+`python3 outputs/gated/A014/run_original.py INDEX` from this validation checkout.
+No further approval is needed for this already-approved serial continuation.
+The failed A010 attempt, A011 stack and both A012 timeouts remain preserved.
+See [the runtime record](RUNTIME_RECOVERY_2026-11-15.md).
 Launch no concurrent GPU work or silent retry. After each reviewed recovery result,
-follow `outputs/gated/A010/continuation_plan.json`, then run unchanged A003 on all
+follow the A014 plan, then run unchanged A003 on all
 six resolved final paths. A007's preliminary GPU diagnostic exhausted its declared
 cap; do not retry or infer probe scores from it.
 
