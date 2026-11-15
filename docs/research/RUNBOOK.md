@@ -27,6 +27,8 @@ Results go to fresh `outputs/gated/A015/finals/RUN` directories. Consult primary
 sources and review each actual audit, then bind the A014 run's completion review
 to that audit before launching the next index. The A015 software review covers
 synthetic fixtures only; it cannot pass a real run or replace A003.
+Each A014 completion review must also include `final_audit_review` (the path from
+this checkout to its A015 review) and `final_audit_review_sha256` (that file's digest).
 
 The failed A010 attempt, A011 stack and both A012 timeouts remain preserved.
 See [the runtime record](RUNTIME_RECOVERY_2026-11-15.md).
@@ -66,11 +68,29 @@ prediction, planning and generalization. Existing A001/A002/B001/C001 numerical 
 
 ## A: final inference artifacts
 
-After each original run finishes, repeat for all six L0/L1 runs under the same policy:
+After all six original continuations and their actual A015 audits pass review,
+launch A003 one case at a time through the reviewed A016 external supervisor:
 
 ```sh
-"$PY" -m go2nav.eval.balls_inference --checkpoint outputs/balls/runs/l0_n3_s0/model.pt \
-  --data "$BALLS_DATA" --out outputs/gated/A003/l0_n3_s0 --research A003
+python3 outputs/gated/A016/run_a003.py --run l0_n1_s0
+```
+
+Use the frozen order `l0_n1_s0`, `l0_n3_s0`, `l0_n6_s0`, `l1_n1_s0`,
+`l1_n3_s0`, `l1_n6_s0`. Raw numerical outputs are under
+`outputs/gated/A003_recovered/RUN`; operational outputs are under
+`outputs/gated/A016/runs/RUN`. Review both exact results before the next case.
+The wrapper checks all six final lineages, requires an unused output directory,
+and runs the unchanged evaluator from pinned commit `161fe8b`. It enforces the
+remaining4-hour A allocation and48-hour shared allowance, reserving45 seconds
+for bounded cleanup. Overlapping outer/inner intervals count once; unresolved
+child termination leaves accounting open. It never approves a scientific result.
+
+The wrapper executes the equivalent of this diagnostic command from the pinned
+gated checkout:
+
+```sh
+"$PY" -m go2nav.eval.balls_inference --checkpoint outputs/balls/recovery_A014/l0_n3_s0/model.pt \
+  --data "$BALLS_DATA" --out outputs/gated/A003_recovered/l0_n3_s0 --research A003
 ```
 
 A003 uses train-only calibration and float64/math inference, selected by A002 at unchanged tolerances. The source
@@ -78,11 +98,12 @@ checkpoint is copied through an open inode, learned weights remain unchanged, an
 inference-only. Review the final numerical result before planning. No final-checkpoint validity is inferred from
 the successful step-40,000 checks.
 
-The workspace follow-up uses `go2nav.eval.await_balls --runs outputs/balls/runs --data "$BALLS_DATA"`
+The retired original workspace follow-up used `go2nav.eval.await_balls --runs outputs/balls/runs --data "$BALLS_DATA"`
 with `--out outputs/gated/A003` and `--pids` listing all six original trainer PIDs. It records their process identities,
 waits up to 24 hours without signalling them, verifies final step counts and unchanged source/config hashes, and
 runs only the A003 suite. `outputs/gated/A003/state.json` records progress. It exits awaiting literature review;
-it cannot approve its own results or launch a dependent experiment. Keep this checkout unchanged while it waits.
+it cannot approve its own results or launch a dependent experiment. Its old state is
+historical; do not restart it with the retired PIDs. A016 now handles recovered final paths.
 
 Operational exception A006: the user authorized immediate retirement of two hung original L1 processes.
 The original waiting A003 queue was stopped before them and archived in `outputs/gated/A006/queue_before`.
@@ -109,8 +130,8 @@ controls are retained. Five groups are evaluation groups, not five training seed
 
 ```sh
 "$PY" -m go2nav.eval.balls_planning --data "$BALLS_DATA" --n 3 --research B001 \
-  --checkpoint outputs/gated/A003/l0_n3_s0/calibrated.pt \
-  --inference-review outputs/gated/A003/l0_n3_s0/review.json \
+  --checkpoint outputs/gated/A003_recovered/l0_n3_s0/calibrated.pt \
+  --inference-review outputs/gated/A003_recovered/l0_n3_s0/review.json \
   --controls outputs/gated/B001/n3/result.json --out outputs/gated/planning/l0_n3_s0
 ```
 

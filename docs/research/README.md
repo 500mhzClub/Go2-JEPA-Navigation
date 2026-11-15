@@ -35,6 +35,7 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [A013](records/A013.json) | Does the unchanged primitive complete after an orderly reboot? | New boot confirmed; exact copy/arithmetic round trip passed in2.025s and reviewed |
 | [A014](records/A014.json) | Can the unchanged original experiments finish after reboot? | Six inputs cloned with verified source/data lineage; first L1n1 continuation has new step105500, final303000 pending |
 | [A015](records/A015.json) | Do recovered final files preserve the complete original training state? | CPU checker reviewed: six structural fixtures,14 rejected faults and live-run refusal; actual final audits pending |
+| [A016](records/A016.json) | Can unchanged final evaluations be supervised within the remaining budget? |15 CPU accounting/process checks reviewed; actual all-six completion admission and A003 evaluations pending |
 | [C001](records/C001.json) | Do RGB slots and anchored masking support physical prediction/planning? | Small-batch numerical checks pass; training pending |
 | [C002](records/C002.json) | Do slot masks bind objects; do paired reviewed results satisfy the declared bars? | Evaluators verified on synthetic cases; trained-model measurements pending |
 | [C003](records/C003.json) | Does optimizer recovery preserve subsequent updates and updated-weight numerics? | Both default n3 models pass the small GPU recovery/forward/gradient/grouping diagnostic; reviewed |

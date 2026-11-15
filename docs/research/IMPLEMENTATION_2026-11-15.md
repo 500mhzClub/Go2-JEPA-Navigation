@@ -197,3 +197,17 @@ without additional checks; explicit mapping/shape checks therefore supplement a
 successful load. Synthetic final counters are software fixtures, not training
 evidence. Each real completion still needs its own A015 audit and literature review,
 an A014 completion review, and subsequently the unchanged A003 numerical gate.
+
+A016 adds external supervision for final A003 evaluations. The pinned evaluator
+checks budget at admission and completion, so a stalled GPU operation could bypass
+the final check. The wrapper supplies a monotonic deadline within the existing
+remaining A/shared allocations, reserves45 seconds for cleanup and accounts for
+the entire owned child lifetime. It leaves unresolved intervals open, records
+budget/technical stops separately and never launches a successor automatically.
+
+Fifteen CPU checks pass in1.033seconds, including real harmless subprocess exits,
+SIGTERM/SIGKILL escalation, identity-mismatch refusal, interval union and exact
+owned-interval closure. The production CLI refuses the current trainer without
+creating evaluation output or changing the shared ledger. The post-result review
+is `outputs/gated/A016/software/review.json`. Actual all-six final admission and
+GPU evaluation integration remain pending; this is operational evidence only.
