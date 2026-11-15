@@ -107,3 +107,15 @@ geometry findings are unchanged.
 A014 follow-up at121seconds confirms5,000 fresh updates through110000 and a new
 checkpoint write. Its startup review is `outputs/gated/A014/startup/review.json`;
 this limited pass does not unlock a successor or replace final-state checks.
+
+The first continuation subsequently completed 303,000 steps, exiting with code 0
+after 77.56 minutes without watchdog signals. The actual A015 audit verifies exact
+restoration, matching final/full states, all 198,000 resumed optimizer updates and
+complete finite logs. Its review and the bound A014 completion review pass. This
+is evidence of one sustained successful training continuation after reboot; it does
+not identify the faulty component or guarantee the other runs.
+
+The second continuation, L1 n3, now runs from its preserved 105,000-step checkpoint,
+with fresh progress observed. Original source, package/runtime and training recipe
+are unchanged. Each remaining completion still needs its own audit and review, and
+all six final checkpoints require A003 before scientific evaluation.

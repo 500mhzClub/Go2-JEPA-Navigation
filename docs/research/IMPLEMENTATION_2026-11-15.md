@@ -245,3 +245,22 @@ result exists. Large datasets/checkpoints and rendered figures remain outside th
 archive; source, plot code, sampled arrays and figure hashes are included. Live
 monitor files reflect individual read times. This verification and its review
 postdate the archive and must enter the eventual final bundle.
+
+The first original continuation, L1 n1, subsequently exited successfully after
+4,653.827 seconds (77.56 minutes), without watchdog intervention. Its actual A015
+audit verifies both final artifacts at 303,000 steps, exact model/head and CPU
+optimizer/scheduler restoration, original source/data/config lineage, and all
+606 training plus 16 validation rows. All 131 populated optimizer counters advance
+from 105,000 to 303,000, establishing 198,000 resumed updates with no prior counter
+deficit. Saved state and logged values are finite. CPU RNG restores exactly; GPU
+RNG is structurally checked only. The audit executes no training updates and
+initializes no GPU context.
+
+Both the actual audit and A014 completion received substantive literature review,
+under `outputs/gated/A015/finals/l1_n1_s0` and
+`outputs/gated/A014/runs/l1_n1_s0`. These establish operational completion for one
+of six originals, not final GPU inference validity or scientific performance.
+The unchanged second continuation, L1 n3, is running from its preserved 105,000-step
+checkpoint and has fresh progress through 106,000. Its final gate and the remaining
+four continuations are pending. All six still require A003 before the planned
+learned planning/probe and P26 evaluations.
