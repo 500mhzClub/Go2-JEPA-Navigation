@@ -181,3 +181,19 @@ trainer is unchanged; full303000 completion and A003 validity remain pending.
 A014 follow-up at121seconds confirms5,000 fresh updates through110000 and a new
 checkpoint write. Its startup review is `outputs/gated/A014/startup/review.json`;
 this limited pass does not unlock a successor or replace final-state checks.
+
+A015 implements the required final-artifact gate without running GPU work alongside
+the continuation. All six preserved checkpoint schemas pass synthetic completion
+fixtures;14 corrupted-state/log cases and a live-run refusal bring the suite to21
+passing checks in1.326seconds. The first16-check result and its source are retained
+under `outputs/gated/A015/software_initial`; the complete software review is under
+`outputs/gated/A015/software`. No actual final checkpoint has been certified.
+
+The checker verifies both final/full model states, explicit optimizer parameter
+mapping, moments and update counts, reconstructed scheduler state, CPU RNG restore,
+GPU RNG structure, complete metric history and immutable source/data lineage.
+PyTorch documents that optimizer loading pairs parameter IDs with current parameters
+without additional checks; explicit mapping/shape checks therefore supplement a
+successful load. Synthetic final counters are software fixtures, not training
+evidence. Each real completion still needs its own A015 audit and literature review,
+an A014 completion review, and subsequently the unchanged A003 numerical gate.

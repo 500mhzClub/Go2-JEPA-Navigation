@@ -5,6 +5,14 @@ in2.025seconds and the first A014 L1n1 continuation advanced from105000 to a fre
 105500. Final training and numerical validity remain pending. All six original
 recovery inputs and the failed preboot attempts are preserved.
 
+The first run has subsequently passed143000 while remaining the only GPU trainer.
+Use `outputs/gated/A014/runs/l1_n1_s0/monitor_latest.json` for the latest observation;
+the startup pass is not final completion. The CPU-only A015 completion checker has
+passed and received literature review for21 software checks across all six preserved
+schemas, including deliberate corruption and refusal of the current live run.
+Its actual final audits remain pending; commands and review requirements are in
+[the runbook](RUNBOOK.md).
+
 Before reboot, two fresh processes both stalled at their first16KiB CPU-to-GPU
 copy, without using a model, dataset, checkpoint or optimizer. This history
 motivated the host-state intervention described below.

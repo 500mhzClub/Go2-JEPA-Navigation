@@ -10,6 +10,24 @@ enforces the declared no-progress/wall limits; it cannot review results or launc
 successors. After a complete reviewed run, launch the next index with
 `python3 outputs/gated/A014/run_original.py INDEX` from this validation checkout.
 No further approval is needed for this already-approved serial continuation.
+Before approving each completed run, execute the A015 artifact audit from the
+unchanged original checkout (replace the run name for each successor):
+
+```sh
+cd ../Go2-JEPA-Navigation-p25
+env -u PYTHONPATH HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+  "$PY" outputs/gated/A015/verify_final.py --run l1_n1_s0
+cd ../Go2-JEPA-Navigation-p25-validation
+```
+
+The audit refuses live or unsuccessful children. It checks source/data lineage,
+both final artifacts at303000, exact CPU state restoration, optimizer mapping and
+update counts, the original schedule, RNG structure and complete metric coverage.
+Results go to fresh `outputs/gated/A015/finals/RUN` directories. Consult primary
+sources and review each actual audit, then bind the A014 run's completion review
+to that audit before launching the next index. The A015 software review covers
+synthetic fixtures only; it cannot pass a real run or replace A003.
+
 The failed A010 attempt, A011 stack and both A012 timeouts remain preserved.
 See [the runtime record](RUNTIME_RECOVERY_2026-11-15.md).
 Launch no concurrent GPU work or silent retry. After each reviewed recovery result,
