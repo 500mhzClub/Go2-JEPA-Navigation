@@ -1960,14 +1960,52 @@ input.
     stays for P26's learned end cost.
   - Next: P24.
 
+### P24. M5 in Genesis (proposed 15 November, after P22b; set out before any run)
+
+**Why.** M5 predicts walkers better than constant velocity in the ring world (P22 (a): 0.033, 0.101 and 0.325 m
+against 0.054, 0.272 and 0.776). In missions it keeps the tracker's round trips with a sixteenth of its contact stops
+(P22 item 14). P24 asks whether that carries into Genesis, the simulator with the Go2's own gait, cameras and built
+map, where P18's figures stand (still mazes 40 of 40, polite walkers 64 of 80, four walkers 18 of 40). On this
+branch, `feature/learned-value` (the user's decision, 15 November).
+
+**Stage 1, offline: do the dynamics transfer?**
+- **Data:** corpus v2's 400 validation units with ring scans (`go2nav_lewm_v2_range`, cast in Genesis by
+  `data.range_backfill` from the recorded poses and walkers).
+  - They run on the same layouts as the ring corpus (`lewm_sets_v1` 1,200-1,299), at 10 Hz, 90 s each.
+  - 347 have walkers (278 polite, 69 that do not yield); 4 kinds of unit (explore, free, mission, transfer).
+  - The Genesis robot walks on its own gait under commands from other controllers.
+- **An adapter** (`data.genesis_units`) writes each unit in the ring corpus's format:
+  - the scans (0 where a beam has no return);
+  - the pose as x, y and yaw from the base's quaternion;
+  - each frame's request (constant within a frame);
+  - the walkers' true positions, whether each is waiting on the robot, and whether it is in the sensor's line of
+    sight (from the layout, as the ring corpus does).
+  - These labels are only for choosing what is scored and scoring it.
+- **The measure:** P22's (a), `eval.object_measures offline` unchanged on the adapted units, run as the planner runs it:
+  the ring tracker over the scans with the recorded pose and the layout, M5 under the recorded tape.
+- **Bar, as P22's (a) restated:** no worse than the tracker's constant velocity at 1.6 s, and at most half its
+  error at 3.2 and 6.4 s, over all scored walkers and over those waiting on the robot. Read beside it, by kind of unit
+  and of walker.
+- (b), the reaction, needs exact Genesis replays branched under two tapes, and is not run here.
+- **Compute:** minutes of CPU.
+
+**Stage 2, missions, only if stage 1 passes; set out in full after it** (its choices depend on what stage 1 shows).
+In Genesis today, P18's cost chooses among 25 fixed commands over the forecaster's 0.8 s, with walkers standing
+still. Stage 2 puts in P17's planner under the frozen rule, with M5 for the walkers. The choices to settle:
+- **the robot's path under a tape:** the kinematic model of the ring world, against the fitted command-history model
+  (C1), measured on recorded Genesis poses first;
+- **progress:** a distance field over the built map's seen floor to the route's waypoint, since the robot does not
+  know the layout;
+- **the walkers:** the ring tracker on Genesis's range scans, with the walls' distance from the built map, so that M5
+  sees what it was trained on, against the harness's own tracks;
+- **M5's wall inputs:** from the built map.
+
+The suites would be P18's (still mazes 40, polite walkers 80, four walkers 40), 6 missions at once, with walkers that do
+not yield beside them (the hand reference 7 of 80). Bars to be set with the design.
+
 ### P24-P26 (revised 11 November by the second review; each set out when its turn comes)
 
-- **P24, the predictor in Genesis on the harness's tracks.** The mission harness already tracks walkers (the hand
-  tracker on the built map; the earlier model's walker finder), so this does not wait for slots. First offline: the
-  ring world's predictor on the tracks of recorded missions, against constant velocity (the walkers' scripts are the
-  same code in both worlds). Then P17's planner in missions on the built map, with long tapes and the walker-aware
-  end cost. Against P18's merged figures (40, 64, 18 of 40) and, with walkers that do not yield, the hand reference's
-  7 of 80. Only after P22 passes (a).
+- **P24** is set out above.
 - **P25, a second world.** Zhu et al.'s bouncing-ball task rebuilt (64 x 64 frames; a ball the agent controls among
   balls that move on their own): LeWM as ported here, and the object recipe. Their figures (LeWM 0-3%; with their
   supervised targets 60-92%) are a reference, not a like-for-like comparison.
