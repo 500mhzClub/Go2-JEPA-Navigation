@@ -89,3 +89,13 @@ all parameter gradients, and predictor grouping at 100 candidates over eight rol
 cache bytes, encoder identity and unchanged weights. Four new failure-detection/sampling tests pass within
 an 11-test slot/recovery suite. No learned-checkpoint C004 result exists yet; passing software tests do not
 fill that evidence gap.
+
+## Operational observation awaiting diagnosis
+
+A004 records a later log gap in the original L1 n1/n3 jobs at logged steps 106,000/105,000. Both process handles
+remain live and CPU-busy while four peers continue advancing. This is not a numerical result or proof that the
+jobs have terminated. Nonblocking Python stack reads were denied for the affected jobs and an advancing peer;
+Linux `ptrace_scope=1` is active and noninteractive sudo requires a password. The reviewed diagnostic is
+`outputs/gated/A004/diagnostic/review.json`. Narrowly scoped privileged stack output has been requested from
+the user. No trainer, checkpoint, security setting or GPU state was changed. Preserve the jobs and investigate
+the cause before proposing recovery; the A003 queue remains waiting for final artifacts.

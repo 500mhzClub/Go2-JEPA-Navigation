@@ -1,0 +1,27 @@
+{
+  "id": "A004",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-15",
+  "question": "Why do two preserved original trainers remain live and CPU-busy without new step logs while four peers continue?",
+  "hypothesis": "A process handle and CPU usage alone cannot distinguish useful training from a synchronization wait or computation stall. Read-only stack samples and timestamp changes can localize the delay without disturbing the jobs.",
+  "sources": [
+    {"url": "https://github.com/benfred/py-spy", "version": "official README accessed 2026-11-15; diagnostic binary pinned to 0.4.1", "sections": "dump command, permissions, how py-spy works and avoiding pauses with --nonblocking", "consequence": "Read only Python stack frames with --nonblocking and no locals. Sampling can be incomplete because memory reads are non-atomic. Do not attach a blocking debugger or change ptrace policy."},
+    {"url": "https://rocm.docs.amd.com/projects/amdsmi/en/docs-7.1.0/how-to/amdsmi-cli-tool.html", "version": "ROCm 7.1.0 / AMD SMI 26.1 documentation; installed CLI help 26.2.0", "sections": "CLI monitoring description, process command and engine/general fields", "consequence": "Use only process/metric reads. Per-process zero or unsupported engine fields are not proof of no GPU activity; compare with advancing peers."},
+    {"url": "https://psutil.readthedocs.io/en/latest/#psutil.Process", "version": "installed psutil 7.2.2; documentation consulted in A003", "sections": "Process identity/create_time, status and CPU times", "consequence": "Match the original PID and creation time, and retain state/CPU/log/checkpoint observations separately."}
+  ],
+  "differences": "Operational diagnosis only: no model experiment, optimizer change, training restart or new GPU work. Initial monitoring already observed the anomaly; this is not a blind preregistration of its existence.",
+  "contrary_evidence": "A stale log can occur during legitimate long work; CPU busy time need not imply training updates. All six jobs report zero per-process engine usage even while four advance, so those telemetry zeros are inconclusive. A stack sample identifies location, not a deadlock cause.",
+  "protocol": {
+    "prior_observation": "L1 n1 PID2407193 at logged step106000 and L1 n3 PID2407195 at105000 stopped logging at nearly the same wall time for about five minutes. All six original PIDs remain live, CPU times increase, four peers advance, GPU use100%, VRAM50%, recent kernel journal empty.",
+    "scope": ["read-only runtime telemetry", "isolated diagnostic binary installation", "nonblocking Python stack snapshots", "source inspection and literature-bound operational result review"],
+    "identity": "Verify PID/create_time against captured A003 manifest before each target sample",
+    "samples": "At most two Python dump snapshots per affected process, separated by at least60 seconds, and one advancing peer for comparison. Poll existing process/log/checkpoint timestamps; never infer termination from a timeout.",
+    "tool": "py-spy0.4.1 in an ignored isolated tools directory; --nonblocking; no --locals, no native attachment or recording, no signals. Use existing read privileges only; never weaken ptrace/security settings.",
+    "telemetry": "Read AMD SMI metrics/process list and recent kernel log; inspect only a small allowlist of runtime environment variables. Record raw snapshots, versions and source digests.",
+    "checks": "No original source/config/checkpoint writes; no GPU reset, process stop, renice, kill or restart. Preserve all evidence, including failed observation permissions. Revisit primary documentation after results before explaining the cause or proposing a recovery."
+  },
+  "success": "The diagnostic narrows the delay to an observed execution location or records why that location could not be observed. It does not itself establish a numerical/scientific failure or authorize changing original jobs.",
+  "stop": "Stop invasive escalation. If observations are denied, retain the exact error and continue monitoring the original handles; do not alter security settings. Any changed recovery protocol needs a new literature-backed record and must preserve original evidence.",
+  "resources": {"gpu_hours_max": 0, "cpu_workers_max": 1, "disk_mb_max": 100, "training_device": "none; operational observation only"},
+  "predecessors": []
+}
