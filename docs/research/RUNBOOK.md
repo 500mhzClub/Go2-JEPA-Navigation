@@ -770,7 +770,14 @@ matches all summaries exactly; operation and inspection pass separately. See
 [binding](OBJECT_BINDING_N3_2026-11-16.md). The inspector's initial dtype-coverage
 finding and corrected eleven-group software verification are preserved.
 
-Next is paired O0/O1 planning through reviewed C009v2,
+The first O0 planning operation was retired after55saved cases because observed
+throughput projected5.44hours per arm against the existing2hour stage allowance.
+Its partial evidence and technical review are preserved.
+[C015](PLANNING_THROUGHPUT_2026-11-16.md) now has eight reviewed CPU software
+groups; the next step is its bounded GPU cost-transfer equivalence/timing
+diagnostic before any full planning restart.
+
+After qualified runtime admission, the scope remains paired O0/O1 planning,
 then offline P26, additional seeds/counts, full comparison and final archive.
 Use `outputs/gated/continuation.json` and actual process/manifest state for the
 live handle. Do not relaunch a completed result or edit source bound to an active
