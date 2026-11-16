@@ -1,0 +1,102 @@
+{
+  "id": "C012",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T06:57:27.512293+00:00",
+  "question": "Does inference precision explain the selected O0 eight-step grouping failure, and how much discrepancy is introduced by recursive feedback?",
+  "hypothesis": "With math attention fixed, promoting the exact learned predictor weights and identical float32 histories/actions to float64 will reduce grouping and CPU/GPU discrepancies; common-history steps may disagree less than recursive rollout. Neither outcome establishes physical accuracy.",
+  "sources": [
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Floating-point non-associativity, batched versus slice computations, CPU/GPU differences and nonfinite values",
+      "consequence": "Compare exact inputs across grouping and precision, preserve failures and finite checks, and avoid attributing all discrepancy to a single kernel without isolation."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/generated/torch.nn.functional.scaled_dot_product_attention.html",
+      "version": "2.12",
+      "sections": "Backend selection, sdpa_kernel, math implementation float64 support and dropout warning",
+      "consequence": "The local MaskedBlock already forces MATH with zero dropout. Keep this unchanged; precision is the intervention, not a newly selected attention backend."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/generated/torch.allclose.html",
+      "version": "2.12",
+      "sections": "Elementwise absolute/relative condition with other tensor as reference",
+      "consequence": "Retain rtol1e-4/atol1e-5 and report failed-element counts and per-step discrepancies. Check the actual torch comparison separately from float64 explanatory ratios."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen.poll/wait/returncode and timeout requiring explicit termination",
+      "consequence": "Reuse reviewed exact-process TERM/KILL supervision with bounded wall time, close accounting only after confirmed terminal child, no automatic successor."
+    }
+  ],
+  "differences": "One read-only diagnostic on completed O0n3seed0, not a new training recipe or an inference admission gate. Original C004 failure, source and checkpoint stay unchanged. Encoder remains float32; all predictor modes consume the same generated history/actions. CPU is reference only.",
+  "contrary_evidence": "Float64 agreement on two selected batches cannot certify training updates, full encoder/predictor gradients, O1 masking, all planning inputs or scientific quality. Common-history conditioning changes the rollout input distribution; it is an accumulation diagnostic, not a physical prediction score. Failure may persist, and CPU is not an exact mathematical oracle.",
+  "protocol": {
+    "name": "o0_n3_s0",
+    "failed_result_sha256": "9b76d82668bd45dc67b9c02006db00f14fb6c8f00f463e2aa6401e878fff2380",
+    "failed_review_sha256": "0e850b48383346c53a1a96b170bd24dfbacd44f58ae5885357d5cc9232188ca8",
+    "checkpoint_sha256": "136440ca23b65312553e33e0cd82f1fe4990f1370241b9be1f2070bd85bff081",
+    "encoder_sha256": "a6b975ee0a7978b626fb19a8b8725195f24d8543be9848272153231cb2f4e590",
+    "cache_index_sha256": "892babadbfeeb48f785cd362f4984caa5b57053bedbc9365dfafc5eeaf864bbb",
+    "scope": "Ignored C012 diagnostic, metric helpers, bounded external supervisor and focused CPU software checks; no edits to existing executable research code.",
+    "inputs": "Exactly C004 first selected three-frame window in train and val, seed2026111516 n3; original100 norm-capped Gaussian candidates std2,8steps,two past commands /3. Bind original six train/val files, encoder/cache/checkpoint, failed C004/C007 and completed C001/C005/C008 reviews, current computational source equal to failed-run source.",
+    "modes": [
+      "gpu_float32_math",
+      "gpu_float64_math",
+      "cpu_float64_math_reference"
+    ],
+    "grouping": [
+      "batched",
+      "repeat",
+      "reversed",
+      "separate_pairs"
+    ],
+    "reference": "One CPUfloat64 batched rollout on the same promoted float32 history/actions; compare to GPUfloat64 and GPUfloat32. GPU modes each execute all four grouping orders. Retain original default convolution/BLAS configuration; record backend flags.",
+    "common_history": "Concatenate original float32 history and CPUfloat64 reference predictions cast once to float32; at each of8steps give identical last3 states and commands to GPUfloat32 batched/reversed/separate-pair single forwards. Do not recursively feed these three differing outputs back. Save all outputs.",
+    "measurement": "Retain raw arrays per split; per comparison record original torch.allclose verdict, finite status, absolute/RMS errors, failed-element counts, maximum ratio to atol+rtol*abs(other) and8 per-step summaries. Verify NumPy independently from saved arrays after actual run.",
+    "rtol": 0.0001,
+    "atol": 1e-05,
+    "immutability": "Each mode starts from a fresh strict state_dict load; float64 is exact promotion of savedfloat32 values. Assert weight equality after inference and all original input hashes before/after. No optimizer, backprop, calibration, checkpoint replacement or test data.",
+    "accounting": "Single outer ledger row research_id=C004 with supervisor=C012, charged to existing C004 validation reserve8h/global48h; no inner GPU row. Shared reviewed C007 remaining_seconds and A016 owned-process handling, exact source hashes bound.300seconds total including45cleanup, two CPU threads; no automatic approval.",
+    "verification": [
+      "Known mixed-tolerance failures, zero reference and nonfinite rejection against independent NumPy",
+      "Grouping detects deliberate cross-candidate dependence and reverses order correctly",
+      "Common-history helper prevents feedback of variant outputs on a synthetic recurrent model",
+      "Fresh float64 model is exact promotion, with unchanged original weights and outputs finite",
+      "Accounting counts C012 via C004 reserve, rejects open/exhausted ledgers and refuses live/wrong-identity closure",
+      "Actual input inventory and original computational source verified before software review and again before GPU admission; old failures immutable"
+    ]
+  },
+  "success": "Complete all declared modes/arrays within bounds and explain results after substantive review. A promising precision policy requires a separate preregistered full selected-checkpoint validation, including forward/gradients and complete deployed encoding, before adoption. C012 alone cannot pass C004 or C009.",
+  "stop": "Any stale parent/source/input, nonfinite output or state mutation stops with preserved evidence. Deadline gives budget_incomplete and exact child cleanup. No tolerance change, test-based selection, implicit retry or checkpoint training.",
+  "resources": {
+    "gpu_hours_max": 0.08333333333333333,
+    "wall_seconds_max": 300,
+    "cleanup_seconds": 45,
+    "memory_fraction_max": 0.5,
+    "cpu_workers_max": 2,
+    "software_wall_seconds_max": 120,
+    "training_device": "none; dedicated GPU inference and CPU reference only"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/C004/o0_n3_s0/review.json",
+      "allow": [
+        "technical_blocked"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/C007/runs/o0_n3_s0/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/C008/runs/o0_n3_s0/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
