@@ -1,0 +1,81 @@
+{
+  "id": "A018",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16",
+  "question": "Do the four newly trained n3 L0/L1 seeds1/2 contain complete original-recipe state before calibrated inference or scientific evaluation?",
+  "hypothesis": "A CPU artifact audit can independently reject incomplete or misidentified final weights, optimizer/scheduler/RNG/logs and lineage even after a normal training exit.",
+  "sources": [
+    {
+      "url": "https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html",
+      "version": "official tutorial accessed2026-11-16, page build2.15; local2.12 source inspected",
+      "sections": "General checkpoint and multiple-module restoration",
+      "consequence": "Restore full model/head and optimizer state separately; exact final/full equality is required. No forward, gradient or training update is needed for artifact consistency."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/generated/torch.optim.Optimizer.state_dict.html",
+      "version": "2.12",
+      "sections": "Parameter IDs/order matched without additional verification",
+      "consequence": "Compare complete expected ordered parameter IDs and moment tensor shape/dtype, not only successful load_state_dict."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/generated/torch.optim.AdamW.html",
+      "version": "2.12",
+      "sections": "Scheduler-before-load warning, zero versus absent gradients; local adam.py lazy state initialization",
+      "consequence": "Construct the original optimizer/scheduler before restoring. These fresh runs require every expected used-state counter to equal303000, without the preserved-input deficits applicable to old resumptions."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/generated/torch.optim.lr_scheduler.LambdaLR.html",
+      "version": "2.12",
+      "sections": "state_dict excludes function/lambda source; get_last_lr",
+      "consequence": "Rebuild the original schedule from unchanged source and independently check complete scheduler state, final cursor and rates."
+    },
+    {
+      "url": "https://arxiv.org/html/2609.04264v3",
+      "version": "v3",
+      "sections": "4.3 and AppendixA.1.1",
+      "consequence": "Retain existing local recipe and known architecture/head differences; finite complete artifacts cannot establish the paper ranking or physical/planning utility."
+    }
+  ],
+  "differences": "Explicit fresh-seed extension of the original A015 artifact check. Four C010-controlled C001 n3 L0/L1 seeds1/2 only. Original six seed0 results and records remain unchanged. No resumed-input offset is accepted because C010 permits only fresh outputs.",
+  "contrary_evidence": "Finite logs do not cover unlogged steps, and internally consistent saved states do not independently prove the entire optimization history or useful representations. GPU RNG bytes are inspected on CPU, not restored to a device. Seed changes can change rankings; this audit cannot establish numeric forward/backward equivalence.",
+  "protocol": {
+    "models": [
+      "l0_n3_s1",
+      "l1_n3_s1",
+      "l0_n3_s2",
+      "l1_n3_s2"
+    ],
+    "admission": "Actual normal C010 raw terminal evidence, exact child absent, unique closed owned C001 outer/inner ledger intervals, matching operation/science name and source commit; reviewed A018/C010 software. Audit before changing runtime checkout. All original runtime source files verify there; executable files also verify against audit checkout. Rehash complete admitted C010 inputs and original A014 train/val bytes.",
+    "custody": "Fresh A018/runs/NAME directory. Bind raw C001/C010 results/manifests, all operation artifact hashes and a fresh substantive per-case consultation. Copy required final/full/config/metrics/lineage through open inodes to a snapshot and verify original bytes before/after. No writes to training artifacts or shared ledger.",
+    "state": "Require kind/n/seed/run_seed identity and original config/defaults, full/final step303000, total derived from actual1000x100train shape with floor batching, no inference-only marker, finite CPU state, strict model/head restore, final/full exact tensor equality, and matching raw result/lineage checkpoint hashes. L0 has no head; L1 has original FourierHead.",
+    "optimizer": "Require original one-group AdamW hyperparameters and ordered parameter IDs. Every model/head parameter has exactly one step/exp_avg/exp_avg_sq state with counter303000, expected shape/float32 dtype, finite values and nonnegative second moments. Compare complete scheduler state rebuilt from original LambdaLR with last_epoch303000,_step_count303001 and lr0. Restore both dictionaries exactly without an update.",
+    "rng": "Full CPU and GPU RNG payloads are nonempty one-dimensional uint8 CPU tensors. Restore CPU state in an isolated torch.Generator and verify exactly. GPU bytes only; CUDA must stay uninitialized.",
+    "metrics": "Complete newline-delimited logs,606 training rows every500 through303000 and16 validations every20000 plusfinal, in exact order. Require finite expected fields, correct research ID, epoch=(step-1)//1515, original scheduled lr at each logged step; no duplicate/gap or repaired logs.",
+    "verification": "Four default-architecture synthetic final-state fixtures for both kinds/seeds without training; deliberate identity, unfinished/inference-only/config/full-vs-final/head/nonfinite, optimizer missing/order/moment/count/group, scheduler/RNG and metric gap/duplicate/nonfinite/LR/epoch faults. Pure terminal fixtures reject live identity/nonzero/timeout/errors/foreign or open/ambiguous ledger; source routing allows newer audit docs but rejects changed runtime/executable bytes. Current absent extra-seed terminal must refuse actual audit. Software fixtures explicitly synthetic, no actual completion claim.",
+    "review": "Actual audit awaits its own substantive review; C001 training and C010 operation reviews separately bind this final_audit_review and digest before calibrated inference or successor. A003 does not cover these seeds; a new numerical-inference scope remains required."
+  },
+  "success": "Scoped software checks reject declared corruptions and later actual terminal artifacts pass every complete-state requirement. This proves checked artifact consistency only.",
+  "stop": "Missing/nonterminal/stale/malformed input or GPU initialization yields technical_blocked evidence; preserve errors and never modify artifacts or relax thresholds to pass.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_workers_max": 1,
+    "software_cpu_seconds_max": 180,
+    "actual_cpu_seconds_max": 180,
+    "disk_gb_max": 2,
+    "training_device": "none; CPU artifact audit only"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/C010/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/A015/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

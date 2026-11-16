@@ -415,10 +415,39 @@ no automatic resume, retry or successor. Actual operations are under
 `outputs/gated/C010/runs/RUN` and require their own review.
 
 The original A003, B003 and C006 records cover only the six seed0 baselines.
-Fresh-seed completion auditing, calibrated inference, probes and CPU planning
-need explicit scope extensions and reviewed software before use. Do not silently
-apply those original records to seeds1/2. C010 software checks alone establish
-neither an actual completed training state nor numerical/scientific validity.
+Fresh-seed calibrated inference, probes and CPU planning still need explicit scope
+extensions and reviewed software before use. Do not silently apply those original
+records to seeds1/2. C010 software checks alone establish neither an actual
+completed training state nor numerical/scientific validity.
+
+After a normal C010 completion, use A018 before changing its runtime checkout:
+
+```sh
+HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' ROCR_VISIBLE_DEVICES='' \
+  OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+  timeout --kill-after=5s 175s "$PY" outputs/gated/A018/audit.py --run l0_n3_s1 \
+  --preconsultation outputs/gated/A018/pre_l0_n3_s1.json
+```
+
+Create the consultation only after inspecting the actual terminal evidence and
+revisiting the relevant sources. It binds the name, A018 record, software review,
+C001/C010 raw results, full checkpoint and final model digests. The audit verifies
+the original runtime source inventory there and executable source in the audit
+checkout, all admitted input bytes, exact process termination and closed owned
+ledger rows. Snapshot files and audit results go to `A018/runs/RUN`.
+
+Nine focused software groups pass: four default L0/L1 seed fixtures,29 deliberate
+state/config/optimizer/RNG/log corruptions,14 invalid terminal/accounting cases,
+source routing and the expected missing-actual-run refusal. The complete-state
+check requires127/131 populated optimizer states, all303000 counters, exact
+model/head and optimizer/scheduler restoration, isolated CPU RNG restoration,
+606training and16validation rows. No forward, backward or update occurs.
+GPU RNG is checked only as bytes; no actual extra-seed checkpoint has been audited.
+
+Inspect and separately literature-review actual A018, C001 training and C010
+operations. Bind `final_audit_review` and its SHA256 in the C001 review; retain
+the same reference in the operational review. A successful artifact audit does
+not replace the still-required numerical inference gate or scientific evaluation.
 
 ### External deadlines for selected-object evaluations
 
