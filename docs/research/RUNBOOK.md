@@ -19,18 +19,20 @@ Full cache inspection and separate C001/C005 reviews pass; all70.4million
 float32 values are finite, expected shapes/payloads and source/data/encoder
 identities match. Its historical source remains6925f47. Evidence is under
 `outputs/gated/C001/extract_n3_s0` and `outputs/gated/C005/v2/runs/extract_n3_s0`.
-Do not rerun extraction. The unchanged O0n3seed0 predictor started at06:28UTC
-through C005v2, with historical runtime commit a75523b. Exact identities and
-heartbeat are under `outputs/gated/C005/v2/runs/o0_n3_s0`; launch evidence is
-`outputs/gated/C005/v2/launch_o0_n3_s0.json`. Do not relaunch or edit its checkout.
-O1 follows using the same cache after actual terminal/audit reviews. C008 is a training-state
-audit and does not cover extraction. Keep each active trainer's runtime checkout
-pinned through its terminal C008 and separate training/operation reviews.
+Do not rerun extraction. O0n3seed0 completed30epochs/11370updates through C005v2,
+with historical runtime commit a75523b. Its actual C008/C001/C005 reviews pass.
+Selected-weight C004 found four long-rollout grouping failures, despite all
+1392 small-batch comparisons passing. The numerical review is technical_blocked;
+normal C007 completion does not override it. Preserve source/checkpoints and
+prepare a fresh bounded precision/backend diagnostic before dependent science.
+See the [O0 report](OBJECT_PREDICTOR_O0_2026-11-16.md). O1 remains pending.
+C008 is a training-state audit and does not cover extraction. Keep each future
+active trainer's runtime pinned through its actual C008 and completion reviews.
 
 Object-model probes and paired learned planning follow, then P26 before extra
-seeds/counts. Baseline planning has five completed and reviewed cases (n1/n3
-L0/L1 and L0n6); the remaining CPU case is L1n6. See the
-[n6 result](BASELINE_PLANNING_N6_2026-11-16.md). The six final
+seeds/counts. All six original baseline planning cases and18000 saved-case
+reconstructions are complete and reviewed. L1n6 is a measured negative with
+successful operation. See the [combined baseline report](FINAL_BASELINE_PLANNING_2026-11-16.md). The six final
 baseline probes are already complete through C006, with a reviewed partial C002
 audit under `outputs/gated/C002/final_baseline_probes`; do not rerun them. At admission,
 47.699 of48 additional GPU-hours and27.997 of28 B/C hours remained; current use
@@ -703,14 +705,35 @@ post-result literature/source review. This reference regression does not establi
 The first replay completed in 296.74 seconds: all 144 numeric fields exactly matched the published summary,
 including counts and all waiting/kind breakdowns. Its positive review is `outputs/gated/D002/legacy/review.json`.
 
+## Latest execution state — 16 November 2026
+
+All six original baseline planning cases and18,000 saved-case reconstructions are
+complete and reviewed. L1n6 is a measured scientific negative, with successful
+operation. O0n3seed0 completed30epochs/11370updates and passed C008/C001/C005
+reviews. Its actual C004 check is technical_blocked: four100candidate8step
+regrouping comparisons exceed fixed tolerance; all1392 short-window comparisons
+and two exact rollout repeats pass. Preserve the failure and a75523b source.
+No training or evaluation is currently active. Before dependent object work,
+preregister a bounded precision/backend/accumulation diagnostic; do not overwrite
+C004 evidence, silently relax tolerances or infer a scientific O0 negative.
+The full C002 comparison, O1/object science, offline P26, further seeds/counts and
+actual final archive remain pending. See the all-six and O0 reports.
+
 ## Evidence bundle
 
 ```sh
-"$PY" -m go2nav.eval.research_report --root outputs/gated --out outputs/gated/report_final --bundle \
+"$PY" outputs/gated/E003/report.py --root outputs/gated --out outputs/gated/report_final --bundle \
   --source-commit 7dfc837 --source-commit 161fe8b --source-commit 98e6fcf
 ```
 
-Use a new output directory for every snapshot; existing reports are preserved. E002 separates measured result
+Use E003 for the final capture after fresh literature consultation and manual verification of its record,
+helper sources and exact software review. Its reviewed capacity extension admits 512 MiB total, retaining
+the 64 MiB individual-file limit; six software groups include all nine inherited cases, a verified 280 MiB
+synthetic archive and both oversize refusals. This does not establish actual final evidence coverage.
+Include additional executed source revisions as required. Preserve the original E002 helper and all
+historical archives. Any actual overflow must stop capture without silent exclusions or limit changes.
+
+Use a new output directory for every snapshot; existing reports are preserved. The inherited E002 logic separates measured result
 status from reviewed status, and leaves missing reviews explicitly awaiting literature review. The archive
 contains current source/configs/docs, exact historical source blobs, small evidence artifacts, raw diagnostic
 text and recovery scripts. Hashes and archive members use the same captured bytes; every member is verified
