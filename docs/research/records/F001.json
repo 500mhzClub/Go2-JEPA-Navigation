@@ -1,0 +1,59 @@
+{
+  "id": "F001",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16",
+  "question": "Does the active work test the user's primary goal: accurate physical obstacle forecasts for independent motion and responses to the robot's actions, with learned heads allowed?",
+  "hypothesis": "Task-aligned physical forecast and matched action-response measures distinguish useful prediction from representation aesthetics or latent-distance planning. Toy work is useful only where it tests a relevant failure more efficiently.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/html/2609.04264v3",
+      "version": "v3",
+      "sections": "Sections4.3-4.4; AppendixA.3 lines321-337 and A.10 lines482-488, revisited before this scope correction",
+      "consequence": "Separate training-only auxiliary supervision, post-training state readout and inference-time physical heads. Linear and MLP readouts test different accessibility; a usable physical decoder is permitted."
+    },
+    {
+      "url": "https://arxiv.org/pdf/2001.03093",
+      "version": "v5",
+      "sections": "Section3 future ego-motion conditioning; Section4 robot future encoder lines314-320; Section5 ADE/FDE definitions and Table5 conditional evaluation",
+      "consequence": "Forecast obstacle trajectories conditional on candidate ego motion and measure physical errors. A conditional forecast evaluated on one recorded future does not establish the correctness of counterfactual action effects."
+    },
+    {
+      "url": "https://arxiv.org/html/2602.11389v2",
+      "version": "v2",
+      "sections": "Sections4.1-4.2, object observability and identity anchor",
+      "consequence": "Object masking is a proposed means of improving prediction; clean slots or latent-only inference are not project success criteria."
+    }
+  ],
+  "differences": "This is a documentation and source audit, not a new model, training run, dataset, metric calculation or result reinterpretation. Existing Go2/ring evaluations include learned readouts and matched reaction tests. Current non-interacting balls cannot demonstrate reactive obstacle forecasting. No published architecture is adopted here.",
+  "contrary_evidence": "Go2 already tested ridge, MLP and spatial heads; adding another head experiment without identifying a missing comparison could repeat prior work. M5's aggregate Genesis forecast improvement does not establish accurate reactions; P24's Genesis reaction experiment was not run. P26 uses recorded future ego poses and requires separate deployment and counterfactual validation.",
+  "protocol": {
+    "scope": "Record the user's clarified objective, audit existing head and forecast measures, update active guidance, preserve historical protocols/results and keep the in-flight O0 runtime unchanged.",
+    "source_commit": "feb35f45fee5c264a67a278c6301b8e93361ca3c",
+    "inspected_sources": [
+      "docs/dynamic/PLAN.md P4/P4b/P25/P26",
+      "docs/dynamic/STATUS.md P4/P4d/P4f/P16/P24",
+      "docs/REVIEW_2026-11-15_repository.md",
+      "go2nav/training/balls.py",
+      "go2nav/eval/balls_probes.py",
+      "go2nav/eval/balls_planning.py",
+      "go2nav/models/object_jepa.py",
+      "go2nav/eval/object_measures.py",
+      "go2nav/eval/slot_dynamics.py"
+    ],
+    "existing_result_bindings": {
+      "outputs/gated/probes/o0_n3_s0/result.json": "f273bad2953f90167f179d968705f0d5118de3a2c43c0b4303e3aa13cfa4afec",
+      "outputs/gated/probes/o1_n3_s0/result.json": "c305366a1e4acd9675220c2df1e6f3be7b639ede453a442d2cee6822b9c9cff8",
+      "outputs/gated/binding/slots_n3_s0/result.json": "b77fbc4ddd04d1f3b790d70d02d27f1b23d253b24f50f14ffeaa31038bf25c1d",
+      "outputs/gated/U008/interim_003/result.json": "48eb7cdbe290802cb647105c377a2ab229aefe960ebcef5998b6c1d89a7425ec"
+    },
+    "verification": "Check documentation links, actual head/metric code, unchanged runtime files, exact existing result-review bindings and publication; no new scientific computation."
+  },
+  "success": "Active guidance prioritizes physical forecast and action-response accuracy, accepts learned heads, retains useful toy work and explicitly identifies what balls, ring and offline Genesis can and cannot test.",
+  "stop": "This record does not authorize a new experiment or bypass existing predecessor checks. Freeze data splits, head training/selection, metrics, baselines and acceptance criteria in a separate literature-gated experimental record before implementation or execution. No automatic successor solely to fill the old planning matrix.",
+  "resources": {
+    "gpu_work": "none",
+    "cpu_work": "documentation/source review only",
+    "training_device": "unchanged dedicated GPU policy"
+  },
+  "predecessors": []
+}

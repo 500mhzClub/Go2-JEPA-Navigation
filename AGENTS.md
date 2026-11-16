@@ -1,5 +1,18 @@
 # Research workflow
 
+## Primary objective clarified by the user — 16 November 2026
+
+Predict dynamic obstacles accurately, both independently and in response to the
+agent's actions, with transfer to Go2. Learned heads at inference are acceptable;
+clean latent representations are secondary. Toy experiments remain appropriate
+when they provide an iteration advantage on these forecasting questions.
+Follow `docs/research/FORECASTING_PRIORITY_2026-11-16.md` for current priorities.
+Keep the active O0 run unchanged and inspect/review its terminal result. Do not
+automatically advance the old toy planning matrix; first audit existing learned-
+head and reaction evidence and preregister the missing forecasting comparison.
+Historical protocols, incomplete work and literature gates remain intact. This
+clarification does not authorize bypassing launcher checks or new Genesis data.
+
 The user requires literature consultation as a gate before every new implementation,
 experiment, or interpretation of a positive, negative, or inconclusive result.
 This applies to future work in this repository, not only the current P25/P26 stage.

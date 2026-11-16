@@ -1,5 +1,11 @@
 # Remaining approved work after the GPU-time override
 
+The user's subsequent [forecasting clarification](FORECASTING_PRIORITY_2026-11-16.md)
+changes execution priority: physical forecasts and action responses, with learned
+heads permitted, govern the next experiment. The inventory below is preserved as
+pending historical scope, not an instruction to launch all planning replications
+automatically or a substitute for the clarified project's completion criteria.
+
 This is an execution inventory as of16 November2026, not a new scientific
 analysis. All global, stage and per-run GPU-hour limits are removed under
 [U001](records/U001.json). Progressing jobs continue; elapsed accounting,

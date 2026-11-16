@@ -1,5 +1,16 @@
 # P25/P26 research gate
 
+## Current priority — physical obstacle forecasting
+
+The user's latest clarification makes accurate independent-motion and action-
+conditioned obstacle forecasts the primary goal; learned heads are acceptable.
+Toy work remains useful where it answers that question faster. The
+[forecasting priority](FORECASTING_PRIORITY_2026-11-16.md) and [F001](records/F001.json)
+supersede automatic progression through the planning matrix below. Keep O0 running
+and review it on completion, then audit existing head/reaction evidence and
+preregister the missing forecasting comparison. Earlier stages remain preserved
+and incomplete; no new experiment or bypass is authorized by this documentation.
+
 ## Current user authorization — GPU time limits removed
 
 On 16 November 2026 the user explicitly removed GPU-hour limits for the approved

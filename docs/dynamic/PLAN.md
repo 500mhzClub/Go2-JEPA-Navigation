@@ -1,5 +1,12 @@
 # Dynamic environments and a continuous action contract (plan, draft for review)
 
+**Latest user clarification (16 November):** accurate obstacle forecasts, including
+responses to the robot's actions, are the primary goal. Learned heads are allowed;
+clean latents are secondary. Toy experiments remain useful for faster relevant
+iteration. [Current forecasting priorities](../research/FORECASTING_PRIORITY_2026-11-16.md)
+supersede automatic progression through the historical planning matrix below.
+The in-flight O0 run is preserved; its successors require a task-aligned rationale.
+
 **Active P25/P26 execution revision (16 November):** the approved literature gate,
 sequential new GPU work, source-corrected identity anchor and offline endpoint are specified in
 [research records](../research/README.md) and the [runbook](../research/RUNBOOK.md).

@@ -1,5 +1,14 @@
 # P25/P26 execution
 
+## Current priority — physical obstacle forecasting
+
+Read [the user's clarified objective and execution order](FORECASTING_PRIORITY_2026-11-16.md)
+before using the historical sequence below. Learned heads are acceptable; physical
+forecast and action-response accuracy govern the work. Finish and review the
+active O0 run, but do not automatically launch O1 planning or later replications.
+Audit existing Go2/ring evidence and preregister the missing forecasting test.
+Existing launcher requirements remain intact until separately revised and verified.
+
 ## Current user authorization — GPU time limits removed
 
 On 16 November 2026 the user explicitly removed GPU-hour limits for the approved
