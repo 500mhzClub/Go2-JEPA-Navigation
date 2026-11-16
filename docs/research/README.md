@@ -42,7 +42,7 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [C003](records/C003.json) | Does optimizer recovery preserve subsequent updates and updated-weight numerics? | Both default n3 models pass the small GPU recovery/forward/gradient/grouping diagnostic; reviewed |
 | [C004](records/C004.json) | Are selected learned slot checkpoints numerically valid on real inputs and planning-sized batches? | Validator and failure-detection tests implemented; learned-checkpoint results pending |
 | [C005](records/C005.json) | Can unchanged slot stages respect both B/C and shared time allocations if GPU progress stalls? | v1's 18 CPU checks reviewed and live n3 trainer supervised; isolated v2 corrects future C004 reserve classification with eight reviewed checks; terminal training result pending |
-| [C006](records/C006.json) | What physical state and four-step dynamics do the six final baselines preserve under the frozen probes? | CPU execution preregistered; eight helper groups and six actual parent lineages inspected and literature-reviewed; actual probe cases pending |
+| [C006](records/C006.json) | What physical state and four-step dynamics do the six final baselines preserve under the frozen probes? | CPU helpers reviewed; actual final n3 L0/L1 probes and supervision reviewed: L1 improves white readout but worsens red precision; n1/n6 pending |
 | [D001](records/D001.json) | Can frozen camera slots replace engineered tracks in Genesis? | Matched 600/100 units prepared; model comparison pending |
 | [D002](records/D002.json) | Does the full historical M5 offline summary still reproduce? | All 400 units replayed; all 144 reported numeric fields exactly match; reviewed |
 | [E001](records/E001.json) | Does the repeat-based value estimate establish impossibility? | Documentation corrected; V2 remains a measured negative |
@@ -54,6 +54,8 @@ See [commands and remaining gates](RUNBOOK.md) and [measured implementation evid
 
 See the [final inference report](FINAL_INFERENCE_2026-11-16.md) for all-six
 completion, numerical coverage, calibration measurements and remaining science.
+See the [final n3 physical probes](FINAL_PROBES_N3_2026-11-16.md) for the matched
+L0/L1 red/white tradeoff on 5,000 test windows and its limits.
 See the [baseline checkpoint report](BASELINE_PROGRESS_2026-11-15.md) for the
 completed L1 n1/n3 logs, the frozen L0 n1 snapshot and what their comparisons test.
 See the [CPU checkpoint progress report](CHECKPOINT_PROGRESS_2026-11-15.md) for
