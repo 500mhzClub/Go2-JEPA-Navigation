@@ -141,3 +141,5 @@ See the [preliminary checkpoint analysis](CHECKPOINT_ANALYSIS_2026-11-15.md) for
 the matched-step measurements, literature interpretation and current runtime limitation.
 See the [runtime recovery handoff](RUNTIME_RECOVERY_2026-11-15.md) for the current
 infrastructure evidence, preserved checkpoints and postboot gate.
+
+See the [preliminary O0 planning assessment](PRELIMINARY_OBJECT_PLANNING_2026-11-16.md): the independently checked495case prefix has2O0 successes versus486L0 and469L1 on identical tasks. Full O0 and all O1 planning remain pending; [U008](records/U008.json) records this interim-only readout.

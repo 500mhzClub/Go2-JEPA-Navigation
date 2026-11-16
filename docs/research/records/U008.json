@@ -1,0 +1,54 @@
+{
+  "id": "U008",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T10:33:07.643274+00:00",
+  "question": "What preliminary conclusions are supported by a frozen prefix of the active O0 planning run and already-reviewed binding/probes?",
+  "hypothesis": "The observed prefix may expose a task-utility gap despite numerically valid computation; only complete paired runs can satisfy the final protocol.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/html/2609.04264v3",
+      "version": "v3",
+      "sections": "Section 4.4, Section 5.1.1 and Appendix A.10, read before this interim analysis",
+      "consequence": "Keep fixed task/horizon/CEM and physical success metrics; separate decoded physical information from planning utility and do not treat partial observations as five completed groups or replicated training seeds."
+    },
+    {
+      "url": "https://arxiv.org/html/2602.11389v2",
+      "version": "v2",
+      "sections": "Appendix B.1-B.2, D.2 and G, read before this interim analysis",
+      "consequence": "Object masking alters available representations; Hungarian matching addresses slot ordering but does not establish object binding or causal identification. Local balls open-loop planning differs from paper Push-T MPC."
+    },
+    {
+      "url": "https://arxiv.org/html/2306.04829v2",
+      "version": "v2",
+      "sections": "Appendix B.4, read before this interim analysis",
+      "consequence": "Non-object groupings can occur under reconstruction in the paper mixer-decoder setting. Our RGB mixture decoder differs; this supports a hypothesis only, not attribution."
+    }
+  ],
+  "differences": "User-requested interim descriptive readout of an already running B001 experiment. No new model execution, training, metrics, thresholds, task selection by outcome or final C002 aggregation.",
+  "contrary_evidence": "A prefix may differ from later episodes; episode counts are not training-seed replication. Poor linear probes or decoder masks do not prove absence of nonlinear information, and planning failure does not isolate encoder versus dynamics versus latent cost.",
+  "protocol": {
+    "scope": "immutable interim prefix and paired descriptive summary",
+    "run": "o0_n3_s0",
+    "selection": "Read current cases.jsonl once, retain complete newline records, select all contiguous fully completed episodes from zero with horizons4/6/8; exclude any final incomplete episode without outcome-based filtering.",
+    "controls": "Match exactly the same episode/horizon/start/goal/CEM-seed in completed L0/L1 and recorded/direct/true-CEM/hold/random controls; require original result reviews/digests.",
+    "inspection": "Use unchanged qualified C009v2.audit_rows and inherited B003v2.audit_rows to independently reconstruct actions/endpoints/collisions on this prefix. Preserve source hashes and full snapshot bytes.",
+    "report": [
+      "counts and endpoint success per horizon",
+      "collision-free success per horizon",
+      "mean and median endpoint error",
+      "source/snapshot hashes",
+      "coverage and incomplete-operation limitations"
+    ],
+    "uncertainty": "Descriptive interim counts only; no sequential significance claim or population confidence intervals. Full3000case inspection/paired O1 and seed replications remain required.",
+    "next": "Finish active O0 unchanged, then review and run matched O1; do not tune or stop based on this prefix."
+  },
+  "success": "Exact matched task coverage and independent saved-action physical scores; this attests an interim readout only.",
+  "stop": "Stop interim analysis if source, reviewed parent, task or scoring checks fail; leave the active experiment untouched and preserve the failure.",
+  "resources": {
+    "device": "CPU only",
+    "gpu_hours": 0,
+    "wall_seconds_max": 120,
+    "threads": 2
+  },
+  "predecessors": []
+}
