@@ -24,6 +24,12 @@ censoring and separate layout IDs; paired tracker targets have small mean errors
 but long tails and incomplete coverage. F004 must keep target-label access and
 starting-scene sampling matched when separating branch data from paired losses.
 
+[F004's frozen comparison](MATCHED_FORECASTING_2026-11-16.md) now implements that
+contract. Eight software groups pass; independently verified exports contain104,590
+train and10,601 validation scenes with seven futures each. No model has trained.
+Qualify the GPU execution route and review terminal O0 evidence before launching
+the factual/branch/paired comparison. Do not repeat the completed audits.
+
 ## Current user authorization — GPU time limits removed
 
 On 16 November 2026 the user explicitly removed GPU-hour limits for the approved
@@ -42,9 +48,9 @@ The immediate execution route runs the original full64 GPU planner unchanged:
 
 Fresh results go to `outputs/gated/planning_full/RUN`; operations are under
 `outputs/gated/U001/operations/RUN`. Preserve the original partial O0 directory.
-Review O0 fully before the paired O1 run, then proceed to offline P26 and the
-remaining approved seeds/counts. Later stage supervisors must use this override
-instead of their historical enforced caps. The CPU feasibility diversion is
+Review O0 fully before further GPU work. The current forecasting priority above
+supersedes automatic O1/P26/matrix progression; those historical rows remain pending.
+Later stage supervisors must use this override instead of their historical enforced caps. The CPU feasibility diversion is
 cancelled; no CPU diagnostic or C015 planner optimization is being adopted.
 
 

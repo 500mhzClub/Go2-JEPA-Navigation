@@ -22,7 +22,10 @@ audit or treat its proposed comparison as an already-qualified launch protocol.
 [F003](BRANCH_DATA_AUDIT_2026-11-16.md) subsequently verified all existing branch
 payloads. Keep physical target-label access and starting-scene sampling matched
 across the forthcoming training arms; tracker-derived targets have long error
-tails. The separate F004 training protocol is the next required step.
+tails. [F004](MATCHED_FORECASTING_2026-11-16.md) now freezes that comparison;
+its eight software groups and complete archived-data export/independent verification
+pass. The next step is qualifying its GPU execution route, then running the three
+arms after terminal O0 review. No F004 model has been trained yet.
 
 ## What we already tested, and what P25 adds
 

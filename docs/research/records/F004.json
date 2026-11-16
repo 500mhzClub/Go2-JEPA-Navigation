@@ -1,0 +1,111 @@
+{
+  "id": "F004",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T14:52:53.229511+00:00",
+  "question": "With matched starting scenes, model capacity and physical labels, do archived alternative robot actions and an explicit paired-response objective improve physical obstacle forecasts without inventing reactions?",
+  "hypothesis": "Branch exposure can improve action coverage; directly supervising the difference between sibling futures may reduce false responses while retaining genuine responses. F002 and N4 show neither improvement is guaranteed.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/pdf/2001.03093",
+      "version": "v5",
+      "sections": "Sections3-4 candidate ego plans and observable histories; Section5 ADE/FDE and deterministic baselines, full methods revisited before this record",
+      "consequence": "Evaluate trajectories in metres given observed history and specified robot motion. Keep physical targets separate from inputs. Our deterministic autoregressive head and paired loss are local choices, not reproductions of its CVAE."
+    },
+    {
+      "url": "https://proceedings.neurips.cc/paper_files/paper/2019/file/947018640bf36a2bb609d3557a285329-Paper.pdf",
+      "version": "NeurIPS2019 proceedings",
+      "sections": "Section3.1 functional causal models/interventions, revisited before this record; Section4.2 interventional algorithms previously read for F003",
+      "consequence": "Same-scene alternative actions distinguish conditional correlation from response information. This imitation-learning paper does not validate our proposed dynamics loss or prove simulated responses transfer to people."
+    },
+    {
+      "url": "https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html",
+      "version": "Tutorial last updated June2025; retrieved documentation header2.15, installed runtime2.12+ROCm7.2",
+      "sections": "Saving & Loading a General Checkpoint for Inference and/or Resuming Training; model.eval/train; device remapping",
+      "consequence": "Store optimizer, step, scheduler and RNG state as well as weights; verify restart and inference grouping. Documentation does not establish numerical equivalence on this AMD device."
+    }
+  ],
+  "differences": "Three deterministic physical forecasters using the existing ObjectJEPA displacement head. This is a new supervised recipe, not exact M5 replication or a latent-only planning study. Existing ring files only; no new simulation or collection. Physical truth supplies targets in every arm, never inference inputs. No model-vs-head attribution claim.",
+  "contrary_evidence": "M5 has useful responses but excess false reactions; N4 already used branch data and did not resolve the issue. Hidden walker intent, short observation histories, contact censoring and simulator-specific behavior may limit every arm. Lower pooled error can be achieved by suppressing genuine responses, so it cannot alone pass.",
+  "protocol": {
+    "source_commit": "52b1ddbc6efdb61da8e7eaa8c7f733d2121eb303",
+    "inputs": {
+      "branch_manifest": "outputs/gated/F003/inputs.json",
+      "branch_manifest_sha256": "cd7a487de368044c7d25f7cca86c91a0be59eb3a51d07cd3eaa1802f56bfe86d",
+      "additional_manifest": "outputs/gated/F004/additional_inputs.json",
+      "additional_manifest_sha256": "fee45e7a1b21a11a9819c79efd144e1c3dec77cca767699b7db5830bf74f848f",
+      "branch_review_sha256": "742fc1235621baa3a33d5ca4ccecb7220e2003716fd9c6f4f06f8760b8c36a21"
+    },
+    "population": "All4500 train/500 val parent episodes; retain six-way branch points with a full parent future t0+64<len(pose) and at least one unique initial F003 match. Count every exclusion and coverage. Same retained point population across arms; no response-based balancing. Parent frames are recorded before stepping/contact; full-parent-future rule excludes ended episodes. Train/val layout IDs remain disjoint. This is encounter-selected factual validation, not an all-time-window or fresh test set.",
+    "identity": "At branch frame8 match seen valid-ID slots to in-sight finite physical walkers <=3m using mutual nearest distance<=0.3m; exclude nearest ties<=1e-8. Fix walker identity once. Match controls target identity/mask only; all observed slots including unmatched slots remain inputs.",
+    "cache": "CPU float32 NPY arrays, history frames0/4/8 and past8 requests once per point; six branch futures plus factual future index6, requested64x3 and robot poses at4,8,...64. Separate truth targets16x6x2/masks; invalid coordinates stored0 with false mask. Branch contact at or before endpoint invalidates it; no future visibility or ID requirement. Keep initial matching, visible/seen counts, episode/layout/t0/kind/waiting metadata for coverage. Verify all source hashes on export and all cache hashes before use.",
+    "arms": {
+      "factual": "Duplicate factual continuation index6 twice for each sampled point, intentional same compute/trajectory budget with fewer distinct outcomes. Standard trajectory loss only.",
+      "branch": "Two distinct uniform indices from0..5 at each sampled point. Standard trajectory loss only.",
+      "paired": "Exactly the same point/branch samples and initialization as branch, plus weight1 paired difference loss."
+    },
+    "inputs_contract": "Observed tracker xy/seen/id/velocity at3 history steps, past requests, robot history, full map raster, candidate future requested commands and robot path. Align all coordinates with robot body at t0; preserve track ID within history; share slot permutation across sibling pair. No future obstacles, truth matching, waiting, contact mask or walker kind in model inputs. Prediction at endpoint k uses only action/robot prefix up to that endpoint; test later candidate changes cannot affect earlier predictions. Actual realized ego paths make this conditional forecasting, not command-only prediction.",
+    "model": {
+      "slots": 6,
+      "history": 3,
+      "dim": 128,
+      "depth": 6,
+      "heads": 4,
+      "head_dim": 32,
+      "mlp": 512,
+      "hidden": 256,
+      "dropout": 0.0,
+      "residual": true
+    },
+    "training": {
+      "seed": 0,
+      "steps": 20000,
+      "pairs_per_batch": 128,
+      "microbatch_pairs": 16,
+      "rollout_steps": 16,
+      "lr": 0.0003,
+      "weight_decay": 0.001,
+      "warmup_steps": 500,
+      "grad_clip": 1.0,
+      "schedule": "linear warmup then cosine to zero",
+      "precision": "float32; math SDPA; no AMP or compile",
+      "trajectory_loss": "Mean Euclidean error over all valid slot/step targets. Full16-step autoregression, no teacher forcing or masking. torch.linalg.vector_norm (zero residual gives zero gradient).",
+      "paired_loss": "Mean Euclidean norm of (prediction_b-prediction_a)-(truth_b-truth_a), pooled valid slots at steps4/8/16 where both endpoints valid. Weight1 only in paired arm. Microbatch numerators divided by entire batch counts, not mean of microbatch means.",
+      "sampling": "Uniform replacement over retained train points, uniform distinct sibling indices, one shared random slot permutation per pair. Independent NumPy sampling stream seeded0 common to all arms; draw branch indices even for factual arm before replacing both with6.",
+      "checkpoint_every": 1000,
+      "log_every": 100,
+      "validation_every": 2000,
+      "validation_points": 512,
+      "selection": "Final20000-step checkpoint only; validation is monitoring and never chooses a checkpoint. All three primary seed0 arms before benefit claims. Seeds1/2 require a separately reviewed replication decision."
+    },
+    "evaluation": "On every retained val point, forecast all7 futures. Compare final factual/branch/paired models, current frozen M5 reference, observed-position persistence and straight-line tracker-velocity CV on identical masks. Score physical ADE over valid prefixes and endpoint FDE at1.6/3.2/6.4s, median/p95, by walker kind and initially waiting. Score all15 sibling pairs: response-vector error, true-effect magnitude, direction where truth>5cm (predicted-zero direction undefined and counted), false-response rate for truth<=5cm and exact-zero<=1e-6m, responsive subset error, magnitude slope with intercept, same-command controls. Report all initial match and contact coverage. Report paired layout-cluster bootstrap2000 draws seed2026111604, percentile95% intervals; do not pretend correlated sibling pairs are independent. Reused val corpus and topology limits explicit. No new hold/retreat replay or original511-case reassessment in F004.",
+    "engineering_bars": "Primary paired-vs-branch: at3.2s AND6.4s at least20% lower mean response-vector error overall AND on true-effect>5cm subset, with paired layout-bootstrap95% upper difference<0 for all four comparisons. False-response rate must not increase at either horizon. Factual ADE and FDE at each1.6/3.2/6.4 horizon must be <=1.05 times factual-arm value; report whether each beats both CV and persistence. Report all results even if bars fail. These are declared engineering thresholds, not literature-derived universal standards; no multiplicity-adjusted discovery claim. Original P22 reaction-slope lowerCI>0.5 remains separately reported and unchanged.",
+    "software_verification": [
+      "Initial match, ties, false positives, all-sibling/history identity, terminal-contact inclusive censoring, and factual/branch axis/time alignment on known synthetic examples",
+      "Truth/label mutation cannot change inputs or predictions; future candidate suffix cannot change prefix predictions; sibling shared slot shuffle; identical action predictions identical",
+      "Independent scalar target and input reconstruction on first and last eligible points of every episode; all cache/source hashes, sizes, finite masked values and split IDs",
+      "Loss and gradients for known response/nonresponse; unequal valid-count microbatch equivalence; sampler exact restart and arm matching; optimizer/scheduler/RNG resume; reject stale record/source/data, invalid arm, existing fresh output and CPU training",
+      "Selected trained checkpoints: fixed first64 eligible val scenes, CPU/GPU and batch1/batch32 full16-step predictions, atol=rtol=1e-4 with math SDPA. Failed numerics block interpretation, no silent tolerances/backend changes"
+    ],
+    "gates": "Review exact software results before export; independently verify and literature-review exact exported data before training. Review O0 terminal science/inspection/operations before next fullGPUjob. New F004 supervisor requires idle GPU, closed old intervals, clean pinned source and exact preconsultation/input hashes; retain U001 elapsed accounting only, owned progress watchdog quiet1800s TERM30s KILL10s. Review each training/evaluation result before successors; no automatic passing reviews. Implementing this record does not satisfy any old O1/P26 predecessor.",
+    "outputs": "outputs/gated/F004/{software,data,runs/<arm>_s0,evaluation}; tracked implementation go2nav/data/paired_forecasts.py, go2nav/training/paired_forecasts.py and tools/research/f004_*.py. Atomic immutable terminal results and reviews; failed attempts/source retained. Full software and data outcomes precede any GPU launch."
+  },
+  "success": "A verified comparison distinguishing branch exposure from paired loss, with numerical validity, physical forecast and reaction/nonreaction evidence. Passing engineering bars supports a deterministic simulated forecast candidate for offline Go2 transfer, not real-world causal accuracy or closed-loop safety.",
+  "stop": "Preserve any failure. Nonfinite training, invalid/missing masks or provenance, GPU contention, failed numerics or1800s no progress stop owned work for review; no time cap on progressing jobs. No tuning on val, silent label changes, new simulation, automatic O1 planning, CPU training fallback, or claim of project completion from this experiment.",
+  "resources": {
+    "gpu_hours_max": null,
+    "gpu_policy": "User removed all time caps; elapsed accounting only",
+    "training_device": "dedicated GPU only, full jobs serial",
+    "gpu_memory_fraction_max": 0.85,
+    "cpu_export_workers": 4,
+    "cpu_threads_per_worker": 1,
+    "cpu_export_memory_gib_max": 16
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/F003/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
