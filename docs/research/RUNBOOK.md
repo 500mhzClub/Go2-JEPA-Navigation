@@ -151,6 +151,26 @@ the learned planner. CEM uses final elite mean; goal slots are independently enc
 
 ## C: three-ball core, then extra seeds/counts
 
+C005 adds an external deadline around unchanged C001 commands: the smaller of
+the remaining 28-hour B/C and 48-hour shared allowances, reserving 45 seconds for
+identity-checked cleanup. Its 18 CPU process/accounting checks passed and received
+literature review. It preserves the last atomic checkpoint on a deadline stop;
+updates after that checkpoint may be lost. No successor or review is automatic.
+Launch the first stage with its recorded scientific consultation:
+
+```sh
+python3 outputs/gated/C005/run_stage.py --stage slots --n 3 --seed 0 --python "$PY" \
+  --preconsultation outputs/gated/C005/pre_slots_n3_s0.json
+```
+
+The wrapper accepts `slots`, `extract`, `o0` and `o1`, plus the corresponding
+checkpoint/cache/parent-review arguments below. Each new stage needs its own
+substantive consultation and unused output directory. Scientific outputs remain
+under `outputs/gated/C001/STAGE_nN_sSEED`; operational outputs are under
+`outputs/gated/C005/runs/STAGE_nN_sSEED`. Inspect and review both actual results
+before dependent work. Direct commands below document the unchanged child
+protocol; use the supervisor for execution so the B/C cap is also enforced.
+
 C003 has also passed a bounded three-update GPU diagnostic of the actual checkpoint helpers, optimizer state,
 schedule, cursor and RNG restoration, followed by CPU/GPU output/gradient and batch-grouping checks. Its synthetic
 inputs and short run do not establish full-loop crash recovery, convergence or final trained-checkpoint validity.

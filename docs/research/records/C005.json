@@ -1,0 +1,72 @@
+{
+  "id": "C005",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16",
+  "question": "Can unchanged C001 slot training, extraction and predictor jobs be externally bounded by the shared 48-hour and B/C 28-hour allocations, including a stalled GPU call?",
+  "hypothesis": "The reviewed owned-process supervisor can enforce a fixed deadline and close only its child's accounting after confirmed termination, without changing scientific training or selection.",
+  "sources": [
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen poll/wait, timeout cleanup and file redirection",
+      "consequence": "Reuse reviewed owned-child waiting and identity-checked TERM/KILL cleanup; a timeout does not itself terminate the child."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/time.html",
+      "version": "3.12",
+      "sections": "time.monotonic",
+      "consequence": "Fix a monotonic deadline at admission and recheck current ledger allowance; no wall-clock extension."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/fcntl.html",
+      "version": "3.12",
+      "sections": "flock and LOCK_EX",
+      "consequence": "Use the existing shared ledger lock; refuse any unresolved open interval before launch."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/pathlib.html",
+      "version": "3.12",
+      "sections": "Path.resolve versus absolute",
+      "consequence": "Canonicalize both recorded and requested output paths; uniquely bind the child interval through its manifest before closure."
+    },
+    {
+      "url": "go2nav/training/balls_slots.py",
+      "version": "sha256:eedd2df4deb7f809b9cefea40e8ac676ccd4f5d5a9dbabbb63195f32b25337e9",
+      "sections": "train_stage, save/checkpoint and extract",
+      "consequence": "Keep unchanged atomic checkpoint every 100 updates and epoch boundary. A forced stop preserves the last complete checkpoint and may lose later updates; never call partial completion a scientific negative."
+    }
+  ],
+  "differences": "Operational extension of reviewed A016 to the approved C001 stages only. The scientific C001 record, samples, architecture, precision, optimizer, selection and stopping epochs remain unchanged. Tests use only temporary ledgers and harmless CPU subprocesses. Original training and completed A003 outputs are untouched.",
+  "contrary_evidence": "An uninterruptible kernel task may outlast TERM/KILL deadlines. Normal child exit does not validate learned numerics or scientific performance. Full training checks only global budget at checkpoints, so this external cap is needed for the B/C allocation and host-side stalls.",
+  "protocol": {
+    "scope": "Unchanged C001 slots/extract/o0/o1 jobs in the approved counts/seeds/order; no automatic successor, retry, review or budget transfer.",
+    "allocation": "The fixed B/C allowance is 28 hours within global48. Union-count B001,C001,C002,C004 and C005 intervals; C003 remains reserve as already declared. A/D/reserve cannot be silently transferred. Every C005 outer interval counts to B/C and global; contained C001 interval overlaps count once.",
+    "admission": "Require C005 software review and source hashes, C003 passing verification with unchanged model/trainer hashes, all six reviewed final A003/A016 cases, complete nonempty manual preconsultation, no live repository trainer, no compute process, no open ledger interval, clean current checkout, unused child/operational output paths. Inner C001 parent-review guards remain authoritative for extraction/predictors.",
+    "supervision": "Deadline min(global remaining, B/C remaining)-45 seconds, monotonic from admission; recheck at most30 seconds. At deadline, exact PID/create/cmd/cwd identity required for TERM30 then KILL10. Retain raw outputs/checkpoints. Close owned outer and uniquely manifest-bound inner intervals only after confirmed child termination; leave unresolved intervals open. Do not modify raw child result/manifest.",
+    "classification": "Successful terminal child and complete raw result await separate scientific and operational literature reviews. Deadline stop is budget_incomplete. Nonzero exit, bad/missing raw result or accounting error is technical_blocked. No scientific success inferred from process completion.",
+    "checks": "Temporary-ledger allocation/union/exhaustion/refusal/unique-child/symlink/foreign preservation checks, actual harmless normal/nonzero/TERM/KILL subprocesses, changed source/preconsultation rejection; shared ledger unchanged and torch never imported in software tests."
+  },
+  "success": "CPU supervision checks pass and actual owned child is accounted for honestly; scientific result still needs its exact review and selected-checkpoint C004.",
+  "stop": "Refuse failed admission without a GPU context or ledger mutation. Preserve technical/budget outcomes, consult literature before dependent work. No model changes, device resets, CPU training or allowance increases.",
+  "resources": {
+    "gpu_hours_max": 28,
+    "shared_gpu_hours_max": 48,
+    "allocation": "B/C, existing allowance",
+    "cpu_workers_max": 2,
+    "training_device": "Unchanged C001 child on dedicated GPU"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/A016/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/C003/recovery/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
