@@ -1,0 +1,77 @@
+{
+  "captured_at": "2026-11-16T11:44:06.626726+00:00",
+  "purpose": "U013 CPU planning routing source; original scientific source stays at a75523b",
+  "file_count": 10,
+  "files": [
+    {
+      "source": "outputs/gated/U013/check.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U013/check.py",
+      "sha256": "df2dadf252ec810f8c36ecb56407ec990454e0d8b008752da5b0c39452923317",
+      "bytes": 15810,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U013/integration.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U013/integration.py",
+      "sha256": "3478bd8275f7483ca3d9e9a8dc9bda222e9bea93708366b1fb5a53e5edd23bbd",
+      "bytes": 2591,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U013/run_one.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U013/run_one.py",
+      "sha256": "c7536343db838b03f8b296c3063a364246843d19e59470a303523f01371cc591",
+      "bytes": 6015,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U013/software/source/check.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U013/software/source/check.py",
+      "sha256": "df2dadf252ec810f8c36ecb56407ec990454e0d8b008752da5b0c39452923317",
+      "bytes": 15810,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U013/software/source/integration.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U013/software/source/integration.py",
+      "sha256": "3478bd8275f7483ca3d9e9a8dc9bda222e9bea93708366b1fb5a53e5edd23bbd",
+      "bytes": 2591,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U013/software/source/run_one.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U013/software/source/run_one.py",
+      "sha256": "c7536343db838b03f8b296c3063a364246843d19e59470a303523f01371cc591",
+      "bytes": 6015,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U013/software_attempt_001/source/check.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U013/software_attempt_001/source/check.py",
+      "sha256": "5895252a226aac3b57e863141b7720f3ea7f7a9cfc84b79d738f01644452d760",
+      "bytes": 15779,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U013/software_attempt_001/source/integration.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U013/software_attempt_001/source/integration.py",
+      "sha256": "3478bd8275f7483ca3d9e9a8dc9bda222e9bea93708366b1fb5a53e5edd23bbd",
+      "bytes": 2591,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U013/software_attempt_001/source/run_one.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U013/software_attempt_001/source/run_one.py",
+      "sha256": "c7536343db838b03f8b296c3063a364246843d19e59470a303523f01371cc591",
+      "bytes": 6015,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U013/controlled_changes.json",
+      "snapshot": "tools/research_runtime/outputs/gated/U013/controlled_changes.json",
+      "sha256": "6d94c0f8db3c6b3385f8574384000549bf78a8d1bf7b0058f3da6bfefcbc9087",
+      "bytes": 755,
+      "mode": "0o664"
+    }
+  ]
+}
