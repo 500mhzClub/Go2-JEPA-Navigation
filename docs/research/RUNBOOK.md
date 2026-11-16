@@ -27,10 +27,19 @@ normal C007 completion does not override it. C012 subsequently completed its
 bounded precision diagnostic; all180 saved-array summaries and separate actual
 inspection/science/operation reviews pass. Float32 regrouping failures appear
 at steps7/8; common-history float32 and recursive float64 comparisons pass.
-Preserve C004 and all checkpoints. Next preregister full validation of the
-float32 encoder/float64 predictor policy and downstream dtype boundaries before
-adoption. C012 alone cannot admit C004/C009 or any physical interpretation.
-See the [O0 report](OBJECT_PREDICTOR_O0_2026-11-16.md). O1 remains pending.
+Preserve C004 and all checkpoints. C013 subsequently tested both complete
+precision paths: encoder64/predictor64 passes2772comparisons; mixed precision
+fails one long-rollout CPU/GPU comparison. Actual inspection/science/operation
+reviews pass under `outputs/gated/C013/retry_001`. The initial validator shape
+failure and two earlier software versions remain preserved. See the
+[precision report](OBJECT_INFERENCE_PRECISION_2026-11-16.md).
+Next preregister evaluator integration and full64 checks for future selected
+models; C009 still requires its original C004 route and must not be bypassed.
+O1n3seed0 training is now active through C005v2 from unchanged runtime a75523b.
+Its consultation and launch are `outputs/gated/C005/v2/pre_o1_n3_s0.json` and
+`launch_o1_n3_s0.json`. Keep that gated checkout pinned through its actual C008
+terminal audit and separate C001/C005 reviews. Validation work may continue in
+the isolated validation checkout. No O1 physical result exists yet.
 C008 is a training-state audit and does not cover extraction. Keep each future
 active trainer's runtime pinned through its actual C008 and completion reviews.
 

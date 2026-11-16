@@ -1,5 +1,10 @@
 # First object predictor: training complete, precision diagnosis reviewed — 16 November 2026
 
+Latest: [C013 full precision validation](OBJECT_INFERENCE_PRECISION_2026-11-16.md)
+passes with both encoder and predictor in float64; mixed precision fails one
+complete-path rollout comparison. Evaluator integration remains pending, and
+paired O1 training has been launched. The C004/C012 history below is preserved.
+
 The n3 seed0 O0 model completed its fixed 30 epochs and 11,370 updates normally.
 All 83 Adam parameter states, scheduler counters, original source/data/cache
 bindings and strict CPU restoration pass the terminal audit. The first strict
