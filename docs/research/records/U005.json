@@ -1,0 +1,92 @@
+{
+  "id": "U005",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T10:08:21.018248+00:00",
+  "question": "Can the four already-approved additional baseline seeds retain their full scientific prerequisites and original recipe under the user removal of GPU-hour limits?",
+  "hypothesis": "Reusing original C010 routes, data/P26/prior-training checks and closure plus reviewed U001 accounting and U003 core evidence will remove obsolete resource enforcement without a model or evaluation change.",
+  "sources": [
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen.poll/wait, TimeoutExpired and terminate/kill",
+      "consequence": "A wait expiry is not termination; retain exact owned-process identity and original closure after terminal confirmation. Replace total GPU deadlines by reviewed output-progress monitoring."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/runpy.html",
+      "version": "3.12",
+      "sections": "run_module, run_name and alter_sys",
+      "consequence": "Install U001 accounting functions before the original trainer imports them; execute its unchanged CLI in a fresh single child."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/fcntl.html",
+      "version": "3.12",
+      "sections": "flock, LOCK_EX and LOCK_NB",
+      "consequence": "Keep exclusive ledger admission and refuse any open interval; remove only elapsed-time cap admission."
+    },
+    {
+      "url": "https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html",
+      "version": "official tutorial accessed2026-11-16; site2.15, localruntime2.12unchanged",
+      "sections": "Saving and Loading a General Checkpoint; CPU loading",
+      "consequence": "Retain full optimizer/scheduler/RNG checkpoints and original A018 state checks. Launcher completion alone is not artifact or numerical validity; A018 metadata integration remains a prerequisite to auditing actual runs."
+    }
+  ],
+  "differences": "Operational adapter only. C010 and all historical helpers remain immutable. Reconcile only the three already-C014-reviewed evaluator source changes against the old C010 inventory. Use planning_full only for first n3seed0 O0/O1 and require U002 inspection/U001 operation reviews; seed1 core retains original C010 reader. No inference or model optimization.",
+  "contrary_evidence": "Removing caps does not resolve a GPU stall. Output progress is a liveness signal, not convergence. Prepared launch software is not actual extra-seed evidence; P26 and both full object planning results are still incomplete.",
+  "protocol": {
+    "order": [
+      "l0_n3_s1",
+      "l1_n3_s1",
+      "l0_n3_s2",
+      "l1_n3_s2"
+    ],
+    "training": "Exact C010 commands/defaults, go2nav.training.balls train --researchC001, original303000updates; no override, retune or resume. Same C001 science and C010 operation directories.",
+    "parents": "Reuse original_data,p26_reviews,prior_training and consultation directly. Require U00315 core reviews plus original complete per-horizon counts and raw-case/binding digests. Seed2 requires fullseed1core. Missing or stale parents refuse before GPU access. Fresh preconsultation additionally binds U005,U001 and new software review.",
+    "supervision": "Reuse U001 accounting_run/accounting_remaining/wait_progress and original C010 close_intervals. Locked C001 outer with C010 marker,U001 budget policy,U005 integration. Null work budget; monitor training.log,metrics.jsonl,checkpoint.pt,model.pt for1800seconds no-output stall. OwnTERM30/KILL10 only; no automatic retry/review/successor.",
+    "sources": {
+      "outputs/gated/C010/software/review.json": "96a979e2f4fc57809d5c794350491762f37d17ece97bc5a45ba73cacbd89df2e",
+      "outputs/gated/U001/software/review.json": "39cfac353717fce32c30bd6ca316c5cf217c9e59391a6987b79ba0c0bbc156cc",
+      "outputs/gated/U003/software/review.json": "81804e4e99eb3f5247e213910f1a4582e9c010bf1de852364ecf5bf7e19dbc9b",
+      "go2nav/training/balls.py": "d6a183d2dded8b449c23d44a4eb68e4f7b5ff8be4500b4df72e18320bcfc91a3"
+    },
+    "checks": [
+      "Original function identity and exact four command recipes",
+      "Old source inventory differs only in three C014 evaluator hashes; reject unqualified changes",
+      "Synthetic closed60-hour admission allowed; open interval refused; original owned closure retains foreign rows",
+      "Full core/P26/prior training fixtures admit only correct order; measured negatives allowed; missing P26, incomplete planning, stale/raw tamper and missing full audit refused",
+      "Fresh consultation binds complete inputs/U001/U005/new software",
+      "Actual missing P26 refuses without CUDA/output mutation",
+      "Progress-watch paths and inherited checked monitor identity; no Torch, real ledger or active helper changes"
+    ],
+    "followup": "Actual training starts only after P26/core reviews. Adapt A018 metadata/source admission before its use while retaining unchanged state_contract and terminal checks; then actual full artifact, science/operation and numerical reviews remain mandatory."
+  },
+  "success": "Focused operational checks pass with no numerical/source changes beyond already-reviewed evaluator reconciliation. Actual scientific outcomes remain pending.",
+  "stop": "Refuse wrong scope, missing/partial/stale parents, dirty or unqualified source, occupied GPU/open ledger or existing outputs. Preserve technical failures. Do not restore GPU time caps or optimize to fit them.",
+  "resources": {
+    "gpu_hours_max": null,
+    "budget_policy": "U001",
+    "training_device": "dedicated_gpu",
+    "software_cpu_seconds_max": 180,
+    "memory_fraction_max": 0.85,
+    "stall_seconds": 1800
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/C010/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/U001/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/U003/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

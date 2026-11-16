@@ -469,11 +469,12 @@ executed through C010 below. No test-driven tuning to force L0 failure or O1's c
 
 ### Additional baseline seeds after core and P26
 
-C010 supervises exactly L0/L1 n3 seeds1/2, with fresh outputs under `C001/RUN`:
+C010 defines exactly L0/L1 n3 seeds1/2, with fresh outputs under `C001/RUN`.
+After U001, use the reviewed U005 operational adapter:
 
 ```sh
-python3 outputs/gated/C010/run_train.py --run l0_n3_s1 --python "$PY" \
-  --preconsultation outputs/gated/C010/pre_l0_n3_s1.json
+"$PY" outputs/gated/U005/run_train.py --run l0_n3_s1 --python "$PY" \
+  --preconsultation outputs/gated/U005/pre_l0_n3_s1.json
 ```
 
 Its fifteen focused CPU groups are reviewed. All ten inspected computation
@@ -491,11 +492,24 @@ baseline needs separate C001 training and C010 operation reviews plus an actual
 completion audit bound by `final_audit_review` and its digest. That audit must bind
 both the303000-step full checkpoint and final model.
 
-C010 uses unchanged global48/B/C28 allowances, with45seconds reserved for cleanup;
-outer rows charge C001 with a C010 supervisor marker. All generated files and
-input hashes are retained. It refuses existing output directories and provides
-no automatic resume, retry or successor. Actual operations are under
-`outputs/gated/C010/runs/RUN` and require their own review.
+U005 reuses C010's original recipes, data/P26/prior-training checks and owned
+closure, plus U001's accounting and output-progress monitor. GPU-hour limits are
+removed. Outer rows still charge C001 with a C010 supervisor marker and now bind
+U001 policy/U005 integration. All generated files and input hashes are retained.
+It refuses existing outputs and provides no automatic resume, retry or successor.
+Actual operations remain under `outputs/gated/C010/runs/RUN` and need review.
+
+Seven U005 software groups pass. These include admission after60 elapsed hours,
+open-interval refusal, exact four commands, full core/P26/seed ordering, corruption
+refusals and actual missing-P26 refusal. First-pair object planning binds the new
+`planning_full` results and their U002/U001 reviews. Fresh consultation uses the
+original C010 fields plus `u005_record_sha256`, `u001_authorization_sha256` and
+U005 `software_review_sha256`; input inventory comes from U005.
+
+The A018 command below describes the original audit. Its metadata/source admission
+still needs explicit U005 integration before actual use, while keeping the full
+state and terminal checks unchanged. No actual extra-seed training or audit has
+run; prepare that integration before the first training completion.
 
 The original A003, B003 and C006 records cover only the six seed0 baselines.
 A019 now covers calibrated inference for the four additional n3 baselines, with

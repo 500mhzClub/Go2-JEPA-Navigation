@@ -92,6 +92,11 @@ Record elapsed dedicated-device intervals (overlaps counted once) and each run's
 
 [Completion inventory](COMPLETION_INVENTORY_2026-11-16.md) lists the remaining18 comparison rows, P26 stages and later launcher corrections. [U004](records/U004.json) qualifies the final reporter without the obsolete48-hour denominator; four groups including nine inherited cases pass. Final archive remains pending.
 
+[U005](records/U005.json) qualifies the additional-baseline launcher under U001
+with original training and complete full-planning/P26/seed-order prerequisites.
+Seven CPU groups pass. No additional seed has run; A018 metadata integration is
+still required before its actual completion audit.
+
 Results and review digests live beside run artifacts. This index must be updated when a result is interpreted. Status vocabulary: `passed`, `measured_negative`, `technical_blocked`, `budget_incomplete`. Separate implementation validity, representation, prediction, planning and generalization evidence.
 
 See the [first completed RGB encoder](RGB_ENCODER_TRAINING_2026-11-16.md) for audited training, numerical checks and the reviewed shared cache.

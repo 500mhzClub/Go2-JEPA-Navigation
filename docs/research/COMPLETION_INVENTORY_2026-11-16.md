@@ -34,9 +34,10 @@ checkout must remain unchanged.
 Before later GPU stages, adapt their operational admission in the isolated
 followthrough checkout. Keep scientific computation and existing reviews intact:
 
-- C010 still enforces old48/28-hour allocations. Its core prerequisite reader
-  and embedded D003 reader also point to the retired first-pair planning paths;
-  use the reviewed full results and their U002/U001 evidence instead.
+- C010's U005 adapter is now qualified: old48/28-hour caps are removed and the
+  first-pair core uses full planning plus U002/U001 evidence. Seven software
+  groups pass; actual P26 prerequisites remain absent. A018's older source and
+  launcher-metadata admission still needs explicit integration before audit use.
 - C005v2 still enforces old48/28-hour allocations for later encoders, caches and
   predictors. Retain C001 recipes and the approved count/seed order.
 - A019 still enforces old48/4-hour and per-call GPU deadlines. Preserve the
