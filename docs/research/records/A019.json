@@ -1,0 +1,120 @@
+{
+  "id": "A019",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16",
+  "question": "Do the four approved fresh n3 L0/L1 seeds1/2 satisfy the same final inference validity and train-only calibration protocol as the six originals?",
+  "hypothesis": "The unchanged float64/math policy may provide finite batch-independent and CPU/GPU-consistent inference at the additional final weights; each new checkpoint must actually pass.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/pdf/1502.03167v3",
+      "version": "v3",
+      "sections": "Section 3.1 and Algorithm 2, full inference derivation",
+      "consequence": "Estimate inference moments using training examples with frozen weights; require deterministic population-statistics inference."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/generated/torch.nn.BatchNorm1d.html",
+      "version": "2.12",
+      "sections": "Estimator definitions, running statistics, momentum and track_running_stats",
+      "consequence": "Training normalizes with biased batch variance, stored running variance uses the unbiased estimate. Batch-statistics evaluation is diagnostic only."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Floating-point accuracy and batched computations, revisited after A002",
+      "consequence": "A002 selects float64 with math attention at unchanged tolerances for all six models."
+    },
+    {
+      "url": "https://arxiv.org/html/2609.04264v3",
+      "version": "v3",
+      "sections": "Sections 3-5 and Appendix A.1",
+      "consequence": "A low JEPA loss alone does not establish physical sufficiency; inference validity must precede the planning comparison."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen poll/wait/returncode and timeout semantics revisited before implementation",
+      "consequence": "An outer CPU supervisor can enforce wall limits even when the scientific GPU child blocks; wait timeouts alone are not terminal, and review follows actual owned-child termination."
+    }
+  ],
+  "differences": "Scope extension to four already-approved fresh n3 seeds. Underlying numerical implementation is reused unchanged, including its non-A0030.10 allocator fraction; external guards replace original six-run A003 queue admission. Exact pooled unbiased BN moments differ from averaging per-batch moments in the paper; same selected policy for all seeds. No training or optimizer update is executed. Latent-only gradient parity covers the127 base-model tensors, not the four optional auxiliary-head tensors.",
+  "contrary_evidence": "A numerical pass cannot prove all-input stability, resolve GPU hang root cause, establish causal effects of calibration or guarantee useful object representations/planning. Seed0 success does not establish later seeds. Smaller allocator cap may fail operationally and is not a scientific negative.",
+  "protocol": {
+    "diagnostic_windows": 64,
+    "sampling_seed": 42,
+    "splits": [
+      "train",
+      "val"
+    ],
+    "batch_modes": [
+      "saved",
+      "encoder_batch",
+      "predictor_batch",
+      "both_batch"
+    ],
+    "calibration_windows": 4096,
+    "calibration_seed": 17,
+    "calibration_split": "train",
+    "calibration_batch": 64,
+    "calibration_order": [
+      "projector",
+      "pred_proj"
+    ],
+    "rtol": 0.0001,
+    "atol": 1e-05,
+    "inference_dtype": "float64",
+    "attention_backend": "math",
+    "models": [
+      "l0_n3_s1",
+      "l1_n3_s1",
+      "l0_n3_s2",
+      "l1_n3_s2"
+    ],
+    "scope": [
+      "additional-seed inference validity",
+      "unchanged train-only calibration",
+      "external time/identity supervision",
+      "post-result CPU artifact verification"
+    ],
+    "snapshot": "Only actual final303000 model.pt from separately reviewed C001/C010/A018, copied through one open inode by unchanged balls_inference.run. No seed0 rerun.",
+    "execution": "Unchanged go2nav.eval.balls_inference CLI with research A019; original non-A003 branch uses0.10 allocator fraction. External supervisor supplies idle-GPU, full-source/data/parent checks and a1800second case limit including45seconds cleanup. No model, calibration, precision, tolerance or sample-policy changes.",
+    "inputs": "Original A014-preparation-bound n3 train/val bytes; actual C001/C010 completion and A018 exact full/model state review; fresh consultation binding every required input and source. No test data used.",
+    "verification": [
+      "Four exact model/seed routes and unchanged original numerical protocol/source",
+      "Completed-parent and original-data lineage; reject stale/missing/unfinished or wrong seed/checkpoint/audit evidence",
+      "270 finite fixed-tolerance before/after forward/gradient/grouping comparisons, expected127 base-model gradient tensors per phase; auxiliary head finite and exactly retained, not exercised by latent-only gradient loss",
+      "Export finite float64/math inference-only, no optimizer; original learned model/head weights identical after prescribed cast; only two BN mean/variance/count triples may differ",
+      "4096 training windows with16384 encoder and12288 predictor activations; unchanged source snapshot/model bytes and end-of-run input hashes",
+      "Normal/deadline owned CPU fixture, identity-mismatch refusal, union budget and open/ambiguous ledger refusals",
+      "Deliberately invalid numerical/derived artifact fixtures rejected; no actual extra seed is represented by a synthetic fixture"
+    ],
+    "review": "Actual numerical result, operational result and CPU artifact-verification result each require substantive digest-bound review before probes/planning. No automatic approval, successor, retry or precision selection."
+  },
+  "success": "Actual complete finite270-comparison suite within unchanged tolerances plus independently inspected frozen-weight/BN-only export, unchanged inputs, closed normal supervision and substantive reviews. No criterion based on improved MSE or planning ranking.",
+  "stop": "Missing/unreviewed parents, changed original data/source, incomplete final state, invalid result/export, nonfinite operation, occupied GPU or exhausted existing A/global allowance blocks dependent work. Preserve all failed/partial outputs; never silently retry or change thresholds.",
+  "resources": {
+    "gpu_hours_max": 4,
+    "allocation": "Shared existing A4hours and global48hours, including historical A records; no new allowance.",
+    "case_wall_seconds_max": 1800,
+    "cleanup_reserve_seconds": 45,
+    "term_seconds": 30,
+    "kill_seconds": 10,
+    "memory_fraction_max": 0.1,
+    "software_cpu_seconds_max": 180,
+    "artifact_cpu_seconds_max": 180,
+    "training_device": "none; dedicated GPU numerical evaluation only, CPU references and artifact checks"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/A018/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/A016/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
