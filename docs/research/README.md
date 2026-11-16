@@ -164,3 +164,9 @@ corruption refusals pass. Original scientific commands and inspection calculatio
 are unchanged; complete reviewed negative predecessors remain admissible. The
 preparation and fixture failures are preserved. Actual later binding, probes and
 planning still await their fullcore/P26, training, audit and numerical prerequisites.
+
+[U013](records/U013.json) corrects the later baseline CPU launcher to check and
+collect `planning/RUN`. Its original `probes/RUN` path refused every required
+completed probe. Six CPU groups pass, including four complete launcher fixtures
+and additive U005/U006/U007 metadata compatibility. Actual additional-seed
+planning remains pending; use the isolated CPU checkout and updated runbook.

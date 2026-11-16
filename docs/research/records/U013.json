@@ -1,0 +1,84 @@
+{
+  "id": "U013",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T11:38:27.766885+00:00",
+  "question": "Can the later baseline CPU planning launcher admit its required completed probe and collect planning artifacts from the evaluator output directory?",
+  "hypothesis": "Correcting the supervisor science path from probes/RUN to planning/RUN removes a deterministic launch refusal without changing scientific computation or resource policy.",
+  "sources": [
+    {
+      "url": "https://docs.python.org/3.12/library/pathlib.html",
+      "version": "3.12",
+      "sections": "Path.exists lines732-748 and Path.mkdir lines1010-1019, read before implementation",
+      "consequence": "A completed probe directory necessarily exists. Keep exclusive creation for new planning and operation directories, and preserve probe evidence."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen.poll/wait and returncode, lines395-413, read before implementation",
+      "consequence": "Retain original child supervision and normal terminal checks; test the real entry point with a small CPU subprocess, rather than infer launch success from helper fixtures."
+    }
+  ],
+  "differences": "B004 run_one.py alone mistakenly assigns science=outputs/gated/probes/RUN although its planner, inspector, parent admission and runbook use planning/RUN. Preserve the original and create a controlled U013 launcher. Use an isolated checkout based on a75523b so C011/B004 scientific source and record hashes remain exact. Existing CPU limits remain. A new integration context binds U013 record, software review and helper bytes; original B004 parent/data/consultation checks remain. Additional execution/result fields identify U013 while keeping B004 research identity and paths.",
+  "contrary_evidence": "The earlier thirteen B004 software groups checked case computation, parents and supervise independently but did not call main with an existing required probe directory. A small launcher subprocess proves routing and artifact collection only, not actual learned planning, all3000cases or full scientific parent validity.",
+  "protocol": {
+    "order": [
+      "l0_n3_s1",
+      "l1_n3_s1",
+      "l0_n3_s2",
+      "l1_n3_s2"
+    ],
+    "changes": "Four exact substitutions in original run_one.py: import integration.context; science path probes to planning; explicit U013 integration in execution; explicit U013 integration in result. Original cpu_lock/owned_module/supervise AST and bytes unchanged. New integration.context verifies exact software, all inherited sources/records and new consultation fields, then uses original B004 context.",
+    "source_sha256": {
+      "outputs/gated/B004/run_one.py": "bf07ff675fcb73fc4ed3fdd91d65da31d82dbaa4c3a06d25a9aa8b1289c96a86",
+      "outputs/gated/B004/parents.py": "e0d60a89c0b5ee2783202d6fad36af65d66571d3900b4dfdd0f2efd5360f4a96",
+      "outputs/gated/B004/planning.py": "649550e293b767e8d04d3f9c0274810e28a3408c570532b58b22defe925def09",
+      "outputs/gated/B004/verify_cases.py": "51a527ae5440b4334128518686f7a8d0df07e7e43e64cea99fe750d1b278c21c",
+      "outputs/gated/B004/software/review.json": "fa28dde9903e1f560d5d53beac39baad6a4cb26f93d847f1b1e34afee2b40d9e",
+      "outputs/gated/C011/parents.py": "4b822a06e8bcf0e6da6ecf43d7a2974242efab8cf6fe0368bb89b5277bf636c5",
+      "outputs/gated/C011/software/review.json": "266ab186c2601ec34af7fc128c7632929db0a58b2531481783a4fbdc78b0c894",
+      "outputs/gated/U007/software/review.json": "d8b998237244b3cd61f37d8eef81ab517c96d144e9d6b48b0ebf4b4215222708"
+    },
+    "runtime_base_commit": "a75523bde0d1bb57c46ffb2fdcbbd036e87a36a8",
+    "checks": [
+      "Exact controlled diff and unchanged supervisor functions; original planner/inspector/parents hashes and all runtime inventories",
+      "Reproduce original main refusal when required probes exist, retaining the observation",
+      "Run corrected main for all four names using real small CPU fixture children: only planning artifacts collected, probe bytes unchanged, expected B004 argv, normal terminal result and no GPU interval",
+      "Refuse existing planning or operation directory before launching; propagate child failure without success status",
+      "All four original numerical-parent and probe fixtures remain admissible with U005/U006/U007 additional metadata and null GPU budgets; retain missing/stale parent refusals",
+      "New integration consultation requires exact record/software/helper identities; actual missing training refuses before output",
+      "No Torch import, GPU work, live helper change or shared-ledger mutation"
+    ],
+    "actual_use": "Run C011 unchanged and U013 planning launcher from the isolated CPU checkout after complete actual reviewed predecessors. Original B004 inspector and separate science/inspection/operation literature reviews remain mandatory. New pre_RUN consultation adds u013_record_sha256 and u013_software_review_sha256; no automatic review or successor."
+  },
+  "success": "Focused complete-entry-point checks pass with unchanged scientific source and original parent protocol. Every actual baseline still needs full reviewed training, numerical admission, probes and planning.",
+  "stop": "Refuse unplanned routes, missing or changed parents, source/record/consultation mismatch, existing outputs and actual resource faults. Preserve original failed launcher and any new failed software attempt.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "software_cpu_seconds_max": 180,
+    "cpu_threads_max": 2,
+    "actual_cpu_threads": 8,
+    "actual_planning_wall_seconds_max": 7200,
+    "actual_total_seconds_max": 28800,
+    "actual_rss_gib_max": 16
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/B004/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/C011/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/U007/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

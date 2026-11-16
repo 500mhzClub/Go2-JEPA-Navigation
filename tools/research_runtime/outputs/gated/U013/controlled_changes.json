@@ -1,0 +1,18 @@
+[
+  [
+    "from parents import context",
+    "from integration import context"
+  ],
+  [
+    "science=root/'outputs/gated/probes'/args.run;out=base/'operations'/args.run",
+    "science=root/'outputs/gated/planning'/args.run;out=base/'operations'/args.run"
+  ],
+  [
+    "execution=dict(research_id='B004',name=args.run,research_sha256=ctx['research_sha256'],",
+    "execution=dict(research_id='B004',integration_research_id='U013',integration=ctx['integration'],name=args.run,research_sha256=ctx['research_sha256'],"
+  ],
+  [
+    "result.update(research_id='B004',name=args.run,inputs_unchanged=unchanged,",
+    "result.update(research_id='B004',integration_research_id='U013',integration=ctx['integration'],name=args.run,inputs_unchanged=unchanged,"
+  ]
+]

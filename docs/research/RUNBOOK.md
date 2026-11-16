@@ -663,11 +663,12 @@ After actual C001/C010/A018 and all three A019 reviews, use:
 python3 outputs/gated/C011/run_one.py --run l0_n3_s1 --python "$PY"
 ```
 
-Use the preserved `Go2-JEPA-Navigation-gated` checkout at
-`a75523bde0d1bb57c46ffb2fdcbbd036e87a36a8` for C011 and B004. A read-only
-source/record comparison found no mismatches against either software result
-(`U007/cpu_routing_observation.json`). This only establishes source compatibility;
-revalidate complete actual parent admission and data before each CPU run.
+Use `Go2-JEPA-Navigation-p25-cpu`, branch `feature/p25-cpu-followthrough`,
+for C011 and later baseline planning. It preserves the scientific source from
+`a75523bde0d1bb57c46ffb2fdcbbd036e87a36a8` and adds U013 documentation/source
+qualification. U013 verifies the complete C011/B004 inherited inventories and
+fixtures with additive U005/U006/U007 metadata. Actual parent/data admission
+still must pass before each CPU run.
 
 Before launch, create `C011/pre_RUN.json` with name, C011 record digest,
 software-review digest, complete input hashes, original train/test data hashes,
@@ -698,7 +699,7 @@ reviewed. The initial missing inspector output-parent finding, passing fixture
 result and negative review are retained under `B004/software_attempt_001`.
 
 ```sh
-python3 outputs/gated/B004/run_one.py --run l0_n3_s1 --python "$PY"
+python3 outputs/gated/U013/run_one.py --run l0_n3_s1 --python "$PY"
 ```
 
 Create `B004/pre_RUN.json` after consulting on the actual parents. Bind `name`,
@@ -707,6 +708,18 @@ Create `B004/pre_RUN.json` after consulting on the actual parents. Bind `name`,
 its original `data_sha256`, consultation time, sources and consequences.
 The actual same-seed C011 probe can be passed or a valid measured negative,
 but its operation must have completed normally. Seed0 paths are excluded.
+
+[U013](records/U013.json) corrects the original B004 supervisor path: it had
+checked the required existing `probes/RUN` as its new output and therefore
+refused before launch. The corrected launcher checks and collects from
+`planning/RUN`, matching the unchanged evaluator and inspector. Add
+`u013_record_sha256` and `u013_software_review_sha256` to the fresh B004
+consultation. Execution and operation results keep B004 identity and add
+explicit U013 qualification. Six software groups cover all four complete
+launcher routes with real small CPU children, output-preservation refusals,
+failure collection and original parent compatibility. These are fixture
+results; no actual extra-seed planning has run. The first failed test namespace
+and its technical review remain under `U013/software_attempt_001`.
 
 The fixed3000-case B003 computation,100/10/20 CEM, original task seeds,
 float64/math and candidate checks are retained. One eight-thread CPU child

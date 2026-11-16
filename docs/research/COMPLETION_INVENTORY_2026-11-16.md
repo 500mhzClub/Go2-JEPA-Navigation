@@ -57,8 +57,11 @@ followthrough checkout. Keep scientific computation and existing reviews intact:
   No actual later selected checkpoint has completed this suite yet.
 - CPU-only C011/B004 have separate wall/RSS bounds. They are not GPU-hour caps;
   do not silently change their scientific or resource protocols. Their source
-  and record inventories match the preserved gated checkout at a75523b; use
-  that checkout after revalidating complete actual parent/data admission.
+  and record inventories match the preserved gated source at a75523b. U013
+  fixes a B004 launcher path that otherwise refuses its required probe output.
+  Six software groups pass, including all four real-child launcher fixtures.
+  Use the isolated `Go2-JEPA-Navigation-p25-cpu` checkout with unchanged C011
+  and U013 planning supervision; revalidate actual parent/data admission.
 
 Current O0 continues unchanged; planner tuning remains outside the approved scope.
 Consult the relevant official documentation before each
@@ -99,3 +102,8 @@ U004 preserves the same-byte archive operations described by
 blob capture described by [Git cat-file](https://git-scm.com/docs/git-cat-file).
 These sources were consulted before the correction and revisited for its
 software review; they do not establish scientific success.
+
+A subsequent metadata-only check selected1,489 run files totaling
+475,038,721bytes (about453.03MiB); none exceeded64MiB. Source snapshots and
+future evidence remain outside this count. U013 corrects execution routing,
+not the separate pending archive-capacity requirement.
