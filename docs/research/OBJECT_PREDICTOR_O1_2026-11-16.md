@@ -13,7 +13,9 @@ reviews. No trainer remains active.
 
 O1's recorded minimum is 3.89% lower. This is a descriptive training-log
 comparison on one seed, not a demonstrated physical prediction or planning
-improvement. O1's selected-checkpoint numerical validation remains pending.
+improvement. O1's selected checkpoint subsequently passed all 4,164 C014
+numerical comparisons through the deployed full64 loader, with separate
+inspection, scientific and operational reviews.
 Its selected epoch28 artifact and final resume checkpoint are distinct and
 both are preserved; all 83 Adam parameter states, schedule, CPU restoration,
 source/data/cache bindings and ordered epoch logs pass the terminal audit.
@@ -34,17 +36,19 @@ explicit repository inference loader and routes object probes, planning and
 binding through checkpoint-specific numerical admission. Four CPU software
 groups pass: exact parameter/buffer promotion, real train/validation equivalence
 to C013, 23 invalid-evidence refusals and the original full-default CEM/probe
-interfaces on a toy world. These checks do not qualify an actual C014 numerical
-run. The general numerical validator/supervisor and versioned C009 route still
-need implementation and review before actual object evaluations.
+interfaces on a toy world. The general numerical validator and supervisor now
+also pass eight software groups. Actual encoder/O0/O1 cases pass 1,104/2,772/4,164
+comparisons, respectively. The versioned C009 evaluation route is drafted and
+still needs software verification and review before actual object evaluations.
+See the [deployed inference report](OBJECT_INFERENCE_INTEGRATION_2026-11-16.md).
 
-Next are the encoder/O0/O1 numerical gates through that deployed policy,
-object-mask binding, physical probes and paired planning. Then comes the
+Next are C009v2 verification, object-mask binding, physical probes and paired
+planning. Then comes the
 approved offline Genesis comparison, additional seeds/counts and final evidence
 report. Original failed numerical results and all training checkpoints remain
 unchanged. There is no demonstrated Go2 transfer yet.
 
 Evidence: outputs/gated/C001/o1_n3_s0, C008/runs/o1_n3_s0,
-C005/v2/runs/o1_n3_s0 and C014/software_loader. Runtime a75523b is preserved.
-At completion all dedicated-device intervals are closed, with 43.361 of the
-48 additional GPU-hours remaining.
+C005/v2/runs/o1_n3_s0 and C014. Training runtime a75523b is preserved;
+numerical runtime is b5a0d47. After all three C014 cases, all dedicated-device
+intervals are closed, with 43.321 of the 48 additional GPU-hours remaining.
