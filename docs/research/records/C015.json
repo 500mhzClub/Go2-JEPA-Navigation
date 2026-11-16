@@ -1,0 +1,78 @@
+{
+  "id": "C015",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T09:07:09.042855+00:00",
+  "question": "Can consolidating Hungarian-cost transfers make the unchanged object planner practical while preserving numerical decisions?",
+  "hypothesis": "One host copy of all cost matrices can reduce synchronization overhead. Batched index transfer/reduction may further help; model rollout may instead dominate and improvements may be insufficient.",
+  "sources": [
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/cuda.html",
+      "version": "2.12",
+      "sections": "Asynchronous execution566-582",
+      "consequence": "CPU/GPU copies synchronize. Batch tiny transfers where numerical behavior is preserved; synchronize before/after timing. Per-task saved latency already includes terminal host-side cost/actions."
+    },
+    {
+      "url": "https://docs.scipy.org/doc/scipy-1.17.0/reference/generated/scipy.optimize.linear_sum_assignment.html",
+      "version": "1.17.0 installed1.17.1",
+      "sections": "Returns48-52 and Notes61-71",
+      "consequence": "Retain minimum full assignment with identical cost matrices; square assignment rows are sorted. Consolidating transfers must not change matching objective or CEM decisions."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Floating-point/batched-sliced396-403",
+      "consequence": "Batching reductions may change rounding. Preserve full64 model policy and require direct cost, rank, action and physical score agreement before any new planning runtime."
+    },
+    {
+      "url": "https://arxiv.org/html/2602.11389v2",
+      "version": "v2",
+      "sections": "AppendixG507-520",
+      "consequence": "Retain original local B001 CEM candidates/elites/iterations/seeds and Hungarian latent-goal objective. Runtime improvement is not planner tuning or a scientific result."
+    }
+  ],
+  "differences": "Operational/runtime optimization only outside frozen go2nav sources and four reviewed C009v2 helpers. Existing model full64/math, selected weights, data, CEM, assignment objective, thresholds, whole3000task scope and GPU allocations unchanged. Use isolated performance worktree from08d582c. Initial partial operation is preserved; no silent replacement or overwrite.",
+  "contrary_evidence": "Transfer overhead may be a small fraction; full64 transformer rollout can dominate. Reduction regrouping can change near-tied ranks and CEM trajectories. Prefix throughput does not guarantee full completion, and an insufficient speedup must remain a technical/resource finding.",
+  "protocol": {
+    "retirement": "After exact PID/create-time/argv/cwd verification, TERM only current C009v2 O0 planning child. Its original supervisor confirms exit and closes owned intervals. Preserve partial scientific files at their original paths and terminal operation, then independently review cleanup. No unrelated process, training state or checkpoint modification.",
+    "variants": [
+      "bulk_cost_copy_original_per_matrix_GPU_sum",
+      "bulk_cost_copy_batched_indices_GPU_sum"
+    ],
+    "scope": "Keep original function as reference. External helper computes identical squared distance matrices, copies the complete matrix batch to CPU once, uses original SciPy assignment per matrix, and returns full64 GPU costs. Variant1 retains individual GPU reductions; variant2 gathers/sums assigned costs in batch. No streams, compilation, precision reduction or optimization parameter changes.",
+    "software": "HiddenGPU twoCPUthreads <=180s. Synthetic slots3/5/8 and batches1/8/100, ties/zero/permuted inputs, gradients disabled, original versus variants costs and candidate ranks; exact copied computation-source binding, CPU process supervision inheritance; verify saved C014 train/val goal arrays if schema supports them. Preserve all failures.",
+    "actual": "Only after software review and idle GPU, one bounded diagnostic on selected n3seed0 O0/O1 full64 checkpoints. Train and validation episode0 at original task_start for H4/6/8. Time original and two variants with explicit synchronization; retain every CEM proposal/cost/ranking and selected final actions. Independently reconstruct saved matrix assignment costs with NumPy and compare all traces before review. No label-dependent selection or planning success conclusion.",
+    "qualification": "Every assignment cost agrees at rtol1e-12/atol1e-12, candidate ranking/elite choices and final commands are exactly identical for all declared full CEM traces. Require finite tensors/unchanged inputs, recorded synchronized timings and no CUDA in software. A speedup alone does not qualify. Final route integration requires its own preconsultation/software and explicit exact C015 result review.",
+    "accounting": "Diagnostic outer interval charged C004 reserve, supervisorC015, max900seconds including45cleanup,2CPUthreads,0.5GPUmemory. Existing reserve8/global48 and serial GPU constraint remain. No new allocation; original partial B001time remains charged. Original B001total2h andBC28h unchanged for future full planning."
+  },
+  "success": "A tested variant meets all unchanged numerical/decision checks and provides measured throughput evidence; full scientific planning remains a separate experiment. If neither qualifies or bottleneck remains, preserve outcome and choose next step only after literature review.",
+  "stop": "Refuse changed/missing parents, active GPU/open interval, CPU/GPU/cost/rank/action disagreement, insufficient fixed deadline or source mutation. Preserve original partial run and every failed variant. Do not resume or relaunch science without reviewed admission; do not infer scientific failure from resource incompleteness.",
+  "resources": {
+    "diagnostic_wall_seconds_max": 900,
+    "cleanup_seconds": 45,
+    "software_wall_seconds_max": 180,
+    "cpu_workers_max": 2,
+    "memory_fraction_max": 0.5,
+    "additional_gpu_allocation": 0,
+    "charge": "existing C004 reserve/global allowance"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/probes/o0_n3_s0/review.json",
+      "allow": [
+        "measured_negative"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/probes/o1_n3_s0/review.json",
+      "allow": [
+        "measured_negative"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/C015/throughput_review.json",
+      "allow": [
+        "technical_blocked"
+      ]
+    }
+  ]
+}
