@@ -2795,3 +2795,21 @@ the export's inputs with its own decoded rollout:
   at every horizon; it is better only on responsive pairs; its false responses grow to 41% at 6.4 s.
 - **The bars this sets** (PLAN P28 item 4): (a) at most 0.050 / 0.146 / 0.507 m and below constant velocity at 3.2
   and 6.4 s; (b) false responses below 7% / 20% / 41% and slope at least 0.49 / 0.48 / 0.39.
+
+## P28, first run: void, a fault in the port (16 November)
+
+`p28_s0_void`, 32,000 steps: the head reads encoded true tokens to 0.029 m, and forecasts are 1.64 m out at 1.6 s.
+- **The fault, measured:** the BatchNorm projectors gave different tokens in training and in evaluation.
+  - In training, the history's and the future's tokens were encoded in separate calls. About three slots in four are
+    empty, and the two batches held different shares of them, so their statistics differed: the same walker 0.4 s
+    apart had tokens 2.05 apart (their variance is 0.7-1.5). With the running statistics they are 0.025 apart.
+  - The predictor learnt the mapping between training's two batches. In evaluation its one-step latent error is
+    1.77 (0.007 with batch statistics).
+- The toy could not show it: all four objects are always present, and a window's frames went through one call.
+  R3's branch terms did encode the history and the futures in separate calls (16 x 3 and 16 x 8 frames); the shares
+  of content were alike there, but it may have added noise to that rung.
+- **The fix:** an empty slot takes one learned token and passes through no BatchNorm, in the encoder and in the
+  predictor's output; the history and the future are encoded in one call; the trainer logs the objective once more
+  in evaluation mode. A 2,000-step check: training 0.023 / 0.037 (teacher-forced / rollout), evaluation 0.021 /
+  0.034; forecasts 0.13 / 0.28 / 0.68 m.
+- The void run is counted as the first of P28's two rounds.
