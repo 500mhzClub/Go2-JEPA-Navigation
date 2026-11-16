@@ -143,3 +143,9 @@ See the [runtime recovery handoff](RUNTIME_RECOVERY_2026-11-15.md) for the curre
 infrastructure evidence, preserved checkpoints and postboot gate.
 
 See the [preliminary O0 planning assessment](PRELIMINARY_OBJECT_PLANNING_2026-11-16.md): the independently checked495case prefix has2O0 successes versus486L0 and469L1 on identical tasks. Full O0 and all O1 planning remain pending; [U008](records/U008.json) records this interim-only readout.
+
+[U009](records/U009.json) qualifies accounting-only execution of the14 remaining
+encoder/cache/predictor stages. Seven CPU integration groups pass; original
+training computation and commands are retained. Initial fixture failure is
+preserved. C008 metadata integration and later C014 numerical deadline correction
+remain necessary; no actual additional object stage has run.

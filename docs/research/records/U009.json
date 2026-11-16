@@ -1,0 +1,76 @@
+{
+  "id": "U009",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T10:41:24.705473+00:00",
+  "question": "Can the remaining approved C001 encoder/cache/predictor stages execute unchanged under the user removal of all GPU-hour caps?",
+  "hypothesis": "Replacing only admission and elapsed-time enforcement preserves original recipes, data, checkpoints and review-gated order while allowing progressing work to finish.",
+  "sources": [
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen.poll, Popen.wait and timeout cleanup",
+      "consequence": "A poll timeout is not termination. Reuse exact owned-process U001 progress monitoring and C005 terminal-only interval closure."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/time.html",
+      "version": "3.12",
+      "sections": "time.monotonic",
+      "consequence": "Measure quiet intervals using monotonic time; no absolute GPU deadline."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/fcntl.html",
+      "version": "3.12",
+      "sections": "flock and LOCK_EX",
+      "consequence": "Retain exclusive ledger admission and refuse existing open intervals; elapsed rows remain accounting evidence."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/runpy.html",
+      "version": "3.12",
+      "sections": "run_module and alter_sys",
+      "consequence": "Patch only research time-policy helpers before executing the original module in a fresh child. Preserve CLI and trainer bytes."
+    },
+    {
+      "url": "go2nav/training/balls_slots.py",
+      "version": "eedd2df4deb7f809b9cefea40e8ac676ccd4f5d5a9dbabbb63195f32b25337e9",
+      "sections": "train_stage checkpoint every100updates; extract sequential memory-map writes; both budget_remaining comparisons",
+      "consequence": "Use original training/checkpoint/selection and extraction. Neither allowance call writes result metadata; authenticated infinity remains internal to comparisons."
+    }
+  ],
+  "differences": "Operational adapter only. Original C001/C005 records and historical source/results remain unchanged. Exactly14remaining routes: n3seeds1/2 slots/extract/o0/o1 and n1/n6seed0 slots/extract/o1. No first-seed reruns or altered models.",
+  "contrary_evidence": "Sparse output or mmap metadata can misrepresent healthy progress; a1800second no-output stop remains a technical outcome. SIGKILL may fail on a kernel-blocked process. Passing launcher checks does not validate any actual checkpoint or scientific outcome.",
+  "protocol": {
+    "sources": {
+      "outputs/gated/C005/v2/run_stage.py": "9f087f2e324e61cbfbe0f730e8b6153e82c2b9b03e64b36dd97ce031e1b83040",
+      "outputs/gated/C005/v2/supervision.py": "fa13b6b14cde64c2620f26617b6a2350bc3d70d2f1b4716979f5e04980bf8849",
+      "outputs/gated/U001/common.py": "61146d77435f8c7849f6345164827e984e2a332e7502501690a752367cfda2bc",
+      "outputs/gated/U005/common.py": "32c884563988f49fb1cfad5a352c9cfaf1efb5d5c022be37f7fcbff26ba77449",
+      "outputs/gated/C010/stages.py": "c7d6bdecb7a97a962140589c9e89ea40ea8d06543c1926667759e8209e44c1cb",
+      "go2nav/training/balls_slots.py": "eedd2df4deb7f809b9cefea40e8ac676ccd4f5d5a9dbabbb63195f32b25337e9",
+      "go2nav/models/balls_slots.py": "ea7a8221e33a9ce69c2c3dd6be6451816084ddb69ac14dcd970e7aae3fd559e0"
+    },
+    "routes": "14declared remaining cases only, canonical data/C001/C005v2 output paths",
+    "parents": "Retain original C003 model/trainer/research hashes and sixA003/A016 reviews. Require complete first core plus actual P26, preceding fullseed cores, same-seed L0/L1 complete training before extra-seed slots, previous stages and separate science/operation/full-state audit or cache inspection. n6 follows complete n1O1 measures.",
+    "execution": "Same original CLI defaults and science computation; replace outer time admission with locked U001 accounting and inner gpu_run/budget_remaining with reviewed U001 helpers. Preserve research C005/C001, add U009/U001 identities. No automatic successor/retry/review.",
+    "progress": "training.log, metrics.jsonl, checkpoint.pt and checkpoint.partial, model.pt/model.partial, extraction train/val.partial.npy and final cache/index/result; quiet1800s, TERM30/KILL10 owned identity; no absolute deadline.",
+    "consultation": "Original C005 source/time/consequences and C001 record plus U009 record/software/U001authorization and exact complete canonical inputs/data. Fresh each actual stage.",
+    "checks": [
+      "exact trainer/model sources and original controlled wrapper changes",
+      "all14routes and unchanged argument defaults; unapproved names/options refuse",
+      "closed60hour ledger admits/open ledger refuses/owned closure preserves foreign rows",
+      "original gates and synthetic predecessor ordering/identity/artifact refusal cases",
+      "progress watch includes atomic checkpoint and extraction maps",
+      "fresh consultation hashes refuse stale/missing inputs",
+      "actual missing P26 refuses before Torch/GPU/output; existing helpers and shared ledger unchanged"
+    ]
+  },
+  "success": "Scoped operational software checks pass and exact result review qualifies the launcher; actual stage and full-state/cache/numerical evidence still required.",
+  "stop": "Failed admission must precede GPU initialization/output mutation. Preserve all technical outcomes and last checkpoint. No changes to live O0, science models, datasets, thresholds or recipes.",
+  "resources": {
+    "gpu_hour_limit": null,
+    "policy": "U001 user override",
+    "device": "dedicated GPU sequential",
+    "memory": "original0.80trainer within0.85ceiling",
+    "software_checks": "CPU only, temporary ledgers, at most120seconds"
+  },
+  "predecessors": []
+}

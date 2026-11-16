@@ -39,14 +39,19 @@ followthrough checkout. Keep scientific computation and existing reviews intact:
   groups pass; actual P26 prerequisites remain absent. U006 now qualifies A018
   metadata/source admission with unchanged original state and terminal checks;
   six integration groups pass. All actual extra-seed artifacts remain absent.
-- C005v2 still enforces old48/28-hour allocations for later encoders, caches and
-  predictors. Retain C001 recipes and the approved count/seed order.
+- C005v2's U009 adapter now removes the old48/28-hour caps for all14 remaining
+  encoder/cache/predictor stages. Seven CPU integration groups pass with unchanged
+  C001 recipes and approved count/seed order. C008 still needs explicit U009
+  operational metadata and historical source reconciliation before actual use.
 - A019's U007 adapter now removes old48/4-hour and per-call GPU deadlines;
   eight integration groups pass. Numerical computation and artifact checks
   remain unchanged. Actual additional-seed numerical results remain absent.
 - C009v2 still enforces old scientific allocations for later object measures.
   Extend the accounting-only execution route to those already-approved cases,
   retaining C014 admission and independent inspections.
+- C014's later selected-checkpoint numerical checks also retain old outer,
+  reserve/global and internal per-call deadlines. Remove those under U001
+  while preserving every numerical comparison and tolerance.
 - CPU-only C011/B004 have separate wall/RSS bounds. They are not GPU-hour caps;
   do not silently change their scientific or resource protocols. Their source
   and record inventories match the preserved gated checkout at a75523b; use

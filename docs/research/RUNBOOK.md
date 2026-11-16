@@ -346,7 +346,7 @@ operational evidence goes to `outputs/gated/C006/supervision/RUN`. Inspect and
 literature-review both exact results before the next case. No review or successor
 is automatic. The concurrent GPU trainer and its pinned checkout remain unchanged.
 
-C005 adds an external deadline around unchanged C001 commands: the smaller of
+Historical C005 added an external deadline around unchanged C001 commands: the smaller of
 the remaining 28-hour B/C and 48-hour shared allowances, reserving 45 seconds for
 identity-checked cleanup. Its 18 CPU process/accounting checks passed and received
 literature review. It preserves the last atomic checkpoint on a deadline stop;
@@ -380,6 +380,39 @@ updated checkout and verify that `v2/software/result.json`'s `research_sha256`
 equals the current C005 record digest. V2 operational outputs and software review
 are under `outputs/gated/C005/v2`; scientific outputs remain under C001.
 Do not change the live v1 source, its deadline or the pinned gated checkout.
+
+The instructions above record the completed first-seed execution. The user has
+since removed all GPU-hour caps. For the14 remaining approved stages, use the
+qualified U009 launcher from the followthrough checkout:
+
+```sh
+"$PY" outputs/gated/U009/run_stage.py --stage slots --n 3 --seed 1 --python "$PY" \
+  --preconsultation outputs/gated/U009/pre_slots_n3_s1.json
+```
+
+Allowed cases are n3 seeds1/2 `slots`, `extract`, `o0`, `o1`, followed by n1/n6
+seed0 `slots`, `extract`, `o1`. Supply the original canonical checkpoint/cache
+and parent-review arguments for dependent stages. Original recipes, scientific
+outputs under C001 and operations under `C005/v2/runs` remain unchanged.
+U009 has no total time deadline; it reuses U001 progress monitoring with a
+1800-second quiet interval and owned-process cleanup. Atomic checkpoint and
+extraction memory-map files are included in progress observation.
+
+Each fresh consultation retains original C005 fields and binds
+`c005_record_sha256`, `u009_record_sha256`, `u001_authorization_sha256`,
+`software_review_sha256` (U009), the complete canonical `inputs_sha256` returned
+by `U009/common.input_files`, and the six original `data_sha256` entries.
+Admission requires reviewed P26/full first core, previous complete seed cores,
+same-seed baseline training and actual immediate-parent artifacts. No later
+stage has run. Seven CPU integration groups pass; the initial fixture-namespace
+failure and its review remain under `U009/software_attempt_001`.
+
+Before actual later training, qualify C008 metadata/source integration for
+the U009 supervisor while preserving its full-state computation. The original
+audit assumes supervision helpers reside beside C005v2 software and has the
+three historical evaluator-source differences already reconciled by C014.
+Later C014 numerical checks also retain superseded outer and internal deadlines;
+correct those separately without changing numerical comparisons or tolerances.
 
 C003 has also passed a bounded three-update GPU diagnostic of the actual checkpoint helpers, optimizer state,
 schedule, cursor and RNG restoration, followed by CPU/GPU output/gradient and batch-grouping checks. Its synthetic
