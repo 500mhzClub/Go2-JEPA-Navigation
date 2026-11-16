@@ -93,8 +93,8 @@ def evaluate(root, n, checkpoint, out, research_id, parent_review):
     with gpu_run(out, research_id, dict(stage='probes', n=n, train_windows=4096, test_windows_per_episode=5,
                  ridge_alpha=.001), [Path(checkpoint), Path(parent_review)]) as manifest, sdpa_kernel(SDPBackend.MATH):
         if state['kind'] in ('o0', 'o1'):
-            from go2nav.training.balls_slots import load_world
-            model = load_world(checkpoint)
+            from go2nav.eval.slots_inference import load_reviewed_world
+            model = load_reviewed_world(checkpoint, parent_review)
         else:
             model, _, _ = load(checkpoint, 'cuda:0')
         dataset = {}

@@ -53,10 +53,12 @@ operations/o0_n3_s0. Inspection, numerical policy and operation have separate
 reviews. Numerical review SHA256:
 65db08474cbb253746ab9d55f59dc6b1f7e0d54870447f606d9dc3fca97bee87.
 
-Next, preregister integration of this explicit policy into the evaluators and
-validation of future selected checkpoints. The existing C009 supervisor still
-requires its original C004 evidence and must not be bypassed. The already-approved
-O1 n3 seed0 training has been launched from the unchanged O0 runtime a75523b,
-using the same frozen cache, initialization and epoch order. O1 adds anchored
-history masking; its masking benefit, physical prediction and planning remain
-unmeasured. Its own terminal audit and numerical evidence remain mandatory.
+C014 now preregisters integration of this explicit policy and future selected
+checkpoint validation. Its loader and three evaluation boundaries pass four CPU
+software groups, including exact real-input equivalence to the C013 full64
+wrapper and invalid-evidence refusals. Actual numerical validation and the new
+supervised evaluation route remain pending; original C009 must not be bypassed.
+[O1 training and its terminal audit are complete](OBJECT_PREDICTOR_O1_2026-11-16.md),
+using the same frozen cache, initialization and epoch order from runtime a75523b.
+Its own numerical evidence, masking benefit, physical prediction and planning
+remain unmeasured.

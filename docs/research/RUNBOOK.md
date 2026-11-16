@@ -33,13 +33,20 @@ fails one long-rollout CPU/GPU comparison. Actual inspection/science/operation
 reviews pass under `outputs/gated/C013/retry_001`. The initial validator shape
 failure and two earlier software versions remain preserved. See the
 [precision report](OBJECT_INFERENCE_PRECISION_2026-11-16.md).
-Next preregister evaluator integration and full64 checks for future selected
-models; C009 still requires its original C004 route and must not be bypassed.
-O1n3seed0 training is now active through C005v2 from unchanged runtime a75523b.
-Its consultation and launch are `outputs/gated/C005/v2/pre_o1_n3_s0.json` and
-`launch_o1_n3_s0.json`. Keep that gated checkout pinned through its actual C008
-terminal audit and separate C001/C005 reviews. Validation work may continue in
-the isolated validation checkout. No O1 physical result exists yet.
+C014 preregisters explicit full64 evaluator integration and future selected-model
+checks. Its loader and three object evaluation boundaries are implemented in
+the validation checkout; four CPU software groups pass with an exact-result
+review under `outputs/gated/C014/software_loader`. This covers only the loader,
+not the still-pending numerical validator/supervisor or C009v2 route. Original
+C009 requires its original C004/source bindings and must not be bypassed.
+O1n3seed0 completed30epochs/11370updates normally through C005v2 from a75523b.
+Actual C008 audit and separate C001/C005 reviews pass. Selected epoch28 latent
+validation MSE is0.0040267887; final resume state remains separately preserved.
+See the [paired O1 report](OBJECT_PREDICTOR_O1_2026-11-16.md). No trainer or GPU
+interval remains active;43.361additionalGPUhours remain. Preserve the gated
+checkout for unchanged training/legacy helpers; new inference work continues
+in the isolated validation checkout. O1 numerical and physical results remain
+pending. Do not relaunch completed training or extraction.
 C008 is a training-state audit and does not cover extraction. Keep each future
 active trainer's runtime pinned through its actual C008 and completion reviews.
 

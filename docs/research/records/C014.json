@@ -1,7 +1,8 @@
 {
   "id": "C014",
   "stage": "preregistered",
-  "reviewed_at": "2026-11-16T07:44:00+00:00",
+  "reviewed_at": "2026-11-16T07:42:39+00:00",
+  "timestamp_note": "Corrected the manually entered consultation timestamp to the initial preregistration commit time before verification. Initial record remains in commit9c2f960; protocol unchanged.",
   "question": "Can the reviewed full-float64 inference policy be deployed consistently for the approved object models, with numerical admission bound to each selected checkpoint?",
   "hypothesis": "A fresh, strict checkpoint load followed by float64 conversion of both encoder and predictor reproduces C013's qualifying policy. Each future selected checkpoint still needs its own full-path checks before scientific evaluation.",
   "sources": [

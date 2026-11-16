@@ -11,7 +11,7 @@ from go2nav.research import (atomic_json, budget_remaining, digest, gpu_run, req
                             require_training_slot, reviewed_artifact)
 from go2nav.sim.balls import RADIUS, SIZE
 from go2nav.training.balls import to_pixels
-from go2nav.training.balls_slots import load_encoder
+from go2nav.eval.slots_inference import load_reviewed_encoder
 
 
 def discs(red, white):
@@ -90,7 +90,7 @@ def evaluate(root, n, checkpoint, out, research_id, parent_review):
     inputs = [Path(checkpoint), Path(parent_review), Path(root)/f'n{n}'/'test'/'meta.json']
     with gpu_run(out, research_id, dict(stage='binding', n=n, protocol=cfg), inputs) as manifest:
         torch.cuda.set_per_process_memory_fraction(.80)
-        model, state = load_encoder(checkpoint)
+        model, state = load_reviewed_encoder(checkpoint, parent_review)
         if state['kind'] != 'slots' or state['n'] != n:
             raise ValueError('Binding needs the selected RGB encoder of this ball count')
         episodes = np.repeat(np.arange(len(frames)), cfg['windows_per_episode'])
@@ -104,7 +104,7 @@ def evaluate(root, n, checkpoint, out, research_id, parent_review):
                     return
                 e, t = episodes[i:i+32], starts[i:i+32]
                 pixels = to_pixels(torch.from_numpy(np.array(frames[e[:, None], t[:, None]+np.arange(-2, 1)])).cuda())
-                z = model(pixels)
+                z = model(pixels.to(dtype=next(model.parameters()).dtype))
                 _, masks = model.decode(z[:, -1:])
                 values = measure(masks[:, 0].cpu().numpy(), labels['red'][e, t], labels['white'][e, t])
                 for b in range(len(e)):

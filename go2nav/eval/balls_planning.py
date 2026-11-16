@@ -160,8 +160,8 @@ def evaluate(root, n, out, research_id, *, checkpoint=None, inference_review=Non
             if state['n'] != n:
                 raise ValueError('Checkpoint ball count does not match evaluation tasks')
             if state['kind'] in ('o0', 'o1'):
-                from go2nav.training.balls_slots import load_world
-                model = load_world(checkpoint)
+                from go2nav.eval.slots_inference import load_reviewed_world
+                model = load_reviewed_world(checkpoint, inference_review)
             else:
                 model, _, _ = load(checkpoint, 'cuda:0')
             with sdpa_kernel(SDPBackend.MATH):

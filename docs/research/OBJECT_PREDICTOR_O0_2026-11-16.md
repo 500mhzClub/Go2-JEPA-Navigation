@@ -2,8 +2,10 @@
 
 Latest: [C013 full precision validation](OBJECT_INFERENCE_PRECISION_2026-11-16.md)
 passes with both encoder and predictor in float64; mixed precision fails one
-complete-path rollout comparison. Evaluator integration remains pending, and
-paired O1 training has been launched. The C004/C012 history below is preserved.
+complete-path rollout comparison. C014's explicit loader and evaluation boundaries
+pass four CPU software groups; actual numerical admission remains pending.
+[Paired O1 training is complete](OBJECT_PREDICTOR_O1_2026-11-16.md).
+The C004/C012 history below is preserved.
 
 The n3 seed0 O0 model completed its fixed 30 epochs and 11,370 updates normally.
 All 83 Adam parameter states, scheduler counters, original source/data/cache
