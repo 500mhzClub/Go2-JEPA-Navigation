@@ -1,0 +1,93 @@
+{
+  "id": "C011",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16",
+  "question": "What physical state and four-step prediction do the approved additional n3 L0/L1 seeds preserve under the unchanged seed0 CPU probe protocol?",
+  "hypothesis": "The completed seed0 readout tradeoff may vary across training seeds; identical measurements are required and no direction of effect is assumed.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/html/2609.04264v3",
+      "version": "v3",
+      "sections": "A.10 methods/Table10 and4.4 revisited before extension",
+      "consequence": "Separate accessible position state from dynamics and planning. Keep local4096/ridge0.001 versus paper50000/ridge1e-6 adaptations explicit; do not infer seed robustness from the existing pair."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Floating-point and batched/sliced computations; finite inputs and conditioning",
+      "consequence": "CPU results need their own finite/grouping and solver-residual checks; existing A003 CPU/GPU parity covers its samples only. Disclose the execution platform, without asserting bitwise platform identity."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/generated/torch.linalg.solve.html",
+      "version": "2.12",
+      "sections": "Square systems, invertibility, supported double dtype and numerical-stability note",
+      "consequence": "Reuse fixed float64 ridge solve with train standardization and unpenalized intercept. Check the normal-equation residual independently; never tune alpha from test scores."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen timeout, termination and wait",
+      "consequence": "Bound each owned CPU child externally; never signal the concurrent GPU trainer. Preserve partial outcomes and require a separate operational review."
+    },
+    {
+      "url": "go2nav/eval/balls_probes.py",
+      "version": "aa08de6",
+      "sections": "features,targets,fit_linear,apply_linear,probe_summary; original C006 analysis and supervision inspected",
+      "consequence": "Import the same functions and preserve the C006 computational body; change only admitted seeds,provenance,parent validation and external supervision."
+    }
+  ],
+  "differences": "Extension of already-approved C001 additional n3 seeds to the same spare-CPU execution declared by C006. Uses A019 calibrated inference artifacts instead of original A003 artifacts. Sampling, predictions, readout and reporting are fixed before any additional-seed result. Eight-thread CPU arithmetic remains an explicit adaptation; no all-platform equivalence claim.",
+  "contrary_evidence": "A frozen linear readout may miss nonlinear information; sorted white positions are exchangeable positional ranks, not persistent identities. Reversing actions can preserve net displacement and be weak. Good readout is not good latent geometry or planning. Single-seed episode intervals omit training-seed uncertainty. CPU/GPU arithmetic can differ despite earlier sampled parity.",
+  "protocol": {
+    "sampling": "Identical C001 seeds [2026111511,n,split_is_test].4096 train episode draws; five windows per each1000 test episodes; starts uniform integers in[2,frames-4), preserving three history frames and four future steps. Save all episode/start indices. No validation selection or test fitting.",
+    "features": "Use unchanged balls_probes.features batch32: current, factual four-step rollout, fixed reversal of four future actions preserving both past actions, and no_rollout. No true future observation enters the model. Features and model state must be finite.",
+    "readout": "Reuse unchanged train-standardized float64 ridge alpha0.001, unpenalized intercept, fit current train positions only. Same frozen decoder scores current and future targets. Lexicographically sort white XY at fit/score; no prediction-dependent assignment.",
+    "statistics": "Reuse unchanged per-coordinate Pearson, RMSE and2000 whole-episode bootstrap samples with seed2026111510. Preserve raw cases and decoder. Optional descriptive color summaries are mean coordinate Pearson and mean-ball Euclidean RMSE, derived without new fitting or inference.",
+    "validity": "For first8 fixed test windows compare feature modes at batch32 against batch1 and reversed ordering with unchanged rtol1e-4/atol1e-5. Check all extracted features/decoder/predictions finite, ridge relative residual<=1e-8, unchanged state/checkpoint/data digests, CPU-only tensors and CUDA never initialized.",
+    "scope": "Only the four approved fresh n3 L0/L1 seeds1/2, after actual C001/C010/A018 and A019 science/artifact/operation reviews. No neural updates, new calibration, test selection, data or altered readout.",
+    "order": [
+      "l0_n3_s1",
+      "l1_n3_s1",
+      "l0_n3_s2",
+      "l1_n3_s2"
+    ],
+    "parents": "Require exact normal C010 training and A018 complete-state reviews plus actual A019 numerical,CPU-artifact and operational reviews; bind calibrated bytes and explicit kind/n/seed identity. Require unchanged original C006 seed0 train/test bytes and reviewed B001 controls.",
+    "software_checks": [
+      "Source/AST proof that C006 feature extraction, sampling, ridge, controls, statistics and actual computational body are unchanged except research identity and stronger input checks",
+      "Four complete synthetic extra-seed parent chains; reject wrong seed/artifact/research/verification/operation identities and missing,partial,stale or changed evidence",
+      "Original dataset byte binding rejects changed data even with fresh consultation; exact complete input/source consultation and prior-case review order",
+      "Exact n3 sampling, sorted-white targets, action-history/reversal and no-future-image behavior, fixed ridge against independent augmented least squares and residual, finite checks and episode bootstrap fixture",
+      "CPU-only environment, shared lock refusal and actual owned normal/deadline/identity process fixtures; original live helper and shared GPU ledger unchanged",
+      "Future actual raw-case inspection verifies saved indices/truth/current/future predictions/point statistics and decoder residual without retraining; all actual results require separate literature reviews"
+    ],
+    "execution": "One eight-thread CPU child, no CUDA initialization, 900seconds including15cleanup,16GiB sampled RSS. Hold the existing B003 run.lock so CPU planning and these probes serialize. Four cases total<=3600wallseconds. No GPU interval, no automatic successor/retry/review.",
+    "outputs": "Canonical outputs/gated/probes/RUN with compatible C002 kind/n/seed/measurements/cases/probe schema. C011 operations in C011/supervision/RUN. All generated files and complete immutable input manifests are bound; retain partial/failure outcomes."
+  },
+  "success": "The declared probe computation passes its own validity checks and produces reviewed descriptive physical measurements. No direction of scientific effect is required for validity; classify hypothesis failures as measured negatives rather than force a baseline ranking.",
+  "stop": "Changed lineage/data/source, nonfinite values, grouping or residual failure, CUDA initialization, CPU memory/time exhaustion stop this CPU case and require review. Do not adjust data, precision, alpha, samples, thresholds or model weights from outcomes. The concurrent slot trainer remains untouched.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_workers_max": 8,
+    "cpu_stage_wall_seconds_max": 900,
+    "cpu_total_wall_seconds_max": 3600,
+    "cleanup_reserve_seconds": 15,
+    "rss_gb_max": 16,
+    "disk_gb_max": 4,
+    "software_cpu_seconds_max": 180,
+    "training_device": "none; CPU reference inference and fixed closed-form readout only"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/C006/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/A019/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
