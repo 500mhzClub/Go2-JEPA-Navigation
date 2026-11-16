@@ -8,7 +8,7 @@ SHA256, size and mode; every copied source file is byte-identical to that path
 at capture time.
 
 The `outputs/gated/` subtree contains P25/P26 launchers, audits, numerical checks,
-inspectors and their software tests through U010. Other subtrees preserve earlier
+inspectors and their software tests through U011. Other subtrees preserve earlier
 Go2 experiment scripts. The original repository review is also tracked under
 `docs/REVIEW_2026-11-15_repository.md`.
 
@@ -23,5 +23,5 @@ The full source history is published on the corresponding feature branches.
 Large generated artifacts and third-party tool installations are not part of this
 source archive. Creating this snapshot does not modify any live runtime file.
 
-The U010 controlled-change JSON is included alongside its source because its
-software check uses it to verify the exact inherited audit transformation.
+The U010/U011 controlled-change JSON files are included alongside their source
+because their software checks verify the exact inherited transformations.

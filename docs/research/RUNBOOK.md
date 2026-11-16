@@ -989,3 +989,42 @@ seed0. Cache extraction retains its separate inspection. Audit outputs remain in
 `outputs/gated/C008/runs/RUN` with explicit U010 integration metadata. Review the
 actual audit, C001 science and C005 operation independently before any successor.
 CPU restoration does not establish numerical inference or scientific quality.
+
+## Later selected-checkpoint numerics
+
+[U011](records/U011.json) qualifies the ten remaining C014 encoder/O0/O1 cases
+under U001. Eight CPU groups pass, including 46 metadata corruption refusals.
+The original numerical split loop and five summary/inspection functions remain
+byte-identical. The initial lexical fixture failure and corrected source are
+preserved; this software result does not supply actual checkpoint evidence.
+
+After the relevant U009 training and U010 audit reviews, prepare a fresh C014
+consultation with the full actual input map, original numerical software review,
+U011 record/software review and U001 authorization. Keep the runtime checkout
+pinned through the subsequent inspection:
+
+```sh
+"$PY" outputs/gated/U011/run.py --run "$RUN" --python "$PY" \
+  --preconsultation "$CONSULTATION"
+```
+
+This route removes both total elapsed deadlines and the old `--work-seconds`
+argument. The existing numerical callbacks write progress metadata. U001's
+owned-process monitor watches that progress, results, arrays and logs; 1800 seconds
+without a change triggers technical stall handling. Progressing cases have no
+GPU-hour cap. Original two-thread and half-GPU-memory settings remain.
+
+After normal terminal completion, use the U011 inspector with GPUs hidden:
+
+```sh
+env HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' ROCR_VISIBLE_DEVICES='' \
+  OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 \
+  "$PY" outputs/gated/U011/inspect_result.py --run "$RUN"
+```
+
+Science and operation paths remain `outputs/gated/C014/RUN` and
+`outputs/gated/C014/operations/RUN`; the independent inspection remains
+`C014/RUN/inspection.json`. Review all three actual outputs separately. A complete
+numerical failure remains a failure. Each encoder must pass before its associated
+predictors are admitted; passing numerical checks does not establish physical
+prediction, planning or robot-transfer performance.

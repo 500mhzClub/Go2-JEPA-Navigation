@@ -2,8 +2,8 @@
   "captured_at": "2026-11-16T10:52:41.550853+00:00",
   "source_commit": "60a6d4d9bbc306735fa7a852cd158930c4016049",
   "purpose": "Publish all locally authored experiment helper source previously held beneath ignored outputs; source-only byte-preserving snapshot, including historical/failing variants.",
-  "file_count": 450,
-  "total_bytes": 2754669,
+  "file_count": 466,
+  "total_bytes": 2917550,
   "extensions": [
     ".bash",
     ".ipynb",
@@ -1954,6 +1954,118 @@
       "mode": "0o664"
     },
     {
+      "source": "outputs/gated/U011/check.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/check.py",
+      "sha256": "53c937a0ba34cd05b4e6d1df2fe4f8d0045a0c9bd2a2e4faeaf119fcfe63a79d",
+      "bytes": 15139,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/common.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/common.py",
+      "sha256": "becbad3f4ccd4b6b9f7dfec947ae880ec7d8a8f1881aa2ad352da2d626da6eb8",
+      "bytes": 9265,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/controlled_changes.json",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/controlled_changes.json",
+      "sha256": "51c1e1c223ffafd7e3c728aa2dfc25a956d0b1bdcff1c373dab15b37b6428ac3",
+      "bytes": 6494,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/inspect_result.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/inspect_result.py",
+      "sha256": "1f3d04962ad191d11f52987fe476280547727cd4a8580977fe20d7544056b82d",
+      "bytes": 12699,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/run.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/run.py",
+      "sha256": "872365b47095e6848dd7d1b7414ff510c18ef91b0b2d8ee55cf82be9ce33de7d",
+      "bytes": 5828,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/software/source/check.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/software/source/check.py",
+      "sha256": "53c937a0ba34cd05b4e6d1df2fe4f8d0045a0c9bd2a2e4faeaf119fcfe63a79d",
+      "bytes": 15139,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/software/source/common.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/software/source/common.py",
+      "sha256": "becbad3f4ccd4b6b9f7dfec947ae880ec7d8a8f1881aa2ad352da2d626da6eb8",
+      "bytes": 9265,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/software/source/inspect_result.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/software/source/inspect_result.py",
+      "sha256": "1f3d04962ad191d11f52987fe476280547727cd4a8580977fe20d7544056b82d",
+      "bytes": 12699,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/software/source/run.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/software/source/run.py",
+      "sha256": "872365b47095e6848dd7d1b7414ff510c18ef91b0b2d8ee55cf82be9ce33de7d",
+      "bytes": 5828,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/software/source/validation.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/software/source/validation.py",
+      "sha256": "2f7f647e4c4fd62591a63ab5c680329bdcc98a9b6eaa9edc0ffcf59e8dec60b9",
+      "bytes": 9330,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/software_attempt_001/source/check.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/software_attempt_001/source/check.py",
+      "sha256": "a5b2ca5fe8d4ec992f27232ea21c2e5b94d11d76cfbdef669fecf04d4d77ceea",
+      "bytes": 14743,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/software_attempt_001/source/common.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/software_attempt_001/source/common.py",
+      "sha256": "becbad3f4ccd4b6b9f7dfec947ae880ec7d8a8f1881aa2ad352da2d626da6eb8",
+      "bytes": 9265,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/software_attempt_001/source/inspect_result.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/software_attempt_001/source/inspect_result.py",
+      "sha256": "1f3d04962ad191d11f52987fe476280547727cd4a8580977fe20d7544056b82d",
+      "bytes": 12699,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/software_attempt_001/source/run.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/software_attempt_001/source/run.py",
+      "sha256": "872365b47095e6848dd7d1b7414ff510c18ef91b0b2d8ee55cf82be9ce33de7d",
+      "bytes": 5828,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/software_attempt_001/source/validation.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/software_attempt_001/source/validation.py",
+      "sha256": "2f7f647e4c4fd62591a63ab5c680329bdcc98a9b6eaa9edc0ffcf59e8dec60b9",
+      "bytes": 9330,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U011/validation.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U011/validation.py",
+      "sha256": "2f7f647e4c4fd62591a63ab5c680329bdcc98a9b6eaa9edc0ffcf59e8dec60b9",
+      "bytes": 9330,
+      "mode": "0o664"
+    },
+    {
       "source": "outputs/genesis/chain27.sh",
       "snapshot": "tools/research_runtime/outputs/genesis/chain27.sh",
       "sha256": "62f1e7f728e5ae3f2112dbc9a2822752207449da7b47ce4008d96cefa4f07d1d",
@@ -3170,9 +3282,10 @@
     "Generated datasets, checkpoints, results, logs and bytecode"
   ],
   "restoration": "Original relative paths are in source. Restore only into an appropriate unused checkout with its separately retained exact evidence/data; do not overwrite a live run or treat archived failed variants as qualified launchers.",
-  "updated_at": "2026-11-16T11:05:06.025618+00:00",
-  "update_base_commit": "2e097c0656988206bc115a10a9314e936e350db2",
+  "updated_at": "2026-11-16T11:15:11.334817+00:00",
+  "update_base_commit": "3f27c2f79352a564311e82af068767370a512ee9",
   "additional_files": [
-    "outputs/gated/U010/controlled_changes.json"
+    "outputs/gated/U010/controlled_changes.json",
+    "outputs/gated/U011/controlled_changes.json"
   ]
 }

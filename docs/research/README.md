@@ -150,5 +150,11 @@ training computation and commands are retained. Initial fixture failure is
 preserved. [U010](records/U010.json) now qualifies C008 metadata integration:
 seven CPU groups pass, including 31 metadata and 15 terminal corruption refusals.
 The eight original state/terminal/source functions remain byte-identical. Actual
-later checkpoint audits and C014 numerical deadline correction remain pending;
-no additional object stage has run.
+later checkpoint audits remain pending; no additional object stage has run.
+
+[U011](records/U011.json) now qualifies the later C014 numerical route under
+U001: eight CPU groups and 46 metadata corruption refusals pass. Both outer and
+internal GPU deadlines are removed; the numerical loop and five summary/inspection
+functions remain byte-identical. The initial lexical fixture failure is preserved.
+No actual additional-checkpoint numerical result exists yet; later C009 measurement
+supervision and inspection metadata still need integration.

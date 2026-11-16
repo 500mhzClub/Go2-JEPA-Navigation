@@ -50,9 +50,10 @@ followthrough checkout. Keep scientific computation and existing reviews intact:
 - C009v2 still enforces old scientific allocations for later object measures.
   Extend the accounting-only execution route to those already-approved cases,
   retaining C014 admission and independent inspections.
-- C014's later selected-checkpoint numerical checks also retain old outer,
-  reserve/global and internal per-call deadlines. Remove those under U001
-  while preserving every numerical comparison and tolerance.
+- C014's U011 adapter now removes outer, reserve/global and internal numerical
+  deadlines. Eight CPU groups pass, including 46 metadata corruption refusals;
+  original numerical loop, tolerances and inspection calculations remain unchanged.
+  No actual later selected checkpoint has completed this suite yet.
 - CPU-only C011/B004 have separate wall/RSS bounds. They are not GPU-hour caps;
   do not silently change their scientific or resource protocols. Their source
   and record inventories match the preserved gated checkout at a75523b; use

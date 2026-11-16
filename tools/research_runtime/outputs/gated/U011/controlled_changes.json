@@ -1,0 +1,109 @@
+{
+  "validation.py": {
+    "original_sha256": "7ac1934689f2bd7f1691d2bcd81bad2db82fa7977483d925dfba3f20ac4a9785",
+    "changes": [
+      {
+        "before": "from common import BASE, HELPERS, code_hashes, inputs, need",
+        "after": "from common import ORIGINAL as BASE, ORIGINAL_HELPERS as HELPERS, code_hashes, inputs, need, qualified, integration_hashes, progress\nsys.path.append(str(BASE.resolve()))"
+      },
+      {
+        "before": "def run(name, work):",
+        "after": "def run(name):"
+      },
+      {
+        "before": "    started = time.monotonic()\n    identity, bound = inputs(name)",
+        "after": "    started = time.monotonic()\n    integration = qualified()\n    identity, bound = inputs(name)"
+      },
+      {
+        "before": "    manifest['computational_source_sha256'] = code",
+        "after": "    manifest['computational_source_sha256'] = code\n    manifest.update(integration=integration, integration_helper_sha256=integration_hashes(), budget_policy='U001', work_seconds=None)"
+      },
+      {
+        "before": "    result = dict(research_id='C014', research_sha256=rh, **identity,",
+        "after": "    result = dict(research_id='C014', research_sha256=rh, integration=integration, budget_policy='U001', work_seconds=None, **identity,"
+      },
+      {
+        "before": "    def check():\n        if time.monotonic()-started >= work:\n            raise TimeoutError('C014 numerical deadline')",
+        "after": "    def check():\n        progress(out, name)"
+      },
+      {
+        "before": "        verify_files(BASE, manifest['helper_sha256'])",
+        "after": "        verify_files(BASE, manifest['helper_sha256'])\n        verify_files(Path('outputs/gated/U011'), manifest['integration_helper_sha256'])"
+      },
+      {
+        "before": "    except TimeoutError as exc:\n        result.update(status='budget_incomplete', error=str(exc), checks_passed=False)\n",
+        "after": ""
+      },
+      {
+        "before": "    p.add_argument('--work-seconds', type=float, required=True)\n",
+        "after": ""
+      },
+      {
+        "before": "    need(0 < args.work_seconds <= 1755, 'Invalid work allowance')\n",
+        "after": ""
+      },
+      {
+        "before": "        run(args.run, args.work_seconds)",
+        "after": "        run(args.run)"
+      }
+    ]
+  },
+  "run.py": {
+    "original_sha256": "9ec3fe215b459708bd72e0e52b3476a532b1c78139423b93ea8decdb13f7d119",
+    "changes": [
+      {
+        "before": "\"\"\"One bounded C014 numerical case; no automatic review or successor.\"\"\"",
+        "after": "\"\"\"One C014 numerical case under U001; no automatic review or successor.\"\"\""
+      },
+      {
+        "before": "from common import BASE, admit, close, inherited, inputs, need, reviewed",
+        "after": "from common import ORIGINAL as BASE, admit, close, inherited, inputs, need, reviewed, qualified, integration_hashes, extra_consultation, arguments, wait_progress, progress_paths"
+      },
+      {
+        "before": "    args = p.parse_args()\n    require_training_slot()",
+        "after": "    args = p.parse_args()\n    integration = qualified()\n    require_training_slot()"
+      },
+      {
+        "before": "    need(pre.get('consulted_at') and pre.get('consequences') and pre.get('sources'), 'Missing consultation')",
+        "after": "    extra_consultation(pre, integration)\n    need(pre.get('consulted_at') and pre.get('consequences') and pre.get('sources'), 'Missing consultation')"
+      },
+      {
+        "before": "    argv = [args.python, str(BASE/'validation.py'), '--run', args.run, '--work-seconds', str(work)]",
+        "after": "    argv = arguments(args.python, args.run)"
+      },
+      {
+        "before": "    manifest = dict(research_id='C014', research_sha256=rh, **identity, argv=argv, cwd=str(Path.cwd()),",
+        "after": "    manifest = dict(research_id='C014', research_sha256=rh, integration=integration, integration_helper_sha256=integration_hashes(), budget_policy='U001', stall_seconds=1800, cleanup_reserve_seconds=45, **identity, argv=argv, cwd=str(Path.cwd()),"
+      },
+      {
+        "before": "            timed = base.wait_owned(child, proc, creation, argv, Path.cwd(), started+work, actions,\n                remaining=lambda: base.remaining_seconds(json.loads(ledger.read_text()), time.time()),\n                heartbeat=lambda seconds: atomic_json(out/'monitor_latest.json', dict(at=time.time(), pid=child.pid, remaining_work_seconds=seconds)))",
+        "after": "            timed = wait_progress(child, proc, creation, argv, Path.cwd(), progress_paths(science, out), actions,\n                heartbeat=lambda quiet: atomic_json(out/'monitor_latest.json', dict(at=time.time(), pid=child.pid, no_output_seconds=quiet, budget_policy='U001')))"
+      },
+      {
+        "before": "    status = 'awaiting_literature_review' if code == 0 and not errors and raw.get('complete') else 'technical_blocked'\n    if not errors and (timed or raw.get('status') == 'budget_incomplete'):\n        status = 'budget_incomplete'",
+        "after": "    status = 'awaiting_literature_review' if code == 0 and not errors and not timed and raw.get('complete') else 'technical_blocked'"
+      },
+      {
+        "before": "    result = dict(research_id='C014', name=args.run, status=status, returncode=code,",
+        "after": "    result = dict(research_id='C014', integration_research_id='U011', budget_policy='U001', timeout_type='no_output_progress' if timed else None, name=args.run, status=status, returncode=code,"
+      }
+    ]
+  },
+  "inspect_result.py": {
+    "original_sha256": "c0268ac3e8eca14bc9a7edd8610f248afe02020cbe0f145cf04515423320602f",
+    "changes": [
+      {
+        "before": "from common import BASE, case, need, reviewed",
+        "after": "from common import ORIGINAL as BASE, case, need, reviewed, operation_metadata"
+      },
+      {
+        "before": "    need(r['research_sha256'] == require_record('C014')[1], 'Record differs')",
+        "after": "    operation_metadata(r, o, m, om, json.loads(Path('outputs/gated/gpu_intervals.json').read_text()))\n    need(r['research_sha256'] == require_record('C014')[1], 'Record differs')"
+      },
+      {
+        "before": "    result = dict(research_id='C014', name=name, status='awaiting_literature_review',",
+        "after": "    result = dict(research_id='C014', integration_research_id='U011', integration=r['integration'], name=name, status='awaiting_literature_review',"
+      }
+    ]
+  }
+}

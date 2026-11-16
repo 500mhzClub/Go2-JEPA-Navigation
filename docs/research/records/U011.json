@@ -1,0 +1,62 @@
+{
+  "id": "U011",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T11:08:55.563392+00:00",
+  "question": "Can the remaining ten C014 checkpoint numerical suites execute under U001 without either historical outer or internal GPU deadlines, preserving every comparison and independent inspection?",
+  "hypothesis": "Explicit U011/U001 provenance, unchanged original numerical code and progress-based owned-process supervision can remove only elapsed-time limits while retaining complete per-checkpoint admission.",
+  "sources": [
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Numerical accuracy and batched/slice computations, lines393-403",
+      "consequence": "CPU/GPU and regrouped arithmetic can differ; retain original full64/MATH policy, independent preprocessing, recursion and exact tolerances for every selected checkpoint."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen.poll/wait, communicate timeout and explicit cleanup, lines395-430",
+      "consequence": "A wait timeout is not process termination. Reuse reviewed U001 exact-owned progress monitor and original confirmed-terminal C014 closure; no absolute elapsed GPU deadline."
+    }
+  ],
+  "differences": "Operational integration for ten unexecuted C014 cases only. Preserve C014 scientific/output identity and canonical paths, original loader/math/window/gradient/assignment logic and all earlier evidence. No new GPU scientific run during qualification.",
+  "contrary_evidence": "Passing n3 seed0 does not admit future checkpoints. Float64 can still fail; elapsed time is not a numerical result. A1800second lack of observable progress may be a slow operation rather than a hang and must be recorded as technical failure, not scientific negative. Raw small-batch outputs/gradients remain unsaved as in C014.",
+  "protocol": {
+    "scope": "slots/o0/o1 n3seeds1/2 and slots/o1 n1/n6seed0 only",
+    "c014_software_review_sha256": "c3a3d4b79f00404be313c289417848a980bf7c171d28752373182309c47ea3a0",
+    "u001_software_review_sha256": "39cfac353717fce32c30bd6ca316c5cf217c9e59391a6987b79ba0c0bbc156cc",
+    "u010_software_review_sha256": "047583f8ca79c70ddd2aac0d39bccb66186d1f842257051ca4bc4a856fa6a2d4",
+    "inherited_helpers": {
+      "common.py": "4b6432f5f45feca0257abc59120a2c7289f24234f1671c5095aaab1e55cfc2bc",
+      "math_checks.py": "48c8c3507b608bf8e8d76677e7e9f4c9e3c7fbffc3e40de5a5ee4939e37b6a80",
+      "validation.py": "7ac1934689f2bd7f1691d2bcd81bad2db82fa7977483d925dfba3f20ac4a9785",
+      "run.py": "9ec3fe215b459708bd72e0e52b3476a532b1c78139423b93ea8decdb13f7d119",
+      "inspect_result.py": "c0268ac3e8eca14bc9a7edd8610f248afe02020cbe0f145cf04515423320602f",
+      "check_numerics.py": "378866c96713f85c59b3f9bbb57455cc07c1211125ab49d04a0f9ed19b464001"
+    },
+    "computation": "Import original C014 common/math helpers; controlled copies of validation/run/inspection change only qualification, time policy, callback progress and integration metadata. gradient_names/summarize/recompute/assignment_costs/inspect_payload functions remain byte-identical; every numerical loop, input, memory fraction and tolerance retained.",
+    "lineage": "Original C014 actual C001/C005/C008, data/cache/encoder, loader and historical numerical evidence bindings retained. Additionally require U009 training and exact qualified U010 audit; include U001/U010/U011 software and records in actual inputs. Preserve encoder-first numerical prerequisite.",
+    "time": "Remove min1800/reserve/global admission, outer wait-owned absolute deadline, --work-seconds and internal elapsed timeout. Keep one outer C004 interval/supervisorC014 with explicit U011/U001 and null remaining/work values. Reuse U001 wait_progress quiet1800/poll10/TERM30/KILL10. Write progress.json from existing numerical check callbacks; track validation log/result/NPZ/progress. Stalls and unexpected TimeoutError are technical_blocked. No cap on progressing work.",
+    "inspection": "Retain original independent payload inspection, original software/helper hashes and canonical inspection output; additionally verify U011 records/helper/review, U001 authorization, null limits, fresh actual consultation, exact runtime and closed owned interval metadata.",
+    "consultation": "Original C014 per-case fields and full actual input map plus U011 record/software and U001 authorization; substantive sources/time/consequences before any actual numerical run.",
+    "checks": [
+      "Exact controlled copies and unchanged original computation/inspection functions and source hashes",
+      "All ten remaining cases and completed/unapproved refusals",
+      "Synthetic elapsed60hour admission and null JSON values; open interval, live-child and incorrect closure refusals with shared ledger unchanged",
+      "Original1104/2772/4164 coverage fixtures, omissions refuse and complete numerical negative remains negative without Torch/GPU",
+      "Progress callback and argv retain original computation and no absolute GPU deadline",
+      "Valid integration metadata and deliberate record/software/source/authorization/time/consultation/interval corruptions refuse",
+      "Original training/prerequisite binding and actual missing later training refusal; no actual output or historical/live helper mutation"
+    ]
+  },
+  "success": "CPU integration checks pass and exact substantive result review qualifies U011. Each actual selected checkpoint still requires its full numerical suite and separate scientific/inspection/operational reviews.",
+  "stop": "Refuse stale/missing lineage, changed sources or incomplete result. Preserve all failures and outputs. Do not relax numerical tolerances, change planner/trainer or restart active jobs.",
+  "resources": {
+    "device": "CPU-only software verification",
+    "software_seconds_max": 180,
+    "cpu_workers_max": 2,
+    "actual_gpu_time_limit": null,
+    "actual_gpu_memory_fraction": 0.5,
+    "actual_stall_seconds": 1800
+  },
+  "predecessors": []
+}
