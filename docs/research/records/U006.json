@@ -1,0 +1,70 @@
+{
+  "id": "U006",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T10:14:59.142020+00:00",
+  "question": "Can the original complete-state A018 audit accept the explicit U005/U001 operational lineage without weakening artifact, source or termination checks?",
+  "hypothesis": "Only software/source and authorization metadata admission needs adaptation; all original checkpoint-state computation and terminal checks can remain identical.",
+  "sources": [
+    {
+      "url": "https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html",
+      "version": "Official tutorial accessed2026-11-16; page2.15, local2.12 unchanged",
+      "sections": "General checkpoint restoration and CPU map_location",
+      "consequence": "Retain strict full model/head and optimizer restoration, plus local scheduler/RNG/log checks; no forward, gradient or training update."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/generated/torch.optim.Optimizer.state_dict.html",
+      "version": "2.12",
+      "sections": "state and param_groups; parameter-ID ordering and load behavior",
+      "consequence": "Preserve exact ordered parameter IDs and full moment/state coverage; metadata correction must not bypass the original independent contract."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen.poll/wait and TimeoutExpired",
+      "consequence": "Retain exact child-absence and both closed owned intervals. A normal supervisor return alone does not establish audit eligibility."
+    }
+  ],
+  "differences": "Copy original A018 audit into U006 with controlled changes only to admission, source reconciliation, integration metadata and import path. Keep A018 research identity and A018/runs/NAME output paths for existing numerical-stage readers. Original A018 files/reviews remain unchanged. Reuse its state_contract directly.",
+  "contrary_evidence": "A successful metadata fixture does not establish actual completed training. Source reconciliation is allowed only for the three already-C014-qualified evaluator files, not arbitrary changed implementation. GPU RNG remains validated only as bytes on CPU.",
+  "protocol": {
+    "scope": "Four already-approved n3 L0/L1 seeds1/2 only,303000updates; no actual training or inference in software checks.",
+    "admission": "Require original A018 and C010 software/record/helper identities and exact U005 software/record/source. Verify original runtime source and current computation; reconcile only three admitted C014 evaluator hashes in old inventories. Require U005 operation integration,U001 policies and authorization hashes,null inner/outer time budgets,normal timeout_type,reviewed source maps and consultation identities. Inspect both owned interval policies and U005 outer integration in addition to original terminal checks.",
+    "custody": "Original seven required training files, fresh A018/runs/NAME snapshot, original before/after hashes and raw lineage/config/metrics checks unchanged. Add U005/U006 authorization/software sources to the audit input inventory and fresh consultation.",
+    "checks": [
+      "Exact controlled audit-source substitutions, original terminal/source-check/need AST equality and unchanged state_contract digest",
+      "Actual inherited software/source/record admission with exactly three evaluator reconciliations",
+      "Synthetic complete U005 metadata accepted; wrong authorizations, policy, software/source maps, consultation and interval policy refused",
+      "Original14 terminal-failure fixtures still refused; runtime/current computation source checks retained",
+      "Additional consultation hashes exact and missing actual trained result refuses before outputs",
+      "No Torch/CUDA execution, actual state claims, shared-ledger or active helper mutation"
+    ],
+    "inherited_audit_sha256": "1b6d34fb4bfcf194fa5bf9f7fe6ac662136f14a147677b6ee4cf90ce114c6c60",
+    "inherited_state_contract_sha256": "808cf3af1214b2028b63c5a50b9f7bca412878bb4d47b1912661b535965a0c3a",
+    "inherited_review_sha256": "0d3af82708b0d85d33985774c397e11d59c29241f31ff9b6d0b37a2fd11f5ea6",
+    "u005_review_sha256": "02d96455ec6dab542ac9b6852e82e34728f87874dbbec5274d69b341370ca4c7",
+    "state": "Unchanged original A018 state_contract, already nine-group qualified including four full synthetic states and29corruptions; no repeat tensor test when bytes are identical. Actual audit later must run the complete contract."
+  },
+  "success": "Focused metadata/source/terminal integration checks pass, preserving full original audit computation. Actual four final-state audits remain required.",
+  "stop": "Refuse missing/nonterminal/stale/unauthorized inputs, unknown source changes or output reuse. Preserve failure evidence; never relax state thresholds or modify training files.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_workers_max": 1,
+    "software_wall_seconds_max": 180,
+    "actual_wall_seconds_max": 180,
+    "training_device": "none;CPU artifact audit"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/A018/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/U005/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

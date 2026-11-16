@@ -506,10 +506,8 @@ refusals and actual missing-P26 refusal. First-pair object planning binds the ne
 original C010 fields plus `u005_record_sha256`, `u001_authorization_sha256` and
 U005 `software_review_sha256`; input inventory comes from U005.
 
-The A018 command below describes the original audit. Its metadata/source admission
-still needs explicit U005 integration before actual use, while keeping the full
-state and terminal checks unchanged. No actual extra-seed training or audit has
-run; prepare that integration before the first training completion.
+U006 now qualifies A018 metadata/source admission for U005 while preserving the
+full state and terminal checks. No actual extra-seed training or audit has run.
 
 The original A003, B003 and C006 records cover only the six seed0 baselines.
 A019 now covers calibrated inference for the four additional n3 baselines, with
@@ -519,13 +517,14 @@ Do not silently apply the original
 records to seeds1/2. C010 software checks alone establish neither an actual
 completed training state nor numerical/scientific validity.
 
-After a normal C010 completion, use A018 before changing its runtime checkout:
+After a normal U005/C010 completion, use the U006 integration of A018 before
+changing its runtime checkout:
 
 ```sh
 HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' ROCR_VISIBLE_DEVICES='' \
   OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
-  timeout --kill-after=5s 175s "$PY" outputs/gated/A018/audit.py --run l0_n3_s1 \
-  --preconsultation outputs/gated/A018/pre_l0_n3_s1.json
+  timeout --kill-after=5s 175s "$PY" outputs/gated/U006/audit.py --run l0_n3_s1 \
+  --preconsultation outputs/gated/U006/pre_l0_n3_s1.json
 ```
 
 Create the consultation only after inspecting the actual terminal evidence and
@@ -534,6 +533,16 @@ C001/C010 raw results, full checkpoint and final model digests. The audit verifi
 the original runtime source inventory there and executable source in the audit
 checkout, all admitted input bytes, exact process termination and closed owned
 ledger rows. Snapshot files and audit results go to `A018/runs/RUN`.
+
+U006 retains all original A018 consultation fields and adds
+`u006_record_sha256`, `u006_software_review_sha256` and
+`u001_authorization_sha256`. Its six software groups include23 metadata and14
+terminal/identity/ledger corruption refusals, plus exact original-state code
+identity and missing-actual-result refusal. Three supplementary missing-field
+checks also pass. The original tensor checks are inherited unchanged; the full
+contract must still execute on each actual completed checkpoint. The audit
+manifest and result explicitly record U006 integration while retaining A018
+identity and output paths.
 
 Nine focused software groups pass: four default L0/L1 seed fixtures,29 deliberate
 state/config/optimizer/RNG/log corruptions,14 invalid terminal/accounting cases,

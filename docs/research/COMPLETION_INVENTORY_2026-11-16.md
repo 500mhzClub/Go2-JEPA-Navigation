@@ -36,8 +36,9 @@ followthrough checkout. Keep scientific computation and existing reviews intact:
 
 - C010's U005 adapter is now qualified: old48/28-hour caps are removed and the
   first-pair core uses full planning plus U002/U001 evidence. Seven software
-  groups pass; actual P26 prerequisites remain absent. A018's older source and
-  launcher-metadata admission still needs explicit integration before audit use.
+  groups pass; actual P26 prerequisites remain absent. U006 now qualifies A018
+  metadata/source admission with unchanged original state and terminal checks;
+  six integration groups pass. All actual extra-seed artifacts remain absent.
 - C005v2 still enforces old48/28-hour allocations for later encoders, caches and
   predictors. Retain C001 recipes and the approved count/seed order.
 - A019 still enforces old48/4-hour and per-call GPU deadlines. Preserve the

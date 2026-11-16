@@ -94,8 +94,10 @@ Record elapsed dedicated-device intervals (overlaps counted once) and each run's
 
 [U005](records/U005.json) qualifies the additional-baseline launcher under U001
 with original training and complete full-planning/P26/seed-order prerequisites.
-Seven CPU groups pass. No additional seed has run; A018 metadata integration is
-still required before its actual completion audit.
+Seven CPU groups pass. [U006](records/U006.json) now qualifies A018 metadata
+integration with six groups,23 metadata and14 terminal corruption refusals;
+its full state computation is unchanged. No additional seed or actual audit has
+run.
 
 Results and review digests live beside run artifacts. This index must be updated when a result is interpreted. Status vocabulary: `passed`, `measured_negative`, `technical_blocked`, `budget_incomplete`. Separate implementation validity, representation, prediction, planning and generalization evidence.
 
