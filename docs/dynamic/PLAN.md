@@ -2306,6 +2306,18 @@ responses, confounding; A near zero, the action is not reaching the obstacles' t
 **5. Compute:** data minutes on the CPU; Oracle-S minutes on the GPU; each rung 20-40 minutes on the R9700, two at
 once (T1 and T2), under 85% of its memory.
 
+**6. As run** (16 November; STATUS P27):
+- Two GPU processes at once each ran at under a third of the solo speed, so a rung runs T2 and then T1 in one
+  service. Every rung is 6,000 steps at batch 64 in bf16; a second round may run longer within the 45 minutes.
+- R2's weight is the change of the target patch's pixels (floor 0.1, mean 1), not of its embedding, so that an encoder
+  cannot lower a token's weight by making it still.
+- R3 ran on T2 only and without the confounded data: no patch-token run had a predictor that carried the obstacles,
+  which the confound test needs.
+- R5 is R4 with 16 history frames. Its windows start at frame 15, so it is compared with references and R4 rescored
+  from that frame (`--first 15`).
+- **Reading 3 seeds** (written after R4's seed 0 at 36,000 steps was scored, before seeds 1 and 2): a bar is met when
+  the mean of the three seeds meets it (for the slope, the mean of the intervals' lower ends). Each seed is shown.
+
 ## Compute and order
 
 | Phase | Compute |
