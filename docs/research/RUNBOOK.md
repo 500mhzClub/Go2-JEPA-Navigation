@@ -180,6 +180,21 @@ under `outputs/gated/C001/STAGE_nN_sSEED`; operational outputs are under
 before dependent work. Direct commands below document the unchanged child
 protocol; use the supervisor for execution so the B/C cap is also enforced.
 
+C005 revision2 corrects a prospective accounting error: C004 belongs to the
+validation reserve, as its preregistration already states. V1 counted it against
+B/C. No C004 interval exists yet, so the live run's allowance and deadline are
+unchanged. The audit and original evidence are preserved under
+`outputs/gated/C005/allocation_audit` and `outputs/gated/C005/record_v1.json`.
+The isolated `outputs/gated/C005/v2` implementation passed eight focused CPU
+checks and literature review, inheriting unchanged v1 process-supervision checks.
+
+After the live v1 run finishes and its actual results receive review, use
+`outputs/gated/C005/v2/run_stage.py` for subsequent C001 stages. First move to the
+updated checkout and verify that `v2/software/result.json`'s `research_sha256`
+equals the current C005 record digest. V2 operational outputs and software review
+are under `outputs/gated/C005/v2`; scientific outputs remain under C001.
+Do not change the live v1 source, its deadline or the pinned gated checkout.
+
 C003 has also passed a bounded three-update GPU diagnostic of the actual checkpoint helpers, optimizer state,
 schedule, cursor and RNG restoration, followed by CPU/GPU output/gradient and batch-grouping checks. Its synthetic
 inputs and short run do not establish full-loop crash recovery, convergence or final trained-checkpoint validity.

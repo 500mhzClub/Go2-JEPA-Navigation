@@ -34,17 +34,23 @@
       "version": "sha256:eedd2df4deb7f809b9cefea40e8ac676ccd4f5d5a9dbabbb63195f32b25337e9",
       "sections": "train_stage, save/checkpoint and extract",
       "consequence": "Keep unchanged atomic checkpoint every 100 updates and epoch boundary. A forced stop preserves the last complete checkpoint and may lose later updates; never call partial completion a scientific negative."
+    },
+    {
+      "url": "docs/research/records/C004.json",
+      "version": "df6c0b7286bfa9aff84e0b337f1d8771b7e298d071e5fd7522a9a207793bf0c2",
+      "sections": "resources.scope",
+      "consequence": "Selected-checkpoint diagnostics consume validation reserve and shared allowance, not the balls training/planning allocation."
     }
   ],
-  "differences": "Operational extension of reviewed A016 to the approved C001 stages only. The scientific C001 record, samples, architecture, precision, optimizer, selection and stopping epochs remain unchanged. Tests use only temporary ledgers and harmless CPU subprocesses. Original training and completed A003 outputs are untouched.",
+  "differences": "Operational extension of reviewed A016 to the approved C001 stages only. The scientific C001 record, samples, architecture, precision, optimizer, selection and stopping epochs remain unchanged. Tests use only temporary ledgers and harmless CPU subprocesses. Original training and completed A003 outputs are untouched. Revision2 corrects only prospective C004 classification to its already-declared reserve allocation. Live v1 wrapper/source/record are preserved; version2 is isolated under outputs/gated/C005/v2.",
   "contrary_evidence": "An uninterruptible kernel task may outlast TERM/KILL deadlines. Normal child exit does not validate learned numerics or scientific performance. Full training checks only global budget at checkpoints, so this external cap is needed for the B/C allocation and host-side stalls.",
   "protocol": {
     "scope": "Unchanged C001 slots/extract/o0/o1 jobs in the approved counts/seeds/order; no automatic successor, retry, review or budget transfer.",
-    "allocation": "The fixed B/C allowance is 28 hours within global48. Union-count B001,C001,C002,C004 and C005 intervals; C003 remains reserve as already declared. A/D/reserve cannot be silently transferred. Every C005 outer interval counts to B/C and global; contained C001 interval overlaps count once.",
+    "allocation": "The fixed B/C allowance is28 hours within global48. Union-count B001,C001,C002 and C005 intervals; C003 and C004 consume their declared reserve and global allowance, not B/C. A/D/reserve cannot be silently transferred. Nested outer C005 and child C001 intervals count once.",
     "admission": "Require C005 software review and source hashes, C003 passing verification with unchanged model/trainer hashes, all six reviewed final A003/A016 cases, complete nonempty manual preconsultation, no live repository trainer, no compute process, no open ledger interval, clean current checkout, unused child/operational output paths. Inner C001 parent-review guards remain authoritative for extraction/predictors.",
     "supervision": "Deadline min(global remaining, B/C remaining)-45 seconds, monotonic from admission; recheck at most30 seconds. At deadline, exact PID/create/cmd/cwd identity required for TERM30 then KILL10. Retain raw outputs/checkpoints. Close owned outer and uniquely manifest-bound inner intervals only after confirmed child termination; leave unresolved intervals open. Do not modify raw child result/manifest.",
     "classification": "Successful terminal child and complete raw result await separate scientific and operational literature reviews. Deadline stop is budget_incomplete. Nonzero exit, bad/missing raw result or accounting error is technical_blocked. No scientific success inferred from process completion.",
-    "checks": "Temporary-ledger allocation/union/exhaustion/refusal/unique-child/symlink/foreign preservation checks, actual harmless normal/nonzero/TERM/KILL subprocesses, changed source/preconsultation rejection; shared ledger unchanged and torch never imported in software tests."
+    "checks": "Temporary-ledger allocation/union/exhaustion/refusal/unique-child/symlink/foreign preservation checks, actual harmless normal/nonzero/TERM/KILL subprocesses, changed source/preconsultation rejection; shared ledger unchanged and torch never imported in software tests. Revision2 verification: C003/C004/D001/A003 affect global only, B001/C001/C002/C005 affect B/C; overlap counted once; a reserve-only28-hour fake history cannot exhaust B/C while a true B/C28-hour history does; both versions have identical live-ledger allowances before any C004 run. Verify only intended source changes and byte-identical v1 artifacts."
   },
   "success": "CPU supervision checks pass and actual owned child is accounted for honestly; scientific result still needs its exact review and selected-checkpoint C004.",
   "stop": "Refuse failed admission without a GPU context or ledger mutation. Preserve technical/budget outcomes, consult literature before dependent work. No model changes, device resets, CPU training or allowance increases.",
@@ -67,6 +73,14 @@
       "allow": [
         "passed"
       ]
+    },
+    {
+      "review": "../../../outputs/gated/C005/allocation_audit/review.json",
+      "allow": [
+        "technical_blocked"
+      ]
     }
-  ]
+  ],
+  "revision": 2,
+  "previous_record_sha256": "e6ebf5d7e38c6a35671c61bc2aba04e0c4554c33705a37c1024fa712115bc60e"
 }
