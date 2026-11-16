@@ -2724,3 +2724,37 @@ R5 [R4 with 16 history frames] tests capabilities 2 and 3 under T2's hidden kind
 - **Why history cannot do much here:** the agent is within the reaction radius in 20% of obstacle-frames, so 16
   frames seldom show an obstacle's kind before the branch.
 - R5 is not tuned further. R4 with 3 frames stays the best recipe.
+
+## P27 R4, three seeds: every bar but false responses (16 November)
+
+R4 [object-token JEPA, 3 history frames] at 36,000 steps, T2, k = 8. The reading rule (PLAN P27 item 6: the mean of
+three seeds) was written before seeds 1 and 2 were run.
+
+| | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False responses | Slope, lower end | R: worst |
+|---|---|---|---|---|---|---|---|---|
+| Bar | ≤ 1 | ≥ 5 | ≤ 4.47 | ≤ 0.90 | ≤ 0.50 | ≤ 10% | above 0.5 | ≤ 1 |
+| Seed 0 | 0.58 | 22.7 | 1.06 | 0.73 | 0.475 | 10.3% | 0.75 | 0.27 |
+| Seed 1 | 0.54 | 24.3 | 1.09 | 0.75 | 0.481 | 9.8% | 0.75 | 0.26 |
+| Seed 2 | 0.56 | 23.5 | 1.19 | 0.78 | 0.512 | 13.5% | 0.72 | 0.30 |
+| **Mean** | 0.56 | 23.5 | 1.11 | 0.75 | 0.490 | **11.2%** | 0.74 | 0.28 |
+| Oracle-S | 0.41 | 31.6 | 1.25 | 0.61 | 0.59 | 4.9% | 0.57 | - |
+
+- **R4 does not pass:** it meets seven of the eight bars and misses false responses by 1.2 points. Seed 1 alone
+  passes all eight.
+- **Where the false responses are** (quiet pairs, true response under 0.5 px; seed 0 / seed 2 / Oracle-S):
+
+| Quiet pairs, k = 8 | Pairs | R4 seed 0 | R4 seed 2 | Oracle-S |
+|---|---|---|---|---|
+| The agent never within the reaction radius, either tape | 12,716 | 2.3% | 6.9% | 1.8% |
+| Within it in one tape only, no contact | 888 | 61% | 57% | 13% |
+| Within it in both tapes, no contact | 957 | 52% | 44% | 21% |
+| A contact in either tape | 294 | 68% | 63% | 62% |
+| All | 14,855 | 10.3% | 13.5% | 4.9% |
+
+  - Away from the agent the predictions are steady: 2-7% false, the median predicted difference 0.5 px.
+  - **The false responses are obstacles the agent comes near that do not react.** Of the 888 pairs near in one tape
+    only, 696 are indifferent obstacles: the model cannot see the kind, predicts part of a yield or a pause, and is
+    wrong 59% of the time.
+  - Oracle-S is seldom false there because it hardly responds at a distance at all (slope 0.26 against R4's 0.51).
+    With the kinds hidden and one predicted future, responding to those that react and staying still for those that
+    do not are in conflict.
