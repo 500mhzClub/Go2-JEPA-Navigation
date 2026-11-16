@@ -22,7 +22,7 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [A001](records/A001.json) | Are saved inference statistics valid; can train-only calibration repair them? | Six intermediate snapshots reviewed; L1 float32 validity blocked, followed by A002 |
 | [B001](records/B001.json) | Does the fixed balls evaluator solve its controls without future leakage? | Controls pass at every n/horizon; learned planning pending |
 | [A002](records/A002.json) | Does precision explain the remaining L1 discrepancy? | All six pass float64 math inference; reviewed |
-| [A003](records/A003.json) | Do final checkpoints pass the selected common inference policy? | Waiting for existing training |
+| [A003](records/A003.json) | Do final checkpoints pass the selected common inference policy? | All six final303000 cases reviewed passed; 1,620 declared comparisons pass in float64/math, train-only calibrated artifacts preserved |
 | [A004](records/A004.json) | Why are two live original trainers no longer logging steps? | User-supplied stacks locate a GPU scalar synchronization boundary; root cause unresolved |
 | [A005](records/A005.json) | Can full checkpoint state be restored for the interrupted experiments? | Both step105000 checkpoints pass CPU preflight; first GPU recovery stalled before checkpoint load and was retired |
 | [A006](records/A006.json) | Can the two hung processes be retired immediately with all evidence preserved? | Both exited on SIGTERM; all four peers continued advancing, no kernel errors observed; reviewed |
@@ -33,9 +33,9 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [A011](records/A011.json) | Where is the first serial recovery waiting before new metrics appear? | User stack locates initial Module.to before checkpoint loading; reviewed technical_blocked |
 | [A012](records/A012.json) | Does a fresh primitive GPU copy complete? | Both default and SDMA-disabled16KiB copies timed out; children exited, checkpoints unchanged; reviewed technical_blocked |
 | [A013](records/A013.json) | Does the unchanged primitive complete after an orderly reboot? | New boot confirmed; exact copy/arithmetic round trip passed in2.025s and reviewed |
-| [A014](records/A014.json) | Can the unchanged original experiments finish after reboot? | L1 n1/n3 and all three L0 counts completed 303,000 steps and passed final reviews; the final original, L1 n6, is advancing from 155,000 |
-| [A015](records/A015.json) | Do recovered final files preserve the complete original training state? | Five actual final audits reviewed: exact restoration, 198,000 resumed updates for each completed L1 run and 148,000 for each L0 run, with complete logs; L1 n6 final audit remains pending |
-| [A016](records/A016.json) | Can unchanged final evaluations be supervised within the remaining budget? |15 CPU accounting/process checks reviewed; actual all-six completion admission and A003 evaluations pending |
+| [A014](records/A014.json) | Can the unchanged original experiments finish after reboot? | All six completed 303,000 steps and passed actual completion reviews; no original trainer remains active |
+| [A015](records/A015.json) | Do recovered final files preserve the complete original training state? | All six actual audits reviewed: exact restoration, complete finite logs, 198,000 resumed updates for L1 n1/n3 and 148,000 for the other four |
+| [A016](records/A016.json) | Can unchanged final evaluations be supervised within the remaining budget? | 15 CPU checks and all six actual normal completions reviewed; closed union accounting, no timeout or signals |
 | [A017](records/A017.json) | What changed from 105,000 to 220,000 steps in L1 n1? | CPU calibration and physical probes reviewed: readout/rollout improve, distance geometry weakens; validation-only, no planning claim |
 | [C001](records/C001.json) | Do RGB slots and anchored masking support physical prediction/planning? | Small-batch numerical checks pass; training pending |
 | [C002](records/C002.json) | Do slot masks bind objects; do paired reviewed results satisfy the declared bars? | Evaluators verified on synthetic cases; trained-model measurements pending |
@@ -50,6 +50,8 @@ Results and review digests live beside run artifacts. This index must be updated
 
 See [commands and remaining gates](RUNBOOK.md) and [measured implementation evidence](IMPLEMENTATION_2026-11-15.md).
 
+See the [final inference report](FINAL_INFERENCE_2026-11-16.md) for all-six
+completion, numerical coverage, calibration measurements and remaining science.
 See the [baseline checkpoint report](BASELINE_PROGRESS_2026-11-15.md) for the
 completed L1 n1/n3 logs, the frozen L0 n1 snapshot and what their comparisons test.
 See the [CPU checkpoint progress report](CHECKPOINT_PROGRESS_2026-11-15.md) for

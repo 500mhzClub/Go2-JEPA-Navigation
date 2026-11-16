@@ -1,8 +1,9 @@
 # Baseline checkpoint observations — 15 November 2026
 
-Runtime update on 16 November: five original runs have completed 303,000 steps
-and passed their actual artifact audits and completion literature reviews:
-L1 n1/n3 and L0 n1/n3/n6. The final original, L1 n6, is now active.
+Runtime update on 16 November: all six original runs have completed 303,000 steps
+and passed their actual artifact audits, completion reviews and final A003
+inference checks. No original trainer remains active. See the
+[final inference report](FINAL_INFERENCE_2026-11-16.md).
 The descriptive assessments below remain tied to their stated snapshots;
 final L0 n3 physical prediction and planning are still unevaluated.
 
@@ -51,7 +52,8 @@ paper freezes its parameters on the predicted branch.
 The actual A015 artifact audit and A014 completion review passed. The final and
 full checkpoints agree at 303,000 steps, with 198,000 resumed optimizer updates,
 no prior optimizer-counter deficit, and complete finite logs. This establishes
-artifact integrity and continuity; final A003 inference validation is pending.
+artifact integrity and continuity; final A003 inference validation subsequently
+passed as recorded in the linked final report.
 
 | Logged validation quantity | L1 n1 at 303,000 | L1 n3 at 303,000 |
 |---|---:|---:|

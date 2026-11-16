@@ -1,11 +1,11 @@
 # GPU startup failure and recovery handoff
 
-Current state on 16 November: L1 n1/n3 and all three L0 counts have completed
-303,000 steps and passed their actual A015 artifact audits and A014 completion
-literature reviews. The final original, L1 n6, is running from 155,000, with fresh
-training progress verified. Use `outputs/gated/A014/runs/l1_n6_s0/` for its identity
-and observations, and [the runbook](RUNBOOK.md) for the next audit command.
-Final A003 numerical checks and scientific evaluations remain pending.
+Current state on 16 November: all six originals completed 303,000 steps and passed
+their actual A015 artifact audits and A014 completion literature reviews.
+All six final A003 numerical cases and A016 operational results also passed
+individual reviews. No original trainer or final evaluator remains active.
+See the [final inference report](FINAL_INFERENCE_2026-11-16.md) and
+[runbook](RUNBOOK.md). Physical/planning comparisons and P26 remain pending.
 
 ## Historical startup observations
 
@@ -49,9 +49,9 @@ environment remains unchanged. [PyTorch synchronization semantics](https://docs.
 explain the host boundary; [AMD's HIP debugging guidance](https://rocm.docs.amd.com/projects/HIP/en/docs-7.2.0/how-to/debugging.html#hsa-related-environment-variables-linux)
 motivated the second copy-path test. Its failure supplies no working workaround.
 
-Including the postboot primitive, the additional-device ledger is closed at about
-**0.292 hours**, leaving about **47.708 hours**. Original training/continuation
-time is excluded as approved.
+Including the postboot primitive and all six final A003 evaluations, the
+additional-device ledger is closed at **0.301059 hours**, leaving
+**47.698941 hours**. Original training/continuation time is excluded as approved.
 
 ## Preserved continuation inputs
 
@@ -156,8 +156,18 @@ deficit, and complete finite 606 training plus 16 validation rows. The A014
 completion review binds to that actual audit. These are operational results;
 final L0 n6 physical prediction and planning remain unevaluated.
 
-The sixth and last original continuation, L1 n6, now runs from its preserved
-155,000-step checkpoint, with fresh progress observed. Original source,
-package/runtime and training recipe are unchanged. Its terminal result needs its
-own actual audit and literature review, then all six final checkpoints require
-A003 before the prescribed scientific comparisons.
+The sixth and last original continuation, L1 n6, completed 303,000 steps after 57.84
+minutes, exit 0 and no watchdog signals. Its actual A015 audit verifies matching
+final/full states, exact CPU restoration, 148,000 resumed updates across 131
+populated optimizer states, no prior counter deficit and complete finite 606
+training plus 16 validation rows. Its A014 completion review binds that audit.
+Original source, package/runtime and training recipe remain unchanged.
+
+All six final A003 cases then completed under A016 supervision and passed their
+individual numerical and operational literature reviews. The 1,620 declared
+comparisons pass with unchanged float64/math tolerances; every learned weight is
+preserved in the calibrated inference artifacts. The six outer intervals charge
+34.340678 seconds in total, with inner intervals wholly contained and all accounting
+closed. This supports operational recovery and the declared inference coverage;
+it does not identify the preboot failure's component or establish permanent GPU
+stability, physical prediction or planning success.

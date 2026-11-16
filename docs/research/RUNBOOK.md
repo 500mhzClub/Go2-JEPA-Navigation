@@ -1,17 +1,18 @@
 # P25/P26 execution
 
-Runtime update: the authorized reboot completed and A013's unchanged default-env
-GPU primitive passed and was reviewed. A014 now resumes the six original experiments
-serially in distinct `outputs/balls/recovery_A014` directories. L1 n1/n3 and L0 n1/n3/n6 each
-completed 303,000 steps and passed their actual A015 artifact audits and A014
-completion reviews. The final original, L1 n6, is running from 155,000, with fresh progress observed. Use
-`outputs/gated/A014/runs/l1_n6_s0`
-for actual process identity/status and `outputs/gated/A014/continuation_plan.json`
-for the ordered lineage. The supervisor watches progress every60 seconds and
-enforces the declared no-progress/wall limits; it cannot review results or launch
-successors. After a complete reviewed run, launch the next index with
-`python3 outputs/gated/A014/run_original.py INDEX` from this validation checkout.
-No further approval is needed for this already-approved serial continuation.
+Runtime update on 16 November: all six original experiments completed 303,000 steps
+serially after the authorized reboot. All six actual A015 artifact audits and
+A014 completion reviews pass. All six final A003 numerical evaluations and their
+A016 operational reviews also pass, under `outputs/gated/A003_recovered/RUN`
+and `outputs/gated/A016/runs/RUN`. No original trainer or final evaluator remains
+active. Their historical source pins and output directories must be preserved;
+do not relaunch completed cases. See the [final inference report](FINAL_INFERENCE_2026-11-16.md).
+
+Next: consult the C001/B001 primary methods before the approved n3 seed0 RGB
+slots, selected-checkpoint validation, cache and O0/O1 stages, with physical probes
+and paired learned planning. P26 follows the core comparison; extra seeds/counts
+follow P26 within the shared allowance. About 47.699 of 48 additional GPU-hours
+remain. No new approval is needed for this already-approved scope.
 
 A017 completed the requested CPU comparison of frozen L1 n1 snapshots at 105,000
 and 220,000 steps while this trainer continued. Calibration and physical probes
@@ -19,7 +20,8 @@ both have exact-result literature reviews under `outputs/gated/A017`. See the
 [checkpoint progress report](CHECKPOINT_PROGRESS_2026-11-15.md) for the measurements,
 controls and figures. This diagnostic does not replace any final evaluation gate.
 
-Before approving each completed run, execute the A015 artifact audit from the
+The following A015 commands document the completed audits. Before approving a run,
+the artifact audit executes from the
 unchanged original checkout (replace the run name for each successor):
 
 ```sh
@@ -41,9 +43,8 @@ this checkout to its A015 review) and `final_audit_review_sha256` (that file's d
 
 The failed A010 attempt, A011 stack and both A012 timeouts remain preserved.
 See [the runtime record](RUNTIME_RECOVERY_2026-11-15.md).
-Launch no concurrent GPU work or silent retry. After each reviewed recovery result,
-follow the A014 plan, then run unchanged A003 on all
-six resolved final paths. A007's preliminary GPU diagnostic exhausted its declared
+Launch no concurrent GPU work or silent retry. The A014 plan and all-six A003
+checks are complete and reviewed. A007's preliminary GPU diagnostic exhausted its declared
 cap; do not retry or infer probe scores from it.
 
 This branch implements the approved offline scope. It does not claim that pending scientific performance gates pass.
@@ -77,8 +78,9 @@ prediction, planning and generalization. Existing A001/A002/B001/C001 numerical 
 
 ## A: final inference artifacts
 
-After all six original continuations and their actual A015 audits pass review,
-launch A003 one case at a time through the reviewed A016 external supervisor:
+All six cases below completed and passed their individual reviews on 16 November.
+These commands document the frozen protocol; the existing result directories must
+not be reused. A003 ran one case at a time through the reviewed A016 supervisor:
 
 ```sh
 python3 outputs/gated/A016/run_a003.py --run l0_n1_s0
