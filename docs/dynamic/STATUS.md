@@ -2706,3 +2706,21 @@ The same recipe and seed for 36,000 steps (25 minutes; the first round's loss wa
 **The patch-token line (R1-R3), in one sentence:** per-token SIGReg with motion weights makes an encoder that holds
 every disc to about a pixel, but in 6,000 steps no predictor over 195 such tokens produced a next frame the head
 could read better than a copy of the last one.
+
+## P27 R5: a 16-frame history does not help action → obstacle (16 November)
+
+R5 [R4 with 16 history frames] tests capabilities 2 and 3 under T2's hidden kinds and delays. One seed, 30,000 steps
+(36,000 would have overrun 45 minutes). Every row is scored from frame 15, on the same windows:
+
+| T2, k = 8 | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False | Slope [95%] | At a distance: error / zero; slope |
+|---|---|---|---|---|---|---|---|---|
+| Oracle-S | 0.44 | 30.1 | 1.23 | 0.64 | 0.60 | 5% | 0.58 [0.56, 0.60] | 0.85; 0.26 |
+| R4, 3 frames, 36,000 steps | 0.60 | 22.2 | 1.05 | 0.75 | 0.48 | 10.8% | 0.77 [0.75, 0.79] | 0.65; 0.52 |
+| R5, 16 frames, 30,000 steps | 0.52 | 25.1 | 0.80 | 0.78 | 0.51 | 12.9% | 0.72 [0.70, 0.75] | 0.64; 0.51 |
+
+- **Reactions at a distance, where the hidden kind decides, are unchanged** (0.64 against 0.65). A is slightly worse
+  overall, within what 6,000 fewer steps might cost.
+- The agent and the bounces are slightly better (bounce windows 0.80 against 1.05 px; at 16 steps 1.75 against 3.15).
+- **Why history cannot do much here:** the agent is within the reaction radius in 20% of obstacle-frames, so 16
+  frames seldom show an obstacle's kind before the branch.
+- R5 is not tuned further. R4 with 3 frames stays the best recipe.
