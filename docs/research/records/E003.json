@@ -1,0 +1,70 @@
+{
+  "id": "E003",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T06:36:57.899896+00:00",
+  "question": "Can the final approved P25/P26 evidence retain the complete selected artifacts with a bounded512MiB payload while preserving E002 capture, review and archive integrity?",
+  "hypothesis": "A versioned aggregate-cap increase accommodates the remaining approved evidence without deleting selected artifacts or weakening the unchanged64MiB individual-file, review-digest, single-capture and archive-verification rules.",
+  "sources": [
+    {
+      "url": "https://neurips.cc/public/guides/PaperChecklist",
+      "version": "2026 official guidance",
+      "sections": "Items1/2 claims and limitations,4 reproducibility",
+      "consequence": "Retain measured negatives, incomplete results, commands/source and explicit external large dependencies; a larger audit archive does not make pending scientific claims complete."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/tarfile.html",
+      "version": "Python3.12",
+      "sections": "TarFile.addfile and extractfile; regular file validation",
+      "consequence": "Preserve the same captured bytes for hashes and members and verify every member through file objects. Aggregate memory capacity does not justify filesystem extraction, duplicate members or stale reviews."
+    },
+    {
+      "url": "https://git-scm.com/docs/git-cat-file",
+      "version": "official2.56 documentation",
+      "sections": "--batch, raw blob output and BATCH OUTPUT object type/size",
+      "consequence": "Keep exact historical Git blobs, explicit commits and mode checks unchanged; current checkout contents cannot substitute executed historical source."
+    }
+  ],
+  "differences": "Only artifact capacity changes: copy the immutable reviewed E002 reporter to an ignored E003 helper, replace its record admission with E003 and aggregate256MiB with512MiB, add local import path support. All capture/exclusion/status/Git/tar logic stays identical. Original reporter and live model source remain untouched. Current observed run payload is about197MiB; the expected cap pressure is a projection, not an actual failed bundle.",
+  "contrary_evidence": "512MiB is bounded and may still be insufficient; actual build must refuse rather than omit evidence or silently raise limits. Checksums verify bytes, not scientific correctness. Large checkpoint/corpus arrays remain local with lineage hashes; this is not a standalone release.",
+  "protocol": {
+    "scope": "E003 local evidence reporter and focused software verification only; all research computation, model/evaluation results, original E002 and running checkouts unchanged.",
+    "limits": {
+      "individual_file_bytes": 67108864,
+      "total_payload_bytes": 536870912
+    },
+    "inherited_source_sha256": "dab783570f603a097b4a5a38d15f51176320bf17fa1ec21f1a34365939f1c653",
+    "inherited_tests_sha256": "5cff7ae993f5b83380841116363a8f67e65fd3902fa16c3eb81e01591bb1be72",
+    "inherited_software_review_sha256": "2887447edf9bc934169ac5b9df177a0fe84be2b642b366f5cdd74fcee4bd003f",
+    "capacity_observation_sha256": "0de704b6ba16107d364cce28e18919d46a410f588600f9190ae94a9703b6d729",
+    "capture": "Exact E002 selected regular-file capture once, same bytes for evidence/digests/archive; same large model/corpus/tools/prior-report exclusions, fresh output directories only.",
+    "review": "Separate measured and reviewed status; require exact complete result-bound reviews, no auto-review or missing-outcome pass.",
+    "source": "Current source plus explicit historical7dfc837,161fe8b,98e6fcf and later executed versions as required; raw regular-file Git blobs.",
+    "verification": [
+      "Exact controlled source transformation and original source/review hash binding",
+      "All nine inherited E002 report/fault-injection cases against E003 helper",
+      "Five56MiB files: old256MiB reporter refuses, E003 captures and verifies all280MiB",
+      "Individual65MiB file refused before report output",
+      "Ten56MiB files exceed512MiB and are refused before report output",
+      "No E003 GPU interval or Torch import; preserve originals"
+    ],
+    "actual_use": "Only after separate software literature review. Record fresh pre-build consultation, capture actual complete evidence, independently inspect archive/manifest/source identities and result-status coverage, then literature-review actual archive. Final P25/P26 completion remains a separate requirement-by-requirement audit."
+  },
+  "success": "All declared software checks pass at fixed512/64MiB limits, and actual final archive later passes complete independent verification without unreviewed outcomes presented as passes.",
+  "stop": "Any changed inherited computation, stale review, missing historical source, per-file/aggregate overflow or verification mismatch stops packaging and preserves failure evidence. No silent limit change, omission or scientific auto-approval.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_workers_max": 2,
+    "software_wall_seconds_max": 180,
+    "memory_gib_max": 2,
+    "disk_gib_max": 1,
+    "training_device": "none"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/E002/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
