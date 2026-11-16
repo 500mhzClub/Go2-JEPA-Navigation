@@ -170,3 +170,49 @@ def test_the_motion_weights_follow_the_discs_and_leave_the_unweighted_loss_uncha
     assert torch.allclose(flat['loss'], plain['loss'], atol=1e-5)        # floor 1: every weight is 1
     weighted = training.motion_losses(model, pixels, actions, rollout_steps=8, sigreg=sigreg, lam=.09, floor=.1, generator=g())
     assert torch.isfinite(weighted['loss']) and not torch.allclose(weighted['grid_pred'], plain['grid_pred'])
+
+
+def test_the_detector_places_every_object_and_the_object_tokens_train():
+    import pytest
+    torch = pytest.importorskip('torch')
+    from go2nav.eval import recipe_bench as rb
+    from go2nav.models import object_tokens as ot
+    from go2nav.models.lewm import SIGReg
+    from go2nav.training import recipe_bench as training
+    from go2nav.training.balls import to_pixels
+    ep, _ = world.episodes(np.random.default_rng(4), 8, 30)
+    truth = np.concatenate((ep['agent'][:, :, None], ep['obstacle']), 2).reshape(-1, 4, 2)
+    for key in ('frames', 'frames_t1'):                                   # with and without the kinds' rings
+        xy, seen = ot.detect(to_pixels(torch.from_numpy(ep[key])).flatten(0, 1))
+        error = np.linalg.norm(xy.numpy()-truth, axis=-1)
+        assert np.median(error) < .1 and (error < 1.).mean() > .93 and seen.float().mean() > .98
+    pixels, actions = to_pixels(torch.from_numpy(ep['frames'][:, :11])), torch.from_numpy(ep['actions'][:, :10])/3
+    window = ot.crops(pixels[:, 0], torch.from_numpy(ep['agent'][:, 0])[:, None], 16)
+    assert window.shape == (8, 1, 3, 16, 16) and float(window[:, 0, 0, 7:9, 7:9].min()) > .99    # centred on the agent
+    model = training.build('r4')
+    z = model.encode(pixels)
+    assert z.shape == (8, 11, 4, 128) and model.rollout(z[:, :3], actions, 8).shape == (8, 8, 4, 128)
+    out = ot.token_losses(model, pixels, actions, rollout_steps=8, sigreg=SIGReg(num_proj=32), lam=.09)
+    out['loss'].backward()
+    assert torch.isfinite(out['loss']) and rb.build_head(model.config)(z).shape == (8, 11, 4, 2)
+
+
+def test_the_branch_terms_vanish_for_a_model_that_predicts_both_tapes():
+    import pytest
+    torch = pytest.importorskip('torch')
+    from go2nav.training import recipe_bench as training
+
+    class Exact:
+        def encode(self, pixels):
+            return pixels.flatten(2)[..., :5]
+
+        def rollout(self, zh, tape, steps):
+            return tape[:, 2:, :1]+torch.zeros(1, steps, 5)
+
+    history = torch.zeros(3, 3, 3, 8, 8)
+    tapes = [torch.randn(3, 10, 2) for _ in range(2)]
+    futures = [t[:, 2:, :1, None, None].expand(-1, -1, 3, 8, 8) for t in tapes]
+    out = training.branch_losses(Exact(), history, futures, tapes)
+    assert float(out['branch']) < 1e-12 and float(out['paired']) < 1e-12
+    out = training.branch_losses(Exact(), history, futures, tapes[::-1])       # the tapes swapped: both terms see it
+    assert float(out['branch']) > .1 and float(out['paired']) > .1

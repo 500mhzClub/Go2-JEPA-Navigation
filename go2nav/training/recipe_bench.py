@@ -8,7 +8,8 @@ is one step's (dx, dy) over 3 px. The objective is `models.lewm.losses` on windo
 next-embedding MSE, the MSE of an 8-step rollout, and 0.09 x SIGReg.
 
 **Recipes** (`RECIPES`): r0, one [CLS] latent; r1, every 8 x 8 patch token predicted (`grid=(8, 8)`: 65 tokens a frame);
-r2, r1 with each patch token's prediction error weighted by the change of its target patch's pixels (`motion_losses`).
+r2, r1 with each patch token's prediction error weighted by the change of its target patch's pixels (`motion_losses`);
+r4, the object-token JEPA (`models.object_tokens`).
 
 **Training:** AdamW, warm-up then cosine, clip 1, bf16 autocast (SIGReg in float32, 128 projections), on the GPU only;
 6,000 steps at batch 64 (a patch-token step costs 0.2-0.35 s, and a run with its measures must fit 45 minutes). A step
@@ -24,12 +25,14 @@ import os
 from pathlib import Path
 import time
 
+import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
 
 from go2nav.data import reactive_balls as data
 from go2nav.models.lewm import LeWMConfig, LeWorldModel, SIGReg, losses
+from go2nav.models.object_tokens import ObjectTokenConfig, ObjectTokenJEPA, token_losses
 from go2nav.sim import reactive_balls as world
 from go2nav.training.balls import schedule, to_pixels
 
@@ -37,7 +40,8 @@ HISTORY = 3
 DEFAULTS = dict(steps=6000, batch=64, rollout=8, lr=3e-4, weight_decay=1e-3, warmup=500, grad_clip=1.,
                 sigreg_weight=.09, sigreg_projections=128, bf16=True, log_every=250, checkpoint_every=2000,
                 memory_fraction=.42, recalibration_batches=200, policy='interactive')
-RECIPES = dict(r0=dict(), r1=dict(model=dict(grid=(8, 8))), r2=dict(model=dict(grid=(8, 8)), motion_floor=.1))
+RECIPES = dict(r0=dict(), r1=dict(model=dict(grid=(8, 8))), r2=dict(model=dict(grid=(8, 8)), motion_floor=.1),
+               r4=dict(kind='objects'))
 
 
 def model_config(**overrides):
@@ -97,6 +101,39 @@ class Windows:
         return self.batch(episodes, starts, length)
 
 
+class BranchWindows:
+    """The interactive training split's exact branches on the GPU (the first `steps` frames of each tape): `draw`
+    gives, for `count` random moments, the history's pixels (B, 3, 3, 64, 64) and, for two different tapes of each, the
+    future pixels (B, steps, 3, 64, 64) and the actions (B, 2 + steps, 2) from the first history frame on."""
+
+    def __init__(self, root, variant, device, steps):
+        self.windows = Windows(root, 'interactive', 'train', variant, device)
+        frames = data.load(root, 'interactive', 'train', variant, branch_frames=True)[2]['frames']
+        self.frames = torch.from_numpy(np.ascontiguousarray(frames[:, :, :, :steps])).to(device)
+        branches = self.windows.branches
+        self.t0 = torch.from_numpy(branches['t0'].astype(np.int64)).to(device)
+        self.actions = torch.from_numpy(branches['actions'][:, :, :, :steps]).to(device)/world.MAX_ACTION
+
+    def draw(self, count, generator):
+        device = self.frames.device
+        draw = lambda high: torch.randint(0, high, (count,), generator=generator, device=device)
+        e, m, a = draw(self.frames.shape[0]), draw(self.frames.shape[1]), draw(len(world.TAPES))
+        b = (a+1+draw(len(world.TAPES)-1)) % len(world.TAPES)
+        frames = self.t0[e, m][:, None]+torch.arange(1-HISTORY, 1, device=device)
+        history, past = to_pixels(self.windows.frames[e[:, None], frames]), self.windows.actions[e[:, None], frames[:, :-1]]
+        return (history, [to_pixels(self.frames[e, m, x]) for x in (a, b)],
+                [torch.cat((past, self.actions[e, m, x]), 1) for x in (a, b)])
+
+
+def branch_losses(model, history, futures, tapes):
+    """R3's terms on one history under two tapes: `branch`, the MSE of each tape's rollout against that tape's encoded
+    true future; `paired`, the MSE of the predicted difference between the tapes against the true one,
+    (pred_A - pred_B) against (z_A - z_B)."""
+    zh, (za, zb) = model.encode(history), (model.encode(f) for f in futures)
+    ra, rb = (model.rollout(zh, tape, za.size(1)) for tape in tapes)
+    return dict(branch=((ra-za).pow(2).mean()+(rb-zb).pow(2).mean())/2, paired=((ra-rb)-(za-zb)).pow(2).mean())
+
+
 def save(path, model, meta, extra=None):
     state = dict(config=asdict(model.config), model_state_dict=model.state_dict(), **meta, **(extra or {}))
     partial = Path(str(path)+'.partial')
@@ -108,10 +145,21 @@ def load(path, device='cpu'):
     """A trained run's (model in eval mode, checkpoint dict)."""
     state = torch.load(path, map_location='cpu', weights_only=False)
     config = dict(state['config'])
-    config['image_hw'], config['grid'] = tuple(config['image_hw']), tuple(config.get('grid', ()))
-    model = LeWorldModel(LeWMConfig(**config))
+    config['grid'] = tuple(config.get('grid', ()))
+    if state.get('kind') == 'objects':
+        model = ObjectTokenJEPA(ObjectTokenConfig(**config))
+    else:
+        config['image_hw'] = tuple(config['image_hw'])
+        model = LeWorldModel(LeWMConfig(**config))
     model.load_state_dict(state['model_state_dict'])
     return model.to(device).eval().requires_grad_(False), state
+
+
+def build(recipe):
+    options = RECIPES[recipe]
+    if options.get('kind') == 'objects':
+        return ObjectTokenJEPA(ObjectTokenConfig(**options.get('model', {})))
+    return LeWorldModel(model_config(**options.get('model', {})))
 
 
 @torch.no_grad()
@@ -137,14 +185,15 @@ def train(root, variant, recipe, out, seed=0, overrides=None):
     run_seed = 2026111600+seed
     torch.manual_seed(run_seed)
     options = RECIPES[recipe]
-    model = LeWorldModel(model_config(**options.get('model', {}))).to(device)
+    model = build(recipe).to(device)
     params = list(model.parameters())
     sigreg = SIGReg(num_proj=cfg['sigreg_projections']).to(device)
     trainset = Windows(root, cfg['policy'], 'train', variant, device)
+    branchset = BranchWindows(root, variant, device, cfg['rollout']) if 'branches' in options else None
     length, total = HISTORY+cfg['rollout'], cfg['steps']
     optimiser = torch.optim.AdamW(params, lr=cfg['lr'], weight_decay=cfg['weight_decay'])
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(cfg['warmup'], total))
-    meta = dict(recipe=recipe, variant=variant, seed=seed, train=cfg)
+    meta = dict(recipe=recipe, variant=variant, seed=seed, train=cfg, kind=options.get('kind', 'lewm'))
     step, checkpoint, metrics = 0, out/'checkpoint.pt', out/'metrics.jsonl'
     if checkpoint.exists():
         state = torch.load(checkpoint, map_location='cpu', weights_only=False)
@@ -159,12 +208,19 @@ def train(root, variant, recipe, out, seed=0, overrides=None):
 
     def objective(index, offset=0):
         g = torch.Generator(device=device).manual_seed(run_seed*10_000_000+offset+index)
-        pixels, actions = trainset.draw(cfg['batch'], length, g)
+        pixels, actions = trainset.draw(cfg['batch']//2 if branchset else cfg['batch'], length, g)
         shared = dict(rollout_steps=cfg['rollout'], sigreg=sigreg, lam=cfg['sigreg_weight'], generator=g)
         with torch.autocast('cuda', dtype=torch.bfloat16, enabled=cfg['bf16']):
-            if 'motion_floor' in options:
-                return motion_losses(model, pixels, actions, floor=options['motion_floor'], **shared)
-            return losses(model, pixels, actions, **shared)
+            if options.get('kind') == 'objects':
+                terms = token_losses(model, pixels, actions, **shared)
+            elif 'motion_floor' in options:
+                terms = motion_losses(model, pixels, actions, floor=options['motion_floor'], **shared)
+            else:
+                terms = losses(model, pixels, actions, **shared)
+            if branchset:       # R3: half the batch is windows; the other half is a quarter as many moments, 2 tapes each
+                terms.update(branch_losses(model, *branchset.draw(cfg['batch']//4, g)))
+                terms['loss'] = terms['loss']+terms['branch']+options['branches']['paired']*terms['paired']
+            return terms
 
     model.train()
     log, started = metrics.open('a'), time.time()
