@@ -859,3 +859,25 @@ Review the exact inspection, scientific and operational result digests before
 launching O1. Use the same checker for O1 after its separate full completion.
 Actual scientific performance is still pending; software qualification alone
 does not fill planning or P26 comparison cells.
+
+## P26 launch after the GPU-time override
+
+[U003](records/U003.json) prepares the unchanged three D001 stages under U001
+accounting. Use its launcher after the full paired object-planning reviews:
+
+```sh
+"$PY" outputs/gated/U003/run_stage.py --stage export --python "$PY" \
+  --preconsultation outputs/gated/U003/pre_export.json
+```
+
+The consultation must bind the D003/D001/U003 records, U001 authorization, U003
+software review, all actual input bytes and all fifteen core reviews. O0/O1
+planning is read from `planning_full`, including U002 inspection and U001
+operation evidence. Incomplete or old partial planning is refused. S1 and compare
+retain the original additional stage-parent reviews and exact command arguments.
+
+Science outputs remain under D001, and operation results under D003/runs, so
+existing stage-parent paths remain valid. Original P26 sources/configs/models
+are unchanged. Only the three balls-evaluator differences from the old D003
+source inventory are reconciled against reviewed C014 hashes. Six CPU groups
+pass; actual P26 execution remains pending. No GPU-hour cap is enforced.

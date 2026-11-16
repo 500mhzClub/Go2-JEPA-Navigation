@@ -1,0 +1,84 @@
+{
+  "id": "U003",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T09:49:49.608823+00:00",
+  "question": "Can the unchanged offline P26 stages use the user-authorized unlimited GPU-time policy and the complete fresh object-planning evidence?",
+  "hypothesis": "Reusing the reviewed D003 stage functions and U001 accounting/process functions requires only explicit core-result path adaptation, narrow source reconciliation and removal of superseded time admission.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/html/2306.04829v2",
+      "version": "v2",
+      "sections": "Methods3.1-3.3, recurrent grouping and temporal feature similarities",
+      "consequence": "Preserve frozen feature/slot models and sequential frame processing. Grouping quality and identity continuity need empirical coverage checks; do not infer P26 performance from balls results."
+    },
+    {
+      "url": "https://arxiv.org/html/2602.11389v2",
+      "version": "v2",
+      "sections": "AppendixD.1 frozen DINOv2/VideoSAUR and AppendixB causal interpretation limits",
+      "consequence": "Keep existing s0 and cached DINO features, and distinguish local range/pose-assisted prediction from causal identification or robot transfer."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/runpy.html",
+      "version": "3.12",
+      "sections": "run_module execution namespace and __main__",
+      "consequence": "Install existing U001 accounting functions before running each original module, without changing science CLI computation."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/contextlib.html",
+      "version": "3.12",
+      "sections": "contextmanager exception propagation and finally",
+      "consequence": "Reuse the qualified U001 accounting lifecycle unchanged; record GPU time without the superseded cap and preserve failures."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen poll/wait/terminate/kill",
+      "consequence": "Reuse reviewed exact owned-process termination and U001 progress monitoring. No total-runtime cap; retain30-minute output-stall detection."
+    }
+  ],
+  "differences": "Operational integration only. All D001 science modules, configs, s0/M5,700 prepared units and original output paths stay fixed. Original D003 stage inventory/parents/consultation/generated/CLI functions are reused unchanged. Its source inventory differs only in three C014-qualified balls evaluators; reconcile those exact source hashes and bind the full current source inventory. New core lookup maps only O0/O1 planning to planning_full and requires U002 inspections/U001 operations.",
+  "contrary_evidence": "An unlimited budget does not validate incomplete core results. Existing negative probes and masks do not establish P26 failure because P26 uses a different frozen encoder/input protocol. CPU fixtures cannot establish actual export correctness, successful S1 training or GPU-stall recovery.",
+  "protocol": {
+    "stages": [
+      "export",
+      "s1",
+      "compare"
+    ],
+    "science": "Exact D001: frozen s0 export of600train/100val, original matched20kstep seed0S1, originalfive-arm offlinecomparison; no newcollection ortrainingrecipechanges.",
+    "paths": "Retain original D001 science and D003/runs operation paths, none previously executed. Map only n3seed0 O0/O1 planning core review paths to planning_full; all original baseline/probe/binding/adapter/legacy paths retained. Require complete reviewed U0023000-case inspections and passing U001 operations for both object-planning arms.",
+    "source_reconciliation": "D003 original full source differences exactly go2nav/eval/balls_binding.py,balls_planning.py,balls_probes.py, each must match actual reviewed C014 n3seed0 implementation inventory. Other original scientific/config/model hashes unchanged; additions bound in U003 software full source inventory.",
+    "execution": "Original D003 commands prefixed by new narrow module launcher using exact U001 accounting_run/accounting_remaining. Exact D003 interval closure reused, new outer admission has no D/global time cap and carries U001 policy. Exact U001 wait_progress observes stage.log plus export object/engineered split directories or S1train/validation/checkpoint files.30min no-output threshold; no absolute total deadline. SerialGPU, freshoutputs, completeinput/review hashes and clean source required.",
+    "verification": "HiddenGPU2threads180sec; actual2735-file prepared inventory and fixed three command routes; source reconciliation and original function identity; canonical core synthetic fixture15reviews including2U002inspection+2U001operation and missing/partial/oldpath/wrongidentity/stalehash refusals; temporary admission beyond old8/48h and open-ledger refusal with original owned closure; exact U001 lifecycle/process functions inherited, no duplicate GPU experiment.",
+    "reviews": "Fresh substantive per-stage consultation after all complete core and stage parents. Separate exact-result scientific and operational review after each outcome before successor. No automatic export while planning is live; no synthetic review used as actual approval."
+  },
+  "success": "Software integration checks preserve full scientific admission and remove prior GPU time caps; actual P26 outcomes remain required separately.",
+  "stop": "Refuse missing/partial/stale core or stage evidence, changedinputs/code, reusedoutput, occupiedGPU oropenledger. Preserve failures; do not edit liveU001 helpers or start dependent science early.",
+  "resources": {
+    "gpu_hours_max": null,
+    "budget_policy": "U001 user override",
+    "parallel_gpu_jobs_max": 1,
+    "host_threads": 2,
+    "software_wall_seconds": 180,
+    "stall_without_output_seconds": 1800
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/D003/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/U001/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/U002/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
