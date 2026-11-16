@@ -20,9 +20,9 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | Record | Question | Current status |
 |---|---|---|
 | [A001](records/A001.json) | Are saved inference statistics valid; can train-only calibration repair them? | Six intermediate snapshots reviewed; L1 float32 validity blocked, followed by A002 |
-| [B001](records/B001.json) | Does the fixed balls evaluator solve its controls without future leakage? | Controls pass at every n/horizon; full n3 L0/L1 CPU planning reviewed through B003; remaining learned arms pending |
+| [B001](records/B001.json) | Does the fixed balls evaluator solve its controls without future leakage? | Controls pass at every n/horizon; five baseline planning cases reviewed through B003; final L1n6 and all object-model arms remain |
 | [B002](records/B002.json) | Is unchanged baseline planning numerically valid and practical on spare CPUs? | Six software check groups and actual L0n3 preflight reviewed; sampled cost discrepancy at most5.116e-13, repeated actions exact; rough full-model estimate27.39minutes, no success-rate claim |
-| [B003](records/B003.json) | What are the six final baselines' complete fixed-task planning results under CPU execution? | Four cases reviewed: n1 L1 endpoint99.7/99.7/99.4% modestly exceeds L0; n3 L1 trails L0. All12000 saved cases independently checked; L0n6 live and L1n6 pending; initial inspector schema failure preserved |
+| [B003](records/B003.json) | What are the six final baselines' complete fixed-task planning results under CPU execution? | Five cases reviewed and15000 saved cases independently checked. L1 helps at n1 and trails L0 at n3. L0n6 endpoint97.1/93.5/82.6%,collision-free71.2/62.6/52.1%; L1n6 is running. Initial inspector schema failure preserved |
 | [B004](records/B004.json) | Do the additional n3 baseline seeds solve the same fixed planning tasks? | Thirteen software groups reviewed with unchanged B003 computation and independent scoring; initial missing output-parent finding preserved and corrected. Actual additional-seed planning awaits training, numerics and probes |
 | [A002](records/A002.json) | Does precision explain the remaining L1 discrepancy? | All six pass float64 math inference; reviewed |
 | [A003](records/A003.json) | Do final checkpoints pass the selected common inference policy? | All six final303000 cases reviewed passed; 1,620 declared comparisons pass in float64/math, train-only calibrated artifacts preserved |
@@ -42,13 +42,13 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [A017](records/A017.json) | What changed from 105,000 to 220,000 steps in L1 n1? | CPU calibration and physical probes reviewed: readout/rollout improve, distance geometry weakens; validation-only, no planning claim |
 | [A018](records/A018.json) | Do fresh n3 L0/L1 seeds1/2 contain complete original-recipe training state? | CPU audit and nine focused software groups reviewed: four default-state fixtures,29 corruptions and14 terminal refusals; actual extra-seed audits await training |
 | [A019](records/A019.json) | Do additional n3 baseline seeds pass unchanged train-only calibration and numerical validity? | External supervisor and CPU artifact verifier implemented;13 focused CPU groups reviewed, including four default exports and18 corruptions. Original numerical computation retained; no actual extra-seed evaluation |
-| [C001](records/C001.json) | Do RGB slots and anchored masking support physical prediction/planning? | n3 seed0 RGB encoder completed8epochs/23752updates; actual C008/C001/C005 reviews pass, selected epoch7 equals final weights. Learned-weight numerical gate, cache/O0/O1 and science remain pending |
+| [C001](records/C001.json) | Do RGB slots and anchored masking support physical prediction/planning? | First encoder completed8epochs/23752updates and passed terminal/numerical reviews. Shared cache fully inspected and reviewed;70.4million finite values. O0n3seed0 training is running; O1 and all object scientific comparisons remain |
 | [C002](records/C002.json) | Do slot masks bind objects; do paired reviewed results satisfy the declared bars? | Reviewed partial audit includes six final baseline probes across all18 planned rows; n3 L0 red-readout reference pattern not met;24 other bars incomplete, with binding/planning pending |
 | [C003](records/C003.json) | Does optimizer recovery preserve subsequent updates and updated-weight numerics? | Both default n3 models pass the small GPU recovery/forward/gradient/grouping diagnostic; reviewed |
-| [C004](records/C004.json) | Are selected learned slot checkpoints numerically valid on real inputs and planning-sized batches? | Validator and failure-detection tests implemented; learned-checkpoint results pending |
-| [C005](records/C005.json) | Can unchanged slot stages respect both B/C and shared time allocations if GPU progress stalls? | Actual first encoder operation reviewed: normal exit,3.72282GPU-hours,closed intervals and no signals/errors. v1 evidence preserved; reviewed v2 applies to future stages |
+| [C004](records/C004.json) | Are selected learned slot checkpoints numerically valid on real inputs and planning-sized batches? | Actual first encoder passed all1104 sampled output/gradient/grouping comparisons at unchanged tolerances; checkpoint unchanged. Future predictor candidate-rollout checks remain |
+| [C005](records/C005.json) | Can unchanged slot stages respect both B/C and shared time allocations if GPU progress stalls? | First encoder and shared extraction completed normally and are reviewed; v1 evidence preserved. V2 extraction took101.700seconds with closed intervals; O0 training is active under v2 |
 | [C006](records/C006.json) | What physical state and four-step dynamics do the six final baselines preserve under the frozen probes? | All six actual CPU cases reviewed; L1 helps white readout at n1/n3 with red precision costs; n6 is a measured negative for L1 advantage; numerical/operational checks pass |
-| [C007](records/C007.json) | Can unchanged selected-checkpoint validation respect per-call, reserve and global time limits if GPU progress stalls? | External supervisor implemented; thirteen focused CPU check groups inspected and literature-reviewed, with unchanged scientific source; actual C004 cases await terminal training reviews |
+| [C007](records/C007.json) | Can unchanged selected-checkpoint validation respect per-call, reserve and global time limits if GPU progress stalls? | Thirteen software groups and actual first encoder operation reviewed; exit0 after7.238seconds with no timeout/signals/errors and closed intervals. Future selected-model cases remain |
 | [C008](records/C008.json) | Do completed slot/predictor artifacts contain full training state and the logged validation-selected model? | Twelve software groups and actual n3 seed0 encoder terminal audit reviewed;57Adam states/23752updates,strict restoration and selected/final equality. Future model audits remain |
 | [C009](records/C009.json) | Can unchanged object evaluations respect existing GPU budgets during a stalled operation? | External supervisor and ten focused CPU groups reviewed; original-data binding gap preserved and corrected; actual planning/probes/binding await selected-model parents |
 | [C010](records/C010.json) | Can the four approved additional n3 baseline seeds run within existing budgets after core/P26? | External supervisor and fifteen focused CPU groups reviewed; original training computation/defaults retained, actual admission correctly refuses missing P26 evidence; no extra-seed training yet |
@@ -61,7 +61,7 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 
 Results and review digests live beside run artifacts. This index must be updated when a result is interpreted. Status vocabulary: `passed`, `measured_negative`, `technical_blocked`, `budget_incomplete`. Separate implementation validity, representation, prediction, planning and generalization evidence.
 
-See the [first completed RGB encoder](RGB_ENCODER_TRAINING_2026-11-16.md) for audited training completion and the remaining binding/numerical requirements.
+See the [first completed RGB encoder](RGB_ENCODER_TRAINING_2026-11-16.md) for audited training, numerical checks and the reviewed shared cache; semantic binding and prediction/planning remain unmeasured.
 
 See [commands and remaining gates](RUNBOOK.md) and [measured implementation evidence](IMPLEMENTATION_2026-11-15.md).
 
@@ -77,6 +77,9 @@ See the [completed n3 baseline planning pair](BASELINE_PLANNING_N3_2026-11-16.md
 for L1's lower observed endpoint and collision-free success on identical cases.
 See the [n1 baseline planning result](BASELINE_PLANNING_N1_2026-11-16.md)
 for the modest L1 advantage at n1, contrasting its lower n3 planning scores.
+See the [n6 baseline planning result](BASELINE_PLANNING_N6_2026-11-16.md)
+for L0's larger horizon-dependent errors and the gap between endpoint and
+collision-free success; the matched L1 result remains pending.
 See the [baseline checkpoint report](BASELINE_PROGRESS_2026-11-15.md) for the
 completed L1 n1/n3 logs, the frozen L0 n1 snapshot and what their comparisons test.
 See the [CPU checkpoint progress report](CHECKPOINT_PROGRESS_2026-11-15.md) for

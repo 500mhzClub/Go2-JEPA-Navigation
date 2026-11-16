@@ -19,8 +19,11 @@ Full cache inspection and separate C001/C005 reviews pass; all70.4million
 float32 values are finite, expected shapes/payloads and source/data/encoder
 identities match. Its historical source remains6925f47. Evidence is under
 `outputs/gated/C001/extract_n3_s0` and `outputs/gated/C005/v2/runs/extract_n3_s0`.
-Do not rerun extraction. Next is the unchanged O0n3seed0 predictor, then O1
-using the same cache after actual terminal/audit reviews. C008 is a training-state
+Do not rerun extraction. The unchanged O0n3seed0 predictor started at06:28UTC
+through C005v2, with historical runtime commit a75523b. Exact identities and
+heartbeat are under `outputs/gated/C005/v2/runs/o0_n3_s0`; launch evidence is
+`outputs/gated/C005/v2/launch_o0_n3_s0.json`. Do not relaunch or edit its checkout.
+O1 follows using the same cache after actual terminal/audit reviews. C008 is a training-state
 audit and does not cover extraction. Keep each active trainer's runtime checkout
 pinned through its terminal C008 and separate training/operation reviews.
 
