@@ -10,8 +10,8 @@ do not relaunch completed cases. See the [final inference report](FINAL_INFERENC
 
 The n3 seed0 RGB encoder is now training under C005 after primary-method
 consultation and unchanged data/source checks. A CPU-only read of its atomic
-checkpoint confirms 4,269 updates across all 57 optimizer states and the scheduler,
-in epoch1 after its first validation. Current exact process identities and
+checkpoint at 03:36 UTC confirms 7,738 of 23,752 updates across all 57 optimizer
+states and the scheduler, in epoch2 after two validations. Current exact process identities and
 heartbeat are under `outputs/gated/C005/runs/slots_n3_s0`, with the supervisor
 launch identity in `outputs/gated/C005/launch_slots_n3_s0.json`. Do not relaunch it.
 These counters establish progress; learned object binding remains unmeasured.
@@ -19,7 +19,7 @@ Keep the active gated checkout pinned to81171a2; documentation updates belong in
 the isolated validation checkout until the child finishes.
 
 After terminal completion, inspect and literature-review actual C001 and C005
-artifacts before selected-checkpoint C004, cache and O0/O1. Object-model probes and
+artifacts before selected-checkpoint C004 through C007, cache and O0/O1. Object-model probes and
 paired learned planning follow, then P26 before extra seeds/counts. The six final
 baseline probes are already complete through C006, with a reviewed partial C002
 audit under `outputs/gated/C002/final_baseline_probes`; do not rerun them. At admission,
@@ -245,12 +245,28 @@ Review the selected validation reconstruction result, then validate that selecte
 train/validation windows. The numerical check uses no test examples or optimizer updates:
 
 ```sh
-"$PY" -m go2nav.eval.slots_checkpoint --data "$BALLS_DATA" --research C004 \
-  --checkpoint outputs/gated/C001/slots_n3_s0/model.pt \
-  --parent-review outputs/gated/C001/slots_n3_s0/review.json --out outputs/gated/C004/slots_n3_s0
+python3 outputs/gated/C007/run_check.py --run slots_n3_s0 --python "$PY" \
+  --preconsultation outputs/gated/C007/pre_slots_n3_s0.json
 ```
 
-Review C004's actual result before extracting the frozen cache:
+C007 runs unchanged C004 under external CPU supervision. Its thirteen focused
+CPU check groups passed and received exact-result literature review. This does
+not establish actual GPU timeout recovery or selected-model numerical validity.
+Each invocation has the smaller of the existing half-hour cap, remaining 8-hour
+validation reserve and remaining 48-hour global allowance, including 45 seconds
+for identity-checked cleanup. Nested wrapper/child intervals count once. If
+termination cannot be confirmed, accounting stays open.
+
+Use a clean updated checkout only after the live trainer's actual C001 and C005
+reviews pass. The wrapper requires its reviewed exact sources, C004 protocol,
+selected checkpoint, actual training reviews and a fresh substantive consultation
+binding all six existing train/validation data files. It refuses active training,
+GPU processes, open ledger intervals and reused output directories. Scientific
+results remain under `outputs/gated/C004/RUN`; operational evidence is under
+`outputs/gated/C007/runs/RUN`. Neither reviews nor successors are automatic.
+
+Inspect and literature-review both actual C004 and C007 results before extracting
+the frozen cache:
 
 ```sh
 "$PY" -m go2nav.training.balls_slots extract --data "$BALLS_DATA" --n 3 --research C001 \
@@ -271,11 +287,11 @@ adaptation, not stochastic SAVi or a claimed exact reproduction. After reviewing
 result, validate its real-input derivatives and 100-candidate/eight-step inference grouping (shown for O1; also run O0):
 
 ```sh
-"$PY" -m go2nav.eval.slots_checkpoint --data "$BALLS_DATA" --research C004 \
-  --checkpoint outputs/gated/C001/o1_n3_s0/model.pt --parent-review outputs/gated/C001/o1_n3_s0/review.json \
-  --encoder-review outputs/gated/C004/slots_n3_s0/review.json --out outputs/gated/C004/o1_n3_s0
+python3 outputs/gated/C007/run_check.py --run o1_n3_s0 --python "$PY" \
+  --preconsultation outputs/gated/C007/pre_o1_n3_s0.json
 ```
 
+The predictor invocation additionally requires its actual reviewed C004 encoder.
 Use its passing C004 review as `--inference-review` for B001 learned planning and `--parent-review` for probes.
 Never relax numerical tolerance after a failure without a new preregistration and literature review. Probe
 extraction/fitting uses current train labels only; a fixed decoder scores current and four-step future positions,

@@ -1,0 +1,99 @@
+{
+  "id": "C007",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16",
+  "question": "Can each unchanged C004 selected-checkpoint validator obey its per-call, validation-reserve and global GPU limits even when execution stops reaching internal budget checks?",
+  "hypothesis": "External CPU supervision can stop only the owned validation child at a fixed deadline and preserve honest result/accounting state. This does not guarantee that an uninterruptible kernel process can be terminated or diagnose prior GPU hangs.",
+  "sources": [
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen.poll/wait, TimeoutExpired, terminate/kill and returncode",
+      "consequence": "A wait timeout does not terminate the child. Use bounded identity-checked TERM/KILL and file-backed output, and confirm terminal state before closing resource intervals."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/time.html",
+      "version": "3.12",
+      "sections": "time.monotonic",
+      "consequence": "A fixed monotonic deadline bounds each selected-checkpoint call despite wall-clock changes; current ledger remainder can shorten but never extend it."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/fcntl.html",
+      "version": "3.12",
+      "sections": "flock, LOCK_EX",
+      "consequence": "Admit and close under the existing shared ledger lock; reject an already-open GPU interval and count nested wrapper/child time once."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/cuda.html",
+      "version": "2.12",
+      "sections": "Asynchronous execution and implicit synchronization on CPU/GPU copies",
+      "consequence": "Python checks between operations cannot bound a blocked synchronization. Use an external CPU supervisor without changing synchronization mode, precision or scientific code."
+    },
+    {
+      "url": "docs/research/records/C004.json",
+      "version": "df6c0b7286bfa9aff84e0b337f1d8771b7e298d071e5fd7522a9a207793bf0c2",
+      "sections": "resources and unchanged scientific protocol",
+      "consequence": "Respect C004 half-hour per selected checkpoint inside the existing8-hour validation reserve and global48-hour allowance; do not charge B/C or enlarge any allowance."
+    },
+    {
+      "url": "outputs/gated/A016/software/review.json",
+      "version": "fd7e41f63578a43784653460006f4bad2c57587fd79edb660d123128ebe4cd8e",
+      "sections": "Reviewed exact owned-child process handling",
+      "consequence": "Reuse exact hash-bound A016 identity, bounded wait and stop helpers; inherit their CPU test coverage without claiming GPU-stall recovery."
+    }
+  ],
+  "differences": "Operational wrapper only around already-approved C004; no new samples, model updates, calibration, tolerance/precision/backend changes or scientific criteria. C005v1 live training and v2 future training wrapper remain untouched. Current C004 checks its half-hour/global limits inside the process; C007 enforces those plus the shared validation reserve externally.",
+  "contrary_evidence": "OS-level uninterruptible processes can outlive TERM/KILL; never claim termination or close their intervals without proof. A stopped diagnostic may lack a raw result or complete check set and cannot be interpreted as a model-quality negative. CPU fixtures cannot certify real GPU recovery.",
+  "protocol": {
+    "scope": [
+      "C004-only bounded supervisor",
+      "locked reserve/global accounting",
+      "source/parent/consultation binding",
+      "focused CPU verification"
+    ],
+    "models": "Only selected slots/o0/o1 atn3 seeds0/1/2, and slots/o1 atn1/n6 seed0, as C001 already declares.",
+    "science": "Invoke unchanged go2nav.eval.slots_checkpoint with C004, exact selected model and actual reviewed C001 parent. Predictor cases additionally require actual C004 encoder review. No science runs before current training and its operational/scientific reviews are terminal and passed.",
+    "admission": "Require clean checkout, complete C007 software review bound to current record/source, complete C004/C003 software evidence, exact reviewed parent checkpoint/data hashes and actual C005 training operational review. Require no active trainer, no GPU process and no open ledger interval; never signal an unrelated process.",
+    "allocation": "Union elapsed intervals. Global48hours counts all rows; validation reserve8hours countsC003/C004/C007. C004 per-call wall cap1800seconds includes wrapper startup and cleanup. Work deadline=min(1800,global_remaining,reserve_remaining)-45seconds. BC allocation remains unchanged.",
+    "supervision": "One owned child, exactPID/create-time/argv/canonicalcwd; file-backed logs and new output directories. Reuse reviewed A016 wait/identity/stop helpers withTERM30seconds,KILL10seconds; reserve45seconds. Fixed monotonic deadline plus current reserve/global checks. Hide no training device or change driver configuration; parent imports no torch.",
+    "closure": "Close only thisC007 outer row and canonical matchingC004 inner row after confirmed child exit; match child run_id if manifest exists. Refuse historical/ambiguous/mismatched intervals. Failed termination leaves accounting open. Retain partial raw artifacts; separate technical_blocked/budget_incomplete from measured numerical outcomes.",
+    "consultation": "Each actual case needs a preconsultation matching run identity,C004/C007 record hashes, checkpoint, parent and existing data bytes, with substantive primary sources and design consequences. Parent review never implies a new case is approved scientifically.",
+    "checks": [
+      "C004 allowed/disallowed identity and unchanged argv",
+      "consultation stale/missing bindings rejected",
+      "actual dependency source hashes match reviewed C004/A016",
+      "nested global/reserve union and correct BC exclusion",
+      "half-hour/cleanup cap plus shared/reserve exhaustion",
+      "open-interval admission rejected without mutation",
+      "canonical own-child closure only, unrelated rows unchanged",
+      "live child/ambiguous historical/mismatched inner refused",
+      "CPU normal-exit and deadline child using unchanged owned helpers",
+      "shared ledger/live trainer source untouched; no torch import"
+    ],
+    "reviews": "Each actual C004 scientific result and C007 operational result needs its own literature review before cache or another dependent stage. No automatic review/successor; no retry on failure without substantive review."
+  },
+  "success": "All scoped CPU checks pass, actual parent/source/consultation guards hold, and later actual operations are bounded or explicitly preserve unconfirmed termination and open accounting. This creates no trained-model validity or performance claim.",
+  "stop": "Refuse stale/missing lineage, active GPU/trainer or exhausted allocation. On deadline terminate only verified owned child; unconfirmed termination is a technical block with ledger open. Preserve every partial result. Do not alter the live C005 trainer or scientific C004 code.",
+  "resources": {
+    "gpu_hours_max": 0.5,
+    "allocation": "Per C004 invocation including wrapper; within existing validation reserve8hours and global48hours, no new allowance",
+    "cleanup_reserve_seconds": 45,
+    "software_tests_cpu_seconds_max": 180,
+    "software_tests_gpu_hours": 0,
+    "training_device": "none; parent CPU only, unchanged C004 child uses dedicated GPU inference and CPU reference derivatives"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/A016/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/C004/verification/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
