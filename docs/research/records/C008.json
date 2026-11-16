@@ -1,0 +1,61 @@
+{
+  "id": "C008",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16",
+  "question": "Do completed C001 slot/predictor artifacts contain the declared full training state and the logged validation-selected inference artifact before downstream interpretation?",
+  "hypothesis": "Finite matching model/optimizer/scheduler state, complete ordered logs and exact source/data/operational bindings can establish artifact consistency; they do not establish object binding or useful prediction.",
+  "sources": [
+    {
+      "url": "https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html",
+      "version": "official tutorial accessed2026-11-16; page build2.15",
+      "sections": "Inference checkpoint copy warning, general checkpoint including optimizer/epoch, CPU map_location",
+      "consequence": "Inspect selected and final states separately, load strictly on CPU without training, and verify full optimizer/cursor/RNG state instead of treating a model filename as proof of completion."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/generated/torch.optim.Adam.html",
+      "version": "2.12",
+      "sections": "load_state_dict warning and scheduler-before-optimizer loading example",
+      "consequence": "Instantiate scheduler before restoring optimizer state and verify restored counters, moments and learning rate exactly without taking an update."
+    },
+    {
+      "url": "https://arxiv.org/html/2602.11389v2",
+      "version": "v2",
+      "sections": "D.2 RGB SAVi and E.2/E.3 frozen-latent predictor training",
+      "consequence": "Retain local C001 reconstruction/future-MSE selection, eight/thirty epochs and fixed cache lineage. Reconstruction/latent loss is distinct from binding/planning; this is not an exact stochastic-SAVi reproduction."
+    },
+    {
+      "url": "go2nav/training/balls_slots.py",
+      "version": "frozen C003-verified source",
+      "sections": "train_stage checkpoint, strict best-validation selection, count/schedule and atomic save",
+      "consequence": "Expected updates derive from actual input shape and fixed batch/epochs. Best epoch is the first strict minimum; final checkpoint epoch equals full epochs and next_batch zero. Source stays unchanged."
+    }
+  ],
+  "differences": "Read-only terminal CPU artifact audit, isolated helpers only. No forward inference, gradients, optimizer updates, calibration, checkpoint reselection, GPU allocation or live trainer changes. Actual numerical behavior remains C004.",
+  "contrary_evidence": "Saved epoch tags and logged losses alone cannot independently prove an earlier selected model was produced at that epoch without historical snapshots. Corruption can be detected but undocumented device/optimization behavior cannot be reconstructed. Complete training can yield collapsed or useless slots.",
+  "protocol": {
+    "models": "Existing C001 schedule: slots/o0/o1 n3 seeds0/1/2; slots/o1 n1/n6 seed0. Training stages only, not extraction or extra L0/L1.",
+    "admission": "Require actual normal terminal C005v1/v2 raw result with exit0/no errors/signals/timeout, exact child absent, closed owned ledger intervals, unchanged software source/review and manifest input bindings. Current C001 record and scientific source/config/data must match original manifests. No audit against live or incomplete state.",
+    "artifacts": "Hash-bind result,manifest,config,metrics,selected model and final checkpoint. Match n/kind/seed/protocol/parents throughout. Verify selected artifact digest, complete finite nonnegative epoch logs and running best, first strict argmin epoch, final cursor and best, finite model tensors, expected model configuration and strict CPU restoration. If selected epoch is last, require selected/final state equality.",
+    "training_state": "Derive epochs*batches from actual100-frame train arrays/cache and fixed C001 recipe; no hardcoded observed step. Verify every parameter has Adam step equal total, finite correctly shaped moments/nonnegative second moment, scheduler last_epoch/_step_count/base_lrs/_last_lr and optimizer group learning rate at declared endpoint. Restore model/optimizer/scheduler on CPU and compare saved states exactly. Validate saved CPU RNG by local Generator restoration; GPU RNG is inspected as nonempty uint8 bytes only, not restored.",
+    "parents": "Slots bind exact six train/val files from original C005 consultation. Predictors additionally verify cache index, actual train/val cache bytes, n/seed/encoder lineage and reviewed parent. All current input/artifact bytes rehashed after audit; checkpoint metadata does not imply all prior historical bytes were bound.",
+    "verification": "Known synthetic full-state fixtures for actual default encoder and predictor architectures; tie selection first minimum; wrong cursor/counter/scheduler/selection/nonfinite/missing tensor/optimizer shape and stale source or incomplete operational evidence refused. Verify CPU-only behavior, no input mutation and unchanged live helpers/shared ledger. Fixtures are not actual learned-model results.",
+    "reviews": "Every actual outcome remains awaiting literature review; failed inspection preserved technical_blocked. Independently review C008, C001 science and C005 operations before C004. No automatic approvals or successors."
+  },
+  "success": "All declared artifact consistency checks pass for a complete normal training run; no scientific quality claim.",
+  "stop": "Missing, incomplete, stale or nonfinite artifact or any failed consistency check; preserve evidence without changing trainer or thresholds.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_threads": 1,
+    "software_seconds_max": 120,
+    "actual_seconds_max": 180,
+    "training_device": "none; CPU restoration only"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/C003/recovery/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

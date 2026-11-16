@@ -213,6 +213,27 @@ automatically approves a result. L0n3 planning is complete; do not relaunch it.
 
 ## C: three-ball core, then extra seeds/counts
 
+After each C001 slot/predictor training run exits normally, keep its runtime
+checkout pinned until its terminal artifacts have been audited and reviewed.
+C008 supplies a CPU-only audit from the validation checkout:
+
+```sh
+HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' ROCR_VISIBLE_DEVICES='' \
+  OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+  "$PY" outputs/gated/C008/audit.py --run slots_n3_s0
+```
+
+Revisit the declared sources and record the per-case consultation before use.
+The audit requires actual successful C005 terminal evidence and closed owned
+intervals. It checks full update counts, model/optimizer/scheduler restoration,
+finite epoch logs, validation selection and source/data identity without forward
+passes or updates. Twelve focused software groups are reviewed; initial source
+inventory routing evidence is preserved under `C008/software_attempt_001`.
+Actual C008, C001 scientific and C005 operational results need separate substantive
+reviews before C007/C004 or any checkout update. An earlier selected model's epoch
+tag remains source-bound metadata, not independently retained historical weights.
+Actual C004 numerical checks and later binding/planning are still required.
+
 C006 completed all six baseline probes on spare CPUs while the GPU slot trainer
 continued. Its eight helper groups and all six actual numerical/operational cases
 were inspected and literature-reviewed. L1n6 is a measured scientific negative;
