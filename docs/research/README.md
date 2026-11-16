@@ -22,7 +22,7 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [A001](records/A001.json) | Are saved inference statistics valid; can train-only calibration repair them? | Six intermediate snapshots reviewed; L1 float32 validity blocked, followed by A002 |
 | [B001](records/B001.json) | Does the fixed balls evaluator solve its controls without future leakage? | Controls pass at every n/horizon; learned planning pending |
 | [B002](records/B002.json) | Is unchanged baseline planning numerically valid and practical on spare CPUs? | Six software check groups and actual L0n3 preflight reviewed; sampled cost discrepancy at most5.116e-13, repeated actions exact; rough full-model estimate27.39minutes, no success-rate claim |
-| [B003](records/B003.json) | What are the six final baselines' complete fixed-task planning results under CPU execution? | Seven adapter/lineage groups and four independent inspection groups reviewed; full L0n3 evaluation running, actual result review pending |
+| [B003](records/B003.json) | What are the six final baselines' complete fixed-task planning results under CPU execution? | First full L0n3 case and independent inspection reviewed: H4/6/8 endpoint97.8/98.2/97.7%, reference pattern not met; five baseline cases pending. Inspection v2 handles legacy control schema; initial failure preserved |
 | [A002](records/A002.json) | Does precision explain the remaining L1 discrepancy? | All six pass float64 math inference; reviewed |
 | [A003](records/A003.json) | Do final checkpoints pass the selected common inference policy? | All six final303000 cases reviewed passed; 1,620 declared comparisons pass in float64/math, train-only calibrated artifacts preserved |
 | [A004](records/A004.json) | Why are two live original trainers no longer logging steps? | User-supplied stacks locate a GPU scalar synchronization boundary; root cause unresolved |
@@ -62,6 +62,8 @@ See the [final n3 physical probes](FINAL_PROBES_N3_2026-11-16.md) for the matche
 L0/L1 red/white tradeoff on 5,000 test windows and its limits.
 See the [all-six final baseline probes](FINAL_BASELINE_PROBES_2026-11-16.md) for
 the completed comparisons, n6 negative and partial C002 reference-pattern audit.
+See the [first complete baseline planning result](FIRST_BASELINE_PLANNING_2026-11-16.md)
+for strong L0n3 endpoint success, collision-free rates and the comparison ceiling.
 See the [baseline checkpoint report](BASELINE_PROGRESS_2026-11-15.md) for the
 completed L1 n1/n3 logs, the frozen L0 n1 snapshot and what their comparisons test.
 See the [CPU checkpoint progress report](CHECKPOINT_PROGRESS_2026-11-15.md) for

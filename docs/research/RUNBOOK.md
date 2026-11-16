@@ -200,13 +200,16 @@ inspector before writing the scientific and operational reviews:
 ```sh
 HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' ROCR_VISIBLE_DEVICES='' \
   OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
-  "$PY" outputs/gated/B003/inspection/verify_cases.py --run l0_n3_s0
+  "$PY" outputs/gated/B003/inspection/v2/verify_cases.py --run l0_n3_s0
 ```
 
 It reconstructs every stored action sequence and all summaries, checks pairing
-with the reviewed controls, and verifies saved numerical arrays. Its four
-software groups include deliberate corruptions; actual inspection outputs remain
-awaiting review. It never reruns a model or automatically approves a result.
+with the reviewed controls, and verifies saved numerical arrays. Its five
+software groups include the actual legacy control schema and deliberate corruptions.
+The initial inspector's missing-field failure is preserved under
+`inspection/attempt_001_l0_n3_s0`. V2 and actual L0n3 inspection are reviewed;
+later actual outputs still need separate review. It never reruns a model or
+automatically approves a result. L0n3 planning is complete; do not relaunch it.
 
 ## C: three-ball core, then extra seeds/counts
 
