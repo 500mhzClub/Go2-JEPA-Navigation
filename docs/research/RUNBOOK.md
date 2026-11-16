@@ -762,14 +762,15 @@ C014 deployed full64 checks pass for all three selected checkpoints; original
 C004 and mixed-precision failures remain preserved.
 
 The encoder mask-binding result is a reviewed negative (0/20,000 bound ball
-appearances). O0 physical probes also have a measured-negative review: four-step
-red position RMSE78.807px versus held-current21.990px. Independent reconstruction
+appearances). Both O0/O1 physical probes have measured-negative reviews: four-step
+red position RMSE78.807/60.673px versus held-current21.990px. O1 improves error
+relative to O0 but misses the declared physical bars. Independent reconstruction
 matches all summaries exactly; operation and inspection pass separately. See
 [object probes](OBJECT_PROBES_N3_2026-11-16.md) and
 [binding](OBJECT_BINDING_N3_2026-11-16.md). The inspector's initial dtype-coverage
 finding and corrected eleven-group software verification are preserved.
 
-Next are unchanged O1 probes and paired O0/O1 planning through reviewed C009v2,
+Next is paired O0/O1 planning through reviewed C009v2,
 then offline P26, additional seeds/counts, full comparison and final archive.
 Use `outputs/gated/continuation.json` and actual process/manifest state for the
 live handle. Do not relaunch a completed result or edit source bound to an active
