@@ -10,7 +10,7 @@ next-embedding MSE, the MSE of an 8-step rollout, and 0.09 x SIGReg.
 **Recipes** (`RECIPES`): r0, one [CLS] latent; r1, every 8 x 8 patch token predicted (`grid=(8, 8)`: 65 tokens a frame);
 r2, r1 with each patch token's prediction error weighted by the change of its target patch's pixels (`motion_losses`);
 r3, r2 with half of each batch drawn from the exact branches: a quarter as many moments under two tapes each, with
-`branch_losses`' terms; r4, the object-token JEPA (`models.object_tokens`).
+`branch_losses`' terms (r3b, its second round: those terms carry r2's weights too); r4, the object-token JEPA (`models.object_tokens`).
 
 **Training:** AdamW, warm-up then cosine, clip 1, bf16 autocast (SIGReg in float32, 128 projections), on the GPU only;
 6,000 steps at batch 64 (a patch-token step costs 0.2-0.35 s, and a run with its measures must fit 45 minutes). A step
@@ -42,7 +42,8 @@ DEFAULTS = dict(steps=6000, batch=64, rollout=8, lr=3e-4, weight_decay=1e-3, war
                 sigreg_weight=.09, sigreg_projections=128, bf16=True, log_every=250, checkpoint_every=2000,
                 memory_fraction=.42, recalibration_batches=200, policy='interactive')
 RECIPES = dict(r0=dict(), r1=dict(model=dict(grid=(8, 8))), r2=dict(model=dict(grid=(8, 8)), motion_floor=.1),
-               r3=dict(model=dict(grid=(8, 8)), motion_floor=.1, branches=dict(paired=1.)), r4=dict(kind='objects'))
+               r3=dict(model=dict(grid=(8, 8)), motion_floor=.1, branches=dict(paired=1.)),
+               r3b=dict(model=dict(grid=(8, 8)), motion_floor=.1, branches=dict(paired=1., floor=.1)), r4=dict(kind='objects'))
 
 
 def model_config(**overrides):
@@ -126,13 +127,22 @@ class BranchWindows:
                 [torch.cat((past, self.actions[e, m, x]), 1) for x in (a, b)])
 
 
-def branch_losses(model, history, futures, tapes):
+def branch_losses(model, history, futures, tapes, floor=None):
     """R3's terms on one history under two tapes: `branch`, the MSE of each tape's rollout against that tape's encoded
     true future; `paired`, the MSE of the predicted difference between the tapes against the true one,
-    (pred_A - pred_B) against (z_A - z_B)."""
+    (pred_A - pred_B) against (z_A - z_B). With `floor` (a patch-grid model; the second round), the grid tokens' errors
+    carry `motion_losses`' weights, from each tape's own frames, and the paired term the mean of the two tapes'."""
     zh, (za, zb) = model.encode(history), (model.encode(f) for f in futures)
     ra, rb = (model.rollout(zh, tape, za.size(1)) for tape in tapes)
-    return dict(branch=((ra-za).pow(2).mean()+(rb-zb).pow(2).mean())/2, paired=((ra-rb)-(za-zb)).pow(2).mean())
+    if floor is None:
+        return dict(branch=((ra-za).pow(2).mean()+(rb-zb).pow(2).mean())/2, paired=((ra-rb)-(za-zb)).pow(2).mean())
+    change = [patch_motion(torch.cat((history[:, -1:], f), 1).float(), model.config.patch) for f in futures]
+    scale = torch.stack(change).mean().clamp_min(1e-8)
+    wa, wb = (floor+(1-floor)*c/scale for c in change)                      # (B, steps, G)
+    cls = lambda d: d[:, :, 0].pow(2).mean()
+    grid = lambda d, w: (d[:, :, 1:].float().pow(2).mean(-1)*w).mean()
+    return dict(branch=(cls(ra-za)+cls(rb-zb)+grid(ra-za, wa)+grid(rb-zb, wb))/2,
+                paired=cls((ra-rb)-(za-zb))+grid((ra-rb)-(za-zb), (wa+wb)/2))
 
 
 def save(path, model, meta, extra=None):
@@ -220,7 +230,8 @@ def train(root, variant, recipe, out, seed=0, overrides=None):
             else:
                 terms = losses(model, pixels, actions, **shared)
             if branchset:       # R3: half the batch is windows; the other half is a quarter as many moments, 2 tapes each
-                terms.update(branch_losses(model, *branchset.draw(cfg['batch']//4, g)))
+                terms.update(branch_losses(model, *branchset.draw(cfg['batch']//4, g),
+                                           floor=options['branches'].get('floor')))
                 terms['loss'] = terms['loss']+terms['branch']+options['branches']['paired']*terms['paired']
             return terms
 

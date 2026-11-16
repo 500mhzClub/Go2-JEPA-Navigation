@@ -216,3 +216,23 @@ def test_the_branch_terms_vanish_for_a_model_that_predicts_both_tapes():
     assert float(out['branch']) < 1e-12 and float(out['paired']) < 1e-12
     out = training.branch_losses(Exact(), history, futures, tapes[::-1])       # the tapes swapped: both terms see it
     assert float(out['branch']) > .1 and float(out['paired']) > .1
+
+
+def test_the_weighted_branch_terms_run_on_a_patch_grid_model():
+    import pytest
+    torch = pytest.importorskip('torch')
+    from go2nav.training import recipe_bench as training
+    from go2nav.training.balls import to_pixels
+    ep, branch = world.episodes(np.random.default_rng(6), 2, 30, moments=1, branch_frames=True)
+    t0 = branch['t0'][:, 0].astype(int)
+    history = to_pixels(torch.from_numpy(np.stack([ep['frames'][i, t-2:t+1] for i, t in enumerate(t0)])))
+    futures = [to_pixels(torch.from_numpy(branch['frames'][:, 0, tape, :8])) for tape in (0, 1)]
+    tapes = [torch.cat((torch.zeros(2, 2, 2), torch.from_numpy(branch['actions'][:, 0, tape, :8])/3), 1) for tape in (0, 1)]
+    model = training.build('r3b')
+    out = training.branch_losses(model, history, futures, tapes, floor=.1)
+    plain = training.branch_losses(model, history, futures, tapes)
+    assert torch.isfinite(out['branch']) and torch.isfinite(out['paired']) and not torch.allclose(out['branch'], plain['branch'])
+    flat = training.branch_losses(model, history, futures, tapes, floor=1.)   # floor 1: every weight is 1
+    cls_and_grid = lambda d: d[:, :, 0].pow(2).mean()+d[:, :, 1:].pow(2).mean()
+    zh, za = model.encode(history), model.encode(futures[0])
+    assert torch.isfinite(flat['branch']) and float(cls_and_grid(model.rollout(zh, tapes[0], 8)-za)) > 0
