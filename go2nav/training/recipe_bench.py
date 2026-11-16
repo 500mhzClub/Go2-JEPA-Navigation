@@ -10,7 +10,7 @@ next-embedding MSE, the MSE of an 8-step rollout, and 0.09 x SIGReg.
 **Recipes** (`RECIPES`): r0, one [CLS] latent; r1, every 8 x 8 patch token predicted (`grid=(8, 8)`: 65 tokens a frame);
 r2, r1 with each patch token's prediction error weighted by the change of its target patch's pixels (`motion_losses`);
 r3, r2 with half of each batch drawn from the exact branches: a quarter as many moments under two tapes each, with
-`branch_losses`' terms (r3b, its second round: those terms carry r2's weights too); r4, the object-token JEPA (`models.object_tokens`).
+`branch_losses`' terms (r3b, its second round: those terms carry r2's weights too); r4, the object-token JEPA (`models.object_tokens`); r5, r4 with 16 history frames.
 
 **Training:** AdamW, warm-up then cosine, clip 1, bf16 autocast (SIGReg in float32, 128 projections), on the GPU only;
 6,000 steps at batch 64 (a patch-token step costs 0.2-0.35 s, and a run with its measures must fit 45 minutes). A step
@@ -43,7 +43,8 @@ DEFAULTS = dict(steps=6000, batch=64, rollout=8, lr=3e-4, weight_decay=1e-3, war
                 memory_fraction=.42, recalibration_batches=200, policy='interactive')
 RECIPES = dict(r0=dict(), r1=dict(model=dict(grid=(8, 8))), r2=dict(model=dict(grid=(8, 8)), motion_floor=.1),
                r3=dict(model=dict(grid=(8, 8)), motion_floor=.1, branches=dict(paired=1.)),
-               r3b=dict(model=dict(grid=(8, 8)), motion_floor=.1, branches=dict(paired=1., floor=.1)), r4=dict(kind='objects'))
+               r3b=dict(model=dict(grid=(8, 8)), motion_floor=.1, branches=dict(paired=1., floor=.1)), r4=dict(kind='objects'),
+               r5=dict(kind='objects', model=dict(history=16)))
 
 
 def model_config(**overrides):
@@ -202,7 +203,7 @@ def train(root, variant, recipe, out, seed=0, overrides=None):
     trainset = Windows(root, cfg['policy'], 'train', variant, device)
     branchset = BranchWindows(root, variant, device, cfg['rollout'], trainset if cfg['policy'] == 'interactive' else None) \
         if 'branches' in options else None
-    length, total = HISTORY+cfg['rollout'], cfg['steps']
+    length, total = model.config.history+cfg['rollout'], cfg['steps']
     optimiser = torch.optim.AdamW(params, lr=cfg['lr'], weight_decay=cfg['weight_decay'])
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(cfg['warmup'], total))
     meta = dict(recipe=recipe, variant=variant, seed=seed, train=cfg, kind=options.get('kind', 'lewm'))

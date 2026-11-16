@@ -239,7 +239,7 @@ def jepa_forecaster(model, head, batch=512):
         future = torch.from_numpy(np.asarray(future, np.float32)).to(device)/world.MAX_ACTION
         out = []
         for i in range(0, len(e), batch):
-            frames = t0[i:i+batch, None]+torch.arange(1-HISTORY, 1, device=device)
+            frames = t0[i:i+batch, None]+torch.arange(1-model.config.history, 1, device=device)
             rows = e[i:i+batch, None]
             z = model.encode(to_pixels(bench.frames[rows, frames]))
             actions = torch.cat((bench.actions[rows, frames[:, :-1]], future[i:i+batch]), 1)
@@ -264,11 +264,13 @@ def mean(values):
     return float(values.mean()) if len(values) else None
 
 
-def measure(forecast, bench, seed=0, draws=1000):
-    """E, X and A of a forecaster on a bench (the module's description), at each k of KS. A dict for JSON."""
+def measure(forecast, bench, seed=0, draws=1000, first=HISTORY-1):
+    """E, X and A of a forecaster on a bench (the module's description), at each k of KS. A dict for JSON. `first`: the
+    earliest last-history frame scored (a model with a longer history needs a later one; references are then scored
+    from the same frame)."""
     labels, branches = bench.labels, bench.branches
     episodes, length = bench.positions.shape[:2]
-    starts = np.arange(HISTORY-1, length-STEPS, 2)
+    starts = np.arange(first, length-STEPS, 2)
     e, t0 = np.repeat(np.arange(episodes), len(starts)), np.tile(starts, episodes)
     steps = t0[:, None]+np.arange(STEPS)
     future = labels['actions'][e[:, None], steps]
@@ -292,6 +294,8 @@ def measure(forecast, bench, seed=0, draws=1000):
     # A: the branch moments
     moments = branches['t0'].shape[1]
     e, m = np.repeat(np.arange(episodes), moments), np.tile(np.arange(moments), episodes)
+    late = branches['t0'][e, m] >= first
+    e, m = e[late], m[late]
     t0 = branches['t0'][e, m].astype(np.int64)
     predicted = np.stack([forecast(bench, e, t0, branches['actions'][e, m, tape])
                           for tape in range(len(world.TAPES))], 1)[:, :, :, 1:]                   # (N, 4, 16, K, 2)
@@ -365,31 +369,48 @@ def table(rows, oracle=None, k=8):
 
 # -- commands ---------------------------------------------------------------------------------------------------------
 
-def references(root, variant, out, policy='interactive'):
+def suffix(first):
+    return '' if first == HISTORY-1 else f'_from{first}'
+
+
+def references(root, variant, out, policy='interactive', first=HISTORY-1):
+    """Trains Oracle-S (or loads OUT/oracle_<variant>.pt if it is there) and scores the references."""
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     torch.cuda.set_per_process_memory_fraction(.3)
-    net = train_oracle(root, variant, policy)
-    torch.save(dict(state=net.state_dict(), variant=variant), out/f'oracle_{variant}.pt')
+    if (out/f'oracle_{variant}.pt').exists():
+        net = OracleS(kinds=variant == 't1').to('cuda')
+        net.load_state_dict(torch.load(out/f'oracle_{variant}.pt')['state'])
+        net.eval().requires_grad_(False)
+    else:
+        net = train_oracle(root, variant, policy)
+        torch.save(dict(state=net.state_dict(), variant=variant), out/f'oracle_{variant}.pt')
     bench = Bench(root, variant, policy, 'val')
-    rows = dict(hold=measure(hold, bench), cv=measure(constant_velocity, bench),
-                oracle=measure(oracle_forecaster(net), bench))
-    (out/f'references_{variant}.json').write_text(json.dumps(rows, indent=1))
+    rows = dict(hold=measure(hold, bench, first=first), cv=measure(constant_velocity, bench, first=first),
+                oracle=measure(oracle_forecaster(net), bench, first=first))
+    (out/f'references_{variant}{suffix(first)}.json').write_text(json.dumps(rows, indent=1))
     print(table(rows, rows['oracle']))
 
 
-def score(root, run, policy='interactive'):
+def score(root, run, policy='interactive', first=HISTORY-1):
+    """The head (trained once, kept in RUN/head.pt), then the measures: RUN/bench.json, or RUN/bench_from<first>.json."""
     run, device = Path(run), torch.device('cuda')
     torch.cuda.set_per_process_memory_fraction(.3)
     model, state = load(run/'model.pt', device)
     variant = state['variant']
-    head = train_head(model, root, variant, policy)
-    torch.save(head.state_dict(), run/'head.pt')
+    first = max(first, model.config.history-1)
+    if (run/'head.pt').exists():
+        head = build_head(model.config).to(device)
+        head.load_state_dict(torch.load(run/'head.pt'))
+        head.eval().requires_grad_(False)
+    else:
+        head = train_head(model, root, variant, policy)
+        torch.save(head.state_dict(), run/'head.pt')
     bench = Bench(root, variant, policy, 'val', device)
-    row = measure(jepa_forecaster(model, head), bench)
+    row = measure(jepa_forecaster(model, head), bench, first=first)
     row['R'] = retention(model, head, bench)
     row['meta'] = dict(recipe=state['recipe'], variant=variant, seed=state['seed'], steps=state['step'])
-    (run/'bench.json').write_text(json.dumps(row, indent=1))
+    (run/f'bench{suffix(first)}.json').write_text(json.dumps(row, indent=1))
     print(table({f"{state['recipe']} {variant}": row}))
     print('R:', {k: round(v, 2) for k, v in row['R'].items()})
 
@@ -405,20 +426,24 @@ def main():
     s.add_argument('--data', required=True)
     s.add_argument('--run', required=True)
     t = sub.add_parser('table')
+    for command in (r, s, t):
+        command.add_argument('--first', type=int, default=HISTORY-1, help='the earliest last-history frame scored')
     t.add_argument('--references', required=True)
     t.add_argument('--runs', nargs='+', required=True)
     args = parser.parse_args()
     if args.command == 'references':
-        references(args.data, args.variant, args.out)
+        references(args.data, args.variant, args.out, first=args.first)
     elif args.command == 'score':
-        score(args.data, args.run)
+        score(args.data, args.run, first=args.first)
     else:
-        rows = {Path(run).name: keyed(json.loads((Path(run)/'bench.json').read_text())) for run in args.runs}
+        name = f'bench{suffix(args.first)}.json'
+        rows = {Path(run).name: keyed(json.loads((Path(run)/name).read_text())) for run in args.runs}
         for variant in ('t1', 't2'):
             part = {name: row for name, row in rows.items() if row['meta']['variant'] == variant}
             if not part:
                 continue
-            refs = {k: keyed(v) for k, v in json.loads((Path(args.references)/f'references_{variant}.json').read_text()).items()}
+            refs = Path(args.references)/f'references_{variant}{suffix(args.first)}.json'
+            refs = {k: keyed(v) for k, v in json.loads(refs.read_text()).items()}
             named = {'constant velocity': refs['cv'], 'Oracle-S': refs['oracle'], **part}
             print(f'\n**{variant.upper()}**\n\n'+table(named, refs['oracle']))
 
