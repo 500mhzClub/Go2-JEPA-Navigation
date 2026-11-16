@@ -10,16 +10,17 @@ do not relaunch completed cases. See the [final inference report](FINAL_INFERENC
 
 The n3 seed0 RGB encoder is now training under C005 after primary-method
 consultation and unchanged data/source checks. A CPU-only read of its atomic
-checkpoint at 03:36 UTC confirms 7,738 of 23,752 updates across all 57 optimizer
-states and the scheduler, in epoch2 after two validations. Current exact process identities and
+checkpoint at 04:51 UTC confirms 15,845 of 23,752 updates across all 57 optimizer
+states and the scheduler, in epoch5 after five validations. Current exact process identities and
 heartbeat are under `outputs/gated/C005/runs/slots_n3_s0`, with the supervisor
 launch identity in `outputs/gated/C005/launch_slots_n3_s0.json`. Do not relaunch it.
 These counters establish progress; learned object binding remains unmeasured.
 Keep the active gated checkout pinned to81171a2; documentation updates belong in
 the isolated validation checkout until the child finishes.
 
-After terminal completion, inspect and literature-review actual C001 and C005
-artifacts before selected-checkpoint C004 through C007, cache and O0/O1. Object-model probes and
+After terminal completion, run the C008 audit before updating the pinned checkout,
+then inspect and literature-review actual C008, C001 and C005 artifacts before
+selected-checkpoint C004 through C007, cache and O0/O1. Object-model probes and
 paired learned planning follow, then P26 before extra seeds/counts. The six final
 baseline probes are already complete through C006, with a reviewed partial C002
 audit under `outputs/gated/C002/final_baseline_probes`; do not rerun them. At admission,
@@ -207,9 +208,11 @@ It reconstructs every stored action sequence and all summaries, checks pairing
 with the reviewed controls, and verifies saved numerical arrays. Its five
 software groups include the actual legacy control schema and deliberate corruptions.
 The initial inspector's missing-field failure is preserved under
-`inspection/attempt_001_l0_n3_s0`. V2 and actual L0n3 inspection are reviewed;
+`inspection/attempt_001_l0_n3_s0`. V2 and both actual n3 inspections are reviewed;
 later actual outputs still need separate review. It never reruns a model or
-automatically approves a result. L0n3 planning is complete; do not relaunch it.
+automatically approves a result. L0n3 and L1n3 planning are complete; do not relaunch
+them. Their endpoint rates are97.8/98.2/97.7% and94.7/94.2/94.7% respectively.
+See the [completed pair](BASELINE_PLANNING_N3_2026-11-16.md). Next is L0n1.
 
 ## C: three-ball core, then extra seeds/counts
 
@@ -379,6 +382,36 @@ train-standardized features, 4,096 train windows, five test windows per episode,
 Report per-axis correlations and uncertainty; retain training seeds separately. Run P26 before spending remaining
 allocation on n3 seeds1/2 and n1/n6. Extra L0/L1 seeds use `go2nav.training.balls ... --research C001` with the original
 training recipe. No test-driven tuning to force L0 failure or O1's claimed margin.
+
+### External deadlines for selected-object evaluations
+
+Use the reviewed C009 supervisor for actual object planning, probes and binding
+instead of launching the illustrative raw commands above/below directly:
+
+```sh
+python3 outputs/gated/C009/run_eval.py --stage planning --run o1_n3_s0 --python "$PY" \
+  --preconsultation outputs/gated/C009/pre_planning_o1_n3_s0.json
+```
+
+Stages are `planning`, `probes`, and `binding`; binding names identify the encoder
+(for example `slots_n3_s0`). The 21 routes retain the approved model/count/seed
+scope and exact existing scientific modules. Fresh consultations bind complete
+inputs, actual C004/C007 selected-model reviews, cache/encoder parents and
+original C006 dataset bytes; planning additionally requires reviewed B001 controls.
+
+Ten focused CPU groups pass, including normal/deadline children and rejection of
+changed data despite a fresh consultation. The initial data-binding gap and its
+review remain under `C009/software_attempt_001`. This software evidence does not
+demonstrate an actual GPU evaluation or recovery from an uninterruptible stall.
+
+C009 enforces the smaller remaining global48, B/C28 and scientific allowance,
+with45seconds reserved for cleanup. Existing B0012-hour and C0021-hour cumulative
+caps remain. Outer ledger rows carry the underlying scientific ID and an explicit
+C009 supervisor marker, so existing supervisors count the time correctly and
+nested intervals count once. Close only owned intervals after confirmed exit.
+Operations live under `C009/runs/STAGE/RUN`; scientific outputs retain their
+original paths. Inspect raw cases and separately literature-review science and
+operations before any successor. There is no automatic review or retry.
 
 ## C: binding and final comparison
 

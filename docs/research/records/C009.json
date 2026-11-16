@@ -1,0 +1,81 @@
+{
+  "id": "C009",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16",
+  "question": "Can unchanged object-model planning, physical probes and binding evaluations respect their existing GPU allowances even if an internal GPU operation stalls?",
+  "hypothesis": "The reviewed owned-child CPU supervisor can enforce a fixed external deadline and preserve partial evidence without changing scientific computation.",
+  "sources": [
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen poll/wait, timeout cleanup, terminate/kill and file logs",
+      "consequence": "Reuse exact owned process identities and bounded TERM/KILL. Timeout alone does not prove exit; leave accounting open if exit cannot be confirmed."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/fcntl.html",
+      "version": "3.12",
+      "sections": "flock and LOCK_EX",
+      "consequence": "Admission and terminal closure share the existing ledger lock; refuse open intervals and preserve unrelated rows."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/cuda.html",
+      "version": "2.12",
+      "sections": "Asynchronous execution and copy synchronization",
+      "consequence": "Between-episode internal checks cannot bound a blocked synchronization. External CPU supervision imports no Torch and does not alter numerical behavior."
+    },
+    {
+      "url": "https://arxiv.org/html/2602.11389v2",
+      "version": "v2",
+      "sections": "AppendixG CEM/final mean and Hungarian matching",
+      "consequence": "Keep existing B001 terminal matching, candidates/elites/iterations and local horizons. No new planner or paper-hyperparameter substitution."
+    },
+    {
+      "url": "docs/research/records/B001.json; docs/research/records/C001.json; docs/research/records/C002.json",
+      "version": "frozen existing records",
+      "sections": "Existing planning/probe/binding protocols and resource caps",
+      "consequence": "Run unchanged modules and datasets. Preserve B/C28/global48 and original B0012-hour/C0021-hour ceilings; no new GPU allowance."
+    }
+  ],
+  "differences": "Operational wrapper only, isolated helper files. This record covers selected object models and encoders, not original baseline CPU evaluations, new training, extra baseline inference policy, checkpoint selection or new science.",
+  "contrary_evidence": "CPU process fixtures do not demonstrate GPU-stall recovery; uninterruptible kernel states may prevent confirmed exit. Valid model numerics do not imply good binding, probes or planning. Partial evaluations cannot populate final comparison cells.",
+  "protocol": {
+    "stages": {
+      "planning": "B001",
+      "probes": "C001",
+      "binding": "C002"
+    },
+    "models": "planning/probes: O0/O1 n3 seeds0/1/2 and O1 n1/n6 seed0; binding: slots n3 seeds0/1/2 and n1/n6 seed0. Existing approved order unchanged.",
+    "admission": "Clean checkout, exact software/scientific source and records, fresh substantive per-case consultation binding complete input files and prior reviews; actual passing C004/C007 selected-checkpoint evidence, cache/encoder lineage and B001 controls for planning. No active trainer/compute process/open GPU interval/reused output.",
+    "allocation": "Use unchanged reviewed C005v2 union accounting for global48 and B/C28. Also cap cumulative underlying B001 device time at2hours and C002 at1hour. C001 remains within B/C28. Outer ledger rows use the underlying scientific research_id B001/C001/C002 and explicitly supervisor_research_id=C009; this attributes time to its actual experiment and keeps all existing supervisors counting it correctly. Nested outer/inner intervals count once; no budget transfer or new allowance.",
+    "supervision": "Fixed monotonic deadline=min applicable remaining seconds minus45cleanup, current remainders can only shorten. Reuse unchanged A016 exactPID/create/argv/canonicalcwd, TERM30/KILL10, file logs. Close only own marked outer and unique manifest-bound inner after confirmed terminal child. Preserve technical/budget/partial outcomes; no automatic retry/review/successor.",
+    "science": "Exact existing modules go2nav.eval.balls_planning,balls_probes,balls_binding and canonical outputs planning/RUN,probes/RUN,binding/RUN. Preserve all tasks, thresholds, numeric policy, resampling and label restrictions. Capture every produced file and rehash inputs after confirmed termination; raw child files untouched.",
+    "verification": "Temporary ledgers: underlying-ID allocation including inherited C005v2 recognition, nested union, per-science exhaustion, open-row refusal, canonical closure/live/historical/ambiguous/foreign guards. All21 stage/model routes; exact CLI arguments; parent identity and preconsultation completeness/tamper refusal; owned CPU normal/deadline pair; source syntax/no Torch/shared ledger and live helpers unchanged.",
+    "reviews": "Actual outputs require separate scientific and C009 operational substantive literature reviews and complete raw-case checks. Missing seed fields in old evaluator summaries require verified review.run_identity, never filename-only inference."
+  },
+  "success": "Scoped software checks pass; actual work later either completes within existing allowance or preserves explicit incomplete/technical evidence. No scientific performance threshold is changed.",
+  "stop": "Invalid/stale lineage, source/data drift, occupied GPU, open ledger or insufficient existing allowance refuses launch. Exact owned child only may be stopped. No model tuning, reset, CPU training or silent retries.",
+  "resources": {
+    "gpu_hours_max": 28,
+    "shared_gpu_hours_max": 48,
+    "planning_gpu_hours_max": 2,
+    "binding_gpu_hours_max": 1,
+    "allocation": "Existing cumulative allowances, no extra time",
+    "software_cpu_seconds_max": 180,
+    "cleanup_reserve_seconds": 45,
+    "training_device": "none; unchanged GPU evaluation child"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/C005/v2/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/A016/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
