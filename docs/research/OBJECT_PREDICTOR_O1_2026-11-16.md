@@ -38,12 +38,14 @@ groups pass: exact parameter/buffer promotion, real train/validation equivalence
 to C013, 23 invalid-evidence refusals and the original full-default CEM/probe
 interfaces on a toy world. The general numerical validator and supervisor now
 also pass eight software groups. Actual encoder/O0/O1 cases pass 1,104/2,772/4,164
-comparisons, respectively. The versioned C009 evaluation route is drafted and
-still needs software verification and review before actual object evaluations.
+comparisons, respectively. The versioned C009 evaluation route subsequently
+passed 16 software groups and its review. The first encoder binding evaluation
+is a [measured negative](OBJECT_BINDING_N3_2026-11-16.md): 0/20,000 ball appearances
+meet the declared mask criterion. This limits the interpretation of O1 as masking
+isolated physical objects, while leaving its predictive utility to be measured.
 See the [deployed inference report](OBJECT_INFERENCE_INTEGRATION_2026-11-16.md).
 
-Next are C009v2 verification, object-mask binding, physical probes and paired
-planning. Then comes the
+Next are physical probes and paired planning. Then comes the
 approved offline Genesis comparison, additional seeds/counts and final evidence
 report. Original failed numerical results and all training checkpoints remain
 unchanged. There is no demonstrated Go2 transfer yet.

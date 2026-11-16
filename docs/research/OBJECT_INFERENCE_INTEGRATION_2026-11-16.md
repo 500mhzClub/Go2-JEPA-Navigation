@@ -46,12 +46,12 @@ interpreter for both supervisor and child. Neither required changing the model.
 Actual evidence is under `outputs/gated/C014/{slots_n3_s0,o0_n3_s0,o1_n3_s0}`
 and `outputs/gated/C014/operations/RUN`, using runtime b5a0d47. The C014 record
 and six numerical helper sources remain unchanged throughout all three runs.
-All dedicated-device intervals are closed; 43.321 of the original 48 additional
-GPU-hours remain, including 23.691 B/C hours. No trainer or evaluator is active.
+At numerical completion all dedicated-device intervals were closed; 43.321 of the original 48 additional
+GPU-hours remained, including 23.691 B/C hours. No trainer or evaluator was active.
 
-C009v2 supervision and routing have been drafted under the C014 preregistration;
-their software checks and review are still pending. No actual object binding,
-physical probe or planning evaluation has run. Finish that verification, then
-execute those scientific evaluations under the unchanged protocols. P26 offline
+C009v2 supervision and routing subsequently passed 16 software groups and their
+review. The first [object binding result](OBJECT_BINDING_N3_2026-11-16.md) is a
+reviewed scientific negative, with passing independent inspection and operation.
+Physical probes and planning remain under the unchanged protocols. P26 offline
 Genesis, additional seeds/counts, the full comparison and final archive follow.
 The object-model advantage and Go2 transfer remain unmeasured.

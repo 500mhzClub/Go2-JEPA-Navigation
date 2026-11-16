@@ -41,16 +41,20 @@ validator/supervisor subsequently passed eight software groups and all three
 actual n3 seed0 cases: encoder 1,104, O0 2,772 and O1 4,164 comparisons. Separate
 independent inspection, numerical and operational reviews pass for each.
 See the [deployed inference report](OBJECT_INFERENCE_INTEGRATION_2026-11-16.md).
-C009v2 routing is drafted but its software verification/review is pending.
+C009v2 passes 16 software groups and a separate C014 review. All 21 scientific
+commands are unchanged except their explicit numerical-review argument.
 Original C009 requires its original C004/source bindings and must not be bypassed.
 O1n3seed0 completed30epochs/11370updates normally through C005v2 from a75523b.
 Actual C008 audit and separate C001/C005 reviews pass. Selected epoch28 latent
 validation MSE is0.0040267887; final resume state remains separately preserved.
-See the [paired O1 report](OBJECT_PREDICTOR_O1_2026-11-16.md). No trainer or GPU
-interval remains active;43.321additionalGPUhours remain. Preserve the gated
+See the [paired O1 report](OBJECT_PREDICTOR_O1_2026-11-16.md). After the first
+binding evaluation, 43.292 additional GPU-hours remain. Preserve the gated
 checkout for unchanged training/legacy helpers; new inference work continues
-in the isolated validation checkout. Object binding, physical probes and planning
-remain pending. Do not relaunch completed training, extraction or C014 cases.
+in the isolated validation checkout. First n3 seed0 binding is complete and
+reviewed `measured_negative`: 0/20,000 ball appearances meet IoU0.5. Its independent
+inspection and operation pass. See the [binding report](OBJECT_BINDING_N3_2026-11-16.md).
+Object physical probes and planning remain. Do not relaunch completed training,
+extraction, C014 cases or binding.
 C008 is a training-state audit and does not cover extraction. Keep each future
 active trainer's runtime pinned through its actual C008 and completion reviews.
 
