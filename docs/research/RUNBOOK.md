@@ -194,6 +194,20 @@ they cannot fill comparison cells. CPU/GPU arithmetic and measured latencies
 are not assumed equivalent. Keep the concurrent GPU trainer and pinned source
 unchanged, and keep the CPU helper/source files fixed while its child is live.
 
+After confirmed normal termination, use the independently reviewed saved-case
+inspector before writing the scientific and operational reviews:
+
+```sh
+HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' ROCR_VISIBLE_DEVICES='' \
+  OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+  "$PY" outputs/gated/B003/inspection/verify_cases.py --run l0_n3_s0
+```
+
+It reconstructs every stored action sequence and all summaries, checks pairing
+with the reviewed controls, and verifies saved numerical arrays. Its four
+software groups include deliberate corruptions; actual inspection outputs remain
+awaiting review. It never reruns a model or automatically approves a result.
+
 ## C: three-ball core, then extra seeds/counts
 
 C006 completed all six baseline probes on spare CPUs while the GPU slot trainer
@@ -372,6 +386,24 @@ it is itself a result requiring literature review before scientific interpretati
 training windows and ridge 0.001 differ from Zhu Appendix A.10's 50,000 and 1e-6; report that adaptation.
 
 ## D: frozen s0, offline Genesis
+
+The scientific commands below define the unchanged stages. Execute future GPU
+stages through the reviewed D003 external supervisor, after reviewed n3 seed0
+planning/probes for L0/L1/O0/O1, slot binding and the existing adapter/legacy checks.
+For each stage, consult the literature and bind its actual inputs and prior reviews:
+
+```sh
+python3 outputs/gated/D003/run_stage.py --stage export --python "$PY" \
+  --preconsultation outputs/gated/D003/pre_export.json
+```
+
+Use `--stage s1` and then `--stage compare` only after their separate scientific
+and operational predecessor reviews. D003 enforces the existing cumulative eight
+GPU hours and global allowance, with 45 seconds reserved for owned-child cleanup.
+Its eleven CPU check groups pass; the initial null-input fixture failure and
+source snapshot remain under `outputs/gated/D003/software_attempt_001`. The
+software review is not an actual P26 result or proof of GPU recovery. Fresh
+stage consultations and all actual outcomes still require substantive review.
 
 Preparation has completed for the original 600/100 feature-cache unit selection:
 

@@ -1,0 +1,93 @@
+{
+  "id": "D003",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16",
+  "question": "Can the unchanged P26 export, S1 training and offline comparison obey the existing eight-hour D allocation and global48-hour limit even if internal GPU progress stalls?",
+  "hypothesis": "An external CPU supervisor can enforce a fixed owned-child deadline and honest union accounting without changing D001 science. Uninterruptible OS/device states may still prevent confirmed exit.",
+  "sources": [
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen.poll/wait, explicit timeout cleanup, terminate/kill and returncode",
+      "consequence": "Reuse reviewed exact-child identity and bounded TERM/KILL; file logs avoid pipe backpressure. Confirm termination before closing intervals."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/time.html",
+      "version": "3.12",
+      "sections": "time.monotonic",
+      "consequence": "Fix admission-relative deadline; current D/global remainder may shorten but never extend it."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/fcntl.html",
+      "version": "3.12",
+      "sections": "flock and LOCK_EX",
+      "consequence": "Admit and close under the same shared ledger lock; reject open intervals and count nested D003/D001 device time once."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/cuda.html",
+      "version": "2.12",
+      "sections": "Asynchronous execution and implicit synchronization",
+      "consequence": "An internal between-operation check cannot enforce a deadline while a synchronization stalls. Keep an external CPU parent without changing scientific precision, execution mode or hardware."
+    },
+    {
+      "url": "docs/research/records/D001.json",
+      "version": "e2123ca04b381f1dc17a19255c3582fff5de0dd6311d300bd8bd008c4d0ca535",
+      "sections": "Frozen export/S1/evaluation protocol and eight-hour resources",
+      "consequence": "Use the already-approved stage commands and cumulative eight-hour allocation. Current gpu_run/budget_remaining enforces only shared48hours; the external wrapper must also enforce D allocation."
+    },
+    {
+      "url": "outputs/gated/A016/software/review.json",
+      "version": "fd7e41f63578a43784653460006f4bad2c57587fd79edb660d123128ebe4cd8e",
+      "sections": "Exact reviewed process identity/wait/stop helper",
+      "consequence": "Inherit unchanged owned-process handling; focused CPU fixtures verify D-specific routing/accounting without claiming GPU-stall recovery."
+    }
+  ],
+  "differences": "Operational wrapper only around unchanged D001 commands, in isolated ignored helper files. No new missions, collection, s0 retraining, S1 recipe changes, planner settings, thresholds, model or numerical-policy changes. Add frozen input/output hashes at admission/completion; no historical full-file binding is claimed for previously unhashed prepared features.",
+  "contrary_evidence": "TERM/KILL cannot guarantee termination of an uninterruptible kernel process. A killed stage may have only partial track files or an older atomic S1 checkpoint; such evidence remains incomplete. Process/accounting checks do not establish track quality, predictor validity or generalization.",
+  "protocol": {
+    "stages": [
+      "export",
+      "s1",
+      "compare"
+    ],
+    "science": "Exact existing D001 commands from RUNBOOK. Fixed prepared corpus, original feature index and frozen s0; S1 uses configs/object/m5.yaml and seed0; comparison uses original M5 and reviewed selected S1. No automatic retry/resume/review/successor.",
+    "order": "Require reviewed n3seed0 core planning/probes for L0/L1/O0/O1 and slot binding before first P26 GPU stage, plus existing D001 adapter and D002 full legacy reviews. Valid measured-negative science remains admissible. Export review and actual D003 export operational review precede S1; reviewed selected S1 and its operational result precede comparison.",
+    "admission": "Clean checkout, exact D003/D001 record/software/source/config hashes, fresh per-stage substantive consultation binding exact input files and prior reviews. Require no active repository trainer or GPU compute process, no open ledger interval and no reused output directories/partial prior exports. Never signal unrelated processes.",
+    "inputs": "Bind prepared600train/100val metadata/data plus packed arrays, original feature index and selected feature files for export, frozen s0 checkpoint/config, existing registered maze files, and stage-specific reviewed tracks/rasters/config or selected S1/M5 artifacts. Reconcile original prepared feature-index digest and unit identities. Capture current file bytes before each actual stage without claiming earlier checks bound all bytes.",
+    "allocation": "Union elapsed rows; global48hours counts all intervals; D8hours counts D001/D002/D003 GPU rows (D002 CPU regression has none). Do not charge B/C or validation reserve. Work seconds=min(global_remaining,D_remaining)-45cleanup. No additional allowance; no reset between stages.",
+    "supervision": "Parent imports no Torch. ExactPID/create-time/argv/canonicalcwd through unchanged A016 wait/stop. One file-logged child; fixed monotonic deadline plus current ledger remainders. TERM30seconds then KILL10seconds,45second cleanup reserve. Keep final atomic checkpoints/partial tracks; updates since last save may be lost.",
+    "closure": "Only own D003 outer and canonical matching D001 child interval, match manifest run_id, reject historical/ambiguous/mismatched rows. Close only after confirmed terminal child; unconfirmed exit keeps ledger open. Preserve technical/budget outcomes separately from scientific negatives.",
+    "artifacts": "Keep scientific outputs at D001/corpus/track_run,D001/s1,D001/comparison. Operational results under D003/runs/STAGE bind child result/manifest and produced track/index/raster or checkpoint/log/comparison artifacts after confirmed exit. Rehash preregistered inputs to detect mutation. Each actual scientific and operational outcome needs substantive review before dependent work.",
+    "checks": "CPU temporary-ledger tests for nested union, D/global exhaustion and cap, open-interval refusal, canonical own-only closure, live/historical/ambiguous/mismatched child rejection; exact three-stage argv; input and preconsultation completeness/staleness; known stage-parent identities; unchanged inherited sources and shared ledger; source syntax and one owned CPU normal/deadline pair. No actual P26 GPU case before n3 core reviews."
+  },
+  "success": "Scoped CPU verification passes and later actual operations remain within existing budgets or preserve an explicit unconfirmed terminal state with open accounting. No scientific performance gate is implied.",
+  "stop": "Reject stale/missing lineage, input/source drift, reused output, active GPU/trainer or exhausted allocation. Stop only owned child at deadline; preserve every partial artifact. Do not modify live B003/C005 source or any go2nav scientific implementation.",
+  "resources": {
+    "gpu_hours_max": 8,
+    "allocation": "Existing cumulative D8hours within shared48hours, not new allowance",
+    "cleanup_reserve_seconds": 45,
+    "software_cpu_seconds_max": 180,
+    "software_gpu_hours": 0,
+    "training_device": "dedicated_gpu in unchanged D001 child; supervisor CPU only"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/A016/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/D001/adapter_check/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/D002/legacy/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

@@ -22,7 +22,7 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [A001](records/A001.json) | Are saved inference statistics valid; can train-only calibration repair them? | Six intermediate snapshots reviewed; L1 float32 validity blocked, followed by A002 |
 | [B001](records/B001.json) | Does the fixed balls evaluator solve its controls without future leakage? | Controls pass at every n/horizon; learned planning pending |
 | [B002](records/B002.json) | Is unchanged baseline planning numerically valid and practical on spare CPUs? | Six software check groups and actual L0n3 preflight reviewed; sampled cost discrepancy at most5.116e-13, repeated actions exact; rough full-model estimate27.39minutes, no success-rate claim |
-| [B003](records/B003.json) | What are the six final baselines' complete fixed-task planning results under CPU execution? | Seven adapter/lineage check groups reviewed; first L0n3 case prepared, actual full results pending |
+| [B003](records/B003.json) | What are the six final baselines' complete fixed-task planning results under CPU execution? | Seven adapter/lineage groups and four independent inspection groups reviewed; full L0n3 evaluation running, actual result review pending |
 | [A002](records/A002.json) | Does precision explain the remaining L1 discrepancy? | All six pass float64 math inference; reviewed |
 | [A003](records/A003.json) | Do final checkpoints pass the selected common inference policy? | All six final303000 cases reviewed passed; 1,620 declared comparisons pass in float64/math, train-only calibrated artifacts preserved |
 | [A004](records/A004.json) | Why are two live original trainers no longer logging steps? | User-supplied stacks locate a GPU scalar synchronization boundary; root cause unresolved |
@@ -48,6 +48,7 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [C007](records/C007.json) | Can unchanged selected-checkpoint validation respect per-call, reserve and global time limits if GPU progress stalls? | External supervisor implemented; thirteen focused CPU check groups inspected and literature-reviewed, with unchanged scientific source; actual C004 cases await terminal training reviews |
 | [D001](records/D001.json) | Can frozen camera slots replace engineered tracks in Genesis? | Matched 600/100 units prepared; model comparison pending |
 | [D002](records/D002.json) | Does the full historical M5 offline summary still reproduce? | All 400 units replayed; all 144 reported numeric fields exactly match; reviewed |
+| [D003](records/D003.json) | Can unchanged P26 stages obey the existing eight-hour D and global budgets during GPU stalls? | External supervisor and eleven focused CPU check groups reviewed; initial malformed-input fixture failure preserved; actual export/S1/comparison await the reviewed n3 core |
 | [E001](records/E001.json) | Does the repeat-based value estimate establish impossibility? | Documentation corrected; V2 remains a measured negative |
 | [E002](records/E002.json) | Does the evidence archive preserve source/artifact identity and distinguish unreviewed results? | Fault-injection tests pass; latest interim archive independently verifies 2,103 payload files, 58 reviewed result rows and historical source identity; pending experiments remain incomplete |
 
