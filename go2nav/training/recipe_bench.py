@@ -9,7 +9,8 @@ next-embedding MSE, the MSE of an 8-step rollout, and 0.09 x SIGReg.
 
 **Recipes** (`RECIPES`): r0, one [CLS] latent; r1, every 8 x 8 patch token predicted (`grid=(8, 8)`: 65 tokens a frame);
 r2, r1 with each patch token's prediction error weighted by the change of its target patch's pixels (`motion_losses`);
-r4, the object-token JEPA (`models.object_tokens`).
+r3, r2 with half of each batch drawn from the exact branches: a quarter as many moments under two tapes each, with
+`branch_losses`' terms; r4, the object-token JEPA (`models.object_tokens`).
 
 **Training:** AdamW, warm-up then cosine, clip 1, bf16 autocast (SIGReg in float32, 128 projections), on the GPU only;
 6,000 steps at batch 64 (a patch-token step costs 0.2-0.35 s, and a run with its measures must fit 45 minutes). A step
@@ -41,7 +42,7 @@ DEFAULTS = dict(steps=6000, batch=64, rollout=8, lr=3e-4, weight_decay=1e-3, war
                 sigreg_weight=.09, sigreg_projections=128, bf16=True, log_every=250, checkpoint_every=2000,
                 memory_fraction=.42, recalibration_batches=200, policy='interactive')
 RECIPES = dict(r0=dict(), r1=dict(model=dict(grid=(8, 8))), r2=dict(model=dict(grid=(8, 8)), motion_floor=.1),
-               r4=dict(kind='objects'))
+               r3=dict(model=dict(grid=(8, 8)), motion_floor=.1, branches=dict(paired=1.)), r4=dict(kind='objects'))
 
 
 def model_config(**overrides):
@@ -106,8 +107,8 @@ class BranchWindows:
     gives, for `count` random moments, the history's pixels (B, 3, 3, 64, 64) and, for two different tapes of each, the
     future pixels (B, steps, 3, 64, 64) and the actions (B, 2 + steps, 2) from the first history frame on."""
 
-    def __init__(self, root, variant, device, steps):
-        self.windows = Windows(root, 'interactive', 'train', variant, device)
+    def __init__(self, root, variant, device, steps, windows=None):
+        self.windows = windows or Windows(root, 'interactive', 'train', variant, device)
         frames = data.load(root, 'interactive', 'train', variant, branch_frames=True)[2]['frames']
         self.frames = torch.from_numpy(np.ascontiguousarray(frames[:, :, :, :steps])).to(device)
         branches = self.windows.branches
@@ -189,7 +190,8 @@ def train(root, variant, recipe, out, seed=0, overrides=None):
     params = list(model.parameters())
     sigreg = SIGReg(num_proj=cfg['sigreg_projections']).to(device)
     trainset = Windows(root, cfg['policy'], 'train', variant, device)
-    branchset = BranchWindows(root, variant, device, cfg['rollout']) if 'branches' in options else None
+    branchset = BranchWindows(root, variant, device, cfg['rollout'], trainset if cfg['policy'] == 'interactive' else None) \
+        if 'branches' in options else None
     length, total = HISTORY+cfg['rollout'], cfg['steps']
     optimiser = torch.optim.AdamW(params, lr=cfg['lr'], weight_decay=cfg['weight_decay'])
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(cfg['warmup'], total))
