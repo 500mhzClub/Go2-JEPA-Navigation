@@ -2617,3 +2617,46 @@ weight 1] tests capability 3: whether the predictor can be made to carry the mov
     constant through an episode and differ between episodes, so they satisfy SIGReg at no prediction cost.
 - **Reading:** the encoder is no longer the limit on T2; the predictor is. Its one-step output is further from the
   truth, as the head reads it, than a copy of the last frame would be.
+
+## P27 R3, first round: the branch terms collapse the encoder (16 November)
+
+R3 [R2 with half of each batch drawn from the exact branches: one history under two tapes, a loss on both futures
+and a paired term] tests capability 2. T2 only, one seed, 6,000 steps.
+
+| T2, k = 8 | E: agent | X bounce | X straight | A: error / zero | False | Slope | R: agent / green / blue / yellow |
+|---|---|---|---|---|---|---|---|
+| R2 | 5.05 | 23.2 | 20.0 | 1.32 | 95% | 0.69 | 0.9 / 1.0 / 1.5 / 0.9 |
+| R3, first round | 14.8 | 30.8 | 24.3 | 1.70 | 96% | 0.22 | 10.3 / 14.9 / 20.1 / 18.0 |
+
+- **It fails, and loses what R2 had gained:** retention falls back to chance for the obstacles.
+- **Why:** I wrote the branch and paired terms without R2's weights. Every token of the branch futures counted
+  alike, as in R1, and the tokens went still: the grid's prediction loss fell to 0.001 (R2: 0.025) while SIGReg rose
+  from 3.0 to 5.2.
+- **Second round** (`r3b`): the branch and paired terms carry R2's weights. Not run on T1 or on the confounded data:
+  the confound test needs a predictor that carries the obstacles, and no patch-token run has one.
+
+## P27 R4, first round: object tokens carry all three (16 November)
+
+R4 [object-token JEPA: a colour detector places each object; a token embeds a 16 x 16 crop centred on it, its
+position and which object it is; LeWM's predictor runs over the 4 tokens of each of 3 frames, conditioned on the
+action; the targets are the next frame's tokens; SIGReg on every token] tests capabilities 2 and 3 with estimation
+engineered and dynamics learned. One seed, 6,000 steps (4 minutes), k = 8:
+
+| | E: agent | Shuffle ratio | X bounce (cv 8.94) | X straight (cv 0.40) | A: error / zero | False | Slope [95%] | R: worst | X share | A share |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Bar | ≤ 1 | ≥ 5 | ≤ 4.47 | ≤ 0.90 | ≤ 0.50 | ≤ 10% | above 0.5 | ≤ 1 | | |
+| Oracle-S, T2 | 0.41 | 31.6 | 1.25 | 0.61 | 0.59 | 5% | 0.58 [0.57, 0.60] | - | 1 | 1 |
+| R4, T2 | 0.72 | 18.1 | 3.30 | 1.81 | 0.64 | 20% | 0.48 [0.46, 0.50] | 0.29 | 0.73 | 0.90 |
+| Oracle-S, T1 | 0.43 | 30.2 | 1.29 | 0.60 | 0.49 | 4% | 0.65 [0.62, 0.67] | - | 1 | 1 |
+| R4, T1 | 0.89 | 14.6 | 4.39 | 2.95 | 0.72 | 50% | 0.38 [0.37, 0.40] | 0.45 | 0.59 | 0.55 |
+
+- **The first recipe whose predicted latents hold all three capabilities.**
+  - E passes: the agent within 0.72 px, 18 times better than under shuffled tapes.
+  - R passes: every object within 0.29 px (the position is an input to the token).
+  - X on bounce windows passes (3.30 px, 37% of constant velocity's): the predictor has learnt the walls. On straight
+    windows it is 1.8 px, where constant velocity is exact to 0.4 px.
+  - A: 90% of Oracle-S's gain over zero-response on T2. Reactions at a distance have slope 0.37 (Oracle-S 0.26).
+- **What it misses on T2:** the straight windows, false responses (20%) and the slope's interval (bar 0.5).
+  All three are imprecision: a 1.8-px error on an obstacle that does nothing reads as a response over 1.5 px.
+- **T1 is worse than T2 again** (false responses 50%), as for every recipe so far.
+- The loss was still falling at 6,000 steps, so the second round is the same recipe for 36,000 steps (25 minutes).
