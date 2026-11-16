@@ -51,8 +51,8 @@
     "sampling": "Unchanged C004 windows seed2026111516:16 train and16 validation windows grouped in pairs. Same original100 candidate8step cohorts on first window of each split. No test data.",
     "encoder_checks": "For each policy and each of16 paired batches: original RGB reconstruction objective, slots/reconstruction/masks CPU/GPU, all57parameter gradients, repeat/reversal/separate-single grouping, finite and no missing gradient. Original numerics helper with inputs cast to encoder dtype.",
     "predictor_checks": "For each policy and each of16 paired batches: exact float32 cached4states/actions promoted to64, unmasked original loss; output, all83parameter gradients, repeat/reversal/separate-single grouping. No parameter update. Original numerical helper unchanged.",
-    "pipeline_checks": "For each policy and each paired real image batch: fresh independent CPU/GPU3frame histories and independent1frame goals from4thframe, original3actions normalized before precision promotion; compare encoded histories/goals, single-step predicted slots, Hungarian goal costs. On GPU also repeat/reversal/separate-single complete paths; no carry from history to goal.",
-    "planning_checks": "Per policy/split:first originalC004window. Independently encode3frame history and1frame goal on CPU/GPU; same C012 float32 normalized commands promoted64. Compare complete8step100candidate CPU/GPU rollouts and each goalcost; GPU exactrepeat/reversed/separatepairs compare rollout andcost. Also compare independently encoded histories/goals. Retain raw arrays for independent NumPy inspection.",
+    "pipeline_checks": "For each policy and each paired real image batch: fresh independent CPU/GPU3frame histories and independent1frame goals from4thframe, original3actions normalized in each policy encoder dtype, exactly as the unchanged downstream callers, then promoted by the wrapper; compare encoded histories/goals, single-step predicted slots, Hungarian goal costs. On GPU also repeat/reversal/separate-single complete paths; no carry from history to goal.",
+    "planning_checks": "Per policy/split:first originalC004window. Independently encode3frame history and1frame goal on CPU/GPU; same C012 physical norm-capped float32 candidate samples and original past commands; cast to encoder dtype before dividing by3, exactly as unchanged downstream callers, then promote64. Compare complete8step100candidate CPU/GPU rollouts and each goalcost; GPU exactrepeat/reversed/separatepairs compare rollout andcost. Also compare independently encoded histories/goals. Retain raw arrays for independent NumPy inspection.",
     "interface": "Explicit policy wrapper casts pixels to encoder dtype, encode outputs to predictor64, history/actions to predictor64. Exercise unchanged balls_probes.features and balls_planning.learned_actions interfaces in focused CPU fixtures; no planner/objective/trainer edit.",
     "comparison": "Original rtol1e-4/atol1e-5, original allclose reference conventions; reject nonfinite. Save coverage, failures and maxima, report per-step rollout failure counts. No tolerance relaxation.",
     "immutability": "Fresh strict loads and exact promoted parameter/buffer checks before and after, original input digests before/after. No derived weight file, optimizer, train/calibration/cache rewrite.",
@@ -98,5 +98,8 @@
         "passed"
       ]
     }
-  ]
+  ],
+  "version": 2,
+  "previous_preregistration_sha256": "c2d6a641ffe8f5ae66891db37ce1793f6eebebfbbd1a69c0328a0cf827d65aed",
+  "amendment_before_implementation": "Code inspection found that unchanged probe/planner callers divide actions after casting to their first model parameter dtype. Freeze that deployed convention explicitly before any helper implementation or experiment; physical command samples and tolerance unchanged."
 }
