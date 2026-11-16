@@ -2538,3 +2538,58 @@ layout. 24 recorded ring-world missions repeat exactly, and the unit tests pass 
     export.
 - **Next:** docs/HANDOFF_2026-11-16.md proposes P27, a recipe bench on reactive balls. It measures action
   sensitivity, action → obstacle and obstacle progression through a head on predicted latents, against an oracle.
+
+## P27: the recipe bench, its references, R0 and R1 (16 November)
+
+**Built** (PLAN P27; branch `feature/recipe-bench`): `sim.reactive_balls` (three kinds, contact, exact four-tape
+branches), `data.reactive_balls`, `training.recipe_bench`, `eval.recipe_bench` (the head, E, X, A, R, Oracle-S).
+- The measures are checked on a forecaster that returns the truth (errors 0, slope 1) and on constant velocity
+  (zero-response exactly), in the unit tests.
+- **The world reacts measurably.** Of the validation branch pairs, 29% respond by over 1.5 px at 8 steps (mean
+  response 9.4 px) and 69% by under 0.5 px. Obstacles bounce in 3% of steps and touch the agent in 7%.
+- **Compute, as found:** two GPU processes at once each run at under a third of the solo speed, so a rung runs T2
+  then T1 in one service. A patch-token step costs 0.17 s at batch 64 in bf16 (0.5 s in float32), so every rung is
+  6,000 steps at batch 64 (17 minutes for patch tokens, 5 for [CLS]); the head and measures take 3 minutes.
+  GPU and CPU gradients agree for both architectures.
+
+**References** (validation, k = 8; errors in px; X on windows with the agent over 24 px away):
+
+| | E: agent | X bounce | X straight | A: error / zero-response | False responses | Slope [95%] |
+|---|---|---|---|---|---|---|
+| Constant velocity | 12.06 | 8.94 | 0.40 | 9.37 / 9.37 = 1.00 | 0% | 0 |
+| Oracle-S, T1 (kinds shown) | 0.43 | 1.29 | 0.60 | 4.59 / 9.37 = 0.49 | 4% | 0.65 [0.62, 0.67] |
+| Oracle-S, T2 (kinds hidden) | 0.41 | 1.25 | 0.61 | 5.57 / 9.37 = 0.59 | 5% | 0.58 [0.57, 0.60] |
+
+- The measures separate Oracle-S from constant velocity (X, bounce windows: a seventh of its error) and from
+  zero-response (A).
+- **Oracle-S passes every bar on T1 and misses A's error bar on T2** (0.59 against 0.50). The gap is the hidden
+  kinds: for reactions at a distance its slope is 0.58 on T1 and 0.26 on T2. With 3 history frames nothing shows an
+  obstacle's kind before it reacts. Reactions by contact are hard on both (error 5.3-5.9 px against 11.5 for
+  zero-response): a pushed disc slides off the pusher.
+- The bar stands as written. Each rung is also read as its share of Oracle-S's gain.
+
+**R0** [LeWM, one [CLS] latent; the known negative] **and R1** [patch-token JEPA: all 64 patch tokens predicted],
+one seed, k = 8:
+
+| T2 | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False | Slope | R: agent / green / blue / yellow |
+|---|---|---|---|---|---|---|---|---|
+| Oracle-S | 0.41 | 31.6 | 1.25 | 0.61 | 0.59 | 5% | 0.58 | - |
+| R0 | 1.59 | 8.1 | 24.3 | 21.3 | 1.30 | 90% | 0.63 | 0.9 / 1.1 / 19.1 / 17.7 |
+| R1 | 15.0 | 1.2 | 22.6 | 18.8 | 1.28 | 82% | 0.27 | 3.1 / 2.4 / 1.4 / 1.8 |
+
+- **R0 fails as expected.** Its latent keeps the agent and one obstacle and drops the other two (19 px is chance).
+  Its forecasts of the agent follow the action (capability 1); it has neither of the others. On T1 the same run kept
+  nothing (every object 19-21 px); it is one short run and is not tuned.
+- **R1's encoder keeps every object** (1.4-3.1 px, short of the 1-px bar), so spatial tokens do keep small movers.
+  **Its predictor loses them:** one step ahead the head reads the agent 13.7 px out and an obstacle 8.6 px out, worse
+  than holding (1.7 and 1.2 px), and the action no longer shows (shuffle ratio 1.2).
+- **Why, measured:**
+  - The latent loss is low and says little: one step ahead the predicted tokens are 0.007 from the true ones (their
+    variance is 1.3), but the previous frame's tokens are only 0.011 away. The predictor explains 40% of a step's
+    change.
+  - A head trained on the predicted tokens themselves still reads the agent 12.7 px out and green 18.6 px out at one
+    step (blue 3.6, yellow 5.0). The information is not in the predictions; it is not the head's transfer.
+  - The BatchNorm statistics are not the cause (batch and running statistics read alike).
+- **On T1, R1 reads the same and worse:** retention 3.7-4.8 px, forecasts at chance (agent 21.5 px, slope 0).
+- By PLAN's reading (R passes, X fails: the predictor), R2 follows: weight each token's error by its target patch's
+  change.
