@@ -161,6 +161,39 @@ controls are retained. Five groups are evaluation groups, not five training seed
 The same CLI loads reviewed O0/O1 checkpoints. It never supplies intermediate future frames or truth positions to
 the learned planner. CEM uses final elite mean; goal slots are independently encoded and Hungarian-matched.
 
+B002 has completed a bounded CPU feasibility check of the unchanged final L0n3
+planner. All three horizons, repeated H8 actions and the100-candidate/eight-step
+grouping checks pass, with maximum sampled cost discrepancy5.116e-13. The rough
+full-model runtime estimate is27.39minutes; one episode does not establish an ETA
+or planning success. Its six software groups and actual scientific/operational
+results have separate literature reviews under `outputs/gated/B002`.
+
+B003 now provides complete CPU execution of the six already-planned baseline
+evaluations while the GPU encoder trains. Seven adapter checks match every
+synthetic B001 case field except latency, independently verify scoring, retain
+the original summaries and verify all six actual final parents. Use this path
+for those six baseline cases; do not also launch their GPU command above:
+
+```sh
+python3 outputs/gated/B003/run_one.py --run l0_n3_s0
+```
+
+The fixed order is L0n3, L1n3, L0n1, L1n1, L0n6, L1n6, all seed0. Each needs a
+fresh `B003/pre_RUN.json` consultation binding checkpoint, parent, protocol and
+the existing test data. Run from the clean validation checkout, with unchanged
+source and reviewed helpers. One eight-thread child has a two-hour wall cap
+including15seconds cleanup and16GiB RSS cap; it creates no GPU interval. Each
+model still evaluates all1000 episodes at horizons4/6/8 with unchanged CEM,
+numerical tolerances, scoring and bootstrap. No training or calibration occurs.
+
+Scientific artifacts go to `outputs/gated/planning/RUN`; operational artifacts
+go to `outputs/gated/B003/operations/RUN`. Inspect all3000 raw cases and their
+task pairing/scoring, then consult literature and review both actual results
+before the next model. Partial cases and deadline stops remain incomplete;
+they cannot fill comparison cells. CPU/GPU arithmetic and measured latencies
+are not assumed equivalent. Keep the concurrent GPU trainer and pinned source
+unchanged, and keep the CPU helper/source files fixed while its child is live.
+
 ## C: three-ball core, then extra seeds/counts
 
 C006 completed all six baseline probes on spare CPUs while the GPU slot trainer

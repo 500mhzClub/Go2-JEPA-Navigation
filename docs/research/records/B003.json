@@ -1,0 +1,91 @@
+{
+  "id": "B003",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16",
+  "question": "Do the six final baseline world models solve the unchanged B001 latent-goal planning tasks when the complete evaluations run on spare CPUs?",
+  "hypothesis": "Physical readout differences may or may not translate into planning success; strong L0 performance and failure of L1 advantage are valid outcomes.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/html/2609.04264v3",
+      "version": "v3",
+      "sections": "Section4.4 latent terminal cost and5.1.1 matched planning evaluation",
+      "consequence": "Measure actual endpoint and collision-free success separately from probes; preserve local B001 CEM settings and all1000 fixed test episodes."
+    },
+    {
+      "url": "https://arxiv.org/html/2602.11389v2",
+      "version": "v2",
+      "sections": "AppendixG CEM final mean, planning cost and object matching",
+      "consequence": "Keep the original final elite mean and squared terminal latent cost. This baseline-only CPU adaptation does not change object matching or adopt different paper hyperparameters."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Platform differences, batched/sliced computations, finite values",
+      "consequence": "Retain float64/math and per-model candidate grouping checks at existing tolerances. CPU/GPU elite sequences need not match bitwise; report device and omit cross-device latency superiority claims."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Wait, timeout cleanup and returncode",
+      "consequence": "Externally bound each owned CPU child, confirm exit, preserve partial files and require separate operational review before successors."
+    },
+    {
+      "url": "outputs/gated/B002/preflight_l0_n3_s0/review.json",
+      "version": "7891f49866bf27678544d327fe94f4096c9ef985d8eec2c3379fb9285df963a3",
+      "sections": "Actual CPU planning feasibility and candidate costs",
+      "consequence": "Observed0.386/0.546/0.712seconds at horizons4/6/8 supports attempting complete evaluations under7200seconds per model. One-episode timing is not a guaranteed ETA or planning score."
+    },
+    {
+      "url": "go2nav/eval/balls_planning.py",
+      "version": "737da767014a0e524373764346edf4de6f4e071b374d8f2f5c27b2b4a4d235b3",
+      "sections": "task_start, task_inputs, learned_actions, score, summarize and reference _evaluate",
+      "consequence": "Import unchanged task generation, neural planner, simulator scoring and summary. Verify the CPU iteration/output adapter against the original evaluator on synthetic cases before any full learned case."
+    }
+  ],
+  "differences": "CPU execution adaptation of six already-planned seed0 B001 baseline evaluations while the GPU object encoder trains. No neural training, new calibration/data/controls or test-driven planner changes. Full3000-case outputs retain C002 schema and explicitly identify CPU hardware. No object-model or extra-seed execution is authorized by this record.",
+  "contrary_evidence": "Probe accessibility does not establish useful latent distance or planning. Physical supervision may fail, and the local baseline already differs from the reference paper. CPU/GPU roundoff can change CEM elite choices. One training seed does not establish generalization; episode intervals omit training-seed uncertainty. White-ball contacts are absent from local dynamics.",
+  "protocol": {
+    "order": [
+      "l0_n3_s0",
+      "l1_n3_s0",
+      "l0_n1_s0",
+      "l1_n1_s0",
+      "l0_n6_s0",
+      "l1_n6_s0"
+    ],
+    "parents": "Actual passed A003/A015/A016 final lineage,303000,seed0,float64/math/inference-only. Bind exact reviewed C006 test bytes and B001 controls/cases/source. Each run requires its own substantive preconsultation with checkpoint,parent,data and B001/B003 record digests. Prior CPU cases need separate scientific and operational reviews.",
+    "tasks": "Exactly all1000 existing test episodes at each horizon4/6/8, five groups of200. Use unchanged task_start seed2026111503 and CEM seed2026111504. Three history images and two past executed actions; goal encoded independently. No intermediate future frames or labels enter the model. Labels enter only simulator scoring.",
+    "planner": "Unchanged learned_actions/cem:100 candidates,10 elites,20 iterations,std2,action norm cap3,minimum std0.001,final elite mean. Squared terminal latent distance. No replanning, auxiliary geometric cost, warm start or optimizer tuning.",
+    "scoring": "Unchanged red_path/score, primary red endpoint error<=1pixel; collision-free endpoint success secondary with discrete-frame white distances. Save all actions and episode/start/goal/CEM identities. Reuse summarize2000 episode bootstrap per horizon and group breakdown; retain seed0 separately.",
+    "numerics": "Before complete iteration for every model, fixed episode0 H8 first100 proposal batch: finite predicted latents and costs, first8 singleton and reversed100 grouping at rtol1e-4/atol1e-5. Preserve diagnostic arrays. Keep all learned parameters/buffers frozen; verify final data/source/checkpoint hashes and no CUDA initialization. No GPU equality claim.",
+    "software_checks": "Exact CPU adapter versus original _evaluate on synthetic two-episode/all-horizon data with recording fake model, comparing all fields except latency. Independently verify scoring flags and endpoint error, retained2000-bootstrap summaries, task uniqueness, source identity, preconsultation mismatch rejection and actual six-parent lineage. Inherit unchanged B002 planner and A016 owned-process checks, without claiming actual GPU coverage.",
+    "execution": "One eight-thread CPU child with one interop thread, hidden HIP/CUDA/ROCR. Per model7200seconds including15seconds cleanup, RSS<=16GiB; all six at most43200seconds. New immutable output paths, file logs, exact child identity, no GPU ledger rows or signals to other processes. Canonical scientific outputs planning/RUN; operational outputs B003/operations/RUN. Preserve partial cases on deadline and mark incomplete; no automatic retry/review/successor.",
+    "review": "Review each actual scientific and operational result after substantive literature consultation before the next model. Inspect complete cases and independently recalculate scores/summaries/task pairing. Success direction is not a software gate; measured negatives remain in final comparison."
+  },
+  "success": "Complete valid3000-case evaluation per model with reviewed results, independent raw-case checks and correct uncertainty. No required ranking for measurement validity; original C002 reference/planning bars remain unchanged.",
+  "stop": "Stale lineage/source/data, invalid candidate numerics, nonfinite output, device initialization, memory/time exhaustion or failed controls stops the case. Preserve artifacts. No threshold/precision/planner/split adjustment after observing results.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_workers_max": 8,
+    "cpu_stage_wall_seconds_max": 7200,
+    "cpu_total_wall_seconds_max": 43200,
+    "software_seconds_max": 120,
+    "cleanup_reserve_seconds": 15,
+    "rss_gb_max": 16,
+    "training_device": "none; CPU inference/planning only"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/B002/preflight_l0_n3_s0/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/B002/operations/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

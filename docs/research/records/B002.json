@@ -1,0 +1,87 @@
+{
+  "id": "B002",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16",
+  "question": "Can the unchanged frozen B001 learned planner execute on spare CPUs with stable candidate costs and practical runtime before deciding whether to move its already-planned baseline evaluations to CPU?",
+  "hypothesis": "The final reviewed float64/math baseline may permit CPU planning without changing tasks or optimizer behavior; this must be measured rather than inferred from inexpensive physical probes.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/html/2609.04264v3",
+      "version": "v3",
+      "sections": "Section4.4 terminal latent-goal planning and section5.1.1 evaluation",
+      "consequence": "Evaluate planning directly rather than infer it from probe accuracy. Keep existing B001 tasks, cost and CEM settings; a tiny runtime case cannot estimate success rate."
+    },
+    {
+      "url": "https://arxiv.org/html/2602.11389v2",
+      "version": "v2",
+      "sections": "AppendixG cost and CEM final elite mean",
+      "consequence": "Preserve final elite-mean action selection. The local B001 horizon/candidate/iteration settings differ from this paper and remain frozen; do not adopt new settings for speed."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Floating-point platform differences, batched versus sliced computations and finite values",
+      "consequence": "Check actual100-candidate/eight-step CPU costs against singleton subsets and reversed order at existing tolerances. CPU/GPU bitwise equivalence and identical CEM elite choices are not guaranteed."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen timeout cleanup and confirmed returncode",
+      "consequence": "Use reviewed owned-child termination with a180second CPU cap including15second cleanup; signal only that child, never the live GPU trainer."
+    },
+    {
+      "url": "go2nav/eval/balls_planning.py",
+      "version": "737da767014a0e524373764346edf4de6f4e071b374d8f2f5c27b2b4a4d235b3",
+      "sections": "Inputs, task_start, task_inputs, cem and learned_actions",
+      "consequence": "Import unchanged task selection and learned_actions. Construct a separate fixed-cost numerical diagnostic without altering the real planner. Do not call its GPU admission harness."
+    }
+  ],
+  "differences": "A CPU feasibility diagnostic only, using the existing final L0n3seed0 calibrated artifact. No training, calibration, dataset collection, test-driven tuning or full success-rate claim. B001 currently runs learned planning on GPU; any later full CPU execution requires an explicit new record after this result review.",
+  "contrary_evidence": "Planning calls a neural rollout many more times than probes. Good probe accuracy does not establish latent-goal planning, and small numerical changes can change elite ranking. A single episode gives a weak runtime estimate and no general success estimate. CPU work could contend with a GPU trainer for host resources.",
+  "protocol": {
+    "parents": "Require passing actual A003/A015/A016 final L0n3seed0 reviews, step303000, calibrated float64/math metadata, existing n3 B001 controls and exact test data hashes inherited from reviewed C006. Bind source and inputs; keep live GATED checkout untouched.",
+    "case": "Only n3seed0 L0 test episode0. Run unchanged learned_actions at H4,H6,H8, then repeat H8 with identical CEM seed. Keep100 candidates,10 elites,20 iterations,std2,cap3,floor0.001,three history frames,two historical actions and independently encoded goal.",
+    "numerics": "At H8 first CEM proposal batch, compute terminal predicted latents and squared goal costs for all100 candidates, first8 singleton candidates and reversed100 ordering. Compare at rtol1e-4,atol1e-5; check finite CPU tensors, all parameters/buffers unchanged and no CUDA initialization. Repeat H8 actions at the same tolerance. No GPU calls or GPU parity claim.",
+    "feasibility": "Report each planner latency and sum(H4,H6,H8)*1000 as a rough full-model estimate. CPU full evaluation is eligible for a separately preregistered implementation only if all checks pass and estimate<=6900seconds (prospective7200second per-model cap). Do not alter thread count, planner parameters or case selection in response to results. Failing the estimate returns evaluation to the existing sequential GPU plan.",
+    "software_checks": "Check all1000 episode/horizon task bounds; exact history/past/goal indexing using distinct synthetic frame values; recording fake CPU model confirms independent goal encoding,20 batches of100 proposals, preserved two historical actions, finite/capped deterministic final actions and no future observation access. Check hidden-device/nonfinite guards and exact reviewed lineage/source bindings.",
+    "execution": "One CPU child, eight Torch/OMP/BLAS threads and one interop thread, hidden HIP/CUDA/ROCR, RSS<=16GiB. Software cap60seconds, actual preflight180seconds including15seconds cleanup. File logs and immutable new outputs; reuse exact reviewed A016 stop helper. No GPU ledger interval. Inspect and literature-review raw and operational results separately; no automatic approval or full evaluation.",
+    "outputs": "outputs/gated/B002/software and preflight_l0_n3_s0, with exact models/data/sources/reviews in manifest, sampled proposal diagnostic, actions, latency and limits. Do not write a canonical planning/RUN result or fill C002 performance cells from this tiny diagnostic."
+  },
+  "success": "Scoped software checks and actual numerical/immutability/CPU checks pass; runtime eligibility is reported separately. Neither outcome establishes planning success or robot transfer.",
+  "stop": "Stop on stale lineage, invalid numerics, CPU limits or device initialization. Preserve partial technical or budget-incomplete evidence. Do not change active GPU training, scientific source, precision, tolerances, test task or CEM settings.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_workers_max": 8,
+    "software_seconds_max": 60,
+    "actual_seconds_max": 180,
+    "cleanup_reserve_seconds": 15,
+    "rss_gb_max": 16,
+    "training_device": "none; CPU reference inference only"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/A003_recovered/l0_n3_s0/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/A016/runs/l0_n3_s0/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/B001/n3/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/C006/supervision/l0_n3_s0/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
