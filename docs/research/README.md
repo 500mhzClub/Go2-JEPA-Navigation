@@ -1,5 +1,29 @@
 # P25/P26 research gate
 
+## Current user authorization — GPU time limits removed
+
+On 16 November 2026 the user explicitly removed GPU-hour limits for the approved
+P25/P26 plan. [U001](records/U001.json) supersedes all historical global, stage
+and per-run GPU-time caps. Keep elapsed-time accounting, serial GPU execution,
+literature review and owned-process stall handling. Do not optimize merely to
+fit an old time allocation. Historical budget statements below describe earlier
+runs and must not be used to stop current progressing work.
+
+The immediate execution route runs the original full64 GPU planner unchanged:
+
+```sh
+"$PY" outputs/gated/U001/run.py --run o0_n3_s0 --python "$PY" \
+  --preconsultation outputs/gated/U001/pre_o0_n3_s0.json
+```
+
+Fresh results go to `outputs/gated/planning_full/RUN`; operations are under
+`outputs/gated/U001/operations/RUN`. Preserve the original partial O0 directory.
+Review O0 fully before the paired O1 run, then proceed to offline P26 and the
+remaining approved seeds/counts. Later stage supervisors must use this override
+instead of their historical enforced caps. The CPU feasibility diversion is
+cancelled; no CPU diagnostic or C015 planner optimization is being adopted.
+
+
 Approved scope: P25 balls and P26 offline Genesis, with 48 additional dedicated GPU-hours. Existing six L0/L1 jobs are excluded from that allowance and remain on their pinned checkout. No new missions, planner tuning, value models, hierarchy, stochastic variants, or dense-feature baseline in this stage. A missing dense-feature comparison precludes a claim that slots are superior to dense features.
 
 Every implementation and experiment needs a preregistration in `records/`. It must identify the question, primary sources and sections actually read, differences from this repository, contrary evidence, frozen protocol, success/stop rules, resource limit and verification. Every positive, negative or inconclusive result needs a subsequent literature review before interpretation or a dependent experiment. A source may be revisited; novelty of the citation is not a requirement. Software correctness questions use official documentation/source/issues. Abstract-only reviews do not pass.

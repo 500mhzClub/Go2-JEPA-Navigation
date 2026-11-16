@@ -1,5 +1,29 @@
 # P25/P26 execution
 
+## Current user authorization — GPU time limits removed
+
+On 16 November 2026 the user explicitly removed GPU-hour limits for the approved
+P25/P26 plan. [U001](records/U001.json) supersedes all historical global, stage
+and per-run GPU-time caps. Keep elapsed-time accounting, serial GPU execution,
+literature review and owned-process stall handling. Do not optimize merely to
+fit an old time allocation. Historical budget statements below describe earlier
+runs and must not be used to stop current progressing work.
+
+The immediate execution route runs the original full64 GPU planner unchanged:
+
+```sh
+"$PY" outputs/gated/U001/run.py --run o0_n3_s0 --python "$PY" \
+  --preconsultation outputs/gated/U001/pre_o0_n3_s0.json
+```
+
+Fresh results go to `outputs/gated/planning_full/RUN`; operations are under
+`outputs/gated/U001/operations/RUN`. Preserve the original partial O0 directory.
+Review O0 fully before the paired O1 run, then proceed to offline P26 and the
+remaining approved seeds/counts. Later stage supervisors must use this override
+instead of their historical enforced caps. The CPU feasibility diversion is
+cancelled; no CPU diagnostic or C015 planner optimization is being adopted.
+
+
 Runtime update on 16 November: all six original experiments completed 303,000 steps
 serially after the authorized reboot. All six actual A015 artifact audits and
 A014 completion reviews pass. All six final A003 numerical evaluations and their

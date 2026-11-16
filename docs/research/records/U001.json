@@ -1,0 +1,82 @@
+{
+  "id": "U001",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T09:33:15.251815+00:00",
+  "question": "How should already-approved GPU experiments proceed after the user explicitly removed GPU-hour limits?",
+  "hypothesis": "The existing validated scientific computation can complete under accounting-only GPU supervision; no runtime optimization or CPU feasibility experiment is needed.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/html/2602.11389v2",
+      "version": "v2",
+      "sections": "Appendix G, planning cost/CEM/Hungarian matching",
+      "consequence": "Keep the original local planner computation, full64 policy, tasks and all 3000 cases. Change only resource supervision and output location."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/contextlib.html",
+      "version": "3.12",
+      "sections": "contextmanager generator, exception propagation and finally cleanup",
+      "consequence": "Replace only the GPU accounting context and remaining-time accessor; retain provenance, dedicated-device checks and terminal interval closure, and re-raise computation failures."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/runpy.html",
+      "version": "3.12",
+      "sections": "run_module and run_name __main__",
+      "consequence": "Install accounting functions before the original scientific module imports them, then execute its original CLI in one fresh child."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen.poll/wait/terminate/kill",
+      "consequence": "Track exact owned process identity, observe completion and retain reviewed bounded cleanup. No total-runtime deadline; a 30-minute lack of output progress is a stall trigger."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/fcntl.html",
+      "version": "3.12",
+      "sections": "flock LOCK_EX",
+      "consequence": "Keep exclusive ledger admission and closure; elapsed time remains recorded without enforcement of old global/stage allocations."
+    }
+  ],
+  "differences": "Explicit user override of all previous global, stage and per-run GPU-hour budgets. Scientific scope, literature gates, serial GPU execution, model/data identity and numerical criteria remain. Initial implementation launches original object planning into fresh planning_full directories, preserving partial canonical outputs. Later approved GPU stages use this same authorization after their own unchanged scientific gates.",
+  "contrary_evidence": "Removing time limits does not repair a hung GPU or establish scientific success. A missing output update is a liveness indication, not a measured scientific negative. Reusing old wrappers unchanged would still enforce superseded limits.",
+  "protocol": {
+    "authorization": {
+      "quote": "Disregard the GPU hour limit, you've spent more time optimising down than it would've just taken to run it",
+      "observed_at": "2026-11-16T09:33:15.251815+00:00",
+      "scope": "All GPU-hour limits in the active approved P25/P26 plan are removed; accounting continues."
+    },
+    "immediate_order": [
+      "o0_n3_s0",
+      "o1_n3_s0"
+    ],
+    "science": "Original go2nav.eval.balls_planning evaluate/_evaluate, learned_actions, CEM, matching and score functions unchanged. Original selected C014 full64 models and all B001 1000 episodes x horizons4/6/8. No C015 cost optimization adopted. Output outputs/gated/planning_full/RUN; original partial evidence stays untouched.",
+    "admission": "Reuse exact reviewed C009v2 route/inputs and C014 loading checks; new U001 software and per-run consultation bind full input/source inventory. Clean checkout, GPU idle and no open interval. Prior physical-probe review required. O1 only after O0 terminal independent/scientific/operation reviews.",
+    "runtime": "Accounting-only replacement for research.gpu_run and budget_remaining; finite JSON null budget and explicit U001 authorization hash, infinity only internal return value. Lock ledger and retain original scientific-ID inner interval plus C009 owned outer interval annotated U001. No absolute elapsed time limit. Original owned TERM30/KILL10 only after 1800 seconds without cases/log file progress or an operational exception. No auto-retry/review/successor.",
+    "verification": "Focused CPU checks of context normal/exception closure on temporary ledgers beyond old48h, no budget enforcement, original command arguments/complete real parent bindings, copied scientific sources unchanged, fresh output preservation, and normal/progress/stall owned-process fixtures. Hidden GPU,2threads,180seconds.",
+    "future": "Adapt independent planning inspector to fresh paths/U001 operation metadata while the long GPU evaluation runs; scientific scoring remains unchanged. Downstream P26 and comparison consumers must explicitly bind the reviewed full outputs."
+  },
+  "success": "The user-authorized unlimited-time policy is actually used for progressing jobs, with exact input identity, recorded elapsed time and preserved failures; full scientific success remains separately measured.",
+  "stop": "Refuse stale/missing parents, source drift, reused outputs, occupied GPU/open ledger. Stop only the exact owned child on confirmed progress timeout or operational exception; no total GPU-hour stop.",
+  "resources": {
+    "gpu_hours_max": null,
+    "gpu_budget_policy": "removed by explicit user instruction",
+    "parallel_gpu_jobs_max": 1,
+    "host_threads": 2,
+    "software_cpu_seconds_max": 180,
+    "stall_without_output_seconds": 1800,
+    "cleanup_seconds": 40
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/C009/v2/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/C015/diagnostic/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

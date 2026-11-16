@@ -79,3 +79,12 @@ and counts, the full comparison and final archive remain outstanding.
 
 Exact reviews: outputs/gated/C015/diagnostic/review.json, inspection_review.json,
 and outputs/gated/C015/operations/review.json.
+
+## User decision after this diagnosis
+
+The user removed GPU-hour limits and directed execution instead of further
+optimization. U001 records this override. The CPU feasibility step above is
+cancelled; full O0/O1 planning will run with the existing validated GPU planner,
+unchanged model precision and original cost function. Historical time-budget
+constraints are no longer a blocker. Elapsed time and owned-process progress
+remain monitored.
