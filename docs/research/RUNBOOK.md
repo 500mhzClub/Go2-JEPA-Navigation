@@ -415,8 +415,9 @@ no automatic resume, retry or successor. Actual operations are under
 `outputs/gated/C010/runs/RUN` and require their own review.
 
 The original A003, B003 and C006 records cover only the six seed0 baselines.
-Fresh-seed calibrated inference, probes and CPU planning still need explicit scope
-extensions and reviewed software before use. Do not silently apply those original
+A019 now covers calibrated inference for the four additional n3 baselines, with
+reviewed software. Fresh-seed probes and CPU planning still need explicit scope
+extensions and reviewed software before use. Do not silently apply the original
 records to seeds1/2. C010 software checks alone establish neither an actual
 completed training state nor numerical/scientific validity.
 
@@ -448,6 +449,54 @@ Inspect and separately literature-review actual A018, C001 training and C010
 operations. Bind `final_audit_review` and its SHA256 in the C001 review; retain
 the same reference in the operational review. A successful artifact audit does
 not replace the still-required numerical inference gate or scientific evaluation.
+
+After those actual reviews, run the unchanged numerical evaluator through A019:
+
+```sh
+python3 outputs/gated/A019/run_check.py --run l0_n3_s1 --python "$PY" \
+  --preconsultation outputs/gated/A019/pre_l0_n3_s1.json
+```
+
+The fresh consultation binds `name`, `research_sha256`,
+`scientific_research_sha256` (both A019), `software_review_sha256` and the complete
+`inputs_sha256` mapping returned by A019's `stages.inputs`, plus sources,
+consultation time and consequences. It requires the original A014-bound n3
+train/validation bytes and actual C001/C010/A018 evidence. Science goes to
+`A019/inference/RUN`, operations to `A019/runs/RUN`. All paths are under
+`outputs/gated`. The four names are L0/L1 n3 seeds1/2; seed0 reruns are refused.
+
+A019 reuses the original numerical module without changing its computation or
+sample policy:4096 train calibration windows,64 train/validation diagnostics,
+float64/math and the original tolerances. Its non-A003 branch uses the original
+0.10 allocator fraction; actual memory fit remains unmeasured. The external
+supervisor enforces1800seconds including45cleanup within the existing shared
+A4/global48 allowances. Both nested intervals count once. No extra allowance,
+automatic retry, successor or scientific review is provided.
+
+After actual normal completion, inspect the outputs and revisit the sources,
+then use the CPU artifact verifier:
+
+```sh
+HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' ROCR_VISIBLE_DEVICES='' \
+  OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+  timeout --kill-after=5s 175s "$PY" outputs/gated/A019/verify_result.py --run l0_n3_s1 \
+  --preconsultation outputs/gated/A019/pre_artifact_l0_n3_s1.json
+```
+
+That consultation binds `name`, `research_sha256`, `scientific_result_sha256`,
+`operational_result_sha256`, `software_review_sha256`, sources, time and
+consequences. Verification goes to `A019/verification/RUN`. It checks all270
+reported comparisons with127 gradient tensors per phase, source/seed identity,
+finite inference-only float64 export, exact learned model/head weights and only
+permitted BN-buffer changes, including reported calibration deltas. It does not
+rerun GPU arithmetic or re-estimate the calibration moments. Auxiliary-head
+gradients are outside the latent-only parity loss.
+
+Thirteen CPU software groups, including four default artifact fixtures and18
+corruptions, are reviewed. No actual additional-seed numerical result exists.
+Review actual numerical, verification and operational results separately before
+probes/planning; bind the verification digest and verified run identity to the
+numerical review because the unchanged calibrated export omits a top-level seed.
 
 ### External deadlines for selected-object evaluations
 
