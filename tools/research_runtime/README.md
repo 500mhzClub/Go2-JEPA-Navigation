@@ -32,3 +32,7 @@ The prepared final comparison index is included at its original relative path
 F003's initial warning-producing audit and failed empty-stratum verifier sources
 are preserved at their original evidence paths. Current F002/F003 analysis code
 is tracked directly under `tools/research/` rather than duplicated in this archive.
+
+F004's initial metric fixture failure also retains its exact test and metric source
+snapshots. The corrected metric implementation and terminal-inspection tools are
+tracked directly under `go2nav/eval/` and `tools/research/`.

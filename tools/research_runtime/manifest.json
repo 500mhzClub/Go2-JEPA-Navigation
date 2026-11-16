@@ -2,8 +2,8 @@
   "captured_at": "2026-11-16T10:52:41.550853+00:00",
   "source_commit": "60a6d4d9bbc306735fa7a852cd158930c4016049",
   "purpose": "Publish all locally authored experiment helper source previously held beneath ignored outputs; source-only byte-preserving snapshot, including historical/failing variants.",
-  "file_count": 511,
-  "total_bytes": 3376557,
+  "file_count": 513,
+  "total_bytes": 3404519,
   "extensions": [
     ".bash",
     ".ipynb",
@@ -1482,6 +1482,20 @@
       "snapshot": "tools/research_runtime/outputs/gated/F003/verification_initial_source.py",
       "sha256": "282d82e02ea8dde6b0177da0d99783cbaecdc2ea40ee968b61b19cb48349a0dd",
       "bytes": 8838,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/F004/metrics_initial_fixture_failure/metrics_source.py",
+      "snapshot": "tools/research_runtime/outputs/gated/F004/metrics_initial_fixture_failure/metrics_source.py",
+      "sha256": "18b9da2d3cb08bc5c754a631805a7234cd7f9ffda4b558b63114ae8425726e1c",
+      "bytes": 17061,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/F004/metrics_initial_fixture_failure/test_source.py",
+      "snapshot": "tools/research_runtime/outputs/gated/F004/metrics_initial_fixture_failure/test_source.py",
+      "sha256": "fed89c0e0fdc429e7990544162ff575676c1afdc2eb284406f4aff49f1cd87d4",
+      "bytes": 10901,
       "mode": "0o664"
     },
     {
@@ -3597,8 +3611,8 @@
     "Generated datasets, checkpoints, results, logs and bytecode"
   ],
   "restoration": "Original relative paths are in source. Restore only into an appropriate unused checkout with its separately retained exact evidence/data; do not overwrite a live run or treat archived failed variants as qualified launchers.",
-  "updated_at": "2026-11-16T14:39:29.507518+00:00",
-  "update_base_commit": "34d0bb7cc7fe5cf9687524b7ac54599fd9438473",
+  "updated_at": "2026-11-16T15:31:39.577596+00:00",
+  "update_base_commit": "812ff96e2f050a27e5f22b4c17bc159cb4cc3b30",
   "additional_files": [
     "outputs/gated/E004/controlled_changes.json",
     "outputs/gated/U010/controlled_changes.json",
@@ -3607,6 +3621,8 @@
     "outputs/gated/U013/controlled_changes.json",
     "outputs/gated/p25_final_index.json",
     "outputs/gated/F003/software_initial_warnings/source.py",
-    "outputs/gated/F003/verification_initial_source.py"
+    "outputs/gated/F003/verification_initial_source.py",
+    "outputs/gated/F004/metrics_initial_fixture_failure/test_source.py",
+    "outputs/gated/F004/metrics_initial_fixture_failure/metrics_source.py"
   ]
 }

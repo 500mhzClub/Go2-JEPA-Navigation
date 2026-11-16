@@ -6,17 +6,15 @@ The user's latest clarification makes accurate independent-motion and action-
 conditioned obstacle forecasts the primary goal; learned heads are acceptable.
 Toy work remains useful where it answers that question faster. The
 [forecasting priority](FORECASTING_PRIORITY_2026-11-16.md) and [F001](records/F001.json)
-supersede automatic progression through the planning matrix below. Keep O0 running
-and review it on completion, then audit existing head/reaction evidence and
-preregister the missing forecasting comparison. Earlier stages remain preserved
-and incomplete; no new experiment or bypass is authorized by this documentation.
+supersede automatic progression through the planning matrix below. O0 is complete
+and reviewed; the old incomplete matrix remains preserved. Current work follows
+the frozen F004 comparison described below, with its existing literature gates.
 
 [F002's completed evidence audit](FORECAST_EVIDENCE_AUDIT_2026-11-16.md) reconstructs
 the historical reaction summaries and adds paired physical-error and false-response
 checks on511 saved windows. M5 retains useful responses but fails the joint
 criterion because its false responses outweigh gains overall. Numerical verification
-passes independently. The next training comparison requires its own frozen protocol;
-see the audit's proposed ordinary/branched/paired-response comparison.
+passes independently. This is the specific observed weakness targeted by F004.
 
 [F003's complete branch audit](BRANCH_DATA_AUDIT_2026-11-16.md) checks all5,000
 branch files and15,000 input digests. It passes with verified histories, contact
@@ -26,17 +24,22 @@ starting-scene sampling matched when separating branch data from paired losses.
 
 [F004's frozen comparison](MATCHED_FORECASTING_2026-11-16.md) now implements that
 contract. Eight software groups pass; independently verified exports contain104,590
-train and10,601 validation scenes with seven futures each. No model has trained.
-Qualify the GPU execution route and review terminal O0 evidence before launching
-the factual/branch/paired comparison. Do not repeat the completed audits.
+train and10,601 validation scenes with seven futures each. Do not repeat the
+completed audits or export.
 
 Those prerequisites are now complete: [full O0](FULL_O0_PLANNING_2026-11-16.md)
 has reviewed success1.5/1.1/1.2% atH4/H6/H8, with independent scoring and operations
-passing. F004's seven execution checks also pass and are reviewed. Launch the
-factual arm from clean pinned source after fresh bound consultation; subsequent
+passing. F004's seven execution checks also pass and are reviewed. Subsequent
 arms still require actual predecessor reviews. No F004 forecast result exists yet.
 The factual seed0 arm is now running from pinned source `f053c26` in its isolated
 forecast-training checkout. The branch and paired arms remain pending.
+
+The physical metric core now passes seven software groups, including independent
+layout-bootstrap arithmetic and rejection of hidden false-response/factual-error
+regressions. Six further groups qualify CPU terminal checkpoint/log inspection.
+Both exact-result reviews are under `outputs/gated/F004`; the initial metric
+fixture precision failure is preserved. These are software results only. Actual
+prediction artifacts, trained numerical checks and full inference remain pending.
 
 ## Current user authorization — GPU time limits removed
 
@@ -47,16 +50,16 @@ literature review and owned-process stall handling. Do not optimize merely to
 fit an old time allocation. Historical budget statements below describe earlier
 runs and must not be used to stop current progressing work.
 
-The immediate execution route runs the original full64 GPU planner unchanged:
+The completed O0 run used the original full64 GPU planner unchanged:
 
 ```sh
 "$PY" outputs/gated/U001/run.py --run o0_n3_s0 --python "$PY" \
   --preconsultation outputs/gated/U001/pre_o0_n3_s0.json
 ```
 
-Fresh results go to `outputs/gated/planning_full/RUN`; operations are under
-`outputs/gated/U001/operations/RUN`. Preserve the original partial O0 directory.
-Review O0 fully before further GPU work. The current forecasting priority above
+Its results are in `outputs/gated/planning_full/o0_n3_s0`; operations are under
+`outputs/gated/U001/operations/o0_n3_s0`. Preserve the original partial O0 directory
+and do not relaunch the completed full run. The current forecasting priority above
 supersedes automatic O1/P26/matrix progression; those historical rows remain pending.
 Later stage supervisors must use this override instead of their historical enforced caps. The CPU feasibility diversion is
 cancelled; no CPU diagnostic or C015 planner optimization is being adopted.

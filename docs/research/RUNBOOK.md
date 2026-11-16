@@ -4,30 +4,27 @@
 
 Read [the user's clarified objective and execution order](FORECASTING_PRIORITY_2026-11-16.md)
 before using the historical sequence below. Learned heads are acceptable; physical
-forecast and action-response accuracy govern the work. Finish and review the
-active O0 run, but do not automatically launch O1 planning or later replications.
-Audit existing Go2/ring evidence and preregister the missing forecasting test.
+forecast and action-response accuracy govern the work. O0 is complete and reviewed;
+do not automatically launch O1 planning or later replications. The existing
+Go2/ring evidence audits and F004 forecasting preregistration are complete.
 Existing launcher requirements remain intact until separately revised and verified.
 
 The [F002 audit](FORECAST_EVIDENCE_AUDIT_2026-11-16.md) is now complete and reviewed.
 Its result is a scientific negative with useful responsive-subset signal; its
-software/numerical checks pass separately. Do not rerun it. Next audit the existing
-branch payload and preregister the matched physical-forecast training comparison
-described there; F002 itself authorizes no training or new simulator data.
+software/numerical checks pass separately. Do not rerun it. F002 itself authorizes
+no training or new simulator data.
 
 That payload audit is now complete as [F003](BRANCH_DATA_AUDIT_2026-11-16.md).
-Do not rerun it. Its result and independent verification pass. Next preregister
-F004's matched physical-forecast training contract, including consistent target
-labels, sibling pairing, contact/visibility coverage and unseen-layout evaluation.
+Do not rerun it. Its result and independent verification pass. F004's matched
+physical-forecast contract fixes target labels, sibling pairing, contact/visibility
+coverage and separate validation layout IDs.
 F003 itself qualifies data inspection only, not model training.
 
 [F004 is now preregistered and its data are ready](MATCHED_FORECASTING_2026-11-16.md).
 The eight scientific-primitives software groups and independent complete-data
 verification pass. Review files are under `outputs/gated/F004/{software,data}`.
-Do not re-export or rerun the prior audits. Next implement and qualify the separate
-F004 GPU supervisor and evaluator, then train the three frozen arms after terminal
-O0 reviews. The exported dataset has104,590 train and10,601 validation scenes;
-no F004 training has started. Keep the hash-bound primitive source unchanged or
+Do not re-export or rerun the prior audits. The exported dataset has104,590 train
+and10,601 validation scenes. Keep the hash-bound primitive source unchanged or
 explicitly review any changed implementation before using it.
 
 O0 subsequently completed all3,000cases and passed independent U002 inspection;
@@ -52,7 +49,30 @@ Factual seed0 launched at15:16UTC on16November from
 `f053c265a75cbc31971cc04a0ca1893d251c1391`. Confirm the actual PID/creation time/argv
 against `runs/factual_s0/operations/child.json` and read `science/progress.json`;
 do not relaunch because a polling command times out. Develop the remaining
-evaluator/terminal inspector in the followthrough checkout, not the pinned one.
+evaluator in the followthrough checkout, not the pinned one.
+
+The metric core and terminal inspector have separate passed software reviews at
+`outputs/gated/F004/metrics_software/review.json` (seven groups) and
+`outputs/gated/F004/inspection_software/review.json` (six groups). Metric arithmetic
+is qualified; actual prediction identity, numerical checks and inference are not
+yet qualified. The initial metric fixture failure is retained under
+`metrics_initial_fixture_failure`; only its expected-value construction changed.
+
+After a training arm has actually exited and its supervisor has written terminal
+`operations/result.json`, inspect from the development checkout on CPU:
+
+```sh
+env HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' ROCR_VISIBLE_DEVICES='' \
+  OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 \
+  "$PY" tools/research/f004_inspect_training.py --arm factual
+```
+
+The inspector refuses a present original child, verifies terminal source/input
+bindings and all checkpoint/log artifacts, and writes `runs/factual_s0/inspection.json`.
+It does not approve results or launch another arm. Consult the literature and
+review the actual science result at `runs/factual_s0/review.json`, operations at
+`runs/factual_s0/operations/review.json`, and inspection beside its result before
+advancing. New arm preconsultations must bind their actual predecessor evidence.
 
 ## Current user authorization — GPU time limits removed
 
@@ -63,16 +83,16 @@ literature review and owned-process stall handling. Do not optimize merely to
 fit an old time allocation. Historical budget statements below describe earlier
 runs and must not be used to stop current progressing work.
 
-The immediate execution route runs the original full64 GPU planner unchanged:
+The completed O0 run used the original full64 GPU planner unchanged:
 
 ```sh
 "$PY" outputs/gated/U001/run.py --run o0_n3_s0 --python "$PY" \
   --preconsultation outputs/gated/U001/pre_o0_n3_s0.json
 ```
 
-Fresh results go to `outputs/gated/planning_full/RUN`; operations are under
-`outputs/gated/U001/operations/RUN`. Preserve the original partial O0 directory.
-Review O0 fully before further GPU work. The current forecasting priority above
+Its results are in `outputs/gated/planning_full/o0_n3_s0`; operations are under
+`outputs/gated/U001/operations/o0_n3_s0`. Preserve the original partial O0 directory
+and do not relaunch the completed full run. The current forecasting priority above
 supersedes automatic O1/P26/matrix progression; those historical rows remain pending.
 Later stage supervisors must use this override instead of their historical enforced caps. The CPU feasibility diversion is
 cancelled; no CPU diagnostic or C015 planner optimization is being adopted.

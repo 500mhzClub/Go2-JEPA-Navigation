@@ -84,13 +84,43 @@ Exact-result literature reviews are saved beside the software and data results i
 `outputs/gated/F004`. These establish software/data validity; they are not evidence
 of improved prediction. The GPU execution supervisor now passes seven additional
 CPU groups, including real process ownership/stall checks and elapsed-only serial
-admission. Its review is under `execution_software`. The final physical evaluator
-and trained-model numerical checks remain required.
+admission. Its review is under `execution_software`.
+
+The physical metric core subsequently passed seven software groups. Independent
+explicit resampling agrees with its 2,000 layout-bootstrap draws on unbalanced
+clusters. Known opposite-direction, invented-response and zero-response cases
+check that magnitude alone cannot imply a correct response. Benefit checks reject
+gains that hide poorer responsive-case performance, more false responses or
+regressed factual accuracy. ADE averages each valid trajectory-slot prefix; FDE
+requires a valid endpoint. Report those different denominators. Both magnitude
+and historical vector slopes are retained; the latter uses F004's population and
+does not reproduce the old P22 hold/retreat test.
+
+An initial fixture constructed an exact expected offset using float32 arithmetic,
+producing a discrepancy up to `4.76837158203125e-7`. That failed result, source and
+review are preserved. Constructing the synthetic expectation in float64 fixed it;
+scoring and scientific numerical tolerances were unchanged.
+
+Six additional software groups qualify a read-only CPU terminal inspector. It
+checks exact initialization, full optimizer/sampler state, all periodic checkpoints,
+BatchNorm update counts, log completeness, final-checkpoint selection and terminal
+process/ledger identity. It rejects deliberate corruptions. These fixtures do not
+inspect the live model or establish full GPU restart equivalence.
+
+| Additional software evidence | SHA-256 |
+|---|---|
+| Metric checks | `a1aee63936c7b47288e16bbe8bbcad652f5f00872fb0b90f298f627a0e811f86` |
+| Metric review | `3eddfaf18bada15a6acc102e5f6049c1a8b70578b25e944944f97dd35698cd36` |
+| Terminal-inspection checks | `e8e54244f689293687f662b1614c36f29cdafe84b830962f5c5333083e6a5086` |
+| Terminal-inspection review | `07fa9ca07523c3383e2b381c662db074f4e874e289a4ac545b2ef0426d1eb7a5` |
+
+Prediction artifact identity, trained-model numerical checks and full inference
+remain to be implemented and qualified. No actual F004 forecast has been scored.
 
 The factual seed0 arm started on the dedicated GPU at15:16UTC on16November from
 the isolated `Go2-JEPA-Navigation-forecast-training` checkout, pinned at
-`f053c265a75cbc31971cc04a0ca1893d251c1391`. Its owned child was confirmed live and
-completed its first20updates. This is operational progress, not an accuracy result.
+`f053c265a75cbc31971cc04a0ca1893d251c1391`. Its owned child was confirmed live at
+15:39UTC with1,159/20,000updates completed. This is operational progress, not an accuracy result.
 The source checkout stays unchanged while the development checkout prepares the
 remaining evaluation work. No branch or paired arm has started.
 
@@ -112,7 +142,7 @@ inference cost tested explicitly. Reused validation and simulator behavior remai
 limits on generalization.
 
 [O0 is complete and reviewed](FULL_O0_PLANNING_2026-11-16.md). While the factual arm
-runs, prepare the fixed physical evaluator and checkpoint verification; review
+runs, complete inference/artifact/numerical qualification; use the prepared terminal inspector and review
 actual training and operations before the next arm. The runner starts fresh runs only; a restart needs
 a separately reviewed invocation preserving the earlier attempt. Science artifacts
 are under `runs/ARM_s0/science`, operations under `runs/ARM_s0/operations`.
