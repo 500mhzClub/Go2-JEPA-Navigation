@@ -61,7 +61,26 @@ normally after7.238seconds, without timeout, signals or errors; owned intervals
 are closed. Evidence is under `outputs/gated/C004/slots_n3_s0` and
 `outputs/gated/C007/runs/slots_n3_s0`.
 
-Shared frozen-feature extraction started at06:18UTC through reviewed C005v2,
-using the same selected encoder and original train/validation data. Its actual
-artifacts and operation must be inspected and reviewed before paired O0/O1
-training. The extraction checkout remains pinned to6925f47 while it runs.
+Shared frozen-feature extraction completed normally at06:20UTC through C005v2,
+using the same selected encoder and original train/validation data. Full cache
+inspection and separate science/operation reviews pass. Train/validation arrays
+have shapes1000/100 by100 by5 by128; all70.4million float32 values are finite.
+Payload sizes, index/array hashes, all396 source entries and original six data
+files match. Encoder bytes are unchanged, and no partial arrays remain.
+
+The inspection uses read-only NumPy memory maps, without Torch or re-encoding.
+Sequential causal carry across10-frame chunks and resets between episodes follow
+the bound source. Full-episode cache context differs from independently reset
+short histories and goals; their numerical and scientific evaluations remain
+required. Causal-JEPA D.2/E.1–E.3 and the
+[NumPy loading documentation](https://numpy.org/doc/2.4/reference/generated/numpy.load.html)
+were revisited after extraction and inspection. Valid cache structure does not
+establish useful object identities or dynamics.
+
+Extraction took101.700seconds with no timeout, signals or errors. Both exact
+processes are absent and owned GPU intervals are closed. Evidence, the inspection
+script and review are under `outputs/gated/C001/extract_n3_s0`; operations are
+under `outputs/gated/C005/v2/runs/extract_n3_s0`. The historical extraction source
+is6925f47. Next is O0, followed by paired O1 using the same frozen cache and
+initialization/sample-order policy, with actual completion and numerical reviews
+between stages.

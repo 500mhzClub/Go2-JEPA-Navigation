@@ -14,13 +14,15 @@ source binding is preserved. Selected-checkpoint C004 then passed all1104 sample
 comparisons, with separate C004 and C007 reviews. Do not relaunch these completed
 cases. See the [encoder report](RGB_ENCODER_TRAINING_2026-11-16.md).
 
-Shared frozen-feature extraction started at06:18UTC through C005v2. Exact process
-identities and heartbeat are under `outputs/gated/C005/v2/runs/extract_n3_s0`,
-with launch identity in `outputs/gated/C005/v2/launch_extract_n3_s0.json`.
-Keep its gated checkout pinned to6925f47. After normal termination, inspect full
-cache shape/dtype/finiteness, source/data/encoder hashes and operations, then
-literature-review actual C001 and C005 results before paired O0/O1 training.
-C008 is a training-state audit and does not cover extraction.
+Shared frozen-feature extraction completed normally at06:20UTC through C005v2.
+Full cache inspection and separate C001/C005 reviews pass; all70.4million
+float32 values are finite, expected shapes/payloads and source/data/encoder
+identities match. Its historical source remains6925f47. Evidence is under
+`outputs/gated/C001/extract_n3_s0` and `outputs/gated/C005/v2/runs/extract_n3_s0`.
+Do not rerun extraction. Next is the unchanged O0n3seed0 predictor, then O1
+using the same cache after actual terminal/audit reviews. C008 is a training-state
+audit and does not cover extraction. Keep each active trainer's runtime checkout
+pinned through its terminal C008 and separate training/operation reviews.
 
 Object-model probes and paired learned planning follow, then P26 before extra
 seeds/counts. Baseline planning has five completed and reviewed cases (n1/n3
