@@ -22,7 +22,7 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [A001](records/A001.json) | Are saved inference statistics valid; can train-only calibration repair them? | Six intermediate snapshots reviewed; L1 float32 validity blocked, followed by A002 |
 | [B001](records/B001.json) | Does the fixed balls evaluator solve its controls without future leakage? | Controls pass at every n/horizon; full n3 L0/L1 CPU planning reviewed through B003; remaining learned arms pending |
 | [B002](records/B002.json) | Is unchanged baseline planning numerically valid and practical on spare CPUs? | Six software check groups and actual L0n3 preflight reviewed; sampled cost discrepancy at most5.116e-13, repeated actions exact; rough full-model estimate27.39minutes, no success-rate claim |
-| [B003](records/B003.json) | What are the six final baselines' complete fixed-task planning results under CPU execution? | Three cases reviewed: n3 L0 H4/6/8 endpoint97.8/98.2/97.7%, L1 94.7/94.2/94.7%; n1 L0 97.6/98.5/98.5%. L1n1 and n6 pair pending; all completed raw cases independently checked, initial inspector schema failure preserved |
+| [B003](records/B003.json) | What are the six final baselines' complete fixed-task planning results under CPU execution? | Four cases reviewed: n1 L1 endpoint99.7/99.7/99.4% modestly exceeds L0; n3 L1 trails L0. All12000 saved cases independently checked; L0n6 live and L1n6 pending; initial inspector schema failure preserved |
 | [A002](records/A002.json) | Does precision explain the remaining L1 discrepancy? | All six pass float64 math inference; reviewed |
 | [A003](records/A003.json) | Do final checkpoints pass the selected common inference policy? | All six final303000 cases reviewed passed; 1,620 declared comparisons pass in float64/math, train-only calibrated artifacts preserved |
 | [A004](records/A004.json) | Why are two live original trainers no longer logging steps? | User-supplied stacks locate a GPU scalar synchronization boundary; root cause unresolved |
@@ -51,6 +51,7 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [C008](records/C008.json) | Do completed slot/predictor artifacts contain full training state and the logged validation-selected model? | Twelve focused CPU groups reviewed, including deliberate state/selection/operation corruption and pinned-source routing; actual terminal audits pending |
 | [C009](records/C009.json) | Can unchanged object evaluations respect existing GPU budgets during a stalled operation? | External supervisor and ten focused CPU groups reviewed; original-data binding gap preserved and corrected; actual planning/probes/binding await selected-model parents |
 | [C010](records/C010.json) | Can the four approved additional n3 baseline seeds run within existing budgets after core/P26? | External supervisor and fifteen focused CPU groups reviewed; original training computation/defaults retained, actual admission correctly refuses missing P26 evidence; no extra-seed training yet |
+| [C011](records/C011.json) | What physical state and prediction do the additional n3 baselines preserve under unchanged CPU probes? | Eighteen software groups reviewed, including unchanged C006 computation, complete parent/data bindings and owned CPU process checks. Initial test-variable failure preserved; actual extra-seed probes await training and numerical reviews |
 | [D001](records/D001.json) | Can frozen camera slots replace engineered tracks in Genesis? | Matched 600/100 units prepared; model comparison pending |
 | [D002](records/D002.json) | Does the full historical M5 offline summary still reproduce? | All 400 units replayed; all 144 reported numeric fields exactly match; reviewed |
 | [D003](records/D003.json) | Can unchanged P26 stages obey the existing eight-hour D and global budgets during GPU stalls? | External supervisor and eleven focused CPU check groups reviewed; initial malformed-input fixture failure preserved; actual export/S1/comparison await the reviewed n3 core |
@@ -72,7 +73,7 @@ for strong L0n3 endpoint success, collision-free rates and the comparison ceilin
 See the [completed n3 baseline planning pair](BASELINE_PLANNING_N3_2026-11-16.md)
 for L1's lower observed endpoint and collision-free success on identical cases.
 See the [n1 baseline planning result](BASELINE_PLANNING_N1_2026-11-16.md)
-for another strong ordinary baseline and the pending matched L1 comparison.
+for the modest L1 advantage at n1, contrasting its lower n3 planning scores.
 See the [baseline checkpoint report](BASELINE_PROGRESS_2026-11-15.md) for the
 completed L1 n1/n3 logs, the frozen L0 n1 snapshot and what their comparisons test.
 See the [CPU checkpoint progress report](CHECKPOINT_PROGRESS_2026-11-15.md) for

@@ -416,8 +416,9 @@ no automatic resume, retry or successor. Actual operations are under
 
 The original A003, B003 and C006 records cover only the six seed0 baselines.
 A019 now covers calibrated inference for the four additional n3 baselines, with
-reviewed software. Fresh-seed probes and CPU planning still need explicit scope
-extensions and reviewed software before use. Do not silently apply the original
+reviewed software. C011 now covers the unchanged additional-seed CPU probes.
+Fresh-seed CPU planning still needs its explicit scope extension and reviewed
+software before use. Do not silently apply the original
 records to seeds1/2. C010 software checks alone establish neither an actual
 completed training state nor numerical/scientific validity.
 
@@ -497,6 +498,40 @@ corruptions, are reviewed. No actual additional-seed numerical result exists.
 Review actual numerical, verification and operational results separately before
 probes/planning; bind the verification digest and verified run identity to the
 numerical review because the unchanged calibrated export omits a top-level seed.
+
+### Additional-seed CPU probes
+
+C011 extends the original C006 computation to L0/L1 n3 seeds1/2 in that order
+within each seed. Eighteen focused software groups are reviewed; the initial
+test-variable naming failure and its negative review remain under
+`C011/software_attempt_001`. No actual additional-seed probe has run.
+
+After actual C001/C010/A018 and all three A019 reviews, use:
+
+```sh
+python3 outputs/gated/C011/run_one.py --run l0_n3_s1 --python "$PY"
+```
+
+Before launch, create `C011/pre_RUN.json` with name, C011 record digest,
+software-review digest, complete input hashes, original train/test data hashes,
+consultation time, sources and consequences. The complete files are returned by
+`parents.numerical_parent`, `parents.original_probe_data` and
+`parents.previous_reviews`; all three sets are bound. Original data bytes remain
+those used by C006. A fresh consultation cannot substitute a new dataset.
+
+The A019 numerical review must contain exact `run_identity` with kind/n/seed,
+`verification_review` pointing to `A019/verification/RUN/review.json`, and
+`verification_review_sha256`. Its actual verification and operation result hashes
+must agree, including all270 reported comparisons and preserved model/head weights.
+Synthetic software fixtures cannot satisfy these actual-run requirements.
+
+Use one eight-thread CPU child,16GiB maximum sampled RSS,900seconds including15
+for cleanup and3600seconds across four cases. The existing B003 lock serializes
+these probes with CPU planning. There is no GPU interval or automatic review,
+retry or successor. Science goes to `probes/RUN`; separate operations go to
+`C011/supervision/RUN`. Independently inspect actual saved sample indices, truth,
+predictions, point statistics and ridge residual before substantive literature
+review of science and operations. Preserve measured negatives and incomplete cases.
 
 ### External deadlines for selected-object evaluations
 
