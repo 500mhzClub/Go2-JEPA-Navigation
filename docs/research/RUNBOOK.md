@@ -795,15 +795,15 @@ matches all summaries exactly; operation and inspection pass separately. See
 finding and corrected eleven-group software verification are preserved.
 
 The first O0 planning operation was retired after55saved cases because observed
-throughput projected5.44hours per arm against the existing2hour stage allowance.
+throughput projected5.44hours per arm against the then-existing2hour stage allowance.
 Its partial evidence and technical review are preserved.
 [C015](PLANNING_THROUGHPUT_2026-11-16.md) completed and passed independent
-trace checks for both variants. The faster layout saved only 3.02% measured time;
-about 5.4 GPU-hours per arm remains beyond the existing two-hour B001 cap.
-No training or planning child is active. Next is literature-gated CPU evaluation
-feasibility/equivalence or another bounded runtime diagnosis before any restart.
+trace checks for both variants. The faster layout saved only 3.02% measured time.
+The user subsequently removed all GPU-hour limits. O0 now runs the original
+unchanged planner through U001 into `planning_full/o0_n3_s0`; its partial
+predecessor remains preserved. CPU feasibility was cancelled before execution.
 
-After qualified runtime admission, the scope remains paired O0/O1 planning,
+The remaining scope is full paired O0/O1 planning,
 then offline P26, additional seeds/counts, full comparison and final archive.
 Use `outputs/gated/continuation.json` and actual process/manifest state for the
 live handle. Do not relaunch a completed result or edit source bound to an active
@@ -812,16 +812,24 @@ operation. Every outcome still needs its own literature review before a successo
 ## Evidence bundle
 
 ```sh
-"$PY" outputs/gated/E003/report.py --root outputs/gated --out outputs/gated/report_final --bundle \
+"$PY" outputs/gated/U004/report.py --root outputs/gated --out outputs/gated/report_final --bundle \
   --source-commit 7dfc837 --source-commit 161fe8b --source-commit 98e6fcf
 ```
 
-Use E003 for the final capture after fresh literature consultation and manual verification of its record,
-helper sources and exact software review. Its reviewed capacity extension admits 512 MiB total, retaining
+Use U004 for the final capture after fresh literature consultation and manual verification of its record,
+helper sources and exact software review. U004 removes only E003's obsolete48-hour
+report metadata, retains elapsed accounting and binds U001 authorization. Four
+focused groups pass, including all nine inherited cases and a50-hour fixture.
+The inherited E003 capacity extension admits 512 MiB total, retaining
 the 64 MiB individual-file limit; six software groups include all nine inherited cases, a verified 280 MiB
 synthetic archive and both oversize refusals. This does not establish actual final evidence coverage.
 Include additional executed source revisions as required. Preserve the original E002 helper and all
 historical archives. Any actual overflow must stop capture without silent exclusions or limit changes.
+
+The [completion inventory](COMPLETION_INVENTORY_2026-11-16.md) lists the exact
+remaining scientific rows, operational adaptations and final-report checks.
+The current selected run files already occupy about449.35MiB before current and
+historical source snapshots; final capacity needs a fresh actual check.
 
 Use a new output directory for every snapshot; existing reports are preserved. The inherited E002 logic separates measured result
 status from reviewed status, and leaves missing reviews explicitly awaiting literature review. The archive

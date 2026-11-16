@@ -24,8 +24,9 @@ unfinished experiments are not scientific negatives. Preserve previous evidence.
 
 For the approved P25/P26 scope, preserve the six existing trainers and their pinned
 checkout. New full GPU work is sequential after those jobs finish; declared small
-diagnostics may coexist below the memory ceiling. Use the shared 48-hour additional
-device-time ledger and no training CPU fallback. No new Genesis missions, collection,
+diagnostics may coexist below the memory ceiling. Keep the shared device-time
+ledger for accounting only; GPU-hour limits were removed by the user. No training
+CPU fallback. No new Genesis missions, collection,
 planner tuning, value models, hierarchy or stochastic variants are authorized by this
 stage. Dense-feature superiority is untested.
 

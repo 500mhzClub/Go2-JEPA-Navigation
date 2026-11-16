@@ -1,0 +1,63 @@
+{
+  "id": "U004",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T10:02:02.670977+00:00",
+  "question": "Does final evidence reporting accurately reflect the user removal of all GPU-hour limits while retaining the existing archive rules?",
+  "hypothesis": "Only the allowance metadata and text need correction; existing capture, review, historical source and archive verification can stay identical.",
+  "sources": [
+    {
+      "url": "https://neurips.cc/public/guides/PaperChecklist",
+      "version": "2026 official guidance",
+      "sections": "Items1/2 claims and limitations;4 reproducibility, read before this correction",
+      "consequence": "State completed evidence and remaining requirements separately, and distinguish actual elapsed compute from an obsolete allowance."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/tarfile.html",
+      "version": "Python3.12",
+      "sections": "TarFile.extractfile and addfile",
+      "consequence": "Preserve same captured bytes and regular-member verification; the override changes no archive or file limit."
+    },
+    {
+      "url": "https://git-scm.com/docs/git-cat-file",
+      "version": "official documentation accessed2026-11-16",
+      "sections": "OUTPUT and BATCH OUTPUT",
+      "consequence": "Preserve raw historical Git blobs and explicit commit identities."
+    }
+  ],
+  "differences": "Copy the reviewed E003 reporter into U004. Replace admission with U004; replace allowance48 by null plus U001 authorization digest; replace the report denominator by no GPU-hour limit. All scientific results, executed source, archive capacity and capture logic remain unchanged. Correct contradictory current-status prose and inventory outstanding requirements.",
+  "contrary_evidence": "Correct resource metadata does not establish experiment completion or archive coverage. Later launchers still need removal of their obsolete enforced GPU caps; this reporter changes no runtime behavior.",
+  "protocol": {
+    "inherited_source_sha256": "22750b312bd70b0af99d548b6ac71375b5de76799bc6353fc3e5d896f4219a84",
+    "inherited_software_review_sha256": "1c89f892b9005cf9420968311b9094d7d09bcba602fb2e883037786fa0aefc30",
+    "authorization_sha256": "ea0991ae9893d4378e7617eaa0bcd3e55a8d6c0112d5fa2297066284a53f7fa2",
+    "inherited_tests_sha256": "5cff7ae993f5b83380841116363a8f67e65fd3902fa16c3eb81e01591bb1be72",
+    "limits": {
+      "individual_file_bytes": 67108864,
+      "total_payload_bytes": 536870912
+    },
+    "checks": [
+      "Exact three controlled substitutions from reviewed E003; original untouched",
+      "All nine inherited report/review/source/archive cases",
+      "Synthetic50-hour closed ledger reports50hours and no allowance; no cap refusal; authorization digest retained",
+      "No Torch or GPU work; documentation and requirements inventory reflect actual paths"
+    ],
+    "actual_use": "Fresh literature consultation and independent coverage/manifest/source verification before final archive review. Do not publish an incomplete snapshot as the complete final report."
+  },
+  "success": "Focused software checks pass and metadata is accurate; final scientific completion remains separately pending.",
+  "stop": "Refuse unexpected source differences, stale prerequisite reviews and any unchanged archive-limit violations. Preserve all failures.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_workers_max": 2,
+    "software_wall_seconds_max": 120,
+    "memory_gib_max": 1,
+    "training_device": "none"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/E003/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
