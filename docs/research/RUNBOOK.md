@@ -380,8 +380,45 @@ with action-reversal/no-rollout controls:
 Probe convention: lexicographically sorted white positions, no test-label slot assignment; fixed ridge 0.001 on
 train-standardized features, 4,096 train windows, five test windows per episode, 2,000 episode bootstrap samples.
 Report per-axis correlations and uncertainty; retain training seeds separately. Run P26 before spending remaining
-allocation on n3 seeds1/2 and n1/n6. Extra L0/L1 seeds use `go2nav.training.balls ... --research C001` with the original
-training recipe. No test-driven tuning to force L0 failure or O1's claimed margin.
+allocation on n3 seeds1/2 and n1/n6. Extra L0/L1 seeds retain
+`go2nav.training.balls ... --research C001` and the original training recipe,
+executed through C010 below. No test-driven tuning to force L0 failure or O1's claimed margin.
+
+### Additional baseline seeds after core and P26
+
+C010 supervises exactly L0/L1 n3 seeds1/2, with fresh outputs under `C001/RUN`:
+
+```sh
+python3 outputs/gated/C010/run_train.py --run l0_n3_s1 --python "$PY" \
+  --preconsultation outputs/gated/C010/pre_l0_n3_s1.json
+```
+
+Its fifteen focused CPU groups are reviewed. All ten inspected computation
+methods match the original baseline source, and defaults match the original
+recipe. Six train/validation data files must match reviewed A014 provenance.
+The full prerequisite fixture covers P26, core results, earlier training audits,
+seed ordering and incomplete/tampered inputs. Actual current admission refuses
+the missing P26 export review before GPU access; no extra training has started.
+
+Reviewed n3seed0 planning/probes/binding and normal completed P26 export, S1 and
+comparison are required. A measured-negative comparison remains valid evidence;
+technical or budget-incomplete results do not establish completion. Seed2 also
+requires the full seed1 four-model planning/probe/binding comparison. Each earlier
+baseline needs separate C001 training and C010 operation reviews plus an actual
+completion audit bound by `final_audit_review` and its digest. That audit must bind
+both the303000-step full checkpoint and final model.
+
+C010 uses unchanged global48/B/C28 allowances, with45seconds reserved for cleanup;
+outer rows charge C001 with a C010 supervisor marker. All generated files and
+input hashes are retained. It refuses existing output directories and provides
+no automatic resume, retry or successor. Actual operations are under
+`outputs/gated/C010/runs/RUN` and require their own review.
+
+The original A003, B003 and C006 records cover only the six seed0 baselines.
+Fresh-seed completion auditing, calibrated inference, probes and CPU planning
+need explicit scope extensions and reviewed software before use. Do not silently
+apply those original records to seeds1/2. C010 software checks alone establish
+neither an actual completed training state nor numerical/scientific validity.
 
 ### External deadlines for selected-object evaluations
 

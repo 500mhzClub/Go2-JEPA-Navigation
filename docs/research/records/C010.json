@@ -1,0 +1,80 @@
+{
+  "id": "C010",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16",
+  "question": "Can the four approved additional n3 L0/L1 seed runs execute the unchanged training recipe after the reviewed core and P26, with externally enforced existing GPU budgets?",
+  "hypothesis": "A CPU supervisor with exact owned-child identity can preserve evidence and enforce the existing B/C and global allocation around the unchanged GPU trainer.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/html/2609.04264v3",
+      "version": "v3",
+      "sections": "4.3,5.1.1 and AppendixA.1.1",
+      "consequence": "Keep separate training seeds and the original local recipe/architecture, including recorded deviations. Additional seeds measure variability, not a test-driven correction of auxiliary gradients or predictor width."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen poll/wait, timeout cleanup, terminate/kill and file logs",
+      "consequence": "A timeout is not confirmed termination. Inherit reviewed exact-owned-identity stop logic; retain incomplete artifacts and leave ledger open if terminal state cannot be established."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/fcntl.html",
+      "version": "3.12",
+      "sections": "flock and LOCK_EX",
+      "consequence": "Use the existing ledger lock and preserve unrelated intervals."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/cuda.html",
+      "version": "2.12",
+      "sections": "Asynchronous execution/copy synchronization",
+      "consequence": "Existing step-level checks cannot bound a stalled GPU operation; an independent CPU deadline adds no numerical change."
+    },
+    {
+      "url": "go2nav/training/balls.py; docs/research/records/C001.json",
+      "version": "unchanged source inspected2026-11-16",
+      "sections": "DEFAULTS,train,_train,save,resume_state and C001 order/resources",
+      "consequence": "Exact module call with --researchC001, no overrides/resume. Four models only: L0/L1 n3 seeds1/2,303000updates. Preserve checkpoints and logs; actual completion requires a separate artifact audit and literature review before inference."
+    }
+  ],
+  "differences": "Operational execution of already-approved additional seeds. This record adds no model, dataset, optimizer, inference or comparison protocol. Original six seed0 jobs and their evidence are untouched.",
+  "contrary_evidence": "Seed0 ranking may change or persist; neither is assumed. CPU process fixtures do not establish GPU-stall recovery. A terminated run can lose updates after its last atomic5000-step checkpoint and is incomplete. No automatic restart or successor.",
+  "protocol": {
+    "order": [
+      "l0_n3_s1",
+      "l1_n3_s1",
+      "l0_n3_s2",
+      "l1_n3_s2"
+    ],
+    "training": "Unchanged go2nav.training.balls train --researchC001 with original DEFAULTS, no --set. Fresh canonical output C001/NAME only; refuse any existing output. Original n3 train/val six data files bound to reviewed A014 preparation. Torch/AdamW/SIGReg/auxiliary behavior unchanged.",
+    "admission": "Clean source, current exact helper/software/scientific-record hashes, fresh complete-input literature consultation. All reviewed n3seed0 planning/probes/binding and completed P26 export/S1/comparison with normal operations required. Measured-negative comparative science can advance; incomplete/technical results cannot. Seed2 additionally requires complete reviewed n3seed1 four-model planning/probes/binding. L1 requires prior same-seed L0 training science/operation and actual final artifact audit.",
+    "lineage": "Reuse verified D003 core-review input checks. Require P26 actual D001 stage reviews, successful D003 operations and all child artifact hashes. Any prior training requires actual C010 operation review, C001 final303000 model review and hash-bound final_audit_review proving model/full checkpoint identity. No automatic claim from exit0 alone.",
+    "allocation": "Existing global48 and B/C28 only. Outer rows research_idC001,supervisor_research_idC010; nested inner C001 counted once and recognized by existing C005v2/C009/D003 supervisors. Fixed deadline min remaining minus45seconds, shortening on budget change. No D/reserve transfer.",
+    "supervision": "Reuse reviewed C005v2/A016 wait/stop/union, exactPID/create/argv/canonicalcwd, TERM30/KILL10, file logs. Close only own marked outer and unique manifest-bound inner after confirmed termination. Capture all output files and rehash admitted inputs. Classify normal output as awaiting review; budget/technical evidence preserved.",
+    "verification": "CPU temporary fixtures: four exact routes and unplanned refusal; original data-byte binding including tamper; actual-schema prerequisite reviews/identities/order and corrupted/missing/partial refusal; consultation completeness/staleness; nested union and inherited allocation recognition; open/exhausted admission refusal; canonical owned ledger closure and foreign/live/ambiguous/historical refusal; owned normal/deadline process pair; unchanged shared ledger/live helpers and no Torch import. Scope includes source inspection and one expected-current-repo missing-P26 refusal.",
+    "followup": "Before any calibrated inference or test evaluation on these seeds, preregister its scope extension and review an actual full training-state audit, then actual numerical validity. A003/B003/C006 remain restricted to original seed0 models."
+  },
+  "success": "Focused software checks pass and each eventual actual run either completes the unchanged recipe within existing budget or preserves explicit technical/budget-incomplete evidence. No scientific performance threshold changes.",
+  "stop": "Refuse wrong scope, stale data/source/parents, missing P26/core or seed ordering, occupied GPU/open interval, existing output or exhausted budget. Signal only exact owned child. No automatic retry, force device reset or CPU training.",
+  "resources": {
+    "gpu_hours_max": 28,
+    "shared_gpu_hours_max": 48,
+    "allocation": "Existing B/C allowance only",
+    "cleanup_reserve_seconds": 45,
+    "software_cpu_seconds_max": 180,
+    "training_device": "dedicated_gpu"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/C005/v2/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/D003/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
