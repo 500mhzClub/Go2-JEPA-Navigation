@@ -15,6 +15,12 @@ software/numerical checks pass separately. Do not rerun it. Next audit the exist
 branch payload and preregister the matched physical-forecast training comparison
 described there; F002 itself authorizes no training or new simulator data.
 
+That payload audit is now complete as [F003](BRANCH_DATA_AUDIT_2026-11-16.md).
+Do not rerun it. Its result and independent verification pass. Next preregister
+F004's matched physical-forecast training contract, including consistent target
+labels, sibling pairing, contact/visibility coverage and unseen-layout evaluation.
+F003 itself qualifies data inspection only, not model training.
+
 ## Current user authorization — GPU time limits removed
 
 On 16 November 2026 the user explicitly removed GPU-hour limits for the approved

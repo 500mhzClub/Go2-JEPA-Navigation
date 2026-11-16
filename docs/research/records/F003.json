@@ -1,0 +1,74 @@
+{
+  "id": "F003",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T14:27:43.840837+00:00",
+  "question": "Can the existing ring branches support a matched physical action-response training experiment without history, identity, censoring or split errors, and how noisy are paired tracker targets compared with physical truth?",
+  "hypothesis": "The existing six-way branches preserve identical histories and separate layouts; explicit initial identity matching and contact censoring make paired supervision possible. Tracker-only contrasts may include observation changes caused by ego motion, so target fidelity must be measured before choosing a loss.",
+  "sources": [
+    {
+      "url": "https://proceedings.neurips.cc/paper_files/paper/2019/file/947018640bf36a2bb609d3557a285329-Paper.pdf",
+      "version": "NeurIPS2019 proceedings",
+      "sections": "Section3.1 functional causal models and interventions; Section4.2 both intervention algorithms, read before implementation",
+      "consequence": "Observational correlation is insufficient to establish response accuracy. Keep histories fixed across alternative robot tapes and distinguish an intervention on commands from changes in measured tracker output. This policy-imitation paper motivates the audit, not a guarantee for our deterministic dynamics or a proposed loss."
+    },
+    {
+      "url": "https://arxiv.org/pdf/2001.03093",
+      "version": "v5",
+      "sections": "Section3 future robot plan; Section4 future ego encoder and observation histories",
+      "consequence": "Keep candidate robot paths and shared observable histories explicit, and keep future truth as targets/evaluation only. Recorded future poses define a conditional forecast contract, not autonomous robot-motion prediction."
+    },
+    {
+      "url": "go2nav/data/branches.py",
+      "version": "34d0bb7cc7fe5cf9687524b7ac54599fd9438473",
+      "sections": "branch_episode, labels, empty-frame contact censoring; training.object_jepa Split/Branches/losses; planning.object_model tokens/rollout",
+      "consequence": "Audit exactly the stored73-frame segments, first9 history frames, first8 command rows, persistent IDs and post-contact empty labels. Existing loader requests73 frames and discards explicit branch keys, so it cannot silently supply matched paired losses."
+    }
+  ],
+  "differences": "Existing-file CPU audit only; no simulator replay, collection, inference, training or new model. All15 sibling pairs are considered, with explicit coverage rather than assuming every track is a physical object. Future training may require a new data adapter and separately declared supervision; this record does not authorize training.",
+  "contrary_evidence": "F002 shows N4 already used branched examples without resolving response errors. Hidden walker state, short histories and intrinsic stochasticity remain possible limits. Correct file structure alone does not prove real-world counterfactual accuracy or exact historical source lineage.",
+  "protocol": {
+    "source_commit": "34d0bb7cc7fe5cf9687524b7ac54599fd9438473",
+    "manifest": "outputs/gated/F003/inputs.json",
+    "manifest_sha256": "cd7a487de368044c7d25f7cca86c91a0be59eb3a51d07cd3eaa1802f56bfe86d",
+    "source_sha256": {
+      "go2nav/data/branches.py": "edd2a95204621311eb34dfce239888959792f11f83f59d61398c907b6060f98c",
+      "go2nav/data/ring_corpus.py": "4b4e6be347b6efbdbd5b47b05f3a4ab82ee6f0559b32e77ed182e0402aefa170",
+      "go2nav/training/object_jepa.py": "d5f38c583cbf71857ee1dd70fe595e66916dc5b3fedd97234ca6de53f6f62a9f",
+      "go2nav/models/object_jepa.py": "b8e4e48c2c759c43dd2b0fc8caff6fe1ddf28dc8738b299023173c363e411724",
+      "go2nav/planning/object_model.py": "622a08570d90833cfbf46f6847c701dc1346913ea1b9a3a190d2f9346d0b0241",
+      "go2nav/perception/ring_walkers.py": "ba43e5b861eb7d9dce69e1efaa6fc2e6875bc098a5bbd8f0e60f58c4bae52341"
+    },
+    "summary_sha256": "4dd3e69a74670e8495691778223797d9bd597c223b4b57ad237b5cb515d20166",
+    "population": "All4500 train and500 val episode branch files, their matching parent metadata and episode arrays;15000 immutable hash-bound inputs. No sampled subset stands in for this audit.",
+    "structure": "Check exact stored array keys/shapes/dtypes, finite required values, allowed NaN absent coordinates, sibling groups of6 with identical t0, identical9-frame histories including tracks/truth/IDs and8 past commands. Match parent pose and walker history with absolute tolerance1e-4 and no relative tolerance; past requests and boolean labels exact. Check contacts -1 or1..64, first contact and subsequent frames have empty objects/labels, post-contact commands zero, and pose stays fixed after contact. Record every failure without repairing or silently dropping files.",
+    "splits": "Validate metadata index/split, actual train maze IDs in0..1199 and val1200..1299, report disjoint layout sets and placement-seed overlaps; do not treat within-split nearby branch points as independent examples.",
+    "identity": "At frame8 on the common history, match currently seen nonnegative-ID tracker slots to visible physical walkers within3m of robot using mutual nearest neighbors at<=0.3m; ties within1e-8 are ambiguous and excluded/countable. Do not rematch identities using future truth. Report eligible visible walkers, matched/unmatched and slot counts.",
+    "pairs": "All15 ordered-index pairs a<b among6 siblings at every t0. Keep same-action pairs as no-effect controls and count separately. For each initial slot/walker correspondence, horizon16/32/64 frames, physical target exists only when both branches have no contact at or before horizon and truth endpoints finite. Track target additionally needs both endpoints seen, same initial track ID and finite positions. Count exclusions. For identical full stored future-command pairs, require equal contact flags and equal complete stored pose/track/truth trajectories (NaNs equal).",
+    "target_fidelity": "For valid tracked pairs compute norm of [(track_b-track_a)-(truth_b-truth_a)] in metres; report count, mean, RMSE and maximum, by split/horizon/walker kind. Report true-response>0.05m and true-zero<=1e-6m counts, and fraction of true-zero tracked pairs whose tracker contrast exceeds0.05m. No hypothesis test or population CI: sibling pairs and adjacent points are correlated.",
+    "outputs": "outputs/gated/F003/software/{result,review}.json; actual per_file.jsonl, result.json and review.json; tracked audit code tools/research/f003_branch_audit.py. Preserve technical failures. Full source/data inventory bound; no new training inputs exported by this audit.",
+    "verification": [
+      "Synthetic shared-history/pass-through/no-response and responsive branches with known target errors",
+      "Reject wrong shape/NaN, changed history, cross-split metadata, contact-tail leakage and identical-action inconsistent outcomes",
+      "Refuse stale manifest/input/source digests and output overwrite",
+      "Independent reconstruction of split/file totals and evidence hashes; scalar comparison of real first eligible sibling targets in each split with vectorized audit outputs; exact file count and summary counts"
+    ]
+  },
+  "success": "All declared payload invariants and metadata separation checked on all5000 branch files, summary counts reconstructed and target fidelity/coverage measured. Any structural fault blocks use of the corpus until explained; no target accuracy or learning success follows automatically.",
+  "stop": "Do not repair or recollect data, modify pinned GPU source, train a model or choose a loss based on an unseen partial audit. Retain all failures. Only after actual full audit and literature/result review may a separate training protocol be frozen.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "training_device": "none",
+    "workers": 4,
+    "cpu_threads_per_worker": 1,
+    "memory_gib_max": 12,
+    "wall_seconds_max": 1800
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/F002/review.json",
+      "allow": [
+        "measured_negative"
+      ]
+    }
+  ]
+}

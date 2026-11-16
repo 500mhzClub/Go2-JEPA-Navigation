@@ -28,3 +28,7 @@ because their software checks verify the exact inherited transformations.
 
 The prepared final comparison index is included at its original relative path
 `outputs/gated/p25_final_index.json`; it is configuration, not a completed result.
+
+F003's initial warning-producing audit and failed empty-stratum verifier sources
+are preserved at their original evidence paths. Current F002/F003 analysis code
+is tracked directly under `tools/research/` rather than duplicated in this archive.

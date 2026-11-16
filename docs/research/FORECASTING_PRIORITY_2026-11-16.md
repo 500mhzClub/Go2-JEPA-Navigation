@@ -19,6 +19,11 @@ with ordinary versus branched data and a separately tested paired-response loss.
 Read that evidence before preregistering the next experiment; do not repeat the
 audit or treat its proposed comparison as an already-qualified launch protocol.
 
+[F003](BRANCH_DATA_AUDIT_2026-11-16.md) subsequently verified all existing branch
+payloads. Keep physical target-label access and starting-scene sampling matched
+across the forthcoming training arms; tracker-derived targets have long error
+tails. The separate F004 training protocol is the next required step.
+
 ## What we already tested, and what P25 adds
 
 Go2's earlier P4/P4b/P4d/P4f work already used ridge, MLP and spatial readout heads,

@@ -18,6 +18,12 @@ criterion because its false responses outweigh gains overall. Numerical verifica
 passes independently. The next training comparison requires its own frozen protocol;
 see the audit's proposed ordinary/branched/paired-response comparison.
 
+[F003's complete branch audit](BRANCH_DATA_AUDIT_2026-11-16.md) checks all5,000
+branch files and15,000 input digests. It passes with verified histories, contact
+censoring and separate layout IDs; paired tracker targets have small mean errors
+but long tails and incomplete coverage. F004 must keep target-label access and
+starting-scene sampling matched when separating branch data from paired losses.
+
 ## Current user authorization — GPU time limits removed
 
 On 16 November 2026 the user explicitly removed GPU-hour limits for the approved

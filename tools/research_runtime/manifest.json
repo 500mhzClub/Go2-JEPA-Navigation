@@ -2,8 +2,8 @@
   "captured_at": "2026-11-16T10:52:41.550853+00:00",
   "source_commit": "60a6d4d9bbc306735fa7a852cd158930c4016049",
   "purpose": "Publish all locally authored experiment helper source previously held beneath ignored outputs; source-only byte-preserving snapshot, including historical/failing variants.",
-  "file_count": 509,
-  "total_bytes": 3351255,
+  "file_count": 511,
+  "total_bytes": 3376557,
   "extensions": [
     ".bash",
     ".ipynb",
@@ -1468,6 +1468,20 @@
       "snapshot": "tools/research_runtime/outputs/gated/E004/software/source/report.py",
       "sha256": "89725a2298b9eb96cdd2ac3b07ec91f7038b85e7b5d3bbd81c9d3f81c4155b61",
       "bytes": 9784,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/F003/software_initial_warnings/source.py",
+      "snapshot": "tools/research_runtime/outputs/gated/F003/software_initial_warnings/source.py",
+      "sha256": "19f0713e45cd0d8ac3ae8ea5e4b5d5092b2de1dd01df2131269a1d1b82aaadd9",
+      "bytes": 16464,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/F003/verification_initial_source.py",
+      "snapshot": "tools/research_runtime/outputs/gated/F003/verification_initial_source.py",
+      "sha256": "282d82e02ea8dde6b0177da0d99783cbaecdc2ea40ee968b61b19cb48349a0dd",
+      "bytes": 8838,
       "mode": "0o664"
     },
     {
@@ -3583,14 +3597,16 @@
     "Generated datasets, checkpoints, results, logs and bytecode"
   ],
   "restoration": "Original relative paths are in source. Restore only into an appropriate unused checkout with its separately retained exact evidence/data; do not overwrite a live run or treat archived failed variants as qualified launchers.",
-  "updated_at": "2026-11-16T11:58:53.644505+00:00",
-  "update_base_commit": "b4a32e2a134e900923c10852e84de54cf3c6b40a",
+  "updated_at": "2026-11-16T14:39:29.507518+00:00",
+  "update_base_commit": "34d0bb7cc7fe5cf9687524b7ac54599fd9438473",
   "additional_files": [
     "outputs/gated/E004/controlled_changes.json",
     "outputs/gated/U010/controlled_changes.json",
     "outputs/gated/U011/controlled_changes.json",
     "outputs/gated/U012/controlled_changes.json",
     "outputs/gated/U013/controlled_changes.json",
-    "outputs/gated/p25_final_index.json"
+    "outputs/gated/p25_final_index.json",
+    "outputs/gated/F003/software_initial_warnings/source.py",
+    "outputs/gated/F003/verification_initial_source.py"
   ]
 }
