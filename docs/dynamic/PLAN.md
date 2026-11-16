@@ -2348,7 +2348,8 @@ with a walker in sight within 1.5 m, and holds:
   given it); the objects' tokens are the predictor's own. The walls round a predicted object are not looked up again
   (M5 decodes and looks them up; a latent rollout cannot), which is the port's known handicap.
 - **Objective:** R4's. Teacher-forced and 8-step rollout MSE on the tokens that have a target, plus 0.09 x SIGReg
-  (the robot's tokens per step; the present objects' tokens pooled). 36,000 steps, one of a scene's 7 futures drawn
+  (the robot's tokens per step; the present objects' tokens pooled). 32,000 steps (15 steps a second: 36,000 would
+  not leave room for the measures inside 45 minutes), one of a scene's 7 futures drawn
   per sample, so the branches are in training as plain futures; no paired term.
 - **The head** (after training, the JEPA frozen): an MLP from one token to the object's position, trained on encoded
   tokens only, applied to the rolled-out ones.
