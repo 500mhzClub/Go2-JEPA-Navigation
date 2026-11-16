@@ -787,12 +787,19 @@ The decoder mask's best IoU must be at least 0.5. These are per-image measures, 
 Consult the literature after this result before interpreting it or changing any successor experiment.
 
 For final comparisons, provide an index of `{n, seed, kind, planning, probes, binding}` entries with paths to
-reviewed result files. A local index of the planned 18 model runs is `outputs/gated/p25_index.json`.
+reviewed result files. The prepared final index is `outputs/gated/p25_final_index.json`. It resolves relative
+paths from `outputs/gated`, uses `planning_full` for the first O0/O1 pair, and
+retains all18 models and five encoder bindings. Preserve the historical
+`p25_index.json`; it still names the retired first O0 planning path.
+The reviewed input audit under `C002/final_index_preparation` accepts the15
+currently available components (six planning, eight probes, one binding), with
+six complete model rows. Missing results remain incomplete; revalidate every
+actual launch/inspection/review before final aggregation.
 Legacy result reviews that lack a machine-readable training seed must include `run_identity: {n, seed, kind}`
 verified against their training artifact and parent manifest. Do not infer seed identity from a filename alone.
 
 ```sh
-"$PY" -m go2nav.eval.balls_comparison --index outputs/gated/p25_index.json \
+"$PY" -m go2nav.eval.balls_comparison --index outputs/gated/p25_final_index.json \
   --out outputs/gated/comparison --research C002
 ```
 

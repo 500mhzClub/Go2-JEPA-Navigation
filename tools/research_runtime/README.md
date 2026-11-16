@@ -25,3 +25,6 @@ source archive. Creating this snapshot does not modify any live runtime file.
 
 The U010–U013 and E004 controlled-change JSON files are included alongside their source
 because their software checks verify the exact inherited transformations.
+
+The prepared final comparison index is included at its original relative path
+`outputs/gated/p25_final_index.json`; it is configuration, not a completed result.

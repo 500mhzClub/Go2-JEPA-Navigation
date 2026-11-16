@@ -2,8 +2,8 @@
   "captured_at": "2026-11-16T10:52:41.550853+00:00",
   "source_commit": "60a6d4d9bbc306735fa7a852cd158930c4016049",
   "purpose": "Publish all locally authored experiment helper source previously held beneath ignored outputs; source-only byte-preserving snapshot, including historical/failing variants.",
-  "file_count": 508,
-  "total_bytes": 3348346,
+  "file_count": 509,
+  "total_bytes": 3351255,
   "extensions": [
     ".bash",
     ".ipynb",
@@ -2360,6 +2360,13 @@
       "mode": "0o664"
     },
     {
+      "source": "outputs/gated/p25_final_index.json",
+      "snapshot": "tools/research_runtime/outputs/gated/p25_final_index.json",
+      "sha256": "580093e19629f6151664ffd6e13939824a51666d5c9933f8204d75385150534a",
+      "bytes": 2909,
+      "mode": "0o664"
+    },
+    {
       "source": "outputs/genesis/chain27.sh",
       "snapshot": "tools/research_runtime/outputs/genesis/chain27.sh",
       "sha256": "62f1e7f728e5ae3f2112dbc9a2822752207449da7b47ce4008d96cefa4f07d1d",
@@ -3576,13 +3583,14 @@
     "Generated datasets, checkpoints, results, logs and bytecode"
   ],
   "restoration": "Original relative paths are in source. Restore only into an appropriate unused checkout with its separately retained exact evidence/data; do not overwrite a live run or treat archived failed variants as qualified launchers.",
-  "updated_at": "2026-11-16T11:52:08.829470+00:00",
-  "update_base_commit": "7f73a692444c179fbcfaac0b136705580e3dc3ff",
+  "updated_at": "2026-11-16T11:58:53.644505+00:00",
+  "update_base_commit": "b4a32e2a134e900923c10852e84de54cf3c6b40a",
   "additional_files": [
     "outputs/gated/E004/controlled_changes.json",
     "outputs/gated/U010/controlled_changes.json",
     "outputs/gated/U011/controlled_changes.json",
     "outputs/gated/U012/controlled_changes.json",
-    "outputs/gated/U013/controlled_changes.json"
+    "outputs/gated/U013/controlled_changes.json",
+    "outputs/gated/p25_final_index.json"
   ]
 }

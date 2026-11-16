@@ -1,0 +1,133 @@
+[
+  {
+    "n": 1,
+    "seed": 0,
+    "kind": "l0",
+    "planning": "planning/l0_n1_s0/result.json",
+    "probes": "probes/l0_n1_s0/result.json"
+  },
+  {
+    "n": 1,
+    "seed": 0,
+    "kind": "l1",
+    "planning": "planning/l1_n1_s0/result.json",
+    "probes": "probes/l1_n1_s0/result.json"
+  },
+  {
+    "n": 1,
+    "seed": 0,
+    "kind": "o1",
+    "planning": "planning/o1_n1_s0/result.json",
+    "probes": "probes/o1_n1_s0/result.json",
+    "binding": "binding/slots_n1_s0/result.json"
+  },
+  {
+    "n": 3,
+    "seed": 0,
+    "kind": "l0",
+    "planning": "planning/l0_n3_s0/result.json",
+    "probes": "probes/l0_n3_s0/result.json"
+  },
+  {
+    "n": 3,
+    "seed": 0,
+    "kind": "l1",
+    "planning": "planning/l1_n3_s0/result.json",
+    "probes": "probes/l1_n3_s0/result.json"
+  },
+  {
+    "n": 3,
+    "seed": 0,
+    "kind": "o0",
+    "planning": "planning_full/o0_n3_s0/result.json",
+    "probes": "probes/o0_n3_s0/result.json"
+  },
+  {
+    "n": 3,
+    "seed": 0,
+    "kind": "o1",
+    "planning": "planning_full/o1_n3_s0/result.json",
+    "probes": "probes/o1_n3_s0/result.json",
+    "binding": "binding/slots_n3_s0/result.json"
+  },
+  {
+    "n": 3,
+    "seed": 1,
+    "kind": "l0",
+    "planning": "planning/l0_n3_s1/result.json",
+    "probes": "probes/l0_n3_s1/result.json"
+  },
+  {
+    "n": 3,
+    "seed": 1,
+    "kind": "l1",
+    "planning": "planning/l1_n3_s1/result.json",
+    "probes": "probes/l1_n3_s1/result.json"
+  },
+  {
+    "n": 3,
+    "seed": 1,
+    "kind": "o0",
+    "planning": "planning/o0_n3_s1/result.json",
+    "probes": "probes/o0_n3_s1/result.json"
+  },
+  {
+    "n": 3,
+    "seed": 1,
+    "kind": "o1",
+    "planning": "planning/o1_n3_s1/result.json",
+    "probes": "probes/o1_n3_s1/result.json",
+    "binding": "binding/slots_n3_s1/result.json"
+  },
+  {
+    "n": 3,
+    "seed": 2,
+    "kind": "l0",
+    "planning": "planning/l0_n3_s2/result.json",
+    "probes": "probes/l0_n3_s2/result.json"
+  },
+  {
+    "n": 3,
+    "seed": 2,
+    "kind": "l1",
+    "planning": "planning/l1_n3_s2/result.json",
+    "probes": "probes/l1_n3_s2/result.json"
+  },
+  {
+    "n": 3,
+    "seed": 2,
+    "kind": "o0",
+    "planning": "planning/o0_n3_s2/result.json",
+    "probes": "probes/o0_n3_s2/result.json"
+  },
+  {
+    "n": 3,
+    "seed": 2,
+    "kind": "o1",
+    "planning": "planning/o1_n3_s2/result.json",
+    "probes": "probes/o1_n3_s2/result.json",
+    "binding": "binding/slots_n3_s2/result.json"
+  },
+  {
+    "n": 6,
+    "seed": 0,
+    "kind": "l0",
+    "planning": "planning/l0_n6_s0/result.json",
+    "probes": "probes/l0_n6_s0/result.json"
+  },
+  {
+    "n": 6,
+    "seed": 0,
+    "kind": "l1",
+    "planning": "planning/l1_n6_s0/result.json",
+    "probes": "probes/l1_n6_s0/result.json"
+  },
+  {
+    "n": 6,
+    "seed": 0,
+    "kind": "o1",
+    "planning": "planning/o1_n6_s0/result.json",
+    "probes": "probes/o1_n6_s0/result.json",
+    "binding": "binding/slots_n6_s0/result.json"
+  }
+]

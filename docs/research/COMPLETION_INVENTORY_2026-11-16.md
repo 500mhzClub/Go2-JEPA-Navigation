@@ -18,9 +18,11 @@ serial GPU use and substantive literature/result reviews remain required.
 | Final report/archive | E004 capacity, P26 evidence selection and inherited integrity checks reviewed | Requirement-by-requirement audit, high-level development narrative, final reviewed comparisons and verified archive |
 
 The18 comparison rows are n3 seeds0/1/2 × L0/L1/O0/O1, plus n1/n6
-seed0 × L0/L1/O1. `outputs/gated/U004/planned_comparison_index.json` names
-the intended inputs. Only first-pair object planning uses `planning_full`;
-later paths must be reconciled to their actual launch manifests before use.
+seed0 × L0/L1/O1. `outputs/gated/p25_final_index.json` is the prepared runnable index; its
+byte-identical U004 inventory remains preserved. Only first-pair object planning
+uses `planning_full`; later paths must be reconciled to actual launch manifests.
+The reviewed C002 input preparation accepts15 available components and six
+complete baseline rows;12planning,10probe and4binding components remain missing.
 File presence does not establish review or completion. The current metadata
 snapshot is `outputs/gated/U004/requirements_observation.json`.
 

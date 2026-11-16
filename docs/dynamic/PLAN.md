@@ -1,9 +1,12 @@
 # Dynamic environments and a continuous action contract (plan, draft for review)
 
-**Active P25/P26 execution revision (15 November):** the approved literature gate, 48-hour allowance,
-sequential new GPU work, source-corrected identity anchor, and offline endpoint are specified in
-[research records](../research/README.md) and the [runbook](../research/RUNBOOK.md). These supersede the earlier
-compute estimates and concurrency wording below. Existing six jobs remain pinned and unchanged.
+**Active P25/P26 execution revision (16 November):** the approved literature gate,
+sequential new GPU work, source-corrected identity anchor and offline endpoint are specified in
+[research records](../research/README.md) and the [runbook](../research/RUNBOOK.md).
+The user removed all GPU-hour limits under [U001](../research/records/U001.json);
+elapsed accounting and scientific review gates remain. These instructions supersede
+earlier compute estimates, caps and concurrency wording below. All six original
+trainers are complete; preserve their evidence and pinned source.
 
 Branch `feature/dynamic-continuous`. This follows the frozen static-maze baselines (round trips of 100: C1 72, C5 71,
 C6 71, C7 70, C8 70; C3 50/60, C4 55/80) and `docs/ACTION_CONTRACT.md`.

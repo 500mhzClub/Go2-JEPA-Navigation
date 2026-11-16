@@ -176,3 +176,8 @@ file and restores P26 corpus JSON/track-export evidence omitted by the old blank
 corpus exclusion. Six software groups pass, including all nine inherited integrity
 cases and a verified576MiB fixture. Actual final archive and scientific coverage
 remain pending.
+
+The final C002 index is now `outputs/gated/p25_final_index.json`, with the full
+first-pair planning paths and correct relative-path base. Its reviewed input
+preparation accepts15 available components and six complete baseline rows out of18.
+The full comparison remains incomplete; old indices/results are preserved.
