@@ -1,7 +1,8 @@
 # Baseline checkpoint observations — 15 November 2026
 
-Runtime update at 23:56 UTC: L0 n3 has completed 303,000 steps and passed its
-actual artifact audit and completion literature review. L0 n6 is now active.
+Runtime update on 16 November: five original runs have completed 303,000 steps
+and passed their actual artifact audits and completion literature reviews:
+L1 n1/n3 and L0 n1/n3/n6. The final original, L1 n6, is now active.
 The descriptive assessments below remain tied to their stated snapshots;
 final L0 n3 physical prediction and planning are still unevaluated.
 
