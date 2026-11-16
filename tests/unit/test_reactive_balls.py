@@ -146,3 +146,27 @@ def test_the_heads_read_a_state_into_four_positions_and_the_oracle_rolls_out():
     model = training.LeWorldModel(grid)
     z = model.encode(torch.zeros(2, 3, 3, 64, 64))
     assert model.rollout(z, torch.zeros(2, 18, 2), 16).shape == (2, 16, 65, 128)
+
+
+def test_the_motion_weights_follow_the_discs_and_leave_the_unweighted_loss_unchanged():
+    import pytest
+    torch = pytest.importorskip('torch')
+    from go2nav.models.lewm import SIGReg, losses
+    from go2nav.training import recipe_bench as training
+    from go2nav.training.balls import to_pixels
+    ep, _ = world.episodes(np.random.default_rng(2), 4, 11)
+    pixels, actions = to_pixels(torch.from_numpy(ep['frames'])), torch.from_numpy(ep['actions'])/3
+    change = training.patch_motion(pixels, 8)
+    assert change.shape == (4, 10, 64)
+    row, col = (ep['agent'][0, 1, 1]//8).astype(int), (ep['agent'][0, 1, 0]//8).astype(int)
+    moved = np.linalg.norm(ep['agent'][0, 1]-ep['agent'][0, 0]) > .5
+    assert not moved or float(change[0, 0, row*8+col]) > float(change[0, 0].median())
+    assert float((change == 0).float().mean()) > .5                      # most patches are still
+    model = training.LeWorldModel(training.model_config(**training.RECIPES['r2']['model']))
+    sigreg = SIGReg(num_proj=32)
+    g = lambda: torch.Generator().manual_seed(0)
+    flat = training.motion_losses(model, pixels, actions, rollout_steps=8, sigreg=sigreg, lam=.09, floor=1., generator=g())
+    plain = losses(model, pixels, actions, rollout_steps=8, sigreg=sigreg, lam=.09, generator=g())
+    assert torch.allclose(flat['loss'], plain['loss'], atol=1e-5)        # floor 1: every weight is 1
+    weighted = training.motion_losses(model, pixels, actions, rollout_steps=8, sigreg=sigreg, lam=.09, floor=.1, generator=g())
+    assert torch.isfinite(weighted['loss']) and not torch.allclose(weighted['grid_pred'], plain['grid_pred'])

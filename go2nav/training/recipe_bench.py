@@ -7,7 +7,8 @@ heads; latent 128; a predictor of 4 blocks over 3 history frames, no dropout) on
 is one step's (dx, dy) over 3 px. The objective is `models.lewm.losses` on windows of 3 + 8 frames: the teacher-forced
 next-embedding MSE, the MSE of an 8-step rollout, and 0.09 x SIGReg.
 
-**Recipes** (`RECIPES`): r0, one [CLS] latent; r1, every 8 x 8 patch token predicted (`grid=(8, 8)`: 65 tokens a frame).
+**Recipes** (`RECIPES`): r0, one [CLS] latent; r1, every 8 x 8 patch token predicted (`grid=(8, 8)`: 65 tokens a frame);
+r2, r1 with each patch token's prediction error weighted by the change of its target patch's pixels (`motion_losses`).
 
 **Training:** AdamW, warm-up then cosine, clip 1, bf16 autocast (SIGReg in float32, 128 projections), on the GPU only;
 6,000 steps at batch 64 (a patch-token step costs 0.2-0.35 s, and a run with its measures must fit 45 minutes). A step
@@ -25,6 +26,7 @@ import time
 
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 from go2nav.data import reactive_balls as data
 from go2nav.models.lewm import LeWMConfig, LeWorldModel, SIGReg, losses
@@ -35,7 +37,7 @@ HISTORY = 3
 DEFAULTS = dict(steps=6000, batch=64, rollout=8, lr=3e-4, weight_decay=1e-3, warmup=500, grad_clip=1.,
                 sigreg_weight=.09, sigreg_projections=128, bf16=True, log_every=250, checkpoint_every=2000,
                 memory_fraction=.42, recalibration_batches=200, policy='interactive')
-RECIPES = dict(r0=dict(), r1=dict(grid=(8, 8)))
+RECIPES = dict(r0=dict(), r1=dict(model=dict(grid=(8, 8))), r2=dict(model=dict(grid=(8, 8)), motion_floor=.1))
 
 
 def model_config(**overrides):
@@ -43,6 +45,33 @@ def model_config(**overrides):
                 history=HISTORY, block_steps=1, command_dim=2, predictor_depth=4, predictor_heads=4,
                 predictor_head_dim=16, predictor_mlp=256, predictor_dropout=0.)
     return LeWMConfig(**(base | overrides))
+
+
+def patch_motion(pixels, patch):
+    """Frames (B, T, 3, H, W) to (B, T-1, G): the mean absolute change of each patch's pixels from frame t-1 to frame t,
+    for t = 1..T-1, the patches in row-major order."""
+    change = (pixels[:, 1:]-pixels[:, :-1]).abs().mean(2)
+    return F.avg_pool2d(change, patch).flatten(2)
+
+
+def motion_losses(model, pixels, actions, *, rollout_steps, sigreg, lam, floor, generator=None):
+    """R2: `models.lewm.losses` for a patch-grid model (one grid token a patch), with each grid token's squared error
+    weighted by w = floor + (1 - floor) x its target patch's pixel change over the batch's mean change (so the mean
+    weight is 1): a token whose patch a disc enters or leaves counts for more than a still one. [CLS]'s terms and
+    SIGReg are unchanged."""
+    n, cls = model.config.history, model.cls
+    z = model.encode(pixels)
+    change = patch_motion(pixels.float(), model.config.patch)
+    w = floor+(1-floor)*change/change.mean().clamp_min(1e-8)                 # (B, T-1, G): the weight of frame t's tokens
+    pred, rolled = model.predict(z[:, :n], actions[:, :n]), model.rollout(z[:, :n], actions, rollout_steps)
+    error = lambda out, first: ((out[:, :, 1:]-z[:, first:first+out.size(1), 1:]).float().pow(2).mean(-1)
+                                * w[:, first-1:first-1+out.size(1)]).mean()
+    terms = dict(pred=(cls(pred)-cls(z[:, 1:n+1])).pow(2).mean(), grid_pred=error(pred, 1),
+                 rollout=(cls(rolled)-cls(z[:, n:n+rollout_steps])).pow(2).mean(), grid_rollout=error(rolled, n))
+    terms['sigreg'] = (sigreg(cls(z).float().transpose(0, 1), generator)
+                       + sigreg(z[:, :, 1:].float().flatten(1, 2).transpose(0, 1), generator))/2
+    terms['loss'] = terms['pred']+terms['rollout']+terms['grid_pred']+terms['grid_rollout']+lam*terms['sigreg']
+    return terms
 
 
 class Windows:
@@ -107,7 +136,8 @@ def train(root, variant, recipe, out, seed=0, overrides=None):
     out.mkdir(parents=True, exist_ok=True)
     run_seed = 2026111600+seed
     torch.manual_seed(run_seed)
-    model = LeWorldModel(model_config(**RECIPES[recipe])).to(device)
+    options = RECIPES[recipe]
+    model = LeWorldModel(model_config(**options.get('model', {}))).to(device)
     params = list(model.parameters())
     sigreg = SIGReg(num_proj=cfg['sigreg_projections']).to(device)
     trainset = Windows(root, cfg['policy'], 'train', variant, device)
@@ -130,9 +160,11 @@ def train(root, variant, recipe, out, seed=0, overrides=None):
     def objective(index, offset=0):
         g = torch.Generator(device=device).manual_seed(run_seed*10_000_000+offset+index)
         pixels, actions = trainset.draw(cfg['batch'], length, g)
+        shared = dict(rollout_steps=cfg['rollout'], sigreg=sigreg, lam=cfg['sigreg_weight'], generator=g)
         with torch.autocast('cuda', dtype=torch.bfloat16, enabled=cfg['bf16']):
-            return losses(model, pixels, actions, rollout_steps=cfg['rollout'], sigreg=sigreg, lam=cfg['sigreg_weight'],
-                          generator=g)
+            if 'motion_floor' in options:
+                return motion_losses(model, pixels, actions, floor=options['motion_floor'], **shared)
+            return losses(model, pixels, actions, **shared)
 
     model.train()
     log, started = metrics.open('a'), time.time()
@@ -148,7 +180,7 @@ def train(root, variant, recipe, out, seed=0, overrides=None):
         if step % cfg['log_every'] == 0:
             row = dict(step=step, lr=scheduler.get_last_lr()[0], grad=float(grad),
                        steps_per_s=round(cfg['log_every']/(time.time()-started), 1),
-                       **{k: round(float(v), 6) for k, v in terms.items()})
+                       **{k: round(float(v.detach()), 6) for k, v in terms.items()})
             log.write(json.dumps(row)+'\n')
             log.flush()
             started = time.time()
