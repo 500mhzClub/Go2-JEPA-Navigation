@@ -2758,3 +2758,18 @@ three seeds) was written before seeds 1 and 2 were run.
   - Oracle-S is seldom false there because it hardly responds at a distance at all (slope 0.26 against R4's 0.51).
     With the kinds hidden and one predicted future, responding to those that react and staying still for those that
     do not are in conflict.
+
+## P27 R4 on T1 at 36,000 steps, and the close (16 November)
+
+| T1, k = 8 | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False | Slope [95%] | R: worst | At a distance: error / zero; slope |
+|---|---|---|---|---|---|---|---|---|---|
+| Oracle-S | 0.43 | 30.2 | 1.29 | 0.60 | 0.49 | 3.9% | 0.65 [0.62, 0.67] | - | 0.58; 0.58 |
+| R4, 36,000 steps | 0.61 | 21.4 | 2.79 | 1.48 | 0.48 | 16.0% | 0.69 [0.66, 0.71] | 0.31 | 0.56; 0.70 |
+
+- **With the kinds shown, R4 uses them.** Reactions at a distance: slope 0.70 (T2 0.51). For indifferent obstacles
+  the agent comes near in one tape only, false responses fall from 59% (T2) to 16%.
+- **T1 is less precise.** Straight windows 1.48 px (T2 0.75), and 13.4% false responses on pairs the agent never
+  comes near (T2 2.3%). So T1 misses X's straight bar and the false-response bar for a different reason from T2.
+  The rings are in the crops; why they cost precision is not tested.
+- **P27 closes with no recipe passing section 4's bars as written.** R4 on T2 meets seven of eight on the mean of
+  three seeds. docs/REVIEW_2026-11-16.md sets out what each rung showed and the decision this leaves.
