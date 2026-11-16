@@ -7,9 +7,10 @@ agent's actions, with transfer to Go2. Learned heads at inference are acceptable
 clean latent representations are secondary. Toy experiments remain appropriate
 when they provide an iteration advantage on these forecasting questions.
 Follow `docs/research/FORECASTING_PRIORITY_2026-11-16.md` for current priorities.
-Keep the active O0 run unchanged and inspect/review its terminal result. Do not
-automatically advance the old toy planning matrix; first audit existing learned-
-head and reaction evidence and preregister the missing forecasting comparison.
+O0 is complete and its terminal science/inspection/operations reviews are recorded;
+preserve its pinned source and negative result. Do not automatically advance the
+old toy planning matrix. F002/F003 audits and F004's matched physical forecasting
+protocol/data are complete; use the qualified F004 route for its three arms.
 Historical protocols, incomplete work and literature gates remain intact. This
 clarification does not authorize bypassing launcher checks or new Genesis data.
 

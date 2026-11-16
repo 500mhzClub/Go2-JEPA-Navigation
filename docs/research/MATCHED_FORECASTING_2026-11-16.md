@@ -82,8 +82,10 @@ approximately 1.54 GB. No simulation was run and no new data was collected.
 
 Exact-result literature reviews are saved beside the software and data results in
 `outputs/gated/F004`. These establish software/data validity; they are not evidence
-of improved prediction. The GPU execution supervisor and final evaluator still
-need implementation and qualification. No F004 training has started.
+of improved prediction. The GPU execution supervisor now passes seven additional
+CPU groups, including real process ownership/stall checks and elapsed-only serial
+admission. Its review is under `execution_software`. The final physical evaluator
+and trained-model numerical checks remain required. No F004 training has started.
 
 ## Transfer limits and next action
 
@@ -102,9 +104,13 @@ offline Go2 comparison, with perception, occlusion, action-response accuracy and
 inference cost tested explicitly. Reused validation and simulator behavior remain
 limits on generalization.
 
-Next: finish the in-flight O0 evaluation and review its terminal evidence, qualify
-the F004 GPU execution route, then run and review the three arms. O1 planning and
-the old incomplete matrix remain preserved and do not advance automatically.
+[O0 is complete and reviewed](FULL_O0_PLANNING_2026-11-16.md). Next pin the qualified
+F004 execution source and launch the factual arm, then review actual training and
+operations before the next arm. The runner starts fresh runs only; a restart needs
+a separately reviewed invocation preserving the earlier attempt. Science artifacts
+are under `runs/ARM_s0/science`, operations under `runs/ARM_s0/operations`.
+O1 planning and the old incomplete matrix remain preserved and do not advance
+automatically.
 
 The literature gate remains in force. [Trajectron++, Sections 4–5](https://arxiv.org/pdf/2001.03093)
 supports explicit robot-plan conditioning and physical trajectory evaluation.

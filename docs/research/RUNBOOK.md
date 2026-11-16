@@ -30,6 +30,23 @@ O0 reviews. The exported dataset has104,590 train and10,601 validation scenes;
 no F004 training has started. Keep the hash-bound primitive source unchanged or
 explicitly review any changed implementation before using it.
 
+O0 subsequently completed all3,000cases and passed independent U002 inspection;
+its science review is a negative, operations pass. See
+[the full result](FULL_O0_PLANNING_2026-11-16.md). F004 execution software now has
+seven passed/reviewed CPU groups. Its fresh-run command, from a clean pinned
+checkout with the shared outputs link, is:
+
+```sh
+"$PY" tools/research/f004_run.py --arm factual \
+  --preconsultation outputs/gated/F004/pre_factual_s0.json
+```
+
+The preconsultation must bind actual source commit/hashes and the complete
+`f004_runtime.inventory('factual')`. The runner checks source/data/reviews, idle
+GPU and closed prior intervals itself. It writes science to
+`outputs/gated/F004/runs/factual_s0/science` and operations beside it. Do not edit
+the running checkout. No automatic next arm, time cap or CPU training fallback.
+
 ## Current user authorization — GPU time limits removed
 
 On 16 November 2026 the user explicitly removed GPU-hour limits for the approved

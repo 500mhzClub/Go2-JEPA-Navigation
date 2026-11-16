@@ -30,6 +30,12 @@ train and10,601 validation scenes with seven futures each. No model has trained.
 Qualify the GPU execution route and review terminal O0 evidence before launching
 the factual/branch/paired comparison. Do not repeat the completed audits.
 
+Those prerequisites are now complete: [full O0](FULL_O0_PLANNING_2026-11-16.md)
+has reviewed success1.5/1.1/1.2% atH4/H6/H8, with independent scoring and operations
+passing. F004's seven execution checks also pass and are reviewed. Launch the
+factual arm from clean pinned source after fresh bound consultation; subsequent
+arms still require actual predecessor reviews. No F004 forecast result exists yet.
+
 ## Current user authorization — GPU time limits removed
 
 On 16 November 2026 the user explicitly removed GPU-hour limits for the approved
