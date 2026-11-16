@@ -99,6 +99,12 @@ integration with six groups,23 metadata and14 terminal corruption refusals;
 its full state computation is unchanged. No additional seed or actual audit has
 run.
 
+[U007](records/U007.json) qualifies the additional-baseline numerical launcher
+and artifact verifier under U001. Eight integration groups pass; numerical
+source and artifact-check computation are unchanged. Actual extra-seed numerical
+results remain pending. C011/B004 source inventories match the preserved gated
+checkout; complete actual parent admission still needs checking before use.
+
 Results and review digests live beside run artifacts. This index must be updated when a result is interpreted. Status vocabulary: `passed`, `measured_negative`, `technical_blocked`, `budget_incomplete`. Separate implementation validity, representation, prediction, planning and generalization evidence.
 
 See the [first completed RGB encoder](RGB_ENCODER_TRAINING_2026-11-16.md) for audited training, numerical checks and the reviewed shared cache.

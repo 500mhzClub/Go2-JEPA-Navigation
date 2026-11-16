@@ -557,28 +557,37 @@ operations. Bind `final_audit_review` and its SHA256 in the C001 review; retain
 the same reference in the operational review. A successful artifact audit does
 not replace the still-required numerical inference gate or scientific evaluation.
 
-After those actual reviews, run the unchanged numerical evaluator through A019:
+After those actual reviews, run the unchanged A019 numerical evaluator through
+the qualified U007 accounting-only supervisor:
 
 ```sh
-python3 outputs/gated/A019/run_check.py --run l0_n3_s1 --python "$PY" \
-  --preconsultation outputs/gated/A019/pre_l0_n3_s1.json
+"$PY" outputs/gated/U007/run_check.py --run l0_n3_s1 --python "$PY" \
+  --preconsultation outputs/gated/U007/pre_l0_n3_s1.json
 ```
 
 The fresh consultation binds `name`, `research_sha256`,
-`scientific_research_sha256` (both A019), `software_review_sha256` and the complete
-`inputs_sha256` mapping returned by A019's `stages.inputs`, plus sources,
+`scientific_research_sha256` (both A019), the original A019
+`software_review_sha256`, and the complete `inputs_sha256` mapping returned by
+U007's `common.inputs`, plus sources,
 consultation time and consequences. It requires the original A014-bound n3
 train/validation bytes and actual C001/C010/A018 evidence. Science goes to
 `A019/inference/RUN`, operations to `A019/runs/RUN`. All paths are under
 `outputs/gated`. The four names are L0/L1 n3 seeds1/2; seed0 reruns are refused.
+Both numerical and artifact consultations additionally bind
+`u007_record_sha256`, `u007_software_review_sha256` and
+`u001_authorization_sha256`. Actual U005 training and U006 audit integration
+must pass alongside all original A019 parent checks.
 
 A019 reuses the original numerical module without changing its computation or
 sample policy:4096 train calibration windows,64 train/validation diagnostics,
 float64/math and the original tolerances. Its non-A003 branch uses the original
 0.10 allocator fraction; actual memory fit remains unmeasured. The external
-supervisor enforces1800seconds including45cleanup within the existing shared
-A4/global48 allowances. Both nested intervals count once. No extra allowance,
-automatic retry, successor or scientific review is provided.
+supervisor has no total GPU-time deadline. It watches output progress and uses
+an1800-second quiet interval with45seconds reserved for owned-process cleanup.
+Both nested intervals retain elapsed accounting. The numerical result's
+allowance field is JSON null; its sole budget accessor writes metadata and
+does not change numerical operations. No automatic retry, successor or
+scientific review is provided.
 
 After actual normal completion, inspect the outputs and revisit the sources,
 then use the CPU artifact verifier:
@@ -586,8 +595,8 @@ then use the CPU artifact verifier:
 ```sh
 HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' ROCR_VISIBLE_DEVICES='' \
   OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
-  timeout --kill-after=5s 175s "$PY" outputs/gated/A019/verify_result.py --run l0_n3_s1 \
-  --preconsultation outputs/gated/A019/pre_artifact_l0_n3_s1.json
+  timeout --kill-after=5s 175s "$PY" outputs/gated/U007/verify_result.py --run l0_n3_s1 \
+  --preconsultation outputs/gated/U007/pre_artifact_l0_n3_s1.json
 ```
 
 That consultation binds `name`, `research_sha256`, `scientific_result_sha256`,
@@ -599,8 +608,11 @@ permitted BN-buffer changes, including reported calibration deltas. It does not
 rerun GPU arithmetic or re-estimate the calibration moments. Auxiliary-head
 gradients are outside the latent-only parity loss.
 
-Thirteen CPU software groups, including four default artifact fixtures and18
-corruptions, are reviewed. No actual additional-seed numerical result exists.
+The original thirteen CPU software groups, including four default artifact
+fixtures and18 corruptions, remain reviewed. U007 adds eight reviewed integration
+groups, including22 numerical metadata corruptions. Original numerical source
+and artifact-check computation are unchanged. No actual additional-seed
+numerical result exists.
 Review actual numerical, verification and operational results separately before
 probes/planning; bind the verification digest and verified run identity to the
 numerical review because the unchanged calibrated export omits a top-level seed.
@@ -617,6 +629,12 @@ After actual C001/C010/A018 and all three A019 reviews, use:
 ```sh
 python3 outputs/gated/C011/run_one.py --run l0_n3_s1 --python "$PY"
 ```
+
+Use the preserved `Go2-JEPA-Navigation-gated` checkout at
+`a75523bde0d1bb57c46ffb2fdcbbd036e87a36a8` for C011 and B004. A read-only
+source/record comparison found no mismatches against either software result
+(`U007/cpu_routing_observation.json`). This only establishes source compatibility;
+revalidate complete actual parent admission and data before each CPU run.
 
 Before launch, create `C011/pre_RUN.json` with name, C011 record digest,
 software-review digest, complete input hashes, original train/test data hashes,

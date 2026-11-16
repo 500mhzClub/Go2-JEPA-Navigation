@@ -1,0 +1,95 @@
+{
+  "id": "U007",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T10:23:43.803463+00:00",
+  "question": "Can the unchanged additional-baseline numerical protocol and artifact verifier use unlimited GPU accounting with exact U005/U006 lineage?",
+  "hypothesis": "Operational and metadata-only adapters preserve all original A019 numerical computations, tolerances and artifact checks.",
+  "sources": [
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Floating point and batched versus sliced computations",
+      "consequence": "Retain complete float64/math270comparison protocol and unchanged tolerances; removing GPU deadlines establishes no numerical success."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/json.html",
+      "version": "3.12",
+      "sections": "JSONEncoder allow_nan, None/null and nonfinite numbers",
+      "consequence": "The evaluator has one budget_remaining call used only in result metadata. ReturnNone for that call after verifying U001 authorization; retain allow_nan=False and all numerical nonfinite refusals."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/runpy.html",
+      "version": "3.12",
+      "sections": "run_module, run_name and alter_sys",
+      "consequence": "Install accounting before the original module imports it in a fresh child; do not edit numerical source."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen poll/wait, TimeoutExpired and terminate/kill, revisited in U005/U006",
+      "consequence": "Reuse reviewed exact-owned progress supervision and original A019 terminal interval closure. No absolute GPU-time limit."
+    }
+  ],
+  "differences": "A019 run paths/research identity and artifact_checks are unchanged. New U007 supervision replaces old global/A/per-call GPU caps with U001 accounting. Original numerical module source stays byte-identical; only its metadata accessor returnsnull. Source guards reconcile only three already-C014-qualified evaluator differences. Explicitly bind actual U006 final-state audit and U005 training.",
+  "contrary_evidence": "A software pass does not establish actual numerical correctness or useful planning. The original non-A0030.10 allocator fraction remains unchanged and may fail operationally. The numerical module has limited intermediate output;1800seconds without any watched output remains a stall trigger, not a GPU-hour allocation.",
+  "protocol": {
+    "scope": [
+      "l0_n3_s1",
+      "l1_n3_s1",
+      "l0_n3_s2",
+      "l1_n3_s2"
+    ],
+    "numerics": "Exact original go2nav.eval.balls_inference,A019 float64/math,64diagnostic windows,4096train calibration,rtol1e-4atol1e-5,270comparisons and127basegradient tensors perphase. No head-gradient or all-input claim.",
+    "admission": "Reuse original A019 route/inputs/consultation and C010 reviewed fulltraining/A018audit/data gates. Additionally require U005 training and exact U006 audit integration; bind U001/U006/U007 records/software/helper bytes. Actual missing training refuses before GPU access.",
+    "supervision": "Locked A019 outer marked A019 supervisor,U007 integration,U001policy. Original A019 close_intervals; U001 accounting_run and wait_progress with null total budget. Watch evaluation.log,source.pt,calibrated.pt.partial,calibrated.pt,result.json;1800seconds quiet trigger, exact-ownedTERM30/KILL10. No auto successor/retry/review.",
+    "reporting": "Original evaluator uses budget_remaining only once, assigning result budget_remaining_hours. Substitute authorized accessor returningNone and preserve strict JSON; other modules keep their own reviewed internal numeric accessor.",
+    "verification": "Controlled copy of original A019 verify_result.py: retain artifact_checks AST exactly, original custody/terminal/closed nested interval checks, extend software/source and policy metadata checks. Explicit U007 identity, exact original numerical runtime/source plus null budget and U001authorizations. Original A019/verification paths preserved.",
+    "checks": [
+      "Exact numerical source and artifact-check AST, four original commands and inherited functions",
+      "Single metadata-only budget accessor and strict JSONnull; wrongauthorizationrefusal",
+      "Closed60hour ledger admits; openrefusal and originalnestedclosure",
+      "Four original completedtraining/audit/data fixtures plus U005/U006 integration; missing/stale/rawtamperrefusal",
+      "New scientific/operational policy metadata corruption refusals with original artifact checks inherited unchanged",
+      "Fresh consultations bind exact record/software/authorization; actual missingtraining refuses",
+      "NoTorch/GPU, sharedledger or activehelpermutation"
+    ],
+    "source_sha256": {
+      "go2nav/eval/balls_inference.py": "6f3846621f492f348b97ee2c999832180bf2a6248e953c3f87b1045542d86c02",
+      "outputs/gated/A019/verify_result.py": "dfb77db2cd7cfb063ca0bc00f7a7e4fa3cf9053bc245f9515eabc59edbe4c690",
+      "outputs/gated/A019/run_check.py": "ea68a10bfdb7206d32e1eff578b0cbbc21ea28a76dc9a8dacca37c1df0fe0900",
+      "outputs/gated/A019/software/review.json": "924c2f92128101e9eca641d4feca3bf4442bd61cac08612d6799824dee64b803",
+      "outputs/gated/U006/software/review.json": "8a40a3aab829a4fb406613118a81a82a96aff2dbf52397570068048d4f732e37"
+    },
+    "actual_followup": "Run only after actual reviewed full training; independently execute full artifact verifier and review numerical/science, verification and operations before CPU probes/planning."
+  },
+  "success": "Operational checks pass without modifying or weakening the original numerical protocol; each actual checkpoint must subsequently pass the full suite and artifact review.",
+  "stop": "Refuse wrongscope, missing/partial/stale inputs, occupiedGPU/openinterval, existingoutput or unqualifiedsource. Retain all failures. No automaticreview, precisionchange or GPUdeadline restoration.",
+  "resources": {
+    "gpu_hours_max": null,
+    "budget_policy": "U001",
+    "memory_fraction_max": 0.1,
+    "software_cpu_seconds_max": 180,
+    "artifact_cpu_seconds_max": 180,
+    "stall_seconds": 1800
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/A019/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/U001/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/U006/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

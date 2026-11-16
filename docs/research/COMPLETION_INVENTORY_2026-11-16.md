@@ -41,13 +41,16 @@ followthrough checkout. Keep scientific computation and existing reviews intact:
   six integration groups pass. All actual extra-seed artifacts remain absent.
 - C005v2 still enforces old48/28-hour allocations for later encoders, caches and
   predictors. Retain C001 recipes and the approved count/seed order.
-- A019 still enforces old48/4-hour and per-call GPU deadlines. Preserve the
-  original numerical computation and the separately qualified artifact audit.
+- A019's U007 adapter now removes old48/4-hour and per-call GPU deadlines;
+  eight integration groups pass. Numerical computation and artifact checks
+  remain unchanged. Actual additional-seed numerical results remain absent.
 - C009v2 still enforces old scientific allocations for later object measures.
   Extend the accounting-only execution route to those already-approved cases,
   retaining C014 admission and independent inspections.
 - CPU-only C011/B004 have separate wall/RSS bounds. They are not GPU-hour caps;
-  do not silently change their scientific or resource protocols.
+  do not silently change their scientific or resource protocols. Their source
+  and record inventories match the preserved gated checkout at a75523b; use
+  that checkout after revalidating complete actual parent/data admission.
 
 These are pending operational corrections, not reasons to interrupt current O0
 or to tune the planner. Consult the relevant official documentation before each
