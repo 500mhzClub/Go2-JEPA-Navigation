@@ -1,0 +1,33 @@
+{
+  "id": "C015_inspector_import",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T09:25:25.615138+00:00",
+  "question": "Can the unchanged independent C015 inspector import its dependencies without shadowing the standard library?",
+  "hypothesis": "Renaming the external helper removes inspect.py shadowing without changing verification computations.",
+  "sources": [
+    {
+      "url": "https://docs.python.org/3.12/library/sys_path_init.html",
+      "version": "3.12",
+      "sections": "Module search path initialization, first entry and standard library order",
+      "consequence": "The script directory precedes the standard library. A helper named inspect.py shadows Python inspect during NumPy import; rename the helper and retain failed source away from active import paths."
+    }
+  ],
+  "differences": [
+    "Packaging-only correction; all C015 scientific and numerical protocol settings unchanged."
+  ],
+  "contrary_evidence": [
+    "No verification group executed in the failed CLI; renaming alone does not establish correctness."
+  ],
+  "protocol": {
+    "scope": "Move original inspect.py into the preserved import-attempt directory; copy identical bytes to trace_inspection.py; rerun existing --check; require passing exact-result review before --actual.",
+    "source_sha256": "c59af36ac831865304fe8cc07702496f7102dce98f7407583fbfe8c5383bc80e",
+    "failure_review_sha256": "76accb0418c530e9d9c5963e7e7d1dcc230e47546bf6adc766257aaacc9a45e3"
+  },
+  "success": "Original four software groups pass with no CUDA; then independently inspect all 36 saved traces under C015.",
+  "stop": "Any test/import/identity failure; preserve result and do not interpret science from software failure.",
+  "resources": {
+    "gpu_hours": 0,
+    "cpu_threads": 2,
+    "wall_seconds": 180
+  }
+}

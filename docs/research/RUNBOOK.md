@@ -773,9 +773,11 @@ finding and corrected eleven-group software verification are preserved.
 The first O0 planning operation was retired after55saved cases because observed
 throughput projected5.44hours per arm against the existing2hour stage allowance.
 Its partial evidence and technical review are preserved.
-[C015](PLANNING_THROUGHPUT_2026-11-16.md) now has eight reviewed CPU software
-groups; the next step is its bounded GPU cost-transfer equivalence/timing
-diagnostic before any full planning restart.
+[C015](PLANNING_THROUGHPUT_2026-11-16.md) completed and passed independent
+trace checks for both variants. The faster layout saved only 3.02% measured time;
+about 5.4 GPU-hours per arm remains beyond the existing two-hour B001 cap.
+No training or planning child is active. Next is literature-gated CPU evaluation
+feasibility/equivalence or another bounded runtime diagnosis before any restart.
 
 After qualified runtime admission, the scope remains paired O0/O1 planning,
 then offline P26, additional seeds/counts, full comparison and final archive.

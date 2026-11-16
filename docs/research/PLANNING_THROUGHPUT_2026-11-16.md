@@ -48,3 +48,34 @@ Evidence: `outputs/gated/C015`; preserved original partial science under
 `outputs/gated/C009/v2/runs/planning/o0_n3_s0`. Paired probes remain reviewed
 negatives with a descriptive O1 error improvement. Complete paired planning,
 offline P26, replications and final report/archive are still required.
+
+## Completed diagnostic and independent review
+
+The diagnostic finished normally in 476.592 seconds. Both transfer layouts pass
+the declared checks across O0/O1, train/validation episode 0 and horizons 4/6/8.
+All corresponding trace arrays are identical. Independent CPU inspection of 36
+files reconstructs 72,000 assignment costs by checking all 120 permutations,
+plus seeded proposals, rankings, final commands and physical scores. Maximum
+assignment-reference rounding difference is 1.137e-13, within the fixed tolerance.
+
+The first layout reduced aggregate measured time by 1.24%; the batched-index
+layout by 3.02%. The latter still projects approximately 5.37 hours for O0 and
+5.39 hours for O1, each exceeding the existing two-hour B001 GPU allocation.
+Numerical qualification therefore passes, while planning budget feasibility
+remains unresolved. Fixed timing order, a single timing per case and the small
+sample prevent a general speed claim. Remaining bottlenecks are not isolated.
+
+The independent inspector initially failed to import because its filename
+shadowed Python's standard-library inspect module. The failed source and review
+are preserved; renaming identical bytes to trace_inspection.py resolves that
+packaging error. Four software groups and actual trace inspection pass.
+
+All diagnostic device intervals are closed. No training or planning child is
+active. 42.924 additional GPU-hours remain globally and 23.427 B/C hours remain;
+the local B001 cap still applies. Next is a literature-gated CPU evaluation
+feasibility/equivalence check or another bounded runtime diagnosis, before full
+paired planning. CPU training is not proposed. Offline P26, additional seeds
+and counts, the full comparison and final archive remain outstanding.
+
+Exact reviews: outputs/gated/C015/diagnostic/review.json, inspection_review.json,
+and outputs/gated/C015/operations/review.json.
