@@ -43,6 +43,7 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 
 | Record | Question | Current status |
 |---|---|---|
+| [U002](records/U002.json) | Can the unchanged independent planner scoring inspect U001 full outputs? | Six CPU adapter groups reviewed; original thirteen-group scoring retained. Complete actual O0/O1 results remain pending |
 | [A001](records/A001.json) | Are saved inference statistics valid; can train-only calibration repair them? | Six intermediate snapshots reviewed; L1 float32 validity blocked, followed by A002 |
 | [B001](records/B001.json) | Does the fixed balls evaluator solve its controls without future leakage? | Controls pass at every n/horizon; all six original baseline planning cases reviewed through B003; object-model arms remain |
 | [B002](records/B002.json) | Is unchanged baseline planning numerically valid and practical on spare CPUs? | Six software check groups and actual L0n3 preflight reviewed; sampled cost discrepancy at most5.116e-13, repeated actions exact; rough full-model estimate27.39minutes, no success-rate claim |

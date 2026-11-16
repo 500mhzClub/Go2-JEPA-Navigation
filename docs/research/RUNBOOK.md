@@ -836,3 +836,26 @@ The latest reviewed interim capture through A017 is
 payload files, 58 reviewed result rows). Its independent verification and substantive
 review are under `outputs/gated/E002/progress_archive`. Keep it unchanged; final
 training, planning and P26 results must enter a later bundle after their own reviews.
+
+## Full planning inspection after U001
+
+[U002](records/U002.json) qualifies the independent check for the fresh
+`planning_full/RUN` outputs. Six adapter groups pass, including seventeen
+metadata and eight interval-corruption refusals; the three independent physical
+scoring functions are imported unchanged from the previously qualified thirteen-
+group checker. No active or incomplete run is admitted as a complete result.
+
+O0 is running from the separate performance checkout at 4a68a72 under U001.
+Prepare inspection here without editing its four frozen runtime helpers. After
+confirmed normal terminal completion, run:
+
+```sh
+timeout 180s env HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' ROCR_VISIBLE_DEVICES='' \
+  OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 \
+  "$PY" outputs/gated/U002/verify_planning.py --run o0_n3_s0
+```
+
+Review the exact inspection, scientific and operational result digests before
+launching O1. Use the same checker for O1 after its separate full completion.
+Actual scientific performance is still pending; software qualification alone
+does not fill planning or P26 comparison cells.

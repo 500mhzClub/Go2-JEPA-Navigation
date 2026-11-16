@@ -1,0 +1,69 @@
+{
+  "id": "U002",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T09:42:04.360941+00:00",
+  "question": "Do complete object-planning results produced under U001 preserve the original task, score, summary and evidence requirements?",
+  "hypothesis": "The already-reviewed independent B001 scoring functions can inspect the fresh planning_full outputs by adapting only operation identity, path and accounting metadata.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/html/2602.11389v2",
+      "version": "v2",
+      "sections": "AppendixG507-520, final elite mean and Hungarian latent goal matching",
+      "consequence": "Keep original CEM/latent assignment and distinguish latent objective from actual endpoint/collision scoring; local B001 horizons/candidates differ."
+    },
+    {
+      "url": "https://arxiv.org/html/2609.04264v3",
+      "version": "v3",
+      "sections": "4.4 latent planning156-161 and5.1.1 paired evaluation167-175",
+      "consequence": "Preserve matched tasks and samples. Independent physical trajectory reconstruction is necessary; probe and mask failures do not substitute for measured planning."
+    },
+    {
+      "url": "https://numpy.org/doc/2.4/reference/generated/numpy.quantile.html",
+      "version": "2.4 installed2.4.6",
+      "sections": "method default linear and Notes interpolation rule",
+      "consequence": "Retain all2000episode bootstrap draws/seed and linear percentile interpolation."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Floating-point and batched/sliced operations",
+      "consequence": "Use unchanged endpoint reconstruction tolerance1e-4/1e-5; require exact success/collision classifications at1px/6px, preserve disagreement rather than relaxing tests."
+    }
+  ],
+  "differences": "Independent CPU evidence inspection only. Original three scoring/summary functions are imported byte-for-byte from the qualified C009v2 inspector. U001 removes GPU time caps and writes fresh paths; all scientific validation thresholds and complete3000-task scope remain unchanged. No changes to live U001 helpers or running scientific sources.",
+  "contrary_evidence": "Complete logs and exit0 alone do not prove correct task pairing, physical scores or lineage. An unfinished or retired original run must not be accepted. The original evaluator does not save neural outputs or all optimizer candidates, so those cannot be independently replayed.",
+  "protocol": {
+    "cases": [
+      "o0_n3_s0",
+      "o1_n3_s0"
+    ],
+    "parents": "Exact C009v2 thirteen-group planning-inspector review and source; U001 seven-group runtime review and four helper hashes; C014 checkpoint-specific numerical review; corresponding reviewed physical probe; B001 controls.",
+    "sources": "Use a separate followthrough checkout while performance4a68a72 executes. Verify saved scientific provenance against its recorded runtime cwd, including original code/docs/config hashes; do not require the new checker checkout commit to equal the old runtime commit.",
+    "operation": "Require terminal normal U001/C009 operation without timeout/signals/errors, owned PID absent, both owned ledger intervals closed, no numeric GPU budget, exact U001 authorization digest, same science/operation commit and B001 protocol. Verify all saved artifact and complete canonical input hashes; reject stale identity or reuse of original partial output.",
+    "scoring": "All1000 episodes x H4/6/8, same task/control pairing and seeds, independent double physical integration, endpoint tolerance rtol1e-4 atol1e-5, exact1px success/6px collision flags, capped finite actions. Recompute original2000 episode bootstrap draws/quantiles and all summaries at1e-12; no partial success claim.",
+    "software": "Verify imported source/review/function identities, synthetic original score/summary integration, normal new metadata plus old-budget/wrong-authorization/wrong-source/wrong-run/incomplete/failed-operation corruption refusals, exact87-file real O0 admission and live-owned-process refusal. HiddenGPU2threads180s; no scientific output or live source mutation.",
+    "actual": "After each full run terminates, one180second CPU inspection emits an exact-result/operation/source-bound artifact. Failures preserved separately, followed by substantive review. Neither software nor an inspection artifact itself auto-approves science."
+  },
+  "success": "Complete independent task/physical-score/summary and evidence checks pass for each full paired arm; performance remains a separate scientific conclusion.",
+  "stop": "Refuse incomplete/live/stale/mutated/wrong-run evidence or any scoring discrepancy. Do not relax tolerance, skip cases or change the runtime.",
+  "resources": {
+    "gpu_hours": 0,
+    "cpu_threads": 2,
+    "software_wall_seconds": 180,
+    "actual_wall_seconds": 180
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/U001/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/C009/v2/planning_inspection_software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
