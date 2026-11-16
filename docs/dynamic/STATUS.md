@@ -2593,3 +2593,27 @@ one seed, k = 8:
 - **On T1, R1 reads the same and worse:** retention 3.7-4.8 px, forecasts at chance (agent 21.5 px, slope 0).
 - By PLAN's reading (R passes, X fails: the predictor), R2 follows: weight each token's error by its target patch's
   change.
+
+## P27 R2: motion-weighted patch tokens (16 November)
+
+R2 [R1 with each patch token's prediction error weighted by its target patch's pixel change; floor 0.1, mean
+weight 1] tests capability 3: whether the predictor can be made to carry the movers that R1's dropped. One seed,
+6,000 steps, k = 8:
+
+| T2 | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False | Slope | R: agent / green / blue / yellow |
+|---|---|---|---|---|---|---|---|---|
+| Oracle-S | 0.41 | 31.6 | 1.25 | 0.61 | 0.59 | 5% | 0.58 | - |
+| R1 | 15.0 | 1.2 | 22.6 | 18.8 | 1.28 | 82% | 0.27 | 3.1 / 2.4 / 1.4 / 1.8 |
+| R2 | 5.05 | 2.8 | 23.2 | 20.0 | 1.32 | 95% | 0.69 | 0.9 / 1.0 / 1.5 / 0.9 |
+
+- **Retention nearly meets its bar:** every object within 0.9-1.5 px (bar 1 px). The weighting makes the encoder
+  hold the discs precisely.
+- **The agent comes back in part:** 3.1 px at one step and 5.1 px at 8 (R1 13.7 and 15.0), still worse than holding
+  at one step (1.7 px), with a shuffle ratio of 2.8 (bar 5).
+- **Obstacles' forecasts stay at chance:** 11 px at one step where holding errs 1.2 px. The slope of 0.69 comes with
+  95% false responses: the predicted obstacle positions swing with the action whether or not the obstacle responds.
+- **On T1 it fails outright:** retention 2.4-3.2 px, forecasts at chance, shuffle ratio 1.0.
+  - Every patch-token and [CLS] run has read worse on T1 than on T2. A likely cause, not tested: the rings are
+    constant through an episode and differ between episodes, so they satisfy SIGReg at no prediction cost.
+- **Reading:** the encoder is no longer the limit on T2; the predictor is. Its one-step output is further from the
+  truth, as the head reads it, than a copy of the last frame would be.
