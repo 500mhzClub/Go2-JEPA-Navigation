@@ -51,6 +51,8 @@ been regenerated; its earlier probes-only snapshot remains historical evidence.
 The first object encoder and shared cache are complete. O0 completed 30 epochs
 and passed the terminal-state audit, but its selected-weight numerical check
 found four long-rollout grouping failures. See the
-[O0 report](OBJECT_PREDICTOR_O0_2026-11-16.md). Diagnose that gate under a fresh
-bounded literature-backed protocol, then complete paired O1, object evaluations,
+[O0 report](OBJECT_PREDICTOR_O0_2026-11-16.md). The subsequent reviewed C012
+diagnostic supports recursive floating-point amplification and a candidate
+float64 predictor policy; full numerical admission remains pending. Validate
+that policy, then complete paired O1, object evaluations,
 offline Genesis P26 and approved replication. No Go2 transfer is yet demonstrated.

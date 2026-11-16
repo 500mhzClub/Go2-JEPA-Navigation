@@ -23,8 +23,13 @@ Do not rerun extraction. O0n3seed0 completed30epochs/11370updates through C005v2
 with historical runtime commit a75523b. Its actual C008/C001/C005 reviews pass.
 Selected-weight C004 found four long-rollout grouping failures, despite all
 1392 small-batch comparisons passing. The numerical review is technical_blocked;
-normal C007 completion does not override it. Preserve source/checkpoints and
-prepare a fresh bounded precision/backend diagnostic before dependent science.
+normal C007 completion does not override it. C012 subsequently completed its
+bounded precision diagnostic; all180 saved-array summaries and separate actual
+inspection/science/operation reviews pass. Float32 regrouping failures appear
+at steps7/8; common-history float32 and recursive float64 comparisons pass.
+Preserve C004 and all checkpoints. Next preregister full validation of the
+float32 encoder/float64 predictor policy and downstream dtype boundaries before
+adoption. C012 alone cannot admit C004/C009 or any physical interpretation.
 See the [O0 report](OBJECT_PREDICTOR_O0_2026-11-16.md). O1 remains pending.
 C008 is a training-state audit and does not cover extraction. Keep each future
 active trainer's runtime pinned through its actual C008 and completion reviews.
