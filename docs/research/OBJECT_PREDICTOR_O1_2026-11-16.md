@@ -45,7 +45,8 @@ meet the declared mask criterion. This limits the interpretation of O1 as maskin
 isolated physical objects, while leaving its predictive utility to be measured.
 See the [deployed inference report](OBJECT_INFERENCE_INTEGRATION_2026-11-16.md).
 
-Next are physical probes and paired planning. Then comes the
+The first [O0 physical probes](OBJECT_PROBES_N3_2026-11-16.md) now show a
+reviewed negative; O1 probes and paired planning are next. Then comes the
 approved offline Genesis comparison, additional seeds/counts and final evidence
 report. Original failed numerical results and all training checkpoints remain
 unchanged. There is no demonstrated Go2 transfer yet.

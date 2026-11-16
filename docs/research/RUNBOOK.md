@@ -755,17 +755,25 @@ including counts and all waiting/kind breakdowns. Its positive review is `output
 
 ## Latest execution state — 16 November 2026
 
-All six original baseline planning cases and18,000 saved-case reconstructions are
-complete and reviewed. L1n6 is a measured scientific negative, with successful
-operation. O0n3seed0 completed30epochs/11370updates and passed C008/C001/C005
-reviews. Its actual C004 check is technical_blocked: four100candidate8step
-regrouping comparisons exceed fixed tolerance; all1392 short-window comparisons
-and two exact rollout repeats pass. Preserve the failure and a75523b source.
-No training or evaluation is currently active. Before dependent object work,
-preregister a bounded precision/backend/accumulation diagnostic; do not overwrite
-C004 evidence, silently relax tolerances or infer a scientific O0 negative.
-The full C002 comparison, O1/object science, offline P26, further seeds/counts and
-actual final archive remain pending. See the all-six and O0 reports.
+All six original baselines have completed training, numerical admission, probes
+and planning, including independent reconstruction of 18,000 planning cases.
+The first n3 seed0 encoder/cache and both O0/O1 training runs are complete.
+C014 deployed full64 checks pass for all three selected checkpoints; original
+C004 and mixed-precision failures remain preserved.
+
+The encoder mask-binding result is a reviewed negative (0/20,000 bound ball
+appearances). O0 physical probes also have a measured-negative review: four-step
+red position RMSE78.807px versus held-current21.990px. Independent reconstruction
+matches all summaries exactly; operation and inspection pass separately. See
+[object probes](OBJECT_PROBES_N3_2026-11-16.md) and
+[binding](OBJECT_BINDING_N3_2026-11-16.md). The inspector's initial dtype-coverage
+finding and corrected eleven-group software verification are preserved.
+
+Next are unchanged O1 probes and paired O0/O1 planning through reviewed C009v2,
+then offline P26, additional seeds/counts, full comparison and final archive.
+Use `outputs/gated/continuation.json` and actual process/manifest state for the
+live handle. Do not relaunch a completed result or edit source bound to an active
+operation. Every outcome still needs its own literature review before a successor.
 
 ## Evidence bundle
 
