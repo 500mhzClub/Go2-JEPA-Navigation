@@ -1,0 +1,104 @@
+{
+  "id": "F002",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T14:13:46.061782+00:00",
+  "question": "What do the saved Go2/M5 evidence and exact paired ring reaction vectors already establish, and is M5 reaction error dominated by missed real responses or invented responses?",
+  "hypothesis": "An aggregate reaction slope and average predicted displacement conceal different failures on responsive and nonresponsive windows. Physical paired-vector errors and null controls identify a more specific next forecasting comparison.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/pdf/2001.03093",
+      "version": "v5",
+      "sections": "Section3 future ego-plan formulation; Section4 robot future encoder; Section5 physical ADE/FDE and deterministic baselines, read 16 November before implementation",
+      "consequence": "Measure physical vector errors conditional on alternate robot paths; do not substitute latent similarity or ranking. A recorded-path forecast alone does not validate interventions."
+    },
+    {
+      "url": "https://blogs.helsinki.fi/bk-club/files/2012/05/Efron_Bootstrap_AS1979.pdf",
+      "version": "Annals of Statistics 7(1),1979",
+      "sections": "Section2 equations2.1-2.8 and steps1-3; scanned printed pages2-3 inspected",
+      "consequence": "Resample complete episodes with replacement, keeping all their paired windows/models together; intervals approximate sampling uncertainty, not proof of population or causal validity."
+    },
+    {
+      "url": "https://arxiv.org/html/2609.04264v3",
+      "version": "v3",
+      "sections": "AppendixA.10, linear and MLP physical readouts",
+      "consequence": "Readout choice is separate from forecasting usefulness. Prior Go2 head failures do not justify a latent-only success criterion or an identical repeated head sweep."
+    }
+  ],
+  "differences": "CPU reanalysis of existing historical artifacts only: no inference, training, simulator replay, new data or launcher changes. These are already-inspected validation outputs, not a fresh confirmatory holdout. M6 and N4 differ in several training/model choices and are descriptive comparators, not causal ablations.",
+  "contrary_evidence": "M5 already improves aggregate ring and Genesis forecasts. N4 already used branched data and still failed the reaction slope bar. More labels or another head alone may not repair response accuracy. Historical reaction files omit model/source digests and rejected-window details; this audit cannot retrofit exact execution provenance or claim all-scene coverage.",
+  "protocol": {
+    "source_commit": "54b6c5201b84a56d8e9de41b6745beadc56b156d",
+    "inputs": {
+      "outputs/object_dynamics/m5_reaction.json": "085cf352182f4558e05aabb12b37acfe577a917c1da0f233525e12cda3280d15",
+      "outputs/object_dynamics/m6_reaction.json": "14178e926be4826f35f815f138f49c6f18b93756968de26078e110bd31fb2f46",
+      "outputs/object_dynamics/n4_reaction.json": "c2e875fb5dde23b8b46e8439d0430cdc521619d7f47ec3bb1ca559e150268a0a",
+      "outputs/object_dynamics/m5/config.json": "dd6a8256b95c8ec3826db42e98c4418015dad4e493b86da3bc45c56052997441",
+      "outputs/object_dynamics/m6/config.json": "593def36bb06378f1900bd0ef3d0213e172cb13969f696dd45a1fd3693efbe2f",
+      "outputs/object_dynamics/n4/config.json": "511304b0ce6174f7eec11ca061f7c4b231c3ac6438f60c2e1a6f8a25bc8106d8",
+      "outputs/object_dynamics/m5_offline.json": "a2d9a8d3581b71f83c9a15409be8ad5e4571a434a938e97934852cc869025aa3",
+      "outputs/genesis/m5_genesis_offline.json": "7893a19299af4c94356ec536f7709bfc326c402baff63d8d7b89a2357d2b906f",
+      "outputs/genesis/m5_ring_offline.json": "5348f8e5cc5e6649d2029de128727268c54262ca35ddab763f4090b24fce3720",
+      "outputs/measures/v2/measures.json": "b1b9470ace728ff36657981f7e10ade90cfc94b15d51642198f1f5a456c0c6a8",
+      "outputs/measures/control/measures.json": "d47133c1117cf9f02290f8cd171ad41f7d05640e23c2540bd09ee71e4e16f2a0",
+      "outputs/measures/c40k/measures.json": "c0e2ba3e83c4f7f132e5d8bfbe0d6f34224b9c5459a1161fdccb61b854830ca5",
+      "outputs/data/ring_corpus_v1/branches/summary.json": "4dd3e69a74670e8495691778223797d9bd597c223b4b57ad237b5cb515d20166",
+      "outputs/data/ring_corpus_v1/planner_branches/summary.json": "39be45ba2ae1df451f61e33dd5e5539ef45102a80e08c6a3021d6e4ba87de238",
+      "go2nav/eval/object_measures.py": "378d3d3ecf697b068fb7069721528a66afb70df1f38885da658ded89b633bb3c",
+      "go2nav/eval/measures.py": "5b0358ae0ee496f15cb81ba327e24cb859a66b5f802214de92f789fe54ff5e4b",
+      "go2nav/eval/mover_probe.py": "6c0799946289b47323af17b368084d6ad89d4b9d93d9905cae1273bce77b818f",
+      "go2nav/training/object_jepa.py": "d5f38c583cbf71857ee1dd70fe595e66916dc5b3fedd97234ca6de53f6f62a9f",
+      "go2nav/training/object_modes.py": "06ec9cd068e97761f81425495b3fc96a51afee5513312bdd786b1eff4ad01eee",
+      "go2nav/data/branches.py": "edd2a95204621311eb34dfce239888959792f11f83f59d61398c907b6060f98c"
+    },
+    "models": [
+      "m5",
+      "m6",
+      "n4"
+    ],
+    "paired_key": [
+      "episode",
+      "t0"
+    ],
+    "horizons_seconds": [
+      1.6,
+      3.2,
+      6.4
+    ],
+    "population": "All 511 saved rows from each of the three files; require exact matching keys, kind, waiting and true vectors. Abort on mismatch, duplicates, malformed/nonfinite vectors or changed hashes. No row dropping or selection by model output.",
+    "primary": "Per horizon for M5, mean Euclidean error of predicted (retreat minus hold) minus mean Euclidean error of zero-response baseline. Negative is better. Report episode-bootstrap 95% intervals for all rows, true response >0.05m, and true response <=0.05m. Report both all and responsive groups; no claim of useful reactions from the all-row null alone.",
+    "strata": [
+      "all",
+      "responsive (>0.05m)",
+      "nonresponsive (<=0.05m)",
+      "exact_zero (<=1e-6m)",
+      "waiting",
+      "not_waiting",
+      "each stored walker kind"
+    ],
+    "secondary": "Counts/episodes, mean/median/p90 vector error, zero-response error, magnitude absolute error, mean true/predicted magnitudes, direction cosine and angle only where true>0.05m and predicted>1e-8m with valid count, response precision/recall and nonresponse false-positive rate at the existing0.05m threshold; null for empty denominators. Reconstruct original centered least-squares slopes/offsets and original1000-draw rounded episode intervals, require equality with saved summaries. Full3-model paired comparisons descriptive.",
+    "bootstrap": {
+      "draws": 2000,
+      "seed": 2026111602,
+      "unit": "episode",
+      "method": "Sample all unique episodes with replacement; include every saved window of each selected episode, then apply each fixed truth-defined stratum. Same draws across models and horizons. Paired mean error difference, percentile2.5/97.5; count any empty-stratum draws and report null interval if fewer than1900 nonempty draws."
+    },
+    "interpretation": "This diagnostic does not replace P22 slope95 lower>0.5. Keep its previous result. New favorable physical-error evidence requires upper95<0 for all and responsive M5 at each horizon; any partial or uncertain finding is reported individually. No training selection or scientific gate is inferred from software success.",
+    "verification": [
+      "Synthetic exact, zero and opposite vector predictions",
+      "Duplicate key, nonfinite shape, changed truth and hash refusal",
+      "Independent scalar reconstruction of all point estimates and original slope summaries on real files",
+      "Validate episode bootstrap retains complete groups and paired comparisons; bound exact result and source digests"
+    ],
+    "outputs": "outputs/gated/F002/{software,result.json,review.json,verification.json}; tracked analysis source tools/research/f002_reaction_audit.py; audit report docs/research/FORECAST_EVIDENCE_AUDIT_2026-11-16.md"
+  },
+  "success": "Complete honest evidence audit, correctly reconstructed historical summaries and paired vector diagnostics, identifying a missing discriminating forecasting comparison without treating historical validation as unseen evidence.",
+  "stop": "Abort rather than silently intersect or repair rows on input/protocol mismatch. Do not start any new model, inference run, simulation or collection. A new training protocol must follow a fresh literature/result review.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "training_device": "none",
+    "cpu_threads": 2,
+    "memory_gib_max": 2,
+    "wall_seconds_max": 180
+  },
+  "predecessors": []
+}

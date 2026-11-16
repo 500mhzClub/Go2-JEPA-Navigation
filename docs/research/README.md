@@ -11,6 +11,13 @@ and review it on completion, then audit existing head/reaction evidence and
 preregister the missing forecasting comparison. Earlier stages remain preserved
 and incomplete; no new experiment or bypass is authorized by this documentation.
 
+[F002's completed evidence audit](FORECAST_EVIDENCE_AUDIT_2026-11-16.md) reconstructs
+the historical reaction summaries and adds paired physical-error and false-response
+checks on511 saved windows. M5 retains useful responses but fails the joint
+criterion because its false responses outweigh gains overall. Numerical verification
+passes independently. The next training comparison requires its own frozen protocol;
+see the audit's proposed ordinary/branched/paired-response comparison.
+
 ## Current user authorization — GPU time limits removed
 
 On 16 November 2026 the user explicitly removed GPU-hour limits for the approved

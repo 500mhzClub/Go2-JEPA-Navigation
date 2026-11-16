@@ -9,6 +9,12 @@ active O0 run, but do not automatically launch O1 planning or later replications
 Audit existing Go2/ring evidence and preregister the missing forecasting test.
 Existing launcher requirements remain intact until separately revised and verified.
 
+The [F002 audit](FORECAST_EVIDENCE_AUDIT_2026-11-16.md) is now complete and reviewed.
+Its result is a scientific negative with useful responsive-subset signal; its
+software/numerical checks pass separately. Do not rerun it. Next audit the existing
+branch payload and preregister the matched physical-forecast training comparison
+described there; F002 itself authorizes no training or new simulator data.
+
 ## Current user authorization — GPU time limits removed
 
 On 16 November 2026 the user explicitly removed GPU-hour limits for the approved

@@ -12,6 +12,13 @@ complete or converted into evidence for the clarified goal. [F001](records/F001.
 records the literature and source audit behind this documentation update; it is
 not a new experiment or a scientific result review.
 
+The subsequent [F002 evidence audit](FORECAST_EVIDENCE_AUDIT_2026-11-16.md)
+is complete: saved paired vectors show useful M5 responses but excessive false
+responses. It identifies the next comparison—matched deterministic forecasting
+with ordinary versus branched data and a separately tested paired-response loss.
+Read that evidence before preregistering the next experiment; do not repeat the
+audit or treat its proposed comparison as an already-qualified launch protocol.
+
 ## What we already tested, and what P25 adds
 
 Go2's earlier P4/P4b/P4d/P4f work already used ridge, MLP and spatial readout heads,
