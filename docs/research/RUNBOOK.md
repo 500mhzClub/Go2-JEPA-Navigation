@@ -8,20 +8,23 @@ and `outputs/gated/A016/runs/RUN`. No original trainer or final evaluator remain
 active. Their historical source pins and output directories must be preserved;
 do not relaunch completed cases. See the [final inference report](FINAL_INFERENCE_2026-11-16.md).
 
-The n3 seed0 RGB encoder is now training under C005 after primary-method
-consultation and unchanged data/source checks. A CPU-only read of its atomic
-checkpoint at 04:51 UTC confirms 15,845 of 23,752 updates across all 57 optimizer
-states and the scheduler, in epoch5 after five validations. Current exact process identities and
-heartbeat are under `outputs/gated/C005/runs/slots_n3_s0`, with the supervisor
-launch identity in `outputs/gated/C005/launch_slots_n3_s0.json`. Do not relaunch it.
-These counters establish progress; learned object binding remains unmeasured.
-Keep the active gated checkout pinned to81171a2; documentation updates belong in
-the isolated validation checkout until the child finishes.
+The n3 seed0 RGB encoder completed23752updates across eight epochs. Actual C008
+terminal audit, C001 training and C005 operation reviews pass; the original81171a2
+source binding is preserved. Selected-checkpoint C004 then passed all1104 sampled
+comparisons, with separate C004 and C007 reviews. Do not relaunch these completed
+cases. See the [encoder report](RGB_ENCODER_TRAINING_2026-11-16.md).
 
-After terminal completion, run the C008 audit before updating the pinned checkout,
-then inspect and literature-review actual C008, C001 and C005 artifacts before
-selected-checkpoint C004 through C007, cache and O0/O1. Object-model probes and
-paired learned planning follow, then P26 before extra seeds/counts. The six final
+Shared frozen-feature extraction started at06:18UTC through C005v2. Exact process
+identities and heartbeat are under `outputs/gated/C005/v2/runs/extract_n3_s0`,
+with launch identity in `outputs/gated/C005/v2/launch_extract_n3_s0.json`.
+Keep its gated checkout pinned to6925f47. After normal termination, inspect full
+cache shape/dtype/finiteness, source/data/encoder hashes and operations, then
+literature-review actual C001 and C005 results before paired O0/O1 training.
+C008 is a training-state audit and does not cover extraction.
+
+Object-model probes and paired learned planning follow, then P26 before extra
+seeds/counts. Baseline planning has four completed and reviewed cases (n1/n3
+L0/L1); L0n6 is the current CPU case, with L1n6 next after its review. The six final
 baseline probes are already complete through C006, with a reviewed partial C002
 audit under `outputs/gated/C002/final_baseline_probes`; do not rerun them. At admission,
 47.699 of48 additional GPU-hours and27.997 of28 B/C hours remained; current use

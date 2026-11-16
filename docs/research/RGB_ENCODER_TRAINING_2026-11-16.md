@@ -42,5 +42,26 @@ the earlier device hangs or prove permanent runtime stability.
 Evidence and separate reviews are under `outputs/gated/C008/runs/slots_n3_s0`,
 `outputs/gated/C001/slots_n3_s0` and `outputs/gated/C005/runs/slots_n3_s0`.
 The historical runtime commit is81171a2; its original source/config/data bindings
-remain recorded. Next is actual selected-weight numerical validation through
-C007/C004, followed by the shared cache and O0/O1 comparisons if that gate passes.
+remain recorded. After the actual completion reviews, the gated checkout advanced
+to6925f47 for selected-checkpoint validation and cache extraction.
+
+Selected-checkpoint C004 validation also passed and received separate science
+and C007 operation reviews. On32 real train/validation windows, all1104 declared
+comparisons passed:48 outputs,912 parameter gradients and144 grouping comparisons.
+Maximum absolute discrepancies were5.484e-6,4.082e-6 and1.431e-6 respectively,
+at unchanged relative1e-4/absolute1e-5 tolerances. The checkpoint and learned
+weights remained unchanged. Independent inspection checked the recorded coverage,
+sampling, finite summaries and source/input identities; it did not rerun GPU
+arithmetic. The encoder has no predictor candidate-rollout test.
+
+[PyTorch's numerical guidance](https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html)
+and Causal-JEPA D.2/E.2/E.3 were revisited after these actual results. This clears
+sampled numerical validity, with no object-binding or planning claim. C007 exited
+normally after7.238seconds, without timeout, signals or errors; owned intervals
+are closed. Evidence is under `outputs/gated/C004/slots_n3_s0` and
+`outputs/gated/C007/runs/slots_n3_s0`.
+
+Shared frozen-feature extraction started at06:18UTC through reviewed C005v2,
+using the same selected encoder and original train/validation data. Its actual
+artifacts and operation must be inspected and reviewed before paired O0/O1
+training. The extraction checkout remains pinned to6925f47 while it runs.
