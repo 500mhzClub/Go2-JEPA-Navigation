@@ -1,0 +1,102 @@
+{
+  "id": "C013",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T07:13:46.032740+00:00",
+  "question": "Which of two explicit precision policies passes complete selected O0 inference validation when encoder outputs are generated independently on CPU/GPU?",
+  "hypothesis": "Float64 predictor removes C012 grouping amplification for fixed history; full float64 encoding may also be needed to prevent amplification of independently encoded float32 differences.",
+  "sources": [
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Numerical accuracy and batched/slice computations lines393-403",
+      "consequence": "C012 identical encoder history does not test independent CPU/GPU encoding. Compare full paths, both mixed and full float64, at fixed tolerance; no mathematical guarantee follows from sampled agreement."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/generated/torch.nn.functional.scaled_dot_product_attention.html",
+      "version": "2.12",
+      "sections": "Dropout, backend controls and math float64 support lines484-533",
+      "consequence": "Keep original MATH and zero dropout. Precision is the only model-computation intervention."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/generated/torch.nn.Module.html",
+      "version": "2.12",
+      "sections": "double and to: floating parameters/buffers, in-place conversion, eval",
+      "consequence": "Build fresh strict checkpoint copies, promote floating values exactly and check unchanged originals. Include nonpersistent coordinate buffers; do not overwrite or retrain artifacts."
+    },
+    {
+      "url": "https://arxiv.org/html/2602.11389v2",
+      "version": "v2",
+      "sections": "4.1/4.2 observed-history inference, E.2 predictor dimensions",
+      "consequence": "Preserve trained encoder/predictor architecture and independent goal encoding. No masking/physical benefit inferred from numerical consistency."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen poll/wait, returncode, explicit timeout termination/reaping",
+      "consequence": "Use exact owned child supervision, bounded walltime and existing reserve/global ledger. Operational completion remains separately reviewed."
+    }
+  ],
+  "differences": "C012 used identical float32 encoder histories. C013 separately checks encoder and predictor real-input forwards/gradients, complete independently encoded paths, rollout and assigned goal costs. Only O0n3seed0 selected checkpoint is covered. Original repository computational files and all checkpoints remain unchanged; ignored helpers supply an explicit temporary inference wrapper. No test split, training or optimizer update.",
+  "contrary_evidence": "Neither precision policy is guaranteed to pass; finite real-input coverage is not proof for all inputs. Full float64 may be slower and changes encoding from the float32 training cache. Agreement is not physical accuracy, masking benefit or generalization. Decoder gradients check original RGB reconstruction, not deployed task-loss gradients.",
+  "protocol": {
+    "name": "o0_n3_s0",
+    "scope": "C013 ignored policy, check, validation, input/supervision helpers and independent result/array inspection. Adoption into downstream evaluator requires separately reviewed integration after this result.",
+    "policies": [
+      "encoder32_predictor64",
+      "encoder64_predictor64"
+    ],
+    "selection": "Run both policies completely even if the first has numerical failures. A policy qualifies only if every declared comparison and immutable-input check passes. If both pass, prefer encoder32_predictor64 by fixed prior order; if none pass, stop without an inference admission. No selection using scientific/test scores.",
+    "parents": "Exact C012 record, software/source, actual diagnostic/inspection/operation reviews and manifests; inherit its full immutable C004/C001/C005/C008/data/encoder/cache/checkpoint inventory. Current go2nav/config bytes must equal the original failed C004 computation.",
+    "checkpoint_sha256": "136440ca23b65312553e33e0cd82f1fe4990f1370241b9be1f2070bd85bff081",
+    "sampling": "Unchanged C004 windows seed2026111516:16 train and16 validation windows grouped in pairs. Same original100 candidate8step cohorts on first window of each split. No test data.",
+    "encoder_checks": "For each policy and each of16 paired batches: original RGB reconstruction objective, slots/reconstruction/masks CPU/GPU, all57parameter gradients, repeat/reversal/separate-single grouping, finite and no missing gradient. Original numerics helper with inputs cast to encoder dtype.",
+    "predictor_checks": "For each policy and each of16 paired batches: exact float32 cached4states/actions promoted to64, unmasked original loss; output, all83parameter gradients, repeat/reversal/separate-single grouping. No parameter update. Original numerical helper unchanged.",
+    "pipeline_checks": "For each policy and each paired real image batch: fresh independent CPU/GPU3frame histories and independent1frame goals from4thframe, original3actions normalized before precision promotion; compare encoded histories/goals, single-step predicted slots, Hungarian goal costs. On GPU also repeat/reversal/separate-single complete paths; no carry from history to goal.",
+    "planning_checks": "Per policy/split:first originalC004window. Independently encode3frame history and1frame goal on CPU/GPU; same C012 float32 normalized commands promoted64. Compare complete8step100candidate CPU/GPU rollouts and each goalcost; GPU exactrepeat/reversed/separatepairs compare rollout andcost. Also compare independently encoded histories/goals. Retain raw arrays for independent NumPy inspection.",
+    "interface": "Explicit policy wrapper casts pixels to encoder dtype, encode outputs to predictor64, history/actions to predictor64. Exercise unchanged balls_probes.features and balls_planning.learned_actions interfaces in focused CPU fixtures; no planner/objective/trainer edit.",
+    "comparison": "Original rtol1e-4/atol1e-5, original allclose reference conventions; reject nonfinite. Save coverage, failures and maxima, report per-step rollout failure counts. No tolerance relaxation.",
+    "immutability": "Fresh strict loads and exact promoted parameter/buffer checks before and after, original input digests before/after. No derived weight file, optimizer, train/calibration/cache rewrite.",
+    "accounting": "One outer row research_id=C004 supervisor=C013; existing reserve8/global48, no inner row.1800seconds total including45cleanup;2CPUthreads;GPUmemoryfraction.5; exact source-verified C007/A016 process handling. CPU reference runs during owned interval are charged.",
+    "verification": [
+      "Policy cast and identity/state preservation for both dtypes; reject unknown policy",
+      "Real model strict load and exact promotion with no original file changes",
+      "Numerical comparison catches synthetic errors/nonfinite/missing gradient and selection refuses incomplete or failed policies",
+      "Full pipeline grouping detects cross-example coupling; independent goal invocation and dtype boundaries",
+      "Unchanged probe/planner interfaces work with both policy wrappers on CPU synthetic fixtures without altering CEM defaults in production",
+      "Accounting rejects open/exhausted intervals and live/wrong/double closure",
+      "Actual C012 and inherited input/source lineage verification before software review and again before admission",
+      "After actual result verify coverage and independently reconstruct all saved planning comparisons/costs against declared sample/command identities"
+    ]
+  },
+  "success": "All declared checks for at least one policy pass after complete execution, independent inspection and substantive actual science/operation review. C013 is new evidence; never overwrite C004 failure. Subsequent implementation must bind the exact selected policy and review.",
+  "stop": "Any stale input/source/parent, nonfinite or parameter mutation stops with evidence. Numerical tolerance failures are retained while continuing the two predeclared policies. Deadline gives budget_incomplete, never a scientific negative or inferred pass. No automatic successor.",
+  "resources": {
+    "gpu_hours_max": 0.5,
+    "wall_seconds_max": 1800,
+    "cleanup_seconds": 45,
+    "memory_fraction_max": 0.5,
+    "cpu_workers_max": 2,
+    "software_wall_seconds_max": 180,
+    "inspection_wall_seconds_max": 120
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/C012/o0_n3_s0/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/C012/o0_n3_s0/inspection_review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/C012/operations/o0_n3_s0/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
