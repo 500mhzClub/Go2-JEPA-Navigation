@@ -899,24 +899,29 @@ operation. Every outcome still needs its own literature review before a successo
 ## Evidence bundle
 
 ```sh
-"$PY" outputs/gated/U004/report.py --root outputs/gated --out outputs/gated/report_final --bundle \
+"$PY" outputs/gated/E004/report.py --root outputs/gated --out outputs/gated/report_final --bundle \
   --source-commit 7dfc837 --source-commit 161fe8b --source-commit 98e6fcf
 ```
 
-Use U004 for the final capture after fresh literature consultation and manual verification of its record,
-helper sources and exact software review. U004 removes only E003's obsolete48-hour
-report metadata, retains elapsed accounting and binds U001 authorization. Four
-focused groups pass, including all nine inherited cases and a50-hour fixture.
-The inherited E003 capacity extension admits 512 MiB total, retaining
-the 64 MiB individual-file limit; six software groups include all nine inherited cases, a verified 280 MiB
-synthetic archive and both oversize refusals. This does not establish actual final evidence coverage.
-Include additional executed source revisions as required. Preserve the original E002 helper and all
-historical archives. Any actual overflow must stop capture without silent exclusions or limit changes.
+Use [E004](records/E004.json) for the final capture after fresh literature
+consultation and verification of its record, helper source and software review.
+E004 retains U004's uncapped GPU accounting metadata and the original integrity
+checks. It permits2GiB of captured payload, with the64MiB individual-file bound
+unchanged. Six software groups pass, including all nine inherited integrity cases,
+a verified576MiB fixture that exceeds the old512MiB cap, and both oversize refusals.
 
-The [completion inventory](COMPLETION_INVENTORY_2026-11-16.md) lists the exact
-remaining scientific rows, operational adaptations and final-report checks.
-The current selected run files already occupy about449.35MiB before current and
-historical source snapshots; final capacity needs a fresh actual check.
+E004 also includes `D001/corpus` JSON metadata and the small allowed artifacts
+under `D001/corpus/track_run`. The old blanket corpus exclusion would omit the
+actual export result, review and manifest. Bulk corpus arrays and checkpoints
+remain external with their recorded paths/digests. The explicit selection exception
+does not establish that a future export completed or that every dependency is present.
+
+Include every executed source revision required by the actual manifests; the
+three commits shown above are only the initial historical set. Preserve all earlier
+reporters and archives. Actual overflow still stops capture without exclusions or
+silent limit changes. The [completion inventory](COMPLETION_INVENTORY_2026-11-16.md)
+lists the remaining scientific rows and final-report requirements. E004's local
+`selection_observation.json` records current metadata coverage, not a final capture.
 
 Use a new output directory for every snapshot; existing reports are preserved. The inherited E002 logic separates measured result
 status from reviewed status, and leaves missing reviews explicitly awaiting literature review. The archive

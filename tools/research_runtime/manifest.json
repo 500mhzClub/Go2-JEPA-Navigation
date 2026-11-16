@@ -2,8 +2,8 @@
   "captured_at": "2026-11-16T10:52:41.550853+00:00",
   "source_commit": "60a6d4d9bbc306735fa7a852cd158930c4016049",
   "purpose": "Publish all locally authored experiment helper source previously held beneath ignored outputs; source-only byte-preserving snapshot, including historical/failing variants.",
-  "file_count": 503,
-  "total_bytes": 3307885,
+  "file_count": 508,
+  "total_bytes": 3348346,
   "extensions": [
     ".bash",
     ".ipynb",
@@ -1433,6 +1433,41 @@
       "snapshot": "tools/research_runtime/outputs/gated/E003/report.py",
       "sha256": "22750b312bd70b0af99d548b6ac71375b5de76799bc6353fc3e5d896f4219a84",
       "bytes": 9364,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/E004/check.py",
+      "snapshot": "tools/research_runtime/outputs/gated/E004/check.py",
+      "sha256": "cac7f5b499093934e70509ef42d62d66958baaeabeb3a1de4acf0da92b5824c2",
+      "bytes": 10076,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/E004/controlled_changes.json",
+      "snapshot": "tools/research_runtime/outputs/gated/E004/controlled_changes.json",
+      "sha256": "b5c3775ad999abc010d11c89799119f50abb082a7ee9e90e41415155303789bb",
+      "bytes": 741,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/E004/report.py",
+      "snapshot": "tools/research_runtime/outputs/gated/E004/report.py",
+      "sha256": "89725a2298b9eb96cdd2ac3b07ec91f7038b85e7b5d3bbd81c9d3f81c4155b61",
+      "bytes": 9784,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/E004/software/source/check.py",
+      "snapshot": "tools/research_runtime/outputs/gated/E004/software/source/check.py",
+      "sha256": "cac7f5b499093934e70509ef42d62d66958baaeabeb3a1de4acf0da92b5824c2",
+      "bytes": 10076,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/E004/software/source/report.py",
+      "snapshot": "tools/research_runtime/outputs/gated/E004/software/source/report.py",
+      "sha256": "89725a2298b9eb96cdd2ac3b07ec91f7038b85e7b5d3bbd81c9d3f81c4155b61",
+      "bytes": 9784,
       "mode": "0o664"
     },
     {
@@ -3541,9 +3576,10 @@
     "Generated datasets, checkpoints, results, logs and bytecode"
   ],
   "restoration": "Original relative paths are in source. Restore only into an appropriate unused checkout with its separately retained exact evidence/data; do not overwrite a live run or treat archived failed variants as qualified launchers.",
-  "updated_at": "2026-11-16T11:44:06.614982+00:00",
-  "update_base_commit": "3d8dee991bdd660cf7eeeaa687206f7151355515",
+  "updated_at": "2026-11-16T11:52:08.829470+00:00",
+  "update_base_commit": "7f73a692444c179fbcfaac0b136705580e3dc3ff",
   "additional_files": [
+    "outputs/gated/E004/controlled_changes.json",
     "outputs/gated/U010/controlled_changes.json",
     "outputs/gated/U011/controlled_changes.json",
     "outputs/gated/U012/controlled_changes.json",

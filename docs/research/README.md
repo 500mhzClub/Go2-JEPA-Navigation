@@ -170,3 +170,9 @@ collect `planning/RUN`. Its original `probes/RUN` path refused every required
 completed probe. Six CPU groups pass, including four complete launcher fixtures
 and additive U005/U006/U007 metadata compatibility. Actual additional-seed
 planning remains pending; use the isolated CPU checkout and updated runbook.
+
+[E004](records/E004.json) prepares final evidence capture at2GiB total/64MiB per
+file and restores P26 corpus JSON/track-export evidence omitted by the old blanket
+corpus exclusion. Six software groups pass, including all nine inherited integrity
+cases and a verified576MiB fixture. Actual final archive and scientific coverage
+remain pending.

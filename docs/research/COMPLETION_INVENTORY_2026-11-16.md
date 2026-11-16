@@ -15,7 +15,7 @@ serial GPU use and substantive literature/result reviews remain required.
 | Three-ball additional seeds | C010/A018/A019/C011/B004 software prepared; no actual extra-seed runs | Seed1 L0/L1 plus encoder/cache/O0/O1 and all measures; complete seed1 before seed2 |
 | Other object counts | Seed0 L0/L1 results complete at n1/n6 | Own encoder/cache and O1 at n1 and n6, with numerical admission, binding, probes and planning |
 | Final comparison | C002 comparator implemented; historical partial baseline-probe audit preserved | All18 rows:10 baselines and8 object models, with five distinct encoder-binding results |
-| Final report/archive | E003 integrity/capacity software and U004 accounting metadata correction reviewed | Requirement-by-requirement audit, high-level development narrative, final reviewed comparisons and verified archive |
+| Final report/archive | E004 capacity, P26 evidence selection and inherited integrity checks reviewed | Requirement-by-requirement audit, high-level development narrative, final reviewed comparisons and verified archive |
 
 The18 comparison rows are n3 seeds0/1/2 × L0/L1/O0/O1, plus n1/n6
 seed0 × L0/L1/O1. `outputs/gated/U004/planned_comparison_index.json` names
@@ -81,7 +81,7 @@ Run C002 only with exact reviewed inputs and verified model/count/seed identitie
 Independently inspect paired-case coverage and the requirement table before
 interpreting it. Do not overwrite historical partial or failed artifacts.
 
-Use the reviewed U004 reporter with actual executed source commits, ignored
+Use the reviewed E004 reporter with actual executed source commits, ignored
 runtime helpers, consultations, inspections, reviews and failures. Reconcile
 the selected paths against every executed operation, including retired runs.
 The archive remains a local reproducibility bundle: large datasets/checkpoints
@@ -107,3 +107,9 @@ A subsequent metadata-only check selected1,489 run files totaling
 475,038,721bytes (about453.03MiB); none exceeded64MiB. Source snapshots and
 future evidence remain outside this count. U013 corrects execution routing,
 not the separate pending archive-capacity requirement.
+
+E004 now provides a reviewed2GiB aggregate limit while retaining64MiB per file.
+It also fixes the old exclusion of `D001/corpus/track_run` evidence and includes
+corpus JSON lineage. Six software groups pass, including a verified576MiB fixture,
+P26 metadata selection and both oversize refusals. Earlier capacity observations
+above remain historical; actual final capacity/coverage must still be verified.

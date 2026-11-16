@@ -1,0 +1,73 @@
+{
+  "id": "E004",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T11:48:24.655075+00:00",
+  "question": "Can the final local evidence bundle retain P26 export reviews and the remaining approved artifacts without exceeding a bounded capture capacity?",
+  "hypothesis": "Explicit inclusion of D001 corpus JSON/track_run evidence plus a2GiB aggregate limit removes known final-report omissions and likely capacity pressure while preserving existing capture/review/archive integrity.",
+  "sources": [
+    {
+      "url": "https://neurips.cc/public/guides/PaperChecklist",
+      "version": "2026 official guidance",
+      "sections": "Claims and limitations items1/2 lines175-183, reproducibility/code-data items4/5 lines190-203, read before implementation",
+      "consequence": "Retain the export scientific result and review alongside external data lineage; describe incomplete claims and local-only data explicitly."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/tarfile.html",
+      "version": "3.12",
+      "sections": "TarFile.addfile377-380 and extractfile343-347, read before implementation",
+      "consequence": "Hash and archive the same captured bytes; verify regular safe unique members by reading their file objects. Capacity does not weaken integrity."
+    },
+    {
+      "url": "https://git-scm.com/docs/git-cat-file",
+      "version": "official documentation accessed2026-11-16",
+      "sections": "Batch raw object type/size/content409-454",
+      "consequence": "Keep exact historical Git blob capture and explicit executed revisions unchanged."
+    }
+  ],
+  "differences": "The reviewed U004 reporter excludes every corpus directory, including the actual D001/corpus/track_run result and review. New E004 selection admits all JSON metadata under D001/corpus and all already-allowed small-file suffixes within its track_run subtree; bulk NPZ/NPY outside track_run and checkpoints remain external. Other exclusions stay unchanged. Increase aggregate512MiB to2GiB; individual64MiB limit unchanged. No scientific or live runtime changes.",
+  "contrary_evidence": "Current475065225byte run selection is not an actual overflow. Six remaining predictor numerical pairs at the current41122152bytes per pair would add246732912bytes before later baseline probes, sources or P26. This is a projection, not an exact future size or guarantee that2GiB suffices. A complete archive still needs independent requirement/source/lineage reconciliation. Checksums do not establish scientific correctness or standalone reproducibility.",
+  "protocol": {
+    "scope": "E004 evidence reporter, focused software tests and final-use instructions only; preserve all prior reporters and captures.",
+    "limits": {
+      "individual_file_bytes": 67108864,
+      "total_payload_bytes": 2147483648
+    },
+    "source_sha256": {
+      "outputs/gated/U004/report.py": "e2b7390850873162398ba040fda9218762d25e7b4cf7a50df2476db623e16179",
+      "outputs/gated/U004/software/review.json": "9bb1470db2a1a0efb84301dd6394415b5235f0a5cdbc2e53ef76cd6139ea9104",
+      "tests/unit/test_research_report.py": "5cff7ae993f5b83380841116363a8f67e65fd3902fa16c3eb81e01591bb1be72",
+      "go2nav/data/slot_tracks.py": "828359767d308c71f23bf45cdf5930432c5e5f7e71e6403999c9811589514e1b",
+      "outputs/gated/D003/stages.py": "7e6541b36250c10276a0d17b445387d23921627adea4914fb985d5a69c5d4080",
+      "outputs/gated/U004/archive_capacity_observation_002.json": "e8993eb9bd6a04a2d05b3c55494326b420559be85e2e8133c8bfaca2b041a447"
+    },
+    "controlled_changes": "Exact U004 copy: require E004; fixed2GiB aggregate; replace corpus exclusion with excluded_corpus(relative); insert that explicit predicate. No change to payload bytes, status/review logic, historical blobs or tar verification.",
+    "corpus_selection": "Preserve original exclusions except D001/corpus/**/*.json and D001/corpus/track_run/** with original RUN_SUFFIXES. All selected files remain bounded64MiB. The root index/prepare/tracks/config and unit JSON metadata are included; bulk corpus arrays/checkpoints remain local and hash-bound in actual operation/index manifests.",
+    "checks": [
+      "Exact four controlled substitutions and fixed64MiB/2GiB limits; original source/review hashes unchanged",
+      "All nine inherited review/capture/source/archive integrity cases",
+      "P26 fixture: original U004 omits export evidence; E004 includes result/review/manifest/diagnostic plus root/unit JSON, preserves external bulk-array/checkpoint/other-corpus exclusions; stale export review refuses",
+      "Actual576MiB fixture of nine64MiB files: U004 refuses, E004 captures all bytes and independently verifies archive;50hour ledger remains null allowance U001",
+      "65MiB individual file refused before output;2112MiB aggregate33x64MiB refused before output",
+      "No Torch, GPU work, live source/shared-ledger change; all failures retained"
+    ],
+    "actual_use": "After separate software review and fresh actual-input literature consultation, capture only after independently reconciling all completed required scientific/operation/inspection reviews and every executed source version. Inspect source/manifest/member identities and external dependency manifests; review actual archive separately. Do not publish current partial evidence as completed P25/P26."
+  },
+  "success": "Declared integrity, P26 selection and bounded capacity checks pass without dropping previously selected evidence. Final actual archive and scientific completion remain separately pending.",
+  "stop": "Refuse stale reviews, unknown source transformations, missing Git revisions, selected-file/aggregate overflow or archive mismatch. Preserve evidence and failures; no automatic scientific reviews or silent omissions.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_workers_max": 2,
+    "software_wall_seconds_max": 180,
+    "memory_gib_max": 8,
+    "disk_logical_gib_max": 3,
+    "training_device": "none"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/U004/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

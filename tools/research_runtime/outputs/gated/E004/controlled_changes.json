@@ -1,0 +1,18 @@
+[
+  [
+    "require_record('U004')",
+    "require_record('E004')"
+  ],
+  [
+    "FILE_LIMIT, TOTAL_LIMIT = 64 << 20, 512 << 20",
+    "FILE_LIMIT, TOTAL_LIMIT = 64 << 20, 2 << 30"
+  ],
+  [
+    "or 'corpus' in relative.parts",
+    "or excluded_corpus(relative)"
+  ],
+  [
+    "def build(root, out, bundle=False, source_commits=()):",
+    "def excluded_corpus(relative):\n    \"\"\"Keep D001 export evidence and JSON lineage; bulk corpus arrays stay external.\"\"\"\n    if 'corpus' not in relative.parts:\n        return False\n    if relative.parts[:2] != ('D001', 'corpus'):\n        return True\n    return relative.suffix != '.json' and relative.parts[2:3] != ('track_run',)\n\n\ndef build(root, out, bundle=False, source_commits=()):"
+  ]
+]
