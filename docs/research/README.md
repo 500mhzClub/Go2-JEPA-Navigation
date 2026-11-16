@@ -35,6 +35,8 @@ has reviewed success1.5/1.1/1.2% atH4/H6/H8, with independent scoring and operat
 passing. F004's seven execution checks also pass and are reviewed. Launch the
 factual arm from clean pinned source after fresh bound consultation; subsequent
 arms still require actual predecessor reviews. No F004 forecast result exists yet.
+The factual seed0 arm is now running from pinned source `f053c26` in its isolated
+forecast-training checkout. The branch and paired arms remain pending.
 
 ## Current user authorization — GPU time limits removed
 

@@ -47,6 +47,13 @@ GPU and closed prior intervals itself. It writes science to
 `outputs/gated/F004/runs/factual_s0/science` and operations beside it. Do not edit
 the running checkout. No automatic next arm, time cap or CPU training fallback.
 
+Factual seed0 launched at15:16UTC on16November from
+`/home/andrewknowles/Workspace/Go2-JEPA-Navigation-forecast-training`, commit
+`f053c265a75cbc31971cc04a0ca1893d251c1391`. Confirm the actual PID/creation time/argv
+against `runs/factual_s0/operations/child.json` and read `science/progress.json`;
+do not relaunch because a polling command times out. Develop the remaining
+evaluator/terminal inspector in the followthrough checkout, not the pinned one.
+
 ## Current user authorization — GPU time limits removed
 
 On 16 November 2026 the user explicitly removed GPU-hour limits for the approved

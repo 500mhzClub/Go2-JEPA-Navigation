@@ -85,7 +85,14 @@ Exact-result literature reviews are saved beside the software and data results i
 of improved prediction. The GPU execution supervisor now passes seven additional
 CPU groups, including real process ownership/stall checks and elapsed-only serial
 admission. Its review is under `execution_software`. The final physical evaluator
-and trained-model numerical checks remain required. No F004 training has started.
+and trained-model numerical checks remain required.
+
+The factual seed0 arm started on the dedicated GPU at15:16UTC on16November from
+the isolated `Go2-JEPA-Navigation-forecast-training` checkout, pinned at
+`f053c265a75cbc31971cc04a0ca1893d251c1391`. Its owned child was confirmed live and
+completed its first20updates. This is operational progress, not an accuracy result.
+The source checkout stays unchanged while the development checkout prepares the
+remaining evaluation work. No branch or paired arm has started.
 
 ## Transfer limits and next action
 
@@ -104,9 +111,9 @@ offline Go2 comparison, with perception, occlusion, action-response accuracy and
 inference cost tested explicitly. Reused validation and simulator behavior remain
 limits on generalization.
 
-[O0 is complete and reviewed](FULL_O0_PLANNING_2026-11-16.md). Next pin the qualified
-F004 execution source and launch the factual arm, then review actual training and
-operations before the next arm. The runner starts fresh runs only; a restart needs
+[O0 is complete and reviewed](FULL_O0_PLANNING_2026-11-16.md). While the factual arm
+runs, prepare the fixed physical evaluator and checkpoint verification; review
+actual training and operations before the next arm. The runner starts fresh runs only; a restart needs
 a separately reviewed invocation preserving the earlier attempt. Science artifacts
 are under `runs/ARM_s0/science`, operations under `runs/ARM_s0/operations`.
 O1 planning and the old incomplete matrix remain preserved and do not advance
