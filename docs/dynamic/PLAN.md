@@ -2318,6 +2318,65 @@ once (T1 and T2), under 85% of its memory.
 - **Reading 3 seeds** (written after R4's seed 0 at 36,000 steps was scored, before seeds 1 and 2): a bar is met when
   the mean of the three seeds meets it (for the slope, the mean of the intervals' lower ends). Each seed is shown.
 
+### P28. The object-token JEPA in the ring world (promotion of P27's R4; approved 16 November, "Do 1"; set out before any run)
+
+**Why.** P27's R4 [object-token JEPA] kept all three capabilities in predicted latents on the toy and met seven of
+its eight bars (docs/REVIEW_2026-11-16.md). The user promoted it with the false-response bar waived. P28 asks whether
+the same recipe holds on the ring world's walkers, against M5 [the supervised object predictor of P22, on the ring
+tracker's objects]. Branch `feature/ring-tokens`, from `feature/recipe-bench`. No planner and no missions here.
+
+**1. Data:** the F004 export (outputs/gated/F004/data; built and checked on 16 November from P20's corpus and its
+exact branches): 104,590 training and 10,601 validation scenes over 1,136 and 98 layouts. A scene is a branch point
+with a walker in sight within 1.5 m, and holds:
+- the ring tracker's 6 slots at 3 history steps of 0.4 s (position, seen, track, velocity), the robot's pose, and
+  the requests before it;
+- 7 futures of 16 steps (6.4 s): 6 exact branches under random tapes and the recorded one, each with the robot's
+  path, the requests, and the matched walkers' **true** positions (valid until a contact);
+- labels for scoring only: the walker's kind, whether it waits on the robot, the layout.
+
+**2. The recipe,** R4's, with the ring world's objects in place of the toy's (`models.ring_tokens`):
+- **Estimation is the ring tracker's** (engineered, as the toy's colour detector).
+- **A token** per slot and step, from M5's inputs for it: the position in the robot's frame at the branch point
+  (with Fourier features, as R4), its velocity, seen and present, and the walls' distance on a 5 x 5 grid round it
+  (the toy's crop; from the layout's raster, since the export holds no scans). A robot token from its pose and the
+  walls round it. Then LeWM's BatchNorm projector to a 128 latent.
+- **The predictor** is LeWM's, block-causal over 3 steps of 7 tokens, every token conditioned on the step's 4
+  requests by AdaLN-zero.
+- **Targets** are the encoded tokens of the next step: for a history step, the tracker's; for a future step, the
+  walker's true position and the walls round it, its velocity the change over the step. No position loss.
+- **Rollouts are in latent space.** The robot's token at each future step is encoded from the tape's path (as M5 is
+  given it); the objects' tokens are the predictor's own. The walls round a predicted object are not looked up again
+  (M5 decodes and looks them up; a latent rollout cannot), which is the port's known handicap.
+- **Objective:** R4's. Teacher-forced and 8-step rollout MSE on the tokens that have a target, plus 0.09 x SIGReg
+  (the robot's tokens per step; the present objects' tokens pooled). 36,000 steps, one of a scene's 7 futures drawn
+  per sample, so the branches are in training as plain futures; no paired term.
+- **The head** (after training, the JEPA frozen): an MLP from one token to the object's position, trained on encoded
+  tokens only, applied to the rolled-out ones.
+
+**3. Measures** (`eval.ring_tokens`), on the validation export, against the walkers' true positions, at 1.6, 3.2 and
+6.4 s. M5 is run on the same scenes from the same inputs (`outputs/object_dynamics/m5`), with its own decoded
+rollout and wall look-ups.
+- **(a) progression:** the median error on the recorded future, over matched walkers; beside M5, the tracker's
+  constant velocity and holding. Also over walkers waiting on the robot.
+- **(b) action → obstacle,** on the 15 pairs of each scene's 6 branches (`eval.paired_forecast_metrics`, layouts
+  resampled): the response error against zero-response, on all pairs and on responsive ones (true response over
+  5 cm); the false-response rate (predicted over 5 cm where the true one is at most 5 cm); the slope of predicted
+  on true response vectors with its 95% interval.
+- **Retention:** the head's error on encoded true future tokens.
+- P22's own (a) and (b) run through the planner's interface on the corpus; they are not rebuilt here. M5's figures
+  on this export are the reference, not its published ones on other populations.
+
+**4. Bars** (the handoff's section 7, on this export; one seed, then three if it looks like passing, read on their
+mean as P27's):
+- **(a):** the median error at most 1.5 times M5's at each horizon, and below constant velocity's at 3.2 and 6.4 s.
+- **(b):** the false-response rate below M5's, and the slope at least M5's, at each horizon.
+- Reported, no bar: the response error against zero-response and against M5's; by kind; retention.
+- Two rounds at most. If it passes: missions under the frozen rule are set out next (`eval.kinematic_missions`, the
+  decision unchanged). If it fails: what failed is recorded and you decide.
+
+**5. Compute:** M5's inference minutes; a run about 30-40 minutes on the R9700, one at a time, under 85% of its
+memory; the head and measures a few minutes.
+
 ## Compute and order
 
 | Phase | Compute |
