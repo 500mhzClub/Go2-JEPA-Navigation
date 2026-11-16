@@ -23,8 +23,9 @@ literature-review actual C001 and C005 results before paired O0/O1 training.
 C008 is a training-state audit and does not cover extraction.
 
 Object-model probes and paired learned planning follow, then P26 before extra
-seeds/counts. Baseline planning has four completed and reviewed cases (n1/n3
-L0/L1); L0n6 is the current CPU case, with L1n6 next after its review. The six final
+seeds/counts. Baseline planning has five completed and reviewed cases (n1/n3
+L0/L1 and L0n6); the remaining CPU case is L1n6. See the
+[n6 result](BASELINE_PLANNING_N6_2026-11-16.md). The six final
 baseline probes are already complete through C006, with a reviewed partial C002
 audit under `outputs/gated/C002/final_baseline_probes`; do not rerun them. At admission,
 47.699 of48 additional GPU-hours and27.997 of28 B/C hours remained; current use
