@@ -1,0 +1,66 @@
+{
+  "id": "C014",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T07:44:00+00:00",
+  "question": "Can the reviewed full-float64 inference policy be deployed consistently for the approved object models, with numerical admission bound to each selected checkpoint?",
+  "hypothesis": "A fresh, strict checkpoint load followed by float64 conversion of both encoder and predictor reproduces C013's qualifying policy. Each future selected checkpoint still needs its own full-path checks before scientific evaluation.",
+  "sources": [
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Numerical accuracy and batched/slice computations, lines 393-403",
+      "consequence": "Retain independent CPU/GPU preprocessing, complete recursive rollouts and regrouping at original tolerances. A passing O0 checkpoint does not admit O1 or another seed."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/generated/torch.nn.Module.html",
+      "version": "2.12",
+      "sections": "double, eval and load_state_dict, lines 752-774 and 978-992",
+      "consequence": "Construct fresh original model instances on CPU, strictly load state and convert floating parameters and buffers, including nonpersistent coordinate buffers. Keep original checkpoint files and training code unchanged."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/serialization.html",
+      "version": "2.12",
+      "sections": "Saving and loading torch.nn.Modules, lines 479-506",
+      "consequence": "Verify learned parameters and persistent buffers exactly after promotion; separately inspect nonpersistent buffers. Inference loading is not optimizer restoration or continued training."
+    },
+    {
+      "url": "https://arxiv.org/html/2602.11389v2",
+      "version": "v2",
+      "sections": "4.1-4.2 observed-history inference, anchored masking and history/future objectives; Appendix G cost and Hungarian matching",
+      "consequence": "Preserve the O0/O1 training comparison, unmasked inference, independent goal encoding and original assigned goal cost. Add masked-gradient checks for O1 without supplying future frames during planning. Numerical agreement is not causal identification or physical accuracy."
+    }
+  ],
+  "differences": "C013 selected encoder64_predictor64 for O0 n3 seed0 only, through a temporary wrapper. C014 introduces an explicit repository inference loader and minimally routes the three object evaluators through it. Training, immutable float32 caches, original models, task definitions, CEM, probe fitting and scoring remain unchanged. The existing C009 route is preserved; a versioned route will consume C014 evidence.",
+  "contrary_evidence": "Original C004 long-rollout failures, C013 mixed-precision failure and validator implementation failures remain preserved. Full float64 can be slower, may still fail on another checkpoint and differs from cached float32 training encodings. Sampled numerical agreement proves neither semantic object binding nor improved prediction/planning. The baseline endpoint ceiling remains unresolved by this technical change.",
+  "protocol": {
+    "policy": "encoder64_predictor64",
+    "encoder_cases": ["slots_n3_s0", "slots_n3_s1", "slots_n3_s2", "slots_n1_s0", "slots_n6_s0"],
+    "predictor_cases": ["o0_n3_s0", "o1_n3_s0", "o0_n3_s1", "o1_n3_s1", "o0_n3_s2", "o1_n3_s2", "o1_n1_s0", "o1_n6_s0"],
+    "implementation": "New go2nav/eval/slots_inference.py supplies fresh strict full64 loads for numerical validation and a reviewed admission loader for science. The reviewed path requires C014 result identity, exact checkpoint digest, policy, complete/passing checks, unchanged weights/inputs and current implementation hashes. Refuse missing, failed, stale, wrong-kind/count/seed or original float32 reviews. Do not overwrite artifacts or modify go2nav/training/balls_slots.py. Object branches in balls_probes and balls_planning use the reviewed world loader; balls_binding uses the reviewed encoder loader and casts original pixel preprocessing to its dtype.",
+    "parents": "Bind actual terminal C001/C005/C008 reviews, original data bytes, immutable encoder/cache/index and selected checkpoint. Preserve each training runtime/source and check it separately from the changed inference runtime. All new inference sources and helpers are hashed before admission and checked after completion. C013 original software, numerical, inspection and operation results remain authoritative historical evidence.",
+    "sampling": "Original C004 windows seed2026111516, 16 train and16 validation examples grouped in pairs. Same count-specific deterministic 100-candidate eight-step planning cohorts. No test split in numerical policy validation.",
+    "encoder_validation": "Full64 original RGB reconstruction, slots/reconstruction/masks, all57parameter gradients and repeat/reversed/separate grouping:1104comparisons. Actual encoder-only evidence is required for binding, even if its bytes were also exercised inside a world model.",
+    "predictor_validation": "Original full64 encoder1104 and unmasked predictor1392 comparisons, independently normalized/encoded image-to-prediction pipeline256 and planning-sized rollout/goal-cost20:2772total. O1 additionally uses original C004 fixed history masks (slot1 for first example, final2slots for second), with all outputs/83gradients/grouping:1392additional comparisons,4164total. No optimizer update. O0 rerun validates the new deployed loader, not a retry of unchanged failed arithmetic.",
+    "numerics": "Original rtol1e-4/atol1e-5 and MATH attention. Original to_pixels float32 normalization precedes full64 input conversion; deployed physical actions cast full64 before normalization by3. Cached states/actions preserve original float32 training preprocessing before promotion. Independent goal encoding uses a separate one-frame sequence. Retain raw planning arrays and independently reconstruct reported differences and assignment costs.",
+    "integration": "Versioned C009 evaluation admission binds passing C014 evidence and corresponding operation/inspection reviews. Retain all original data/control/parent bindings and all21 approved object evaluation routes. Scientific outputs remain under planning/probes/binding with original names. No change to B001/C001/C002 algorithms, samples, CEM parameters, objective, thresholds or intervals. Use unchanged pinned runtime for other helpers whose reviewed source inventory requires it.",
+    "verification": [
+      "Real selected O0 and encoder loads exactly preserve all learned values and floating/nonfloating buffers; match C013 full64 outputs on actual indexed train and validation examples",
+      "Reviewed admission rejects missing/wrong policy, incomplete/failed numerical evidence, wrong checkpoint/kind/count/seed, changed source, changed input and stale review",
+      "Probe/planner/binding interfaces execute full64 with independent goals and original computation; baseline branches remain unchanged",
+      "Numerical coverage and grouping checks detect deliberate omissions, nonfinite values and cross-example coupling, including O1 masked gradients and count-specific samples",
+      "All13 numerical and21 evaluation routes are explicit; future incomplete evidence cannot enter scientific evaluation",
+      "Inherited supervision accounting and exact owned-process cleanup remain effective within unchanged allocations; no automatic reviews or successors",
+      "Actual numerical arrays and scientific raw-case summaries receive independent inspection before substantive result review"
+    ],
+    "staging": "Loader, numerical validator and versioned evaluation supervisor may have separate software results/reviews with explicit coverage. A loader-only software pass does not authorize actual numerical execution or scientific evaluation. All required components must be reviewed before their dependent experiment.",
+    "accounting": "Each numerical call at most1800seconds including45cleanup,2CPUthreads and0.5GPUmemoryfraction. Charge one outer C004 interval with supervisor C014 against existing reserve8/global48; CPU reference inside it counts. Versioned C009 retains original B001/C001/C002 and shared B/C/global limits and45second cleanup. No additional allocation, concurrent full GPU work or training CPU fallback. Software checks use CPU with GPU hidden and180second cap."
+  },
+  "success": "Software integration faithfully implements the explicit policy and fails closed. Each selected case is admitted only after its own complete numerical suite, preserved inputs, independent inspection and exact-result literature review pass. Scientific success remains separately measured under original records.",
+  "stop": "Refuse stale/missing lineage or source, wrong identity/policy and incomplete/failed evidence. Preserve exceptions and numerical failures; no tolerance relaxation or implicit retry. Deadline/budget exhaustion remains budget_incomplete. Keep active O1 training checkout pinned through its terminal audit.",
+  "resources": {"gpu_hours_per_numerical_call_max": 0.5, "wall_seconds_per_numerical_call_max": 1800, "cleanup_seconds": 45, "memory_fraction_max": 0.5, "cpu_workers_max": 2, "software_wall_seconds_max": 180, "additional_allocation": 0},
+  "predecessors": [
+    {"review": "../../../outputs/gated/C013/retry_001/o0_n3_s0/review.json", "allow": ["passed"]},
+    {"review": "../../../outputs/gated/C013/retry_001/o0_n3_s0/inspection_review.json", "allow": ["passed"]},
+    {"review": "../../../outputs/gated/C013/retry_001/operations/o0_n3_s0/review.json", "allow": ["passed"]}
+  ]
+}
