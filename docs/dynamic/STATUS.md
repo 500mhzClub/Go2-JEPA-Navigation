@@ -2686,3 +2686,23 @@ The same recipe and seed for 36,000 steps (25 minutes; the first round's loss wa
   - False responses are 9.1% away from contact; the few quiet pairs with a contact (294) are 68% false, for both.
 - **Horizon:** at 16 steps the response error is 0.68 of zero-response and false responses 39%; at 4 steps 0.47 and 4%.
 - **Next:** two more seeds on T2 (the rung "looks like passing"), the same run on T1, and R5 (16 history frames).
+
+## P27 R3, second round: fails; closed on patch tokens (16 November)
+
+`r3b`: the branch and paired terms carry R2's weights. T2, one seed, 6,000 steps, k = 8:
+
+| | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False | Slope | R: agent / green / blue / yellow |
+|---|---|---|---|---|---|---|---|---|
+| R2 | 5.05 | 2.8 | 23.2 | 20.0 | 1.32 | 95% | 0.69 | 0.9 / 1.0 / 1.5 / 0.9 |
+| R3, first round | 14.8 | 1.2 | 30.8 | 24.3 | 1.70 | 96% | 0.22 | 10.3 / 14.9 / 20.1 / 18.0 |
+| R3, second round | 30.0 | 1.0 | 30.6 | 24.7 | 1.25 | 84% | 0.03 | 1.4 / 1.0 / 1.0 / 0.7 |
+
+- The weights keep the encoder (retention as R2's). The predictor carries nothing: the agent is read 20.7 px out
+  one step ahead, and the action has no effect (shuffle ratio 1.0, slope 0.03).
+- **R3 is closed after its two rounds.** On patch tokens, branches and a paired term do not make the predictor carry
+  the obstacles; they cost R2's partial hold on the agent.
+- Not tested, and outside the ladder: the same terms on R4's object tokens, whose predictor does carry them.
+
+**The patch-token line (R1-R3), in one sentence:** per-token SIGReg with motion weights makes an encoder that holds
+every disc to about a pixel, but in 6,000 steps no predictor over 195 such tokens produced a next frame the head
+could read better than a copy of the last one.
