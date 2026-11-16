@@ -9,11 +9,12 @@ def batch(b=8, steps=16):
     from go2nav.models.object_jepa import ACTION_DIM, OBJECT_DIM, ROBOT_DIM
     g = torch.Generator().manual_seed(0)
     r = lambda *shape: torch.randn(*shape, generator=g)
-    seen = torch.rand(b, 3, 6, generator=g) < .4
-    valid = (torch.rand(b, 1, 6, generator=g) < .4).expand(-1, steps, -1)
-    return dict(objects=r(b, 3, 6, OBJECT_DIM+2), robot=r(b, 3, ROBOT_DIM), actions=r(b, 2+steps, ACTION_DIM),
-                future_robot=r(b, steps, ROBOT_DIM), future_objects=r(b, steps, 6, OBJECT_DIM+2), truth=r(b, steps, 6, 2),
-                valid=valid, seen=seen, present=seen)
+    seen = (torch.rand(b, 1, 6, generator=g) < .4).expand(-1, 3, -1)
+    valid = seen[:, :1].expand(-1, steps, -1) & (torch.rand(b, 1, 6, generator=g) < .8)
+    flag = lambda x, m: torch.cat((x[..., :2], m[..., None].float(), m[..., None].float(), x[..., 4:]), -1)*m[..., None]
+    return dict(objects=flag(r(b, 3, 6, OBJECT_DIM+2), seen), robot=r(b, 3, ROBOT_DIM), actions=r(b, 2+steps, ACTION_DIM),
+                future_robot=r(b, steps, ROBOT_DIM), future_objects=flag(r(b, steps, 6, OBJECT_DIM+2), valid),
+                truth=r(b, steps, 6, 2), valid=valid, seen=seen, present=seen)
 
 
 def test_the_tokens_roll_out_in_latent_space_with_the_robot_s_token_given():
@@ -22,9 +23,12 @@ def test_the_tokens_roll_out_in_latent_space_with_the_robot_s_token_given():
     z = model.encode(b['objects'], b['robot'])
     robot = model.encode_robot(b['future_robot'])
     assert z.shape == (8, 3, 7, 128) and robot.shape == (8, 16, 128)
-    rolled = model.rollout(z, b['actions'], robot, 16)
+    alive = b['present'][:, -1]
+    rolled = model.rollout(z, b['actions'], robot, 16, alive)
     assert rolled.shape == (8, 16, 7, 128) and PositionHead(model.config)(rolled[:, :, 1:]).shape == (8, 16, 6, 2)
-    other = model.rollout(z, b['actions'], robot.flip(0), 16)             # another path for the robot from step 2 on
+    assert torch.equal(z[:, :, 1:][~b['present']], model.absent.expand_as(z[:, :, 1:][~b['present']]))   # empty slots
+    assert torch.equal(rolled[:, :, 1:][~alive[:, None].expand(-1, 16, -1)][0], model.absent)
+    other = model.rollout(z, b['actions'], robot.flip(0), 16, alive)             # another path for the robot from step 2 on
     assert torch.allclose(rolled[:, 0], other[:, 0], atol=1e-5) and not torch.allclose(rolled[:, 1], other[:, 1], atol=1e-4)
 
 
@@ -36,7 +40,9 @@ def test_the_objective_counts_only_tokens_with_a_target():
     out = token_losses(model, b, rollout_steps=8, sigreg=sigreg, lam=.09, generator=g())
     out['loss'].backward()
     assert all(torch.isfinite(v) for v in out.values())
-    changed = dict(b, future_objects=torch.where(b['valid'][..., None], b['future_objects'], b['future_objects']+5.))
+    spoilt = b['future_objects'].clone()
+    spoilt[..., :2] = torch.where(b['valid'][..., None], spoilt[..., :2], spoilt[..., :2]+5.)   # empty slots' positions
+    changed = dict(b, future_objects=spoilt)
     model.eval()                                                          # BatchNorm's batch statistics would differ
     with torch.no_grad():
         a = token_losses(model, b, rollout_steps=8, sigreg=sigreg, lam=.09, generator=g())

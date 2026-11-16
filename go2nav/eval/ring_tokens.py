@@ -135,7 +135,8 @@ def jepa_forecast(model, head):
     @torch.no_grad()
     def forecast(b):
         z = model.encode(b['objects'], b['robot'])
-        rolled = model.rollout(z, b['actions'], model.encode_robot(b['future_robot']), ring_scenes.STEPS)
+        rolled = model.rollout(z, b['actions'], model.encode_robot(b['future_robot']), ring_scenes.STEPS,
+                               b['present'][:, -1])
         return head(rolled[:, :, 1:])*model.config.position_scale
     return forecast
 

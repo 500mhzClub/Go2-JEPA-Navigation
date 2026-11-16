@@ -7,7 +7,7 @@ P27's R4 settings: AdamW 3e-4 with warm-up then cosine, clip 1, bf16 autocast (S
 batch 64, an 8-step rollout loss, 0.09 x SIGReg; 32,000 steps (15 a second, inside 45 minutes with the measures). A sample is a training scene under one of its 7
 futures, drawn from (seed, step). DIR/checkpoint.pt every `checkpoint_every` steps (rerunning resumes); at the end
 the BatchNorm statistics are recomputed over training batches (`training.recipe_bench.recalibrate`) and DIR/model.pt
-is written.
+is written, after the objective is logged once more in evaluation mode (`evaluation` in metrics.jsonl).
 """
 import argparse
 from dataclasses import asdict
@@ -96,6 +96,11 @@ def train(root, corpus, out, recipe='p28', seed=0, overrides=None):
             save(checkpoint, model, meta, dict(optimiser=optimiser.state_dict(), scheduler=scheduler.state_dict(),
                                                step=step))
     recalibrate(model, lambda i: objective(i, offset=5_000_000), cfg['recalibration_batches'])
+    with torch.no_grad():       # the objective again with the running statistics: far from training's means a mismatch
+        rows = [objective(i, offset=6_000_000) for i in range(20)]
+    log.write(json.dumps(dict(step=step, evaluation={k: round(sum(float(r[k]) for r in rows)/len(rows), 6)
+                                                     for k in rows[0]}))+'\n')
+    log.flush()
     save(out/'model.pt', model, meta, dict(step=step))
     print(f'done: {out}/model.pt at step {step}', flush=True)
 
