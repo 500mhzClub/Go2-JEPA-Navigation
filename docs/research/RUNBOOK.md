@@ -533,7 +533,7 @@ retry or successor. Science goes to `probes/RUN`; separate operations go to
 predictions, point statistics and ridge residual before substantive literature
 review of science and operations. Preserve measured negatives and incomplete cases.
 
-### External deadlines for selected-object evaluations
+### Additional-seed CPU planning
 
 B004 covers the same four additional baseline names after actual C011 probe
 reviews. Its thirteen software groups and independent-inspector source are
@@ -571,6 +571,8 @@ inspection, science and operations separately after revisiting the literature.
 Bind `inspection_review` and `inspection_review_sha256` in the science review;
 successor admission verifies these plus actual operation and artifact digests.
 No additional-seed planning result currently exists.
+
+### External deadlines for selected-object evaluations
 
 Use the reviewed C009 supervisor for actual object planning, probes and binding
 instead of launching the illustrative raw commands above/below directly:
