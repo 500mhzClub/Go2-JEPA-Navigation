@@ -47,9 +47,10 @@ followthrough checkout. Keep scientific computation and existing reviews intact:
 - A019's U007 adapter now removes old48/4-hour and per-call GPU deadlines;
   eight integration groups pass. Numerical computation and artifact checks
   remain unchanged. Actual additional-seed numerical results remain absent.
-- C009v2 still enforces old scientific allocations for later object measures.
-  Extend the accounting-only execution route to those already-approved cases,
-  retaining C014 admission and independent inspections.
+- C009v2's U012 adapter now removes old outer/inner allocations for the16 later
+  object measures. Eight CPU groups and44 metadata corruption refusals pass.
+  Original C014 admission, commands and all three inspection calculations remain;
+  actual later outcomes and per-case admission checks are still pending.
 - C014's U011 adapter now removes outer, reserve/global and internal numerical
   deadlines. Eight CPU groups pass, including 46 metadata corruption refusals;
   original numerical loop, tolerances and inspection calculations remain unchanged.
@@ -59,8 +60,8 @@ followthrough checkout. Keep scientific computation and existing reviews intact:
   and record inventories match the preserved gated checkout at a75523b; use
   that checkout after revalidating complete actual parent/data admission.
 
-These are pending operational corrections, not reasons to interrupt current O0
-or to tune the planner. Consult the relevant official documentation before each
+Current O0 continues unchanged; planner tuning remains outside the approved scope.
+Consult the relevant official documentation before each
 implementation and review its actual checks before use. Missing scientific
 predecessors remain missing; valid measured negatives satisfy completion gates
 where the existing protocol permits them.

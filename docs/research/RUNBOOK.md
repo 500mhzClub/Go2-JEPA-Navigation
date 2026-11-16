@@ -1028,3 +1028,43 @@ Science and operation paths remain `outputs/gated/C014/RUN` and
 numerical failure remains a failure. Each encoder must pass before its associated
 predictors are admitted; passing numerical checks does not establish physical
 prediction, planning or robot-transfer performance.
+
+## Later object binding, probes and planning
+
+[U012](records/U012.json) qualifies four encoder-binding, six probe and six
+planning cases after the first n3 seed0 pair. It uses the original C009v2 command
+tails, scientific modules, C014 admission and output paths. Eight CPU integration
+groups pass; the original scoring/statistics functions are byte-identical.
+The first-pair planning still uses U001/U002.
+
+After the corresponding U009/U010/U011 training, audit and numerical reviews,
+prepare the original C009v2 stage/name/C014/scientific consultation and complete
+input map, adding the U012 record/software review and U001 authorization. Run:
+
+```sh
+"$PY" outputs/gated/U012/run_eval.py --stage "$STAGE" --run "$RUN" \
+  --python "$PY" --preconsultation "$CONSULTATION"
+```
+
+Science remains in `outputs/gated/{binding,probes,planning}/RUN`, with operations
+in `outputs/gated/C009/v2/runs/STAGE/RUN`. The manifest preserves original C009v2
+software identity and adds explicit U012 execution qualification. GPU time is
+accounted without a cap; the unchanged U001 quiet monitor watches logs and result
+artifacts. A quiet timeout is a technical outcome requiring inspection.
+
+Use the corresponding U012 inspector after normal terminal completion, keeping
+that runtime checkout pinned through inspection:
+
+```sh
+env HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' ROCR_VISIBLE_DEVICES='' \
+  OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 \
+  "$PY" "outputs/gated/U012/inspect_${STAGE}.py" --run "$RUN"
+```
+
+Each scientific review must bind its `inspection_review_sha256` and include
+`run_identity` with n, kind, seed and selected `checkpoint_sha256`. Review science,
+inspection and operation separately. Probes require their encoder-binding reviews;
+n3 O1 probes also require O0 probes. Planning requires its complete probes, and
+n3 O1 planning also requires O0 planning. Valid measured negatives may proceed;
+missing or incomplete evidence cannot. Initial preparation/fixture failures are
+preserved under U012; no actual later measurement has yet run.

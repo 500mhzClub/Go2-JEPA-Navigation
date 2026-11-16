@@ -2,8 +2,8 @@
   "captured_at": "2026-11-16T10:52:41.550853+00:00",
   "source_commit": "60a6d4d9bbc306735fa7a852cd158930c4016049",
   "purpose": "Publish all locally authored experiment helper source previously held beneath ignored outputs; source-only byte-preserving snapshot, including historical/failing variants.",
-  "file_count": 466,
-  "total_bytes": 2917550,
+  "file_count": 493,
+  "total_bytes": 3233913,
   "extensions": [
     ".bash",
     ".ipynb",
@@ -2066,6 +2066,195 @@
       "mode": "0o664"
     },
     {
+      "source": "outputs/gated/U012/check.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/check.py",
+      "sha256": "2e4b65344bf62fac4391bd10e446fd2396c95d633c5eee3f6048d58a3d66ab0b",
+      "bytes": 21715,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/common.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/common.py",
+      "sha256": "cb163bcd7e91e6d5b9bc976301f716cac2c8cb85ddb115ba317791679ac4c77b",
+      "bytes": 14016,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/controlled_changes.json",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/controlled_changes.json",
+      "sha256": "418c187a84a86ecb39ddcaa1780616b380e0e17649a7bb571a926bc7309bea95",
+      "bytes": 10557,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/generation_attempt_001/source/common.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/generation_attempt_001/source/common.py",
+      "sha256": "cb163bcd7e91e6d5b9bc976301f716cac2c8cb85ddb115ba317791679ac4c77b",
+      "bytes": 14016,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/generation_attempt_001/source/inspect_binding.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/generation_attempt_001/source/inspect_binding.py",
+      "sha256": "6f38868ea4515668893e653c374159ca42e2d6d348a64e02d51f804a81a11315",
+      "bytes": 11892,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/generation_attempt_001/source/inspect_probes.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/generation_attempt_001/source/inspect_probes.py",
+      "sha256": "f7e39ad9d0be6ebea098afdec51117782740ad17c3a896e7fd83221add407678",
+      "bytes": 14227,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/generation_attempt_001/source/run_eval.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/generation_attempt_001/source/run_eval.py",
+      "sha256": "a6ee4b203b5803f0c02b9cce9621650f695e93853e2282e33107e8a77ec3dbb8",
+      "bytes": 6148,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/generation_attempt_001/source/science.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/generation_attempt_001/source/science.py",
+      "sha256": "756b49df6adbba88c2329c33475054b8c2ecc54a5f56461400671c759a922456",
+      "bytes": 537,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/inspect_binding.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/inspect_binding.py",
+      "sha256": "6f38868ea4515668893e653c374159ca42e2d6d348a64e02d51f804a81a11315",
+      "bytes": 11892,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/inspect_planning.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/inspect_planning.py",
+      "sha256": "0d5a6278f0a09e8793c96eb462bee19e7ed62f8e663909624d9c3557fff37a1e",
+      "bytes": 17802,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/inspect_probes.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/inspect_probes.py",
+      "sha256": "f7e39ad9d0be6ebea098afdec51117782740ad17c3a896e7fd83221add407678",
+      "bytes": 14227,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/run_eval.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/run_eval.py",
+      "sha256": "a6ee4b203b5803f0c02b9cce9621650f695e93853e2282e33107e8a77ec3dbb8",
+      "bytes": 6148,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/science.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/science.py",
+      "sha256": "756b49df6adbba88c2329c33475054b8c2ecc54a5f56461400671c759a922456",
+      "bytes": 537,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/software/source/check.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/software/source/check.py",
+      "sha256": "2e4b65344bf62fac4391bd10e446fd2396c95d633c5eee3f6048d58a3d66ab0b",
+      "bytes": 21715,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/software/source/common.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/software/source/common.py",
+      "sha256": "cb163bcd7e91e6d5b9bc976301f716cac2c8cb85ddb115ba317791679ac4c77b",
+      "bytes": 14016,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/software/source/inspect_binding.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/software/source/inspect_binding.py",
+      "sha256": "6f38868ea4515668893e653c374159ca42e2d6d348a64e02d51f804a81a11315",
+      "bytes": 11892,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/software/source/inspect_planning.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/software/source/inspect_planning.py",
+      "sha256": "0d5a6278f0a09e8793c96eb462bee19e7ed62f8e663909624d9c3557fff37a1e",
+      "bytes": 17802,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/software/source/inspect_probes.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/software/source/inspect_probes.py",
+      "sha256": "f7e39ad9d0be6ebea098afdec51117782740ad17c3a896e7fd83221add407678",
+      "bytes": 14227,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/software/source/run_eval.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/software/source/run_eval.py",
+      "sha256": "a6ee4b203b5803f0c02b9cce9621650f695e93853e2282e33107e8a77ec3dbb8",
+      "bytes": 6148,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/software/source/science.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/software/source/science.py",
+      "sha256": "756b49df6adbba88c2329c33475054b8c2ecc54a5f56461400671c759a922456",
+      "bytes": 537,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/software_attempt_001/source/check.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/software_attempt_001/source/check.py",
+      "sha256": "59d01f325e27a5d9dcf494eb8b9e77a1950b0e7afc6b97905769c01532deeafd",
+      "bytes": 21690,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/software_attempt_001/source/common.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/software_attempt_001/source/common.py",
+      "sha256": "cb163bcd7e91e6d5b9bc976301f716cac2c8cb85ddb115ba317791679ac4c77b",
+      "bytes": 14016,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/software_attempt_001/source/inspect_binding.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/software_attempt_001/source/inspect_binding.py",
+      "sha256": "6f38868ea4515668893e653c374159ca42e2d6d348a64e02d51f804a81a11315",
+      "bytes": 11892,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/software_attempt_001/source/inspect_planning.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/software_attempt_001/source/inspect_planning.py",
+      "sha256": "0d5a6278f0a09e8793c96eb462bee19e7ed62f8e663909624d9c3557fff37a1e",
+      "bytes": 17802,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/software_attempt_001/source/inspect_probes.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/software_attempt_001/source/inspect_probes.py",
+      "sha256": "f7e39ad9d0be6ebea098afdec51117782740ad17c3a896e7fd83221add407678",
+      "bytes": 14227,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/software_attempt_001/source/run_eval.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/software_attempt_001/source/run_eval.py",
+      "sha256": "a6ee4b203b5803f0c02b9cce9621650f695e93853e2282e33107e8a77ec3dbb8",
+      "bytes": 6148,
+      "mode": "0o664"
+    },
+    {
+      "source": "outputs/gated/U012/software_attempt_001/source/science.py",
+      "snapshot": "tools/research_runtime/outputs/gated/U012/software_attempt_001/source/science.py",
+      "sha256": "756b49df6adbba88c2329c33475054b8c2ecc54a5f56461400671c759a922456",
+      "bytes": 537,
+      "mode": "0o664"
+    },
+    {
       "source": "outputs/genesis/chain27.sh",
       "snapshot": "tools/research_runtime/outputs/genesis/chain27.sh",
       "sha256": "62f1e7f728e5ae3f2112dbc9a2822752207449da7b47ce4008d96cefa4f07d1d",
@@ -3282,10 +3471,11 @@
     "Generated datasets, checkpoints, results, logs and bytecode"
   ],
   "restoration": "Original relative paths are in source. Restore only into an appropriate unused checkout with its separately retained exact evidence/data; do not overwrite a live run or treat archived failed variants as qualified launchers.",
-  "updated_at": "2026-11-16T11:15:11.334817+00:00",
-  "update_base_commit": "3f27c2f79352a564311e82af068767370a512ee9",
+  "updated_at": "2026-11-16T11:30:16.152896+00:00",
+  "update_base_commit": "9aeeb1d0849187e6e5fc1db3a90980ffb154d0cf",
   "additional_files": [
     "outputs/gated/U010/controlled_changes.json",
-    "outputs/gated/U011/controlled_changes.json"
+    "outputs/gated/U011/controlled_changes.json",
+    "outputs/gated/U012/controlled_changes.json"
   ]
 }

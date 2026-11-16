@@ -156,5 +156,11 @@ later checkpoint audits remain pending; no additional object stage has run.
 U001: eight CPU groups and 46 metadata corruption refusals pass. Both outer and
 internal GPU deadlines are removed; the numerical loop and five summary/inspection
 functions remain byte-identical. The initial lexical fixture failure is preserved.
-No actual additional-checkpoint numerical result exists yet; later C009 measurement
-supervision and inspection metadata still need integration.
+No actual additional-checkpoint numerical result exists yet.
+
+[U012](records/U012.json) qualifies the 16 remaining object measurements and their
+three independent inspectors under U001. Eight CPU groups and 44 metadata
+corruption refusals pass. Original scientific commands and inspection calculations
+are unchanged; complete reviewed negative predecessors remain admissible. The
+preparation and fixture failures are preserved. Actual later binding, probes and
+planning still await their fullcore/P26, training, audit and numerical prerequisites.

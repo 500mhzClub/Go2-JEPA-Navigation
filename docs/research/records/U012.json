@@ -1,0 +1,70 @@
+{
+  "id": "U012",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T11:19:34.816886+00:00",
+  "question": "Can the remaining16object binding/probe/planning evaluations and independent inspections execute under U001 while retaining original scientific computation and U011 checkpoint-specific numerical admission?",
+  "hypothesis": "An explicit execution adapter can preserve all original C009v2 commands, sources and inspector computations while replacing outer and inner GPU-time enforcement with reviewed U001 accounting/progress supervision.",
+  "sources": [
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen.poll/wait and communicate timeout cleanup395-430",
+      "consequence": "Use exact owned-process supervision and confirmed-terminal closure; observation timeout is not terminal state. Reuse U001 quiet monitoring without an absolute GPU deadline."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/runpy.html",
+      "version": "3.12",
+      "sections": "run_module and alter_sys13-26, fresh namespace and shared process side effects",
+      "consequence": "Run each unchanged scientific module in its own child after substituting only research accounting functions; keep original command tails, data and checkpoint admission."
+    }
+  ],
+  "differences": "Remaining16routes only:4binding,6probe,6planning across n3seeds1/2 and O1n1/n6seed0. Original completed firstcore routes remain excluded and U001 owns active first-pair planning. No model/training/evaluator/metric/planner/sample/tolerance changes.",
+  "contrary_evidence": "Accounting compatibility and correct summaries do not establish useful representations or robot transfer. Original firstcore binding/probes and interim planning are poor; no tuning follows from this implementation. Sparse probe output can trigger quiet monitoring during a slow computation; retain as technical evidence. Unsaved masks, latent features and CEM candidates remain unavailable for independent regeneration.",
+  "protocol": {
+    "scope": "binding slots_n3_s1/s2,slots_n1_s0,slots_n6_s0; probes/planning o0/o1_n3_s1/s2 and o1_n1/n6_s0",
+    "parents": {
+      "c009_review": "df111a12cdef0164480dd8754135a9274e01443f36626c79aafa76423356b280",
+      "u001_review": "39cfac353717fce32c30bd6ca316c5cf217c9e59391a6987b79ba0c0bbc156cc",
+      "u011_review": "906eb5242acd22b6d12064da43d61f68ccb08177a58ff28b7ad1f6a0dbaf0197"
+    },
+    "inspectors": {
+      "binding": {
+        "source_sha256": "2daccc039acc6e1c370f210a1ceb2a73af5731f8d9fc02ff63acc9c954fed5ba",
+        "review_sha256": "aa3e7d8b26b7b9545aa6ac70ce3ca465f6729e916613d0ee5010f7b39e65f9c0"
+      },
+      "probes": {
+        "source_sha256": "f064bd621dde8e207db2d1f0f3aa6c6febf48a40a405495d160ce1401fc1990b",
+        "review_sha256": "e7998ec39f5ec9abbf3410e1945d1a5f13154c2be793e5e241ec627753d07108"
+      },
+      "planning": {
+        "source_sha256": "1650f11e1a4ee903ef844b51c7b7953a5c0460dfd15438dcdcd48047452bbc9c",
+        "review_sha256": "d707cd2237598c58aa223d24a91d046f61f380fe2dfe7e0595b64e6967e49a02"
+      }
+    },
+    "scientific": "Use unchanged original C009v2 route/arguments/inputs/consultation and full C014 admission, then additionally verify U011 qualification/metadata and its actual independent inspection. Preserve original C009/C014/software identity and canonical science/operation paths with separate explicit U012 execution qualification.",
+    "order": "Probes require own encoder binding science/inspection/operation reviews; n3O1probes additionally require O0probes. Planning requires own complete probes; n3O1planning additionally requires complete O0planning. Valid measured negatives admit successors, incomplete/unreviewed cases do not. Training/numerical parents continue to enforce fullcore/P26 and approved seed/count order.",
+    "execution": "Reuse U001 accounting_run/accounting_remaining and wait_progress, original C009v2 stop_owned/close_intervals. Null global/bc/science remaining and work allowances, no absolute deadline. Quiet1800/poll10/TERM30/KILL10, original memory/device/source checks. All three evaluator budget_remaining calls compare <=0 only; no Infinity serialized. Observe evaluation.log,cases.jsonl,cases.npz,probe.pt,result.json. Stalls are technical_blocked.",
+    "inspection": "Controlled copies of original three inspectors; all pure scoring/statistics/sample/geometry/bootstrap functions unchanged. Only execution admission, source identity qualification, integration reporting and versioned failure CLI change. Verify exact actual U012 consultation/input map, runtime commit/source, own helper inventory and two correctly closed U001 intervals. Original inspector and runner software bindings remain.",
+    "consultation": "Original C009v2 actual stage/name/C014/scientific record/full input map and substantive source/time/consequences plus U012 record/software review and U001 authorization. Every science/inspection/operation outcome still separately reviewed.",
+    "checks": [
+      "All16route/command tails match original and completed/unapproved cases refuse",
+      "Exact controlled supervisor/inspector transformations and unchanged original inspector computation; all existing16runner,8binding,11probe,13planning and U001monitor evidence inherited by exact hashes",
+      "Synthetic closed60hour ledger accepts every scientific identity; open/live/wrong/nested closure faults refuse, foreign intervals preserved",
+      "Qualified U011 numeric and prior-measure evidence accepts; missing/changed/partial/nonpassing review or metadata refuses",
+      "All3scientific modules substitute only accounting functions before run_module; internal accessor uses remain comparisons only",
+      "Valid execution metadata and deliberately wrong record/review/source/authorization/allowance/consultation/interval identities refuse",
+      "Actual missing later numerical evidence refuses before GPU/output; no shared ledger or live/historical source mutation"
+    ]
+  },
+  "success": "Focused CPU integration checks and exact substantive post-result review qualify U012. No actual scientific comparison cell is completed by software qualification.",
+  "stop": "Refuse stale/missing evidence and unapproved/completed routes; preserve all failures, use original tolerances and no automatic successors or retries.",
+  "resources": {
+    "software_device": "CPU with GPUs hidden",
+    "software_seconds_max": 180,
+    "cpu_workers_max": 2,
+    "gpu_time_limit": null,
+    "stall_seconds": 1800,
+    "memory_fraction_max": 0.85
+  },
+  "predecessors": []
+}
