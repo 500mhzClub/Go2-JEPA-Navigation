@@ -2090,6 +2090,9 @@ suite. Each round fitted P17's planner to the harness, and none measured M5.
 
 ### P25. A second world: bouncing balls (set out 15 November, before any run)
 
+**Closed 16 November** (STATUS; docs/HANDOFF_2026-11-16.md): its toy had no interaction and its rebuild check failed. P26's
+first part below is deferred. P27 (the handoff, section 6) is proposed in their place.
+
 **Why.** Zhu et al. (arXiv 2609.04264) found that LeWM, trained from scratch with one [CLS] vector, fails in
 bouncing-ball worlds:
 - It plans 0-3%. Adding supervised targets in training (the balls' boxes, through a Fourier head) gives 13-92%.

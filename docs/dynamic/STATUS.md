@@ -2522,3 +2522,19 @@ layout. 24 recorded ring-world missions repeat exactly, and the unit tests pass 
 - The rounds tested the planner's fit to the harness, not M5. Re-evaluated in docs/REVIEW_2026-11-15.md.
 - **P24 closed (approved 15 November)** on stage 1 and 2a, with stage 2 stopped before its suites. Next: P25 (the
   second world) and P26's first part (slots in place of the tracker, in Genesis, offline), each set out before any run.
+
+## P25 and the follow-through, closed; P27 proposed (16 November)
+
+- **P25 closed** (results on `feature/p25-followthrough`, docs/research/FULL_WORK_ACCOUNT_2026-11-16.md):
+  - L0 [LeWM, one [CLS] latent] plans 97-98%, so Zhu et al.'s weak LeWM did not reproduce and the claim's bar was
+    unreachable.
+  - L0 keeps the red ball (r 0.9996) and drops the white ones with one and three balls (r about 0). That is the
+    Go2's finding again.
+  - The RGB slots bound 0 of 20,000 balls, and the slot predictors' futures were worse than holding.
+  - The toy had no interaction and its task never needed the white balls, so it could not measure the question.
+- **P26's first part was not run.**
+- **The follow-through's last experiment (F004)** was a supervised forecaster, off the goal. It was stopped.
+  - Kept from it: F002's measure of M5's false responses to the robot's action, and the checked ring-world branch
+    export.
+- **Next:** docs/HANDOFF_2026-11-16.md proposes P27, a recipe bench on reactive balls. It measures action
+  sensitivity, action → obstacle and obstacle progression through a head on predicted latents, against an oracle.
