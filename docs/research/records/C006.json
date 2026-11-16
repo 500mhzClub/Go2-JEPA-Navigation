@@ -1,0 +1,92 @@
+{
+  "id": "C006",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16",
+  "question": "What physical positions and four-step dynamics are recoverable from the six final L0/L1 baselines under the already-frozen C001 probe protocol, executed on spare CPUs while RGB slot training continues?",
+  "hypothesis": "Final A003-calibrated models permit valid CPU reference readouts; L0's lower latent loss need not imply either physical sufficiency or omission. The measurements may support or contradict the proposed supervised-reference advantage.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/html/2609.04264v3",
+      "version": "v3",
+      "sections": "Section3, section4.4, AppendixA.10/Table10",
+      "consequence": "Report accessible position information separately from prediction/planning. Preserve local4096/ridge1e-3 versus paper50000/ridge1e-6 differences and retain unexpected L0 success."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Floating-point and batched/sliced computations; finite inputs and conditioning",
+      "consequence": "CPU results need their own finite/grouping and solver-residual checks; existing A003 CPU/GPU parity covers its samples only. Disclose the execution platform, without asserting bitwise platform identity."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/generated/torch.linalg.solve.html",
+      "version": "2.12",
+      "sections": "Square systems, invertibility, supported double dtype and numerical-stability note",
+      "consequence": "Reuse fixed float64 ridge solve with train standardization and unpenalized intercept. Check the normal-equation residual independently; never tune alpha from test scores."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Popen timeout, termination and wait",
+      "consequence": "Bound each owned CPU child externally; never signal the concurrent GPU trainer. Preserve partial outcomes and require a separate operational review."
+    },
+    {
+      "url": "go2nav/eval/balls_probes.py",
+      "version": "81171a2",
+      "sections": "features, targets, fit_linear, apply_linear, probe_summary and evaluate sampling",
+      "consequence": "Import unchanged functions; preserve exact C001 indices, controls, alpha and episode bootstrap. The only scientific execution adaptation is CPU inference/readout in place of GPU; no new control or target is added."
+    }
+  ],
+  "differences": "Approved CPU checkpoint-analysis intent is applied to the already-planned final baseline probes, not neural-network training. C001's initial experiment harness uses GPU; this record explicitly declares CPU execution of the same probe computation. Models retain A003 float64/math inference and calibrated statistics. This is final test evaluation rather than A017's earlier validation-only temporal comparison. All outputs identify CPU execution; no test-driven model/planner or hyperparameter change is permitted.",
+  "contrary_evidence": "A frozen linear readout may miss nonlinear information; sorted white positions are exchangeable positional ranks, not persistent identities. Reversing actions can preserve net displacement and be weak. Good readout is not good latent geometry or planning. Single-seed episode intervals omit training-seed uncertainty. CPU/GPU arithmetic can differ despite earlier sampled parity.",
+  "protocol": {
+    "scope": "Only the six existing final seed0 L0/L1 artifacts, under unchanged C001 physical-probe design. No neural optimizer updates, new calibration, test selection, new data, extra seeds or planner changes.",
+    "order": [
+      "l0_n3_s0",
+      "l1_n3_s0",
+      "l0_n1_s0",
+      "l1_n1_s0",
+      "l0_n6_s0",
+      "l1_n6_s0"
+    ],
+    "parents": "Require actual passing A003 review bound to calibrated artifact and passing A016 review; verify step303000, n/kind/training seed0, float64/math/inference-only metadata. Check existing B001 test-controls review and exact test/train data bytes.",
+    "sampling": "Identical C001 seeds [2026111511,n,split_is_test].4096 train episode draws; five windows per each1000 test episodes; starts uniform integers in[2,frames-4), preserving three history frames and four future steps. Save all episode/start indices. No validation selection or test fitting.",
+    "features": "Use unchanged balls_probes.features batch32: current, factual four-step rollout, fixed reversal of four future actions preserving both past actions, and no_rollout. No true future observation enters the model. Features and model state must be finite.",
+    "readout": "Reuse unchanged train-standardized float64 ridge alpha0.001, unpenalized intercept, fit current train positions only. Same frozen decoder scores current and future targets. Lexicographically sort white XY at fit/score; no prediction-dependent assignment.",
+    "statistics": "Reuse unchanged per-coordinate Pearson, RMSE and2000 whole-episode bootstrap samples with seed2026111510. Preserve raw cases and decoder. Optional descriptive color summaries are mean coordinate Pearson and mean-ball Euclidean RMSE, derived without new fitting or inference.",
+    "validity": "For first8 fixed test windows compare feature modes at batch32 against batch1 and reversed ordering with unchanged rtol1e-4/atol1e-5. Check all extracted features/decoder/predictions finite, ridge relative residual<=1e-8, unchanged state/checkpoint/data digests, CPU-only tensors and CUDA never initialized.",
+    "software_checks": "Deterministic sampling exactly matches existing evaluate convention and remains in bounds; white sorting invariant; action reversal/history preserved via a recording fake CPU model; feature batch/permutation consistency; ridge matches independent augmented least squares and residual; nonfinite detection; CPU environment guard; source/data/parent binding checks.",
+    "execution": "One CPU child at a time, eight threads, RSS<=16GiB, wall<=900seconds per model including15second cleanup reserve; reuse reviewed identity-checked owned-child stop behavior. Hide HIP/CUDA/ROCR devices. CPU work creates no GPU ledger row; record concurrent GPU ledger changes honestly. Each actual scientific and operational result needs literature review before the next case.",
+    "outputs": "Canonical planned probes/RUN/{result,review,cases,probe} artifacts, additional sampled indices/features and C006 manifest. Result schema preserves C002 compatibility and adds seed/device/lineage/numerical checks. A failed/incomplete case remains explicitly incomplete and cannot supply a passing comparison cell."
+  },
+  "success": "The declared probe computation passes its own validity checks and produces reviewed descriptive physical measurements. No direction of scientific effect is required for validity; classify hypothesis failures as measured negatives rather than force a baseline ranking.",
+  "stop": "Changed lineage/data/source, nonfinite values, grouping or residual failure, CUDA initialization, CPU memory/time exhaustion stop this CPU case and require review. Do not adjust data, precision, alpha, samples, thresholds or model weights from outcomes. The concurrent slot trainer remains untouched.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_workers_max": 8,
+    "cpu_stage_wall_seconds_max": 900,
+    "cpu_total_wall_seconds_max": 5400,
+    "rss_gb_max": 16,
+    "disk_gb_max": 4,
+    "training_device": "none; CPU reference inference and diagnostic closed-form readout only"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/A017/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/A003_recovered/l0_n3_s0/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/A003_recovered/l1_n3_s0/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}

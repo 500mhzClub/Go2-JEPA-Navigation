@@ -14,6 +14,8 @@ checkpoint confirms 200 updates across all 57 optimizer states and the scheduler
 in epoch0; first validation is pending. Current exact process identities and
 heartbeat are under `outputs/gated/C005/runs/slots_n3_s0`, with the supervisor
 launch identity in `outputs/gated/C005/launch_slots_n3_s0.json`. Do not relaunch it.
+The later atomic observation confirms 2,400 completed updates, with all optimizer
+counters and scheduler agreeing. This is progress evidence, not a quality result.
 Keep the active gated checkout pinned to81171a2; documentation updates belong in
 the isolated validation checkout until the child finishes.
 
@@ -159,6 +161,30 @@ The same CLI loads reviewed O0/O1 checkpoints. It never supplies intermediate fu
 the learned planner. CEM uses final elite mean; goal slots are independently encoded and Hungarian-matched.
 
 ## C: three-ball core, then extra seeds/counts
+
+C006 permits the six completed baseline probes to use spare CPUs while the GPU
+slot trainer runs. Its eight helper groups passed and received an exact-result
+literature review. Execute from the isolated validation checkout, in the registered
+order: L0 n3, L1 n3, L0 n1, L1 n1, L0 n6, L1 n6, all seed0.
+
+```sh
+python3 outputs/gated/C006/run_one.py --run l0_n3_s0
+```
+
+Each case needs its own `C006/pre_RUN.json` with substantive primary-source
+consultation and exact existing train/test data hashes. The wrapper requires
+reviewed final A003/A015/A016 parents, the C006 software review and prior case
+reviews. It imports unchanged C001 probe functions with exactly the existing
+samples, controls, ridge coefficient and episode bootstrap. C006 explicitly
+records CPU execution as an adaptation; it performs no neural training or new
+calibration. CPU/GPU arithmetic is not assumed identical. Actual finite, grouping,
+solver residual, frozen-weight and data/source checks remain mandatory.
+
+Use one eight-thread CPU child, at most 16 GiB RSS and 900 seconds including
+cleanup. Scientific artifacts go to `outputs/gated/probes/RUN`; separate
+operational evidence goes to `outputs/gated/C006/supervision/RUN`. Inspect and
+literature-review both exact results before the next case. No review or successor
+is automatic. The concurrent GPU trainer and its pinned checkout remain unchanged.
 
 C005 adds an external deadline around unchanged C001 commands: the smaller of
 the remaining 28-hour B/C and 48-hour shared allowances, reserving 45 seconds for
