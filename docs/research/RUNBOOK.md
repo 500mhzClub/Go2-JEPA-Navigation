@@ -417,8 +417,8 @@ no automatic resume, retry or successor. Actual operations are under
 The original A003, B003 and C006 records cover only the six seed0 baselines.
 A019 now covers calibrated inference for the four additional n3 baselines, with
 reviewed software. C011 now covers the unchanged additional-seed CPU probes.
-Fresh-seed CPU planning still needs its explicit scope extension and reviewed
-software before use. Do not silently apply the original
+B004 covers the unchanged additional-seed CPU planning with reviewed software.
+Do not silently apply the original
 records to seeds1/2. C010 software checks alone establish neither an actual
 completed training state nor numerical/scientific validity.
 
@@ -534,6 +534,43 @@ predictions, point statistics and ridge residual before substantive literature
 review of science and operations. Preserve measured negatives and incomplete cases.
 
 ### External deadlines for selected-object evaluations
+
+B004 covers the same four additional baseline names after actual C011 probe
+reviews. Its thirteen software groups and independent-inspector source are
+reviewed. The initial missing inspector output-parent finding, passing fixture
+result and negative review are retained under `B004/software_attempt_001`.
+
+```sh
+python3 outputs/gated/B004/run_one.py --run l0_n3_s1 --python "$PY"
+```
+
+Create `B004/pre_RUN.json` after consulting on the actual parents. Bind `name`,
+`research_sha256`, `b001_record_sha256`, `checkpoint_sha256`,
+`software_review_sha256`, complete `inputs_sha256` from `parents.inputs`,
+its original `data_sha256`, consultation time, sources and consequences.
+The actual same-seed C011 probe can be passed or a valid measured negative,
+but its operation must have completed normally. Seed0 paths are excluded.
+
+The fixed3000-case B003 computation,100/10/20 CEM, original task seeds,
+float64/math and candidate checks are retained. One eight-thread CPU child
+has7200seconds including15cleanup,16GiB sampled RSS and zero GPU intervals;
+the four cases total at most28800seconds. The B003 lock serializes CPU work.
+Science goes to `planning/RUN`; operations go to `B004/operations/RUN`.
+
+After actual normal completion, use the independent inspector:
+
+```sh
+HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' ROCR_VISIBLE_DEVICES='' \
+  OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+  timeout --kill-after=5s 115s "$PY" outputs/gated/B004/verify_cases.py --run l0_n3_s1
+```
+
+It reconstructs all saved actions against original truth/control tasks and
+reproduces scores and bootstrap summaries without model inference. Review
+inspection, science and operations separately after revisiting the literature.
+Bind `inspection_review` and `inspection_review_sha256` in the science review;
+successor admission verifies these plus actual operation and artifact digests.
+No additional-seed planning result currently exists.
 
 Use the reviewed C009 supervisor for actual object planning, probes and binding
 instead of launching the illustrative raw commands above/below directly:

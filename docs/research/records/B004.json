@@ -1,0 +1,101 @@
+{
+  "id": "B004",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16",
+  "question": "Do the four approved additional n3 L0/L1 training seeds solve the identical fixed planning tasks under unchanged CPU evaluation?",
+  "hypothesis": "The mixed seed0 findings may vary across training seeds. Preserve the complete matched task protocol and measure each seed without a required ranking.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/html/2609.04264v3",
+      "version": "v3",
+      "sections": "Section4.4 latent terminal cost and5.1.1 matched planning evaluation",
+      "consequence": "Measure actual endpoint and collision-free success separately from probes; preserve local B001 CEM settings and all1000 fixed test episodes."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/notes/numerical_accuracy.html",
+      "version": "2.12",
+      "sections": "Platform differences, batched/sliced computations, finite values",
+      "consequence": "Retain float64/math and per-model candidate grouping checks at existing tolerances. CPU/GPU elite sequences need not match bitwise; report device and omit cross-device latency superiority claims."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/subprocess.html",
+      "version": "3.12",
+      "sections": "Wait, timeout cleanup and returncode",
+      "consequence": "Externally bound each owned CPU child, confirm exit, preserve partial files and require separate operational review before successors."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/fcntl.html",
+      "version": "3.12",
+      "sections": "flock exclusive and nonblocking semantics",
+      "consequence": "Serialize new CPU planning with existing B003 and C011 through the same lock; refusal is preferable to duplicate concurrent CPU experiments."
+    },
+    {
+      "url": "https://numpy.org/doc/2.4/reference/generated/numpy.quantile.html",
+      "version": "2.4",
+      "sections": "Notes: default linear interpolation q*(n-1)",
+      "consequence": "Preserve fixed whole-episode bootstrap summaries and independent raw-case reconstruction; keep training seeds separate."
+    },
+    {
+      "url": "outputs/gated/B003/planning.py",
+      "version": "f47d9c5",
+      "sections": "numerical_check,cases and full inference/scoring loop; inspectorv2 audit_rows/summary_from_rows/compare_summary",
+      "consequence": "Copy unchanged computations with only research identity and parent admission adapted. AST and synthetic original-evaluator comparison must show no computational change."
+    },
+    {
+      "url": "outputs/gated/C011/parents.py",
+      "version": "4b822a06e8bcf0e6da6ecf43d7a2974242efab8cf6fe0368bb89b5277bf636c5",
+      "sections": "numerical_parent and original_probe_data",
+      "consequence": "Reuse the reviewed actual-training/numerical/verification/data chain, then require actual current-seed probe science and operation reviews."
+    }
+  ],
+  "differences": "Extends already-approved C001 baseline n3 seeds1/2 to the B003 spare-CPU computation. Uses actual A019 inference artifacts and reviewed C011 probes instead of original seed0 parents. No model, data, inference, planner or scoring change; no new GPU time.",
+  "contrary_evidence": "Probe accessibility does not establish useful latent distance or planning. Physical supervision may fail, and the local baseline already differs from the reference paper. CPU/GPU roundoff can change CEM elite choices. One training seed does not establish generalization; episode intervals omit training-seed uncertainty. White-ball contacts are absent from local dynamics.",
+  "protocol": {
+    "order": [
+      "l0_n3_s1",
+      "l1_n3_s1",
+      "l0_n3_s2",
+      "l1_n3_s2"
+    ],
+    "parents": "Require actual C001/C010/A018 and A019 science/verification/operation reviews, verified303000-update float64/math/inference-only identity and original train/test bytes through C011 parents. Actual same-seed C011 probes must be complete and reviewed passed or measured_negative with normal reviewed operation. Preceding B004 cases need science/operation and independent-inspection reviews. Fresh consultation binds complete files,data,record,software and checkpoint.",
+    "tasks": "Exactly all1000 existing test episodes at each horizon4/6/8, five groups of200. Use unchanged task_start seed2026111503 and CEM seed2026111504. Three history images and two past executed actions; goal encoded independently. No intermediate future frames or labels enter the model. Labels enter only simulator scoring.",
+    "planner": "Unchanged learned_actions/cem:100 candidates,10 elites,20 iterations,std2,action norm cap3,minimum std0.001,final elite mean. Squared terminal latent distance. No replanning, auxiliary geometric cost, warm start or optimizer tuning.",
+    "scoring": "Unchanged red_path/score, primary red endpoint error<=1pixel; collision-free endpoint success secondary with discrete-frame white distances. Save all actions and episode/start/goal/CEM identities. Reuse summarize2000 episode bootstrap per horizon and group breakdown; retain each training seed separately.",
+    "numerics": "Before complete iteration for every model, fixed episode0 H8 first100 proposal batch: finite predicted latents and costs, first8 singleton and reversed100 grouping at rtol1e-4/atol1e-5. Preserve diagnostic arrays. Keep all learned parameters/buffers frozen; verify final data/source/checkpoint hashes and no CUDA initialization. No GPU equality claim.",
+    "software_checks": "AST equivalence of B003 numerical_check,cases and inference/scoring body, original evaluator on two-episode/all-horizon recording fixtures, independent saved-case inspector and corruption refusals; four synthetic complete parent/probe chains, wrong/partial/stale evidence refusal and original-data binding; full consultation mismatch, prior-case order/budget, common lock and actual owned normal/deadline/wrong-identity CPU processes. Preserve all earlier helpers/ledger; no actual extra-seed model inference in software checks.",
+    "execution": "One eight-thread CPU child with one interop thread, hidden HIP/CUDA/ROCR. Per model7200seconds including15seconds cleanup, RSS<=16GiB; all four at most28800seconds. New immutable output paths, file logs, exact child identity, no GPU ledger rows or signals to other processes. Canonical scientific outputs planning/RUN; operational outputs B004/operations/RUN. Preserve partial cases on deadline and mark incomplete; no automatic retry/review/successor. Share the existing B003/run.lock with original planning and C011 probes.",
+    "review": "After actual terminal completion, independent B004/verify_cases.py checks all3000 saved trajectories, original control identities, truth labels, endpoint/collision classification and bootstrap summaries. Review actual inspection/science/operations separately after literature consultation before any successor; bind inspection_review and inspection_review_sha256 in the scientific review."
+  },
+  "success": "Complete valid3000-case evaluation per model with reviewed results, independent raw-case checks and correct uncertainty. No required ranking for measurement validity; original C002 reference/planning bars remain unchanged.",
+  "stop": "Stale lineage/source/data, invalid candidate numerics, nonfinite output, device initialization, memory/time exhaustion or failed controls stops the case. Preserve artifacts. No threshold/precision/planner/split adjustment after observing results.",
+  "resources": {
+    "gpu_hours_max": 0,
+    "cpu_workers_max": 8,
+    "cpu_stage_wall_seconds_max": 7200,
+    "cpu_total_wall_seconds_max": 28800,
+    "software_seconds_max": 180,
+    "cleanup_reserve_seconds": 15,
+    "rss_gb_max": 16,
+    "training_device": "none; CPU inference/planning only"
+  },
+  "predecessors": [
+    {
+      "review": "../../../outputs/gated/B003/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/B003/inspection/v2/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    },
+    {
+      "review": "../../../outputs/gated/C011/software/review.json",
+      "allow": [
+        "passed"
+      ]
+    }
+  ]
+}
