@@ -2660,3 +2660,29 @@ engineered and dynamics learned. One seed, 6,000 steps (4 minutes), k = 8:
   All three are imprecision: a 1.8-px error on an obstacle that does nothing reads as a response over 1.5 px.
 - **T1 is worse than T2 again** (false responses 50%), as for every recipe so far.
 - The loss was still falling at 6,000 steps, so the second round is the same recipe for 36,000 steps (25 minutes).
+
+## P27 R4, second round: 36,000 steps nearly pass every bar on T2 (16 November)
+
+The same recipe and seed for 36,000 steps (25 minutes; the first round's loss was still falling). T2, k = 8:
+
+| | E: agent | Shuffle ratio | X bounce (cv 8.94) | X straight (cv 0.40) | A: error / zero | False | Slope [95%] | R: worst |
+|---|---|---|---|---|---|---|---|---|
+| Bar | ≤ 1 | ≥ 5 | ≤ 4.47 | ≤ 0.90 | ≤ 0.50 | ≤ 10% | above 0.5 | ≤ 1 |
+| Oracle-S | 0.41 | 31.6 | 1.25 | 0.61 | 0.59 | 4.9% | 0.58 [0.57, 0.60] | - |
+| R4, 6,000 steps | 0.72 | 18.1 | 3.30 | 1.81 | 0.64 | 20.1% | 0.48 [0.46, 0.50] | 0.29 |
+| R4, 36,000 steps | 0.58 | 22.7 | 1.06 | 0.73 | 0.48 | 10.3% | 0.77 [0.75, 0.79] | 0.27 |
+
+- **It meets every bar but one,** on one seed: false responses are 10.3% against 10%.
+- **It is level with Oracle-S or better** on X (1.06 against 1.25 px on bounce windows) and on A (0.48 against 0.59;
+  slope 0.77 against 0.58). Oracle-S is a cheap reference, 4,000 steps of an MLP, not a ceiling.
+- **By kind and by how the obstacle is reached** (response error over zero-response; slope):
+
+| k = 8 | All | Contact | At a distance | Indifferent | Yielding | Pausing |
+|---|---|---|---|---|---|---|
+| Oracle-S | 0.59; 0.58 | 0.51; 0.64 | 0.85; 0.26 | 0.63; 0.61 | 0.73; 0.46 | 0.47; 0.65 |
+| R4, 36,000 steps | 0.48; 0.77 | 0.42; 0.82 | 0.65; 0.51 | 0.56; 0.84 | 0.52; 0.68 | 0.40; 0.80 |
+
+  - Reactions at a distance, where the hidden kind decides, are the weakest part for both (R4 slope 0.51).
+  - False responses are 9.1% away from contact; the few quiet pairs with a contact (294) are 68% false, for both.
+- **Horizon:** at 16 steps the response error is 0.68 of zero-response and false responses 39%; at 4 steps 0.47 and 4%.
+- **Next:** two more seeds on T2 (the rung "looks like passing"), the same run on T1, and R5 (16 history frames).
