@@ -1,0 +1,45 @@
+{
+  "original_sha256": "edb84121e932712bf01e111db81ad79c34702ccce6e0122db9e238265ebc35bd",
+  "changes": [
+    {
+      "before": "\"\"\"Read-only terminal C001 training audit. No inference, updates or auto-review.\"\"\"",
+      "after": "\"\"\"Original C008 state audit with explicit U009/U001 provenance integration.\"\"\""
+    },
+    {
+      "before": "BASE=Path('outputs/gated/C008')",
+      "after": "from metadata import TRAINING, case_name, qualified, reconcile_sources, training_metadata, consultation\nBASE=Path('outputs/gated/C008')"
+    },
+    {
+      "before": "def run(name):",
+      "after": "def run(name,preconsultation):"
+    },
+    {
+      "before": "started=time.monotonic();_,rh=require_record('C008');record,ch=require_record('C001')",
+      "after": "started=time.monotonic();case_name(name);integration=qualified();_,rh=require_record('C008');record,ch=require_record('C001')"
+    },
+    {
+      "before": "verify_files(BASE,sw['source_sha256']);verify_files(Path.cwd(),sw['repository_source_sha256'])",
+      "after": "verify_files(BASE,sw['source_sha256']);reconcile_sources(Path.cwd(),sw['repository_source_sha256'])"
+    },
+    {
+      "before": "opbase=opdir.parent.parent;need(require_review(opbase/'software/review.json')['status']=='passed','Supervision software not reviewed')",
+      "after": "extra=training_metadata(runtime,operation,om,sm,json.loads(Path('outputs/gated/gpu_intervals.json').read_text()))\n    opbase=TRAINING;need(require_review(opbase/'software/review.json')['status']=='passed','Supervision software not reviewed')"
+    },
+    {
+      "before": "files.update([opdir/'result.json',opdir/'manifest.json']);files.update(Path(f) for f in data)",
+      "after": "files.update([opdir/'result.json',opdir/'manifest.json']);files.update(Path(f) for f in data);files.update(extra)\n    consultation(preconsultation,name,files,science,opdir);files.add(Path(preconsultation))"
+    },
+    {
+      "before": "return dict(research_id='C008',name=name,research_sha256=rh",
+      "after": "return dict(research_id='C008',integration_research_id='U010',integration=integration,preconsultation_sha256=digest(preconsultation),name=name,research_sha256=rh"
+    },
+    {
+      "before": "parser=argparse.ArgumentParser();parser.add_argument('--run',required=True);args=parser.parse_args()",
+      "after": "parser=argparse.ArgumentParser();parser.add_argument('--run',required=True);parser.add_argument('--preconsultation',required=True);args=parser.parse_args()"
+    },
+    {
+      "before": "try:result=run(args.run)",
+      "after": "try:result=run(args.run,args.preconsultation)"
+    }
+  ]
+}

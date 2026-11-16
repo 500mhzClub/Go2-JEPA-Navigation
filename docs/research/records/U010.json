@@ -1,0 +1,57 @@
+{
+  "id": "U010",
+  "stage": "preregistered",
+  "reviewed_at": "2026-11-16T10:56:13.290934+00:00",
+  "question": "Can the original full C008 terminal-state audit admit U009 accounting-only training without weakening any tensor, epoch, optimizer, RNG, source or termination check?",
+  "hypothesis": "Explicit U009/U001 metadata and exact existing C014 source reconciliation can preserve the original C008 state computation and canonical audit outputs.",
+  "sources": [
+    {
+      "url": "https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html",
+      "version": "official tutorial current page2.15; local runtime2.12",
+      "sections": "General checkpoints; best-state reference versus copy; map_location CPU",
+      "consequence": "Retain separate selected/final strict restoration, optimizer/cursor state and CPU-only loading. Metadata compatibility cannot establish scientific quality or historical selected-weight provenance."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.12/generated/torch.optim.Adam.html",
+      "version": "2.12",
+      "sections": "load_state_dict warning and scheduler-before-optimizer example",
+      "consequence": "Keep the original restore order, exact moments/parameter coverage/counters/LR checks and no optimizer update."
+    },
+    {
+      "url": "outputs/gated/C008/audit.py",
+      "version": "edb84121e932712bf01e111db81ad79c34702ccce6e0122db9e238265ebc35bd",
+      "sections": "state_checks, terminal_checks, verify_source_inventory and run provenance",
+      "consequence": "Preserve these functions byte/AST-identically and change only source/supervisor qualification, explicit policy metadata, per-case consultation and integration reporting."
+    }
+  ],
+  "differences": "CPU artifact metadata integration only,10remaining training cases (14U009routes minus4extraction stages). No training, forward/backward, update, reselection, numerical-tolerance change or historical rewrite. Original C008 research identity and C008/runs outputs retained.",
+  "contrary_evidence": "Metadata compatibility alone cannot validate actual model tensors. Earlier selected weights rely on source-bound metadata without retained epoch snapshots. Original GPU RNG check is bytes only. Current runtime checkout must still match its exact recorded commit.",
+  "protocol": {
+    "inherited_audit_sha256": "edb84121e932712bf01e111db81ad79c34702ccce6e0122db9e238265ebc35bd",
+    "inherited_review_sha256": "cbd9e160e18b659806d2f563e467b72ee59feb147dd79fa408523e6e9920cab5",
+    "u009_review_sha256": "4b54984121d0b7a0ecd907e40c54a060c6673cb6b97891d2dc3c04a73d14a6fb",
+    "u006_review_sha256": "8a40a3aab829a4fb406613118a81a82a96aff2dbf52397570068048d4f732e37",
+    "scope": "slots/o0/o1 n3seeds1/2 and slots/o1 n1/n6seed0 only",
+    "metadata": "Require original C005/C001 identities plus U009 record/helper/software, U001 authorization and null total/remaining GPU allowances, original cleanup reserve, no stall result, exact two owned policy intervals. Rebuild original U009 prerequisite inputs and bind exact training consultation.",
+    "sources": "Reuse qualified U006 reconciliation for exactly three historical C014 evaluator files; every other historical source/config and all actual runtime inputs remain hash-exact.",
+    "consultation": "Fresh per-case name, C008/C001/U010/U001/U009 software identities, exact original result/operation and complete metadata/artifact input digest set, sources/time/consequences before tensor loading. No automatic review.",
+    "checks": [
+      "controlled source transformation and AST identity of all original state/terminal/source functions",
+      "all10names and forbidden completed/extract/other cases",
+      "valid U009 policy plus corrupt identity/record/software/null allowance/preconsultation/interval refusals",
+      "original terminal checks including live process/open intervals",
+      "exact consulted input inventory and altered data/review refusal",
+      "actual missing later training refuses without mutation; no Torch in integration software suite; existing sources/ledger untouched"
+    ]
+  },
+  "success": "Software metadata checks pass and exact post-result review qualifies this adapter. Actual complete per-case state checks and separate C008/C001/C005 reviews remain required.",
+  "stop": "Refuse stale, missing, mismatched or incomplete evidence; preserve original audit and failures. Do not alter training runtime or any tensors.",
+  "resources": {
+    "device": "CPU only",
+    "threads": 1,
+    "software_seconds_max": 120,
+    "actual_seconds_max": 180,
+    "gpu_hours": 0
+  },
+  "predecessors": []
+}

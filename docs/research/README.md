@@ -147,5 +147,8 @@ See the [preliminary O0 planning assessment](PRELIMINARY_OBJECT_PLANNING_2026-11
 [U009](records/U009.json) qualifies accounting-only execution of the14 remaining
 encoder/cache/predictor stages. Seven CPU integration groups pass; original
 training computation and commands are retained. Initial fixture failure is
-preserved. C008 metadata integration and later C014 numerical deadline correction
-remain necessary; no actual additional object stage has run.
+preserved. [U010](records/U010.json) now qualifies C008 metadata integration:
+seven CPU groups pass, including 31 metadata and 15 terminal corruption refusals.
+The eight original state/terminal/source functions remain byte-identical. Actual
+later checkpoint audits and C014 numerical deadline correction remain pending;
+no additional object stage has run.

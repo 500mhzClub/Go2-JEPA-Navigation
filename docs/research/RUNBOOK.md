@@ -963,3 +963,29 @@ existing stage-parent paths remain valid. Original P26 sources/configs/models
 are unchanged. Only the three balls-evaluator differences from the old D003
 source inventory are reconciled against reviewed C014 hashes. Six CPU groups
 pass; actual P26 execution remains pending. No GPU-hour cap is enforced.
+
+## Later encoder/predictor checkpoint audit
+
+[U010](records/U010.json) admits U009/U001 operational metadata into the original
+C008 audit. Its eight state, restoration, terminal and source-check functions are
+byte-identical to C008; seven integration groups pass, including 31 metadata and
+15 terminal corruption refusals. This qualifies the adapter only; no actual later
+training checkpoint has yet been audited.
+
+After the corresponding U009 training stage completes, keep its runtime checkout
+at the recorded commit. Prepare a fresh literature consultation binding the exact
+science/operation results, original and integration records/software reviews and
+complete input inventory checked by U010 metadata. Then run from the followthrough
+checkout, with `RUN` and `CONSULTATION` set to that completed case and consultation:
+
+```sh
+timeout 180s env HIP_VISIBLE_DEVICES='' CUDA_VISIBLE_DEVICES='' ROCR_VISIBLE_DEVICES='' \
+  OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+  "$PY" outputs/gated/U010/audit.py --run "$RUN" --preconsultation "$CONSULTATION"
+```
+
+The ten permitted cases are encoder/O0/O1 for n3 seeds1/2 and encoder/O1 for n1/n6
+seed0. Cache extraction retains its separate inspection. Audit outputs remain in
+`outputs/gated/C008/runs/RUN` with explicit U010 integration metadata. Review the
+actual audit, C001 science and C005 operation independently before any successor.
+CPU restoration does not establish numerical inference or scientific quality.

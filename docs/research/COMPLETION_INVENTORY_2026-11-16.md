@@ -41,8 +41,9 @@ followthrough checkout. Keep scientific computation and existing reviews intact:
   six integration groups pass. All actual extra-seed artifacts remain absent.
 - C005v2's U009 adapter now removes the old48/28-hour caps for all14 remaining
   encoder/cache/predictor stages. Seven CPU integration groups pass with unchanged
-  C001 recipes and approved count/seed order. C008 still needs explicit U009
-  operational metadata and historical source reconciliation before actual use.
+  C001 recipes and approved count/seed order. U010 now qualifies C008's U009
+  metadata and exact historical source reconciliation: seven groups pass with
+  unchanged full-state checks. No actual later checkpoint audit exists yet.
 - A019's U007 adapter now removes old48/4-hour and per-call GPU deadlines;
   eight integration groups pass. Numerical computation and artifact checks
   remain unchanged. Actual additional-seed numerical results remain absent.
