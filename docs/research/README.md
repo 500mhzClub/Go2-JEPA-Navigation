@@ -181,3 +181,9 @@ The final C002 index is now `outputs/gated/p25_final_index.json`, with the full
 first-pair planning paths and correct relative-path base. Its reviewed input
 preparation accepts15 available components and six complete baseline rows out of18.
 The full comparison remains incomplete; old indices/results are preserved.
+
+The [dated development narrative](DEVELOPMENT_NARRATIVE_2026-11-16.md) connects
+the earlier Go2 work with baseline recovery and current object-model evidence.
+It binds 42 existing result reviews, retains the frozen interim planning scope,
+and explains which robot-transfer questions remain open. It is final-report
+preparation, not completion of the pending experiments.

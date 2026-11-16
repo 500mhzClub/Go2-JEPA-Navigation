@@ -115,3 +115,8 @@ It also fixes the old exclusion of `D001/corpus/track_run` evidence and includes
 corpus JSON lineage. Six software groups pass, including a verified576MiB fixture,
 P26 metadata selection and both oversize refusals. Earlier capacity observations
 above remain historical; actual final capacity/coverage must still be verified.
+
+The [development narrative](DEVELOPMENT_NARRATIVE_2026-11-16.md) is now drafted
+from 42 verified result-review bindings and a fresh primary-source consultation.
+It remains a dated account of incomplete work. The final report must add the
+full paired planning, P26 and replication outcomes after their actual reviews.
