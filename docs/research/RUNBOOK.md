@@ -10,18 +10,19 @@ do not relaunch completed cases. See the [final inference report](FINAL_INFERENC
 
 The n3 seed0 RGB encoder is now training under C005 after primary-method
 consultation and unchanged data/source checks. A CPU-only read of its atomic
-checkpoint confirms 200 updates across all 57 optimizer states and the scheduler,
-in epoch0; first validation is pending. Current exact process identities and
+checkpoint confirms 4,269 updates across all 57 optimizer states and the scheduler,
+in epoch1 after its first validation. Current exact process identities and
 heartbeat are under `outputs/gated/C005/runs/slots_n3_s0`, with the supervisor
 launch identity in `outputs/gated/C005/launch_slots_n3_s0.json`. Do not relaunch it.
-The later atomic observation confirms 2,400 completed updates, with all optimizer
-counters and scheduler agreeing. This is progress evidence, not a quality result.
+These counters establish progress; learned object binding remains unmeasured.
 Keep the active gated checkout pinned to81171a2; documentation updates belong in
 the isolated validation checkout until the child finishes.
 
 After terminal completion, inspect and literature-review actual C001 and C005
-artifacts before selected-checkpoint C004, cache and O0/O1. Physical probes and
-paired learned planning follow, then P26 before extra seeds/counts. At admission,
+artifacts before selected-checkpoint C004, cache and O0/O1. Object-model probes and
+paired learned planning follow, then P26 before extra seeds/counts. The six final
+baseline probes are already complete through C006, with a reviewed partial C002
+audit under `outputs/gated/C002/final_baseline_probes`; do not rerun them. At admission,
 47.699 of48 additional GPU-hours and27.997 of28 B/C hours remained; current use
 is in the shared ledger. No further approval is needed for this approved scope.
 
@@ -162,10 +163,12 @@ the learned planner. CEM uses final elite mean; goal slots are independently enc
 
 ## C: three-ball core, then extra seeds/counts
 
-C006 permits the six completed baseline probes to use spare CPUs while the GPU
-slot trainer runs. Its eight helper groups passed and received an exact-result
-literature review. Execute from the isolated validation checkout, in the registered
-order: L0 n3, L1 n3, L0 n1, L1 n1, L0 n6, L1 n6, all seed0.
+C006 completed all six baseline probes on spare CPUs while the GPU slot trainer
+continued. Its eight helper groups and all six actual numerical/operational cases
+were inspected and literature-reviewed. L1n6 is a measured scientific negative;
+all operational cases passed. See the [full results](FINAL_BASELINE_PROBES_2026-11-16.md).
+The following command documents the completed execution, not a relaunch. The
+registered order was L0 n3, L1 n3, L0 n1, L1 n1, L0 n6, L1 n6, all seed0.
 
 ```sh
 python3 outputs/gated/C006/run_one.py --run l0_n3_s0

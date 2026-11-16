@@ -1,5 +1,8 @@
 # Final n3 baseline probes — 16 November 2026
 
+The subsequent [all-six report](FINAL_BASELINE_PROBES_2026-11-16.md) adds n1/n6,
+including a substantial n6 negative for L1. This page preserves the n3 comparison.
+
 The first matched final-checkpoint physical probes show a clear tradeoff. L0
 represents and predicts the controlled red ball precisely, while its fixed linear
 readout barely recovers the autonomous white balls. L1's physical supervision

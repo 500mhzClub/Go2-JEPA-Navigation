@@ -1,5 +1,9 @@
 # Final baseline inference — 16 November 2026
 
+Later evidence: the [all-six final physical probes](FINAL_BASELINE_PROBES_2026-11-16.md)
+are now complete. The pending-probe statements below describe this earlier
+inference-gate capture; they are superseded by that report.
+
 All six original L0/L1 seed0 experiments completed 303,000 steps after sequential
 recovery. Their actual A015 checkpoint audits and A014 completion reviews pass.
 All six final A003 numerical evaluations and A016 operational reviews now also

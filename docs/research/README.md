@@ -38,11 +38,11 @@ Allocation: A 4 hours, B/C 28, D 8, reserve 8. Record elapsed dedicated-device i
 | [A016](records/A016.json) | Can unchanged final evaluations be supervised within the remaining budget? | 15 CPU checks and all six actual normal completions reviewed; closed union accounting, no timeout or signals |
 | [A017](records/A017.json) | What changed from 105,000 to 220,000 steps in L1 n1? | CPU calibration and physical probes reviewed: readout/rollout improve, distance geometry weakens; validation-only, no planning claim |
 | [C001](records/C001.json) | Do RGB slots and anchored masking support physical prediction/planning? | n3 seed0 RGB encoder training under C005; checkpoint confirms 200 updates, first validation pending; cache/O0/O1 and science remain pending |
-| [C002](records/C002.json) | Do slot masks bind objects; do paired reviewed results satisfy the declared bars? | Evaluators verified on synthetic cases; trained-model measurements pending |
+| [C002](records/C002.json) | Do slot masks bind objects; do paired reviewed results satisfy the declared bars? | Reviewed partial audit includes six final baseline probes across all18 planned rows; n3 L0 red-readout reference pattern not met;24 other bars incomplete, with binding/planning pending |
 | [C003](records/C003.json) | Does optimizer recovery preserve subsequent updates and updated-weight numerics? | Both default n3 models pass the small GPU recovery/forward/gradient/grouping diagnostic; reviewed |
 | [C004](records/C004.json) | Are selected learned slot checkpoints numerically valid on real inputs and planning-sized batches? | Validator and failure-detection tests implemented; learned-checkpoint results pending |
 | [C005](records/C005.json) | Can unchanged slot stages respect both B/C and shared time allocations if GPU progress stalls? | v1's 18 CPU checks reviewed and live n3 trainer supervised; isolated v2 corrects future C004 reserve classification with eight reviewed checks; terminal training result pending |
-| [C006](records/C006.json) | What physical state and four-step dynamics do the six final baselines preserve under the frozen probes? | CPU helpers reviewed; actual final n3 L0/L1 probes and supervision reviewed: L1 improves white readout but worsens red precision; n1/n6 pending |
+| [C006](records/C006.json) | What physical state and four-step dynamics do the six final baselines preserve under the frozen probes? | All six actual CPU cases reviewed; L1 helps white readout at n1/n3 with red precision costs; n6 is a measured negative for L1 advantage; numerical/operational checks pass |
 | [D001](records/D001.json) | Can frozen camera slots replace engineered tracks in Genesis? | Matched 600/100 units prepared; model comparison pending |
 | [D002](records/D002.json) | Does the full historical M5 offline summary still reproduce? | All 400 units replayed; all 144 reported numeric fields exactly match; reviewed |
 | [E001](records/E001.json) | Does the repeat-based value estimate establish impossibility? | Documentation corrected; V2 remains a measured negative |
@@ -56,6 +56,8 @@ See the [final inference report](FINAL_INFERENCE_2026-11-16.md) for all-six
 completion, numerical coverage, calibration measurements and remaining science.
 See the [final n3 physical probes](FINAL_PROBES_N3_2026-11-16.md) for the matched
 L0/L1 red/white tradeoff on 5,000 test windows and its limits.
+See the [all-six final baseline probes](FINAL_BASELINE_PROBES_2026-11-16.md) for
+the completed comparisons, n6 negative and partial C002 reference-pattern audit.
 See the [baseline checkpoint report](BASELINE_PROGRESS_2026-11-15.md) for the
 completed L1 n1/n3 logs, the frozen L0 n1 snapshot and what their comparisons test.
 See the [CPU checkpoint progress report](CHECKPOINT_PROGRESS_2026-11-15.md) for
