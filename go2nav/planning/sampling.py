@@ -38,7 +38,8 @@ rules under new dice only, `planning.mixture.DiceModel`).
 A model of several futures (one that sets `weights`) is costed in expectation over them, worked out
 (`Planner.expected_costs`); `GO2NAV_EXACT=1` sends a model of one future through it too, where `GO2NAV_RECOVER=1` lets a
 tape already under the floor move away (by 5 mm) and `GO2NAV_WALKER_PRICE` gives a walker's breach its own price. The
-frozen rule (PLAN P22 item 14): all three, the price 300 s, with `GO2NAV_W_STILL=0` (no still future).
+frozen rule (PLAN P22 item 14): all three, the price 300 s, with `GO2NAV_W_STILL=0` (no still future). P22b: with a
+`value` (`planning.value.Value`), under the frozen rule, a learned correction to the distance term at each tape's end.
 """
 import copy
 import os
@@ -58,6 +59,7 @@ FLOOR_M, SOFT_M, CLEARANCE_RATE, SEALED_S, DISCARD = .08, .20, 2., 200., 1e4
 HOPS, WAITS_S, SPEEDS, REVERSE_M_S = 3, (2., 5., 10., 20.), (.4, .25, .12), .25
 RING_M, RING, AT_CELL_M, TURN_GAIN, ALIGNED_RAD = .3, 16, .15, 2., .8
 GAUSSIANS, SIGMA = 16, (.12, .06, .25)
+MIN_APPROACH_M_S = .10    # P24 (Genesis, no sideways commands): the slowest the Go2 executes as asked (STATUS P24 2c)
 DIRECTIONS = np.stack([np.cos(np.arange(RING)*2*np.pi/RING), np.sin(np.arange(RING)*2*np.pi/RING)], 1)
 ANGLES = np.arange(RING)*2*np.pi/RING
 
@@ -218,7 +220,8 @@ def make_model(name, seed=0):
 
 
 class Planner:
-    def __init__(self, geometry, *, horizon_s, terminal='static', seed=0, model='true', max_speed=None, cells=True):
+    def __init__(self, geometry, *, horizon_s, terminal='static', seed=0, model='true', max_speed=None, cells=True,
+                 value=None, lateral=True, arrive_m=ARRIVE_M):
         if terminal not in ('static', 'walkers'):
             raise ValueError("terminal is 'static' or 'walkers'")
         self.geometry, self.fields, self.terminal = geometry, Fields(geometry), terminal
@@ -226,8 +229,14 @@ class Planner:
         self.model = make_model(model, seed) if isinstance(model, str) else model
         if hasattr(self.model, 'bind'):
             self.model.bind(self.fields)
+        self.value = None                     # P22b: a learned value of the state at each tape's end (`planning.value`)
+        if value is not None:
+            from go2nav.planning.value import Value
+            self.value = Value(value) if isinstance(value, (str, os.PathLike)) else value
+            self.value.bind(self.fields)
         self.speeds = SPEEDS if max_speed is None else tuple(v*max_speed/SPEEDS[0] for v in SPEEDS)
         self.max_speed, self.use_cells = max_speed, cells
+        self.lateral, self.arrive_m = lateral, arrive_m     # P24: no sideways commands, the mission's own arrival
         self.rng = np.random.default_rng(seed)
         self.exact = os.environ.get('GO2NAV_EXACT', '0') == '1'          # P22 item 12: `expected_costs` when set
         self.recover = os.environ.get('GO2NAV_RECOVER', '0') == '1'      # ... with a way out from under the floor
@@ -288,9 +297,17 @@ class Planner:
             close = (mode == 2) & (distance < NEAR_M) & (here < 2*NEAR_M)
             c, s = np.cos(yaw), np.sin(yaw)
             body = np.stack((c*offset[:, 0]+s*offset[:, 1], -s*offset[:, 0]+c*offset[:, 1]), 1)
-            approach = np.stack((np.clip(2*body[:, 0], -REVERSE_M_S, speed), np.clip(2*body[:, 1], -.2, .2),
-                                 np.zeros(count)), 1)
-            approach[distance < ARRIVE_M/2] = 0.
+            if self.lateral:
+                approach = np.stack((np.clip(2*body[:, 0], -REVERSE_M_S, speed), np.clip(2*body[:, 1], -.2, .2),
+                                     np.zeros(count)), 1)
+            else:                  # P24: no sideways command; turn the body's axis onto the target and close along it,
+                bearing = np.where(body[:, 0] >= 0., np.arctan2(body[:, 1], body[:, 0]),   # no slower than the Go2
+                                   np.arctan2(-body[:, 1], -body[:, 0]))                   # executes (MIN_APPROACH)
+                closing = np.sign(body[:, 0])*np.maximum(np.abs(2*body[:, 0]), MIN_APPROACH_M_S)
+                approach = np.stack((np.clip(closing, -REVERSE_M_S, speed)*np.cos(bearing)**2, np.zeros(count),
+                                     np.clip(TURN_GAIN*bearing, -.8, .8)), 1)
+                approach[distance < self.arrive_m] = 0.
+            approach[distance < self.arrive_m/2] = 0.
             command = np.where(close[:, None], approach, command)
             command[mode == 1] = 0.
             waits = np.where(mode == 1, waits-1, waits)
@@ -326,6 +343,8 @@ class Planner:
         steps = np.arange(frames)
         smooth = np.stack([np.stack([np.interp(steps, knots, noise[g, :, a]) for a in range(3)], 1)
                            for g in range(GAUSSIANS)])
+        if not self.lateral:
+            smooth[..., 1] = 0.
         tapes.append(np.stack([bases[g % len(bases)] for g in range(GAUSSIANS)])+smooth)
         names += [f'gaussian{g}' for g in range(GAUSSIANS)]
         requested = np.concatenate(tapes)
@@ -343,9 +362,11 @@ class Planner:
         extra = dict(requested=requested) if getattr(self.model, 'takes_tapes', False) else {}
         walkers = self.model.walkers(snapshot, xy, yaw, alive, self.geometry, **extra)
         weights = getattr(self.model, 'weights', None)
-        if walkers.shape[2] and (weights is not None or self.exact):
+        if (walkers.shape[2] and (weights is not None or self.exact)) or self.value is not None:
             # a model of several futures (`weights`), in expectation worked out; with `exact` a model of one future too,
-            # each walker's at weight 1 (P22 items 12-14)
+            # each walker's at weight 1 (P22 items 12-14); with P22b's value, always
+            if self.value is not None and not self.exact:
+                raise ValueError("P22b's value is read under the frozen rule (GO2NAV_EXACT=1)")
             groups = self.model.groups if weights is not None else np.arange(walkers.shape[2])
             weights = weights if weights is not None else np.ones((count, walkers.shape[2]))
             return self.expected_costs(snapshot, target, xy, yaw, walls, walkers, weights, groups)
@@ -357,7 +378,7 @@ class Planner:
         breached = breach.any(1)
         first = np.where(breached, breach.argmax(1), frames)
         counted = np.arange(frames)[None] < first[:, None]
-        away = np.linalg.norm(xy-np.asarray(target, float), axis=-1) > ARRIVE_M
+        away = np.linalg.norm(xy-np.asarray(target, float), axis=-1) > self.arrive_m
         time = (away & counted).sum(1)*FRAME_S
         soft = (np.clip((SOFT_M-clearance)/(SOFT_M-FLOOR_M), 0., 1.)*counted).sum(1)*FRAME_S*CLEARANCE_RATE
         end = xy[:, -1]
@@ -414,7 +435,7 @@ class Planner:
         walker = np.arange(frames)[None] < wall_first[:, None]           # before the wall's frame: a walker's breach
         price = DISCARD if self.walker_price is None else self.walker_price
         discard = (np.where(walker, price, DISCARD)*breach_at*late).sum(1)
-        away = np.linalg.norm(xy-np.asarray(target, float), axis=-1) > ARRIVE_M
+        away = np.linalg.norm(xy-np.asarray(target, float), axis=-1) > self.arrive_m
         time = (survive*away).sum(1)*FRAME_S
         wall_soft = np.clip((SOFT_M-walls)/(SOFT_M-FLOOR_M), 0., 1.)
         soft = (survive*np.maximum(wall_soft, nearness)).sum(1)*FRAME_S*CLEARANCE_RATE
@@ -430,12 +451,20 @@ class Planner:
                 aware[k] = static[k] if sealed_aware[k] else value
         static, aware = np.where(np.isfinite(static), static, 1e3), np.where(np.isfinite(aware), aware, 1e3)
         clean = survive[:, -1]                                                                      # no breach at all
-        progress = (1.-clean)*static/V_REF+clean*(aware/V_REF+SEALED_S*sealed_aware)
+        terminal = aware/V_REF+SEALED_S*sealed_aware                  # the distance term where no breach comes
+        progress = (1.-clean)*static/V_REF+clean*terminal
+        if self.value is not None:            # P22b: the learned correction to the distance term, where none breaches
+            progress = progress+clean*self.value.correction(target, end, yaw[:, -1], walkers, terminal)
         breached = clean < .5
-        minimum = np.minimum(walls, np.where(w[:, None] > 0, gaps, np.inf).min(-1)).min(1)
+        nearest = np.where(w[:, None] > 0, gaps, np.inf).min(-1) if gaps.shape[-1] else np.full_like(walls, np.inf)
+        minimum = np.minimum(walls, nearest).min(1)
         return time+soft+progress+discard, dict(time=time, clearance=soft, progress=progress,
                                                 sealed=sealed_aware & ~breached, breached=breached,
-                                                minimum_clearance=minimum)
+                                                minimum_clearance=minimum, clean=clean, terminal=terminal)
+
+    def choose(self, total, terms):
+        """The tape taken: the cheapest (P22b's data explore by overriding this)."""
+        return int(total.argmin())
 
     def plan(self, snapshot, target):
         """The next `REPLAN_FRAMES` requests (n, 3) from the world's snapshot towards `target`, and what was chosen."""
@@ -444,7 +473,7 @@ class Planner:
             self.previous, self.target = None, target.copy()
         requested, names = self.proposals(snapshot, target)
         total, terms = self.costs(snapshot, target, requested)
-        k = int(total.argmin())
+        k = self.choose(total, terms)
         self.previous = requested[k]
         return requested[k, :REPLAN_FRAMES].astype(np.float32), dict(
             chosen=names[k], cost=float(total[k]), proposals=len(names), sealed=bool(terms['sealed'][k]),

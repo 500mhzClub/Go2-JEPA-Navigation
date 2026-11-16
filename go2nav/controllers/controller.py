@@ -26,7 +26,8 @@ future positions in place of the tracker's; `walker_mode='truth'` gives it every
 
 `decision='cost'` (PLAN P18): the plan's action is chosen by `planning.cost.select`, an intrinsic cost on the
 forecasts and the range sensor's returns, in place of `Planner.select`'s stages; the route, the map, the mission and
-the dispatch check are unchanged.
+the dispatch check are unchanged. `decision='tapes'` (PLAN P24): travel to a waypoint by P17's planner under the frozen
+rule with the walkers of `tapes` (`planning.genesis_tapes`), the end of a route by `planning.cost.select`.
 
 With no forecaster the controller is the model-free C2: the planner's reactive selection replaces forecasting and
 scoring (`Planner.select_reactive`).
@@ -35,6 +36,7 @@ Each plan is logged in `planning`: the frame and time, the selected action, the 
 `forecast_xy_m`, the scored forecast's body-frame positions (6 candidates x 8 ticks of 100 ms; None for C2).
 """
 from dataclasses import dataclass, replace
+import math
 
 import numpy as np
 
@@ -51,7 +53,7 @@ from go2nav.perception.visual_odometry import VisualOdometry
 from go2nav.perception.visual_support import SupportedView
 from go2nav.planning import cost, grid
 from go2nav.planning.actions import ACTIONS, COMMIT_TICKS, PERIOD_NS, translating
-from go2nav.planning.dispatch import PASSED, CommitmentLedger, ScheduledCommand, dispatch_check
+from go2nav.planning.dispatch import PASSED, CommitmentLedger, ScheduledCommand, TapeCommand, dispatch_check
 from go2nav.planning.mission import RoundTripMission
 from go2nav.planning.planner import Planner
 
@@ -67,6 +69,13 @@ FLOOR_HOLD = 'FLOOR_REACQUISITION_HOLD'
 VIEW_RECOVERY_HOLD = 'WAITING_FOR_POST_VISUAL_RECOVERY_PLAN'
 FLOOR_STREAK_FRAMES, FLOOR_PLAN_DELAY_NS = 4, 400_000_000
 FORGET_UNSEEN_NS = 30_000_000_000  # map clearing on: walls kept when no route is left (a full scan takes about 20 s)
+
+
+def map_pose(snapshot, registered):
+    """The registered pose in the map frame: (xy (2,), yaw)."""
+    B = np.asarray(snapshot.map_from_initial)
+    Q, q = B@registered.rotation, B@registered.position
+    return q[:2].copy(), math.atan2(Q[1, 0], Q[0, 0])
 
 
 @dataclass
@@ -105,11 +114,15 @@ class NavigationController:
                  deadlock_escape=False, terminal_burst=False, obstacle_prediction=False, footprint_clearing=False,
                  candidates=ACTIONS, truth=None, pose_oracle=False, map_oracle=None, prediction_oracle=False,
                  mover_trails=False, give_way=False, close_up=False, walker_finder=None, walker_mode='shadow',
-                 walker_memory=None, pose_carry=None, vacate=False, decision='rules'):
-        if decision not in ('rules', 'cost'):
-            raise ValueError("decision is 'rules' or 'cost'")
+                 walker_memory=None, pose_carry=None, vacate=False, decision='rules', tapes='ring_velocity'):
+        if decision not in ('rules', 'cost', 'tapes'):
+            raise ValueError("decision is 'rules', 'cost' or 'tapes'")
         self.decision_inputs = []  # what `planning.cost.select` was given at each plan (eval.replay)
         self.forecaster, self.decision = forecaster, decision  # 'cost': `planning.cost.select` in place of the stages (P18)
+        self.tapes = None      # 'tapes' (PLAN P24 2b): P17's planner under the frozen rule (`planning.genesis_tapes`)
+        if decision == 'tapes':
+            from go2nav.planning.genesis_tapes import TapesDecision
+            self.tapes = TapesDecision(tapes, arrival_radius_m=arrival_radius_m)
         self.odometry, self.registration = VisualOdometry(), FloorRegistration()
         if pose_carry is not None:  # 'model' or 'c1' (`perception.carried`)
             self.odometry = CarriedOdometry(Carrier(pose_carry, forecaster), max_path_m=MAX_CARRIED_PATH_M)
@@ -186,6 +199,9 @@ class NavigationController:
                 self.floor_waiting = False
         self.mission_rows.append(state | dict(measured_ns=frame.measured_ns, preceding_request=list(requested),
                                               floor_reacquisition_hold=self.floor_waiting))
+        if self.tapes is not None and registered is not None and self.latest_map is not None:
+            xy, yaw = map_pose(self.latest_map, registered)
+            self.tapes.observe(frame.measured_ns/1e9, frame.range_scan, xy, yaw, requested)
         self.mission_state, self.terminal = state, state['terminal']
         self.goal = np.asarray(state['active_goal_initial_body_xy_m'], float)
         if state['phase_transition'] is not None:
@@ -204,6 +220,8 @@ class NavigationController:
                                                       range_points=self._range_points(frame))
             if self.map_oracle is not None:
                 self.latest_map = self.map_oracle.apply(self.latest_map, registered.position, registered.rotation)
+            if self.tapes is not None:
+                self.tapes.bind(self.latest_map, map_pose(self.latest_map, registered)[0])
             if self.tracker is not None:
                 self.planner.tracks = self.tracker.update(self.latest_map)
                 if self.routing_map.mover_trails and self.walker_mode not in ('live', 'held'):
@@ -312,6 +330,13 @@ class NavigationController:
             self.planning.append(dict(frame=frame.frame, reason='VIEW_BUDGET_EXHAUSTED', forgotten_cells=forgotten))
             return
         goal_body, scan_error = objective
+        if self.tapes is not None:
+            from go2nav.planning.genesis_tapes import route_end, travelling
+            end = route_end(route)
+            if travelling(end, map_pose(snapshot, registered)[0], scan_error, self.planner.pulse):
+                self._plan_tapes(frame, registered, snapshot, route, end, prefix, now)
+                return
+            self.tapes.previous = None   # the end of a route is P18's cost's (PLAN P24 2c, approved 15 November)
         forecast_xy = None
         if self.forecaster is None:
             selected = self.planner.select_reactive(goal_body, scan_error, snapshot, registered.position, registered.rotation,
@@ -322,7 +347,7 @@ class NavigationController:
                                   dict(self.registered_poses), tuple(self.ledger.commitments))
             lattice = {} if self.planner.candidates == ACTIONS else dict(candidates=self.planner.candidates)
             prediction = self.forecaster.forecast(context, prefix, pulse=self.planner.pulse, **lattice)
-            if self.decision == 'cost':
+            if self.decision in ('cost', 'tapes'):
                 self.planner.backup_plan = False
                 swept, at = self.planner.uncovered(prediction, snapshot, registered.position, registered.rotation)
                 inputs = dict(prediction=prediction, goal_body=goal_body, scan_error=scan_error,
@@ -349,6 +374,36 @@ class NavigationController:
         self.planning.append(dict(frame=frame.frame, measured_ns=now, map_frame=snapshot.frame, action=selected['action'],
                                   route_status=route['status'], committed_prefix=prefix, selection=selected, route=route,
                                   forecast_xy_m=forecast_xy))
+        self.ledger.commit(plan, now, prefix)
+        self.plans.append(plan)
+
+    def _plan_tapes(self, frame, registered, snapshot, route, target, prefix, now):
+        """A plan by `planning.genesis_tapes` (PLAN P24 2b, 2c): travel to the route's end (`target`, map frame);
+        the coverage rule through the hand planner's bookkeeping; the tape's first ticks committed as one plan
+        (`planning.dispatch.TapeCommand`)."""
+        xy, yaw = map_pose(snapshot, registered)
+        sent = [ns for ns in self.ledger.requests if ns <= now]
+        executed = self.ledger.requests[max(sent)] if sent else (0., 0., 0.)
+
+        def uncovered(body, names):
+            saved = self.planner.candidates
+            self.planner.candidates = tuple(names)
+            try:
+                return self.planner.uncovered(body, snapshot, registered.position, registered.rotation)[0]
+            finally:
+                self.planner.candidates = saved
+        commands, record = self.tapes.plan(xy=xy, yaw=yaw, executed=executed, prefix=prefix, target=target,
+                                           uncovered=uncovered)
+        if record.get('coverage'):
+            self.planner.want_coverage(record['coverage'], xy)
+        first = np.asarray(commands[0], float)
+        action = 'hold' if not np.any(first) else f'cmd{first[0]:+.2f}{first[1]:+.2f}{first[2]:+.2f}'
+        plan = TapeCommand.from_tape(commands, observed_ns=now)
+        selection = dict(record, action=action, coverage=None if record.get('coverage') is None else
+                         [None if c is None else list(c) for c in record['coverage']])
+        self.planning.append(dict(frame=frame.frame, measured_ns=now, map_frame=snapshot.frame, action=action,
+                                  route_status=route['status'], committed_prefix=prefix, selection=selection, route=route,
+                                  tape=np.round(np.asarray(commands, float), 3).tolist()))
         self.ledger.commit(plan, now, prefix)
         self.plans.append(plan)
 

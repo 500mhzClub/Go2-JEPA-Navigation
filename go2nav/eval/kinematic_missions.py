@@ -38,8 +38,9 @@ def placement_for(set_name, maze, episode_index, spec, episode, walkers, kind):
 
 
 def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, terminal, seed=0, frames=FRAMES,
-                model='true', max_speed=None, cells=True, probe=None):
-    """`probe` (optional): called after each plan as probe(planner, world, snapshot, target); it must not change them."""
+                model='true', max_speed=None, cells=True, probe=None, value=None):
+    """`probe` (optional): called after each plan as probe(planner, world, snapshot, target); it must not change them.
+    `value` (optional): P22b's learned value (a path), told every frame's scan."""
     from go2nav.eval.mission import episode_spec
     from go2nav.planning.mission import RoundTripMission
     from go2nav.planning.sampling import REPLAN_FRAMES, Planner
@@ -49,18 +50,22 @@ def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, term
     mission = RoundTripMission(episode['beacon_xy_world'], episode['home_se2_world'][:2],
                                arrival_radius_m=ARRIVAL_RADIUS_M, navigation_frames=frames)
     planner = Planner(world.geometry, horizon_s=horizon_s, terminal=terminal, seed=seed, model=model,
-                      max_speed=max_speed, cells=cells)
+                      max_speed=max_speed, cells=cells, value=value)
     requested, queue, plans, spent, sealed_s, chosen = np.zeros(3, np.float32), [], 0, 0., 0., {}
     frame = 0
-    observes, tracked = hasattr(planner.model, 'observe'), []
+    observes, tracked, valued = hasattr(planner.model, 'observe'), [], planner.value is not None
     while True:
         state = mission.advance(world.xy, frame=frame, requested=requested)
         if state['terminal'] is not None:
             break
+        scan = world.scan() if observes or valued else None
         if observes:
-            planner.model.observe(frame*FRAME_S, world.scan(), world.xy, world.yaw, world.geometry)
+            planner.model.observe(frame*FRAME_S, scan, world.xy, world.yaw, world.geometry)
             if hasattr(planner.model, 'tracker'):
                 tracked += tracking_errors(planner.model.tracker, world)
+        if valued:
+            planner.value.observe(frame*FRAME_S, scan, world.xy, world.yaw, world.geometry,
+                                  tracker=getattr(planner.model, 'tracker', None))
         if state['hold_required']:
             requested, queue = np.zeros(3, np.float32), []
         else:
@@ -82,8 +87,8 @@ def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, term
             break
         if frame % 10 == 0 and world.walkers:      # how long the way has been sealed, for a mission that times out
             fields = planner.fields
-            value = float(fields.value(fields.with_walkers(mission.target(), world.walkers_xy()), world.xy[None])[0])
-            sealed_s = sealed_s+1. if not np.isfinite(value) else 0.
+            walk = float(fields.value(fields.with_walkers(mission.target(), world.walkers_xy()), world.xy[None])[0])
+            sealed_s = sealed_s+1. if not np.isfinite(walk) else 0.
         frame += 1
     round_trip = state['terminal'] == 'OBSERVED_ROUND_TRIP_CANDIDATE'
     exit_ = 'round_trip' if round_trip else (f'contact_{world.contact}' if world.contact else 'timeout')
@@ -100,7 +105,8 @@ def run_mission(set_name, maze, episode_index, *, walkers, kind, horizon_s, term
                 minimum_clearance_m=round(float(world.minimum_clearance), 3),
                 waiting_s=round(world.waiting_frames*FRAME_S, 1), sealed_end_s=sealed_s, reachable_cells=reachable,
                 plans=plans, plan_s=round(spent/max(plans, 1), 3), wall_s=round(spent, 1), chosen=chosen,
-                replan_frames=REPLAN_FRAMES, **({'tracking': tracking_summary(tracked)} if tracked else {}))
+                replan_frames=REPLAN_FRAMES, **({'tracking': tracking_summary(tracked)} if tracked else {}),
+                **({'value': str(value)} if value is not None else {}))
 
 
 def tracking_errors(tracker, world):
@@ -166,14 +172,15 @@ def summary(rows):
 
 
 def run(out, *, set_name, mazes, episodes, walkers, kind, horizon_s, terminal, workers=None, seed=0, model='true',
-        max_speed=None, cells=True):
+        max_speed=None, cells=True, value=None):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     config = dict(set=set_name, mazes=list(mazes), episodes=list(episodes), walkers=list(walkers), kind=kind,
-                  horizon_s=horizon_s, terminal=terminal, seed=seed, model=model, max_speed=max_speed, cells=cells)
+                  horizon_s=horizon_s, terminal=terminal, seed=seed, model=model, max_speed=max_speed, cells=cells,
+                  **({'value': str(value)} if value is not None else {}))
     (out/'config.json').write_text(json.dumps(config, indent=1)+'\n')
     kwargs = dict(kind=kind, horizon_s=horizon_s, terminal=terminal, seed=seed, model=model, max_speed=max_speed,
-                  cells=cells)
+                  cells=cells, **({'value': str(value)} if value is not None else {}))
     jobs = [(str(out), (set_name, m, e, n), kwargs) for n in walkers for m in mazes for e in episodes]
     with ProcessPoolExecutor(workers or os.cpu_count(), mp_context=multiprocessing.get_context('forkserver')) as pool:
         rows = list(pool.map(_job, jobs))
@@ -205,6 +212,7 @@ def main():
                    'or ring_model:<path> for a trained ring world model)')
     r.add_argument('--max-speed', type=float, help='the fastest forward command the planner asks for (default: 0.4)')
     r.add_argument('--no-cells', action='store_true', help='without the walk-to-a-cell proposals')
+    r.add_argument('--value', type=Path, help="P22b's learned value of the state (a trained models.value file)")
     s = sub.add_parser('summary')
     s.add_argument('folders', type=Path, nargs='+')
     a = p.parse_args()
@@ -215,7 +223,7 @@ def main():
         return
     report = run(a.out, set_name=a.set, mazes=a.mazes, episodes=a.episodes, walkers=a.walkers, kind=a.kind,
                  horizon_s=a.horizon, terminal=a.terminal, workers=a.workers, seed=a.seed, model=a.model,
-                 max_speed=a.max_speed, cells=not a.no_cells)
+                 max_speed=a.max_speed, cells=not a.no_cells, value=a.value)
     print(json.dumps(report['summary'], indent=1))
 
 

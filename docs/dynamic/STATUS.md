@@ -2283,3 +2283,258 @@ Under the frozen rule nothing changed:
 - the bank, rescored for all seven models, is identical row for row;
 - 24 recorded missions (perfect predictions, the tracker, realistic errors, the oracle; 1-2 walkers) repeat exactly;
 - the unit tests pass (288).
+
+## P22b's reason: what perfect foresight's timeouts are (14 November)
+
+**1. The walkers.**
+- A walker that does not yield stops while the robot is within its reach ahead (0.63 m between centres) and waits
+  for the way to clear. It never turns back.
+- A passage (1.3 m) leaves about 0.43 m beside a walker on its centre line; the robot needs 0.56 m with the 8-cm
+  floor on both sides.
+- So the robot can get by only from a junction, where it can step aside. In a tree maze there is one way to any target.
+
+**2. The 11 timeouts of perfect foresight** (four walkers that do not yield, seed 0, the frozen rule; `eval.deadlocks`,
+replayed from their recorded requests):
+- At the end of every one the robot is trapped: 3-4 walkers wait on it, most for 5-7 minutes, and it cannot reach a
+  junction or its target without passing one.
+- 8 were trapped from the second the last stand-off began: the robot was in a dead-end branch (in 6, after reaching
+  the beacon) when a walker came in.
+- The other 3 had a window of 3-12 s with a junction behind the robot. It held, and more walkers sealed it in.
+
+**3. A longer look-ahead does not raise the suite.** The same 40 missions planned again with perfect foresight:
+
+| Look-ahead | 6.4 s | 12.8 s | 25.6 s |
+|---|---|---|---|
+| Round trips (of 40) | 29 | 28 | 28 |
+| ... of the 11 timeouts, now round trips | | 4 | 5 |
+| ... of the 29 round trips, now timeouts | | 5 | 6 |
+
+Seeing further, the robot avoids some traps and walks into others.
+
+**4. Read.**
+- Perfect foresight's timeouts are a floor of traps for this rule and suite, not a matter of how far ahead it looks
+  (up to 25.6 s).
+- M5 and the honest oracle time out twice as often (22.75 and 23.5 of 40 over seeds 0-3, against 10.75), in the same
+  kind of trap.
+  - In a failed mission, walkers wait on the robot a median 434-445 s of the 480 for both, and 442-450 s for perfect
+    foresight.
+  - They end pinned (two or fewer cells reachable past the walkers) in 17.25 and 13.75 missions, against 6.5.
+  - They give way more (the bank's progress regret: the oracle 4.2 s a moment, perfect foresight 0.6), and a walker
+    that never turns back does not reward waiting.
+- That cost builds up over many plans. A longer open-loop plan does not see it, and no model predicts walkers 12-25 s
+  ahead. P22b's value is to learn it from the robot's own missions.
+- I said earlier today that about half of perfect foresight's timeouts were a horizon problem. That came from
+  replanning the 11 timeouts alone. The whole suite shows the gain is offset.
+
+## P22b: V0 passes its bars and breaks the planner; item 8 (14 November)
+
+**1. Round 0's data, built twice** (`data.value_missions`; the ring tracker's planner under the frozen rule on the
+corpus's layouts):
+
+| 4,500 training missions | Round trips | Walker contacts | Timeouts |
+|---|---|---|---|
+| First build (random tapes clear of the walls only) | 3,691 | 794 | 1 |
+| Rebuilt (random tapes clear of the walls and the walkers) | 3,998 | 226 | 258 |
+
+- In the first build, 85% of the walker contacts came within three plans of a random tape (by chance 27%). A random
+  tape bumped walkers waiting at the robot, so the traps became contacts.
+- Rebuilt, four walkers that do not yield make 53% round trips, 15% contacts and 31% timeouts, near the suite's
+  (the tracker on rude4: 41%, 21%, 39%).
+- 1.0 million training moments and 116,000 validation moments.
+
+**2. V0 passes (a) and (b).**
+- (a): its mean squared error is 0.37 of the distance term's over all moments, and 0.35 near walkers (bar 0.5).
+  Its median error is 44 s, against the term's 132 s.
+- (b): 9 of the 11 traps are rated above 300 s once the robot is boxed in (bar 9).
+- It overfits from the first evaluation. The best checkpoint came after about one pass, and the validation error
+  rose after it. The moments are 1 million, but the outcomes behind them are 4,500.
+
+**3. In the loop it breaks the planner.** Round 1 (the tracker's planner with V0 at 3.2 s), on the first 200 missions:
+
+| | Round trips | Timeouts | Walker contacts | Four that do not yield: round trips |
+|---|---|---|---|---|
+| Round 0: frozen rule, 6.4 s | 189 | 7 | 4 | 10 of 15 |
+| 3.2 s, no value | 176 | 11 | 13 | 11 of 15 |
+| 3.2 s, V0 | 118 | 62 | 18 | 1 of 15 |
+
+- So the shorter horizon costs a little, and V0 the rest.
+- Traced on three missions, without exploring:
+  - V0 changed the choice at 95-99% of plans.
+  - Its corrections spread 52-59 s across the candidate tapes, against 6-7 s for the rest of the cost.
+  - It most often chose to hold. With no walker in view it rated holding still about 25 s cheaper than heading for
+    the target.
+- Round 1 was paused at 849 missions (the stop rule's broken clause).
+
+**4. Read.**
+- The value was trained to be right on average over the states the planner visited.
+- The planner uses only the difference between the states two tapes lead to, a few metres apart, and nothing in the
+  data or in bars (a) and (b) tested that difference.
+- An error of about ±30 s between nearby states hardly moves a mean squared error dominated by failures of 300-700 s.
+
+**5. Item 8** (PLAN; approved):
+- **The branches:** at moments of round 0's missions, six candidate tapes from an exact copy of the world, each for
+  3.2 s and then under the frozen rule's own planner to the end of the leg. Each tape then has its own realised cost.
+- **Training:** consistency along each mission, beside the branches and round 0's costs.
+- **The bar before any mission, (a′):** at held-out moments, the value's choice among the tapes must have at most half
+  the frozen rule's regret.
+
+## P22b item 8: V2 fails the ranking bar, and no value could meet it here (15 November)
+
+**1. The branches** (`data.value_branches`, 91 minutes on 26 cores):
+- 2,000 training and 300 validation missions of round 0, run again exactly (exits and frames checked);
+- two moments each: 3,900 and 582 moments;
+- six tapes each: 23,202 and 3,458 tapes.
+
+**2. V2**, trained on the branches, round 0's moments and consistency along them (8,000 steps; the checkpoint at step
+1,000, chosen on the validation loss):
+
+| | V2 | Bar |
+|---|---|---|
+| (a′) Ranking: mean regret, the value / the frozen rule | 30.24 / 30.54 s (0.99) | at most 0.5 |
+| ... rank correlation with the realised costs | 0.07 | |
+| (a) Mean squared error over the distance term's, all / near walkers | 0.39 / 0.37 | at most 0.5 |
+| (b) Traps above 300 s once boxed in | 9 of 11 | at least 9 |
+
+- The ranking ratio stayed between 0.94 and 1.17 at every evaluation in training.
+- The branches' training loss fell to 0.02 while their validation error barely moved (11,760 against the distance
+  term's 17,230): V2 memorised its 21,843 cuts.
+- (c) was not run (the stop rule).
+
+**3. The noise floor** (`eval.value_noise`). Each validation moment's six tapes were run again three times, with the
+walkers' dice drawn anew. The original dice reproduced every branch exactly. Choosers are scored as (a′) scores the
+value:
+
+| Chooser | Mean regret (s) |
+|---|---|
+| A tape at random | 31.53 |
+| The frozen rule | 30.54 |
+| V2 | 30.24 |
+| One that knows each tape's expected cost (from the new samples) | 17.76 |
+| ... with the scored sample among its means (optimistic) | 2.52 |
+
+- The rule's regret is concentrated. Its median is 0.3 s, and the 50 moments (9%) of more than 100 s carry 91% of
+  it.
+- In 70% of those 50, the rule's tape fails again with new dice: the disasters are fixed by the state and the tape,
+  not by chance.
+- At a 3.2 s cut the frozen rule chooses barely better than at random (30.54 against 31.53).
+- A chooser that knows each tape's expected cost cuts the rule's regret by 42% (to 0.58). So no value could meet bar
+  (a′), half, with this measure; it should have been set against a measured floor. V2 takes none of the 42%.
+
+**4. Read.**
+- The headroom is real but narrower than the bar assumed. It lies in the true state: the expected costs come from
+  the world itself, walkers' kinds and pause timers included, which no honest value sees.
+- A value learnt from 1 million visited moments and 22,000 branched tapes chooses no better than the rule.
+- **Lesson:** measure the ceiling (here, a chooser that knows the expected costs) before setting a bar on a learnt
+  quantity, as the honest oracle was for prediction.
+
+## P24 stage 1: M5's dynamics carry into Genesis, but not for walkers held up by the robot (15 November)
+
+**The data:**
+- Corpus v2's 400 validation units with ring scans cast in Genesis, written in the ring corpus's format
+  (`data.genesis_units`). 347 have walkers: 278 polite, 69 that do not yield.
+- The ring tracker on those scans finds 98.5-100% of the walkers in sight within 3 m to 0.3 m (median 4-5 mm, seven
+  units checked).
+- P22's (a) is run unchanged (`eval.object_measures offline`).
+- **The control:** on the ring corpus the same code gives P22's published figures exactly (0.0329, 0.1007, 0.3254 m).
+
+**Median error (m): M5 / the tracker's constant velocity / the walker kept where it is:**
+
+| Genesis | 1.6 s | 3.2 s | 6.4 s |
+|---|---|---|---|
+| All walkers (13,090) | 0.028 / 0.047 / 0.281 | 0.074 / 0.192 / 0.511 | 0.251 / 0.671 / 0.838 |
+| Waiting on the robot (3,014) | 0.023 / 0.033 / 0.005 | 0.058 / 0.078 / 0.009 | 0.120 / 0.174 / 0.036 |
+| ... that do not yield (1,663) | 0.022 / 0.026 / 0.004 | 0.048 / 0.050 / 0.004 | 0.094 / 0.103 / 0.005 |
+| ... polite (1,351) | 0.027 / 0.053 / 0.010 | 0.183 / 0.258 / 0.200 | 0.600 / 0.713 / 0.658 |
+| Ring corpus, all (the control) | 0.033 / 0.054 / 0.313 | 0.101 / 0.272 / 0.562 | 0.325 / 0.776 / 0.964 |
+
+- **All walkers: passes.** M5's errors in Genesis are as low as in the ring world or lower, at the same share of
+  constant velocity's (0.60, 0.38, 0.37). Each kind of unit reads alike (explore, free, mission, transfer: 0.31-0.45
+  of constant velocity at 3.2 and 6.4 s).
+- **Waiting on the robot: fails** at 3.2 and 6.4 s (0.74 and 0.69 of constant velocity; the bar is half). M5 is still
+  better than constant velocity at every horizon there.
+- **Why:**
+  - Over half the waiting walkers in Genesis do not yield, and they never move again: kept in place, they err 4 mm.
+    M5 lets them drift 5-9 cm, no better than constant velocity.
+  - Polite ones give up and turn back, and M5 misses most of that (0.18 m at 3.2 s), as it did in the ring world.
+  - In the ring corpus the waiting walkers moved more, so constant velocity did worse and the same bar passed (0.45,
+    0.46).
+- (b), the reaction, was not run (it needs branched Genesis replays).
+- **Stage 1 fails as written.** Stage 2 waits on the decision.
+
+## P24 stage 2a: the kinematic model follows the Go2 in Genesis (15 November)
+
+`eval.robot_path`: on corpus v2's 500 validation units, P17's kinematic model from the recorded pose and executed
+command, under the recorded requests, against the Go2's own path (43,682 starts, every 8th frame):
+
+| Median error | 1.6 s | 3.2 s | 6.4 s |
+|---|---|---|---|
+| Position, all starts | 0.016 m | 0.024 m | 0.036 m |
+| ... where the robot moved more than 0.3 m (16,603) | 0.018 m | 0.027 m | 0.039 m |
+| Heading, all starts | 0.014 rad | 0.022 rad | 0.037 rad |
+
+- Every kind of unit reads alike (0.020-0.028 m at 3.2 s).
+- **By the rule set beforehand** (at most M5's walker error at 3.2 s, 0.074 m), the kinematic model is used. The robot's
+  own path is about three times more certain than the walkers'.
+
+## P24 stage 2b and 2c: the tapes decision in Genesis, and its smoke (15 November)
+
+**2b** (`decision='tapes'`, `planning.genesis_tapes`; PLAN P24 2b): P17's planner under the frozen rule in place of the
+forecaster's lattice, with M5 on the ring tracker's tracks from the Genesis range scans and the built map as the
+layout. 24 recorded ring-world missions repeat exactly, and the unit tests pass (302).
+
+**2c, the smoke** (`configs/experiments/p24_tapes.yaml`, from a pinned checkout at d2880ac; 6 at once on the R9700):
+
+| | Round trips | Crashes | Contact stops | Lowest clearance | P18's smoke |
+|---|---|---|---|---|---|
+| Still mazes (6) | 5 | 0 | 0 | 0.147 m | 5 |
+| One polite walker (6) | 6 | 0 | 0 | 0.122 m | 5 |
+
+- **It passes** (no crash, no contact stop, at least 4 still round trips). Round trips took 86-122 s still and
+  130-305 s with a walker (P18's smoke 94-160 s).
+- **The one failure, fixed before the suites (approved):** maze 10, episode 0, stalled at home's arrival.
+  - The robot sat on the edge of the 2-cm disk (1.9-2.0 cm by the registered pose).
+  - The planner asked for closing commands of about 0.04 m/s, which the Go2's gait barely executes (0.002-0.01 m/s).
+  - The dwell, 10 quiet intervals, was reset each time pose jitter crossed the edge.
+  - P17's kinematic model executes any command exactly. Corpus v2 has no forward commands between 0.02 and 0.08 m/s
+    to show otherwise. From 0.1 m/s the model matches the Go2 (0.145 against 0.150 m/s; 0.302 against 0.300).
+- **The fix:**
+  - Without sideways commands, the final approach is no slower than `MIN_APPROACH_M_S` (0.10 m/s, the slowest the Go2
+    is seen to execute as asked), and holds inside the planner's arrival radius.
+  - In the harness's terminal approach (within 10 cm of the mission's exact target), a translation is a 100-ms pulse,
+    as P18's cost had it.
+
+## P24 2c: four smoke rounds of the tapes decision (15 November)
+
+| Round (pinned checkout) | Still mazes | One polite walker | What decided the plans |
+|---|---|---|---|
+| 1 (d2880ac): tapes to the route's look-ahead waypoint | 5 of 6 | 6 of 6 | tapes, always in P17's final approach (the waypoint a median 0.36 m away) |
+| 2 (8d6455e): + a 0.10 m/s approach floor and 100-ms pulses | 4 of 6 | not run | as 1 |
+| 3 (6114296): the end of a route (waypoint within 0.4 m) to P18's cost | 6 of 6 | 6 of 6 | P18's cost: 0-7 tape plans in 206-404 a mission |
+| 4 (89afaa9): tapes to the route's end (a median 1.23 m), P18's cost within 0.4 m of it | 3 of 6 | 2 of 6 | both (tapes 1-1,171 plans a mission) |
+
+- No crash and no contact stop in any round.
+- **Round 4 fails the smoke's rule.** Traced on maze 12, episode 0:
+  - Of 23,984 dispatch ticks, 800 passed. The harness's reflex vetoed 22,264: 21,910 latched, 354 on the stopping
+    margin. 800 more were vetoed by an observed obstacle, and 120 had no plan on time or a prefix not executed.
+  - The tapes kept asking for 0.24 m/s with a turn towards a frontier 0.6 m away. The reflex's 0.45-m disk refused
+    them near the walls, where P17's cost keeps the body 8 cm clear.
+  - P18's cost looks ahead to the reflex; the tapes do not.
+- The rounds tested the planner's fit to the harness, not M5. Re-evaluated in docs/REVIEW_2026-11-15.md.
+- **P24 closed (approved 15 November)** on stage 1 and 2a, with stage 2 stopped before its suites. Next: P25 (the
+  second world) and P26's first part (slots in place of the tracker, in Genesis, offline), each set out before any run.
+
+## P25 and the follow-through, closed; P27 proposed (16 November)
+
+- **P25 closed** (results on `feature/p25-followthrough`, docs/research/FULL_WORK_ACCOUNT_2026-11-16.md):
+  - L0 [LeWM, one [CLS] latent] plans 97-98%, so Zhu et al.'s weak LeWM did not reproduce and the claim's bar was
+    unreachable.
+  - L0 keeps the red ball (r 0.9996) and drops the white ones with one and three balls (r about 0). That is the
+    Go2's finding again.
+  - The RGB slots bound 0 of 20,000 balls, and the slot predictors' futures were worse than holding.
+  - The toy had no interaction and its task never needed the white balls, so it could not measure the question.
+- **P26's first part was not run.**
+- **The follow-through's last experiment (F004)** was a supervised forecaster, off the goal. It was stopped.
+  - Kept from it: F002's measure of M5's false responses to the robot's action, and the checked ring-world branch
+    export.
+- **Next:** docs/HANDOFF_2026-11-16.md proposes P27, a recipe bench on reactive balls. It measures action
+  sensitivity, action → obstacle and obstacle progression through a head on predicted latents, against an oracle.

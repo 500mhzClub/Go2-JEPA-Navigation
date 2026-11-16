@@ -37,7 +37,45 @@ class ScheduledCommand:
         return cls(observed_ns, dispatch, dispatch+(1 if pulse else COMMIT_TICKS)*PERIOD_NS, tuple(command(action)))
 
     def request(self, *, now_ns, allowed):
-        return list(self.command) if self.dispatch_ns <= now_ns < self.expires_ns and allowed else [0., 0., 0.]
+        return list(self.command_at(now_ns)) if self.dispatch_ns <= now_ns < self.expires_ns and allowed else [0., 0., 0.]
+
+    def command_at(self, ns):
+        """The command the plan asks for at a time in its window (one command for the whole window)."""
+        return self.command
+
+    def displacement(self, now_ns, seconds=None):
+        """The body-frame displacement (2,) of the commands from now: until the window ends, or for `seconds` at
+        the current command."""
+        command = self.command_at(now_ns)
+        span = (self.expires_ns-now_ns)/1e9 if seconds is None else seconds
+        return np.array([command[0]*span, command[1]*span])
+
+
+@dataclass(frozen=True)
+class TapeCommand(ScheduledCommand):
+    """A plan whose command changes every 100 ms (PLAN P24 2b: a planner tape's first ticks). `command` is the first
+    tick's; `commands` holds one a tick."""
+    commands: tuple = ()
+
+    @classmethod
+    def from_tape(cls, commands, *, observed_ns):
+        dispatch = observed_ns+PREFIX_TICKS*PERIOD_NS
+        commands = tuple(tuple(float(v) for v in c) for c in commands)
+        return cls(observed_ns, dispatch, dispatch+len(commands)*PERIOD_NS, commands[0], commands)
+
+    def command_at(self, ns):
+        tick = min(max((ns-self.dispatch_ns)//PERIOD_NS, 0), len(self.commands)-1)
+        return self.commands[int(tick)]
+
+    def displacement(self, now_ns, seconds=None):
+        if seconds is not None:
+            return super().displacement(now_ns, seconds)
+        out, t = np.zeros(2), max(now_ns, self.dispatch_ns)
+        while t < self.expires_ns:
+            end = min(self.expires_ns, self.dispatch_ns+((t-self.dispatch_ns)//PERIOD_NS+1)*PERIOD_NS)
+            out += np.array(self.command_at(t)[:2])*(end-t)/1e9
+            t = end
+        return out
 
 
 @dataclass(frozen=True)
@@ -65,7 +103,7 @@ class CommitmentLedger:
             if candidates:
                 veto = self.vetoes.get(candidates[0].plan.observed_ns)
                 if veto is None or veto > observed_ns:
-                    value = candidates[0].plan.command
+                    value = candidates[0].plan.command_at(ns)
             prefix.append(tuple(value))
         return tuple(prefix)
 
@@ -103,25 +141,25 @@ def dispatch_check(plan, obstacles, *, now_ns):
     """The command to send now for a plan (or hold), and the reason (see the module docstring). While the forward
     camera has no depth returns, a translating plan is held (the downward camera's obstacles allow turns only)."""
     requested, reason = _obstacle_check(plan, obstacles, now_ns=now_ns)
-    if obstacles is not None and obstacles.returns[0] == 0 and plan is not None and any(plan.command[:2]):
+    if obstacles is not None and obstacles.returns[0] == 0 and plan is not None and any(plan.command_at(now_ns)[:2]):
         return [0., 0., 0.], 'PRIMARY_DEPTH_UNAVAILABLE_TRANSLATION_VETO'
     return requested, reason
 
 
 def _obstacle_check(plan, obstacles, *, now_ns):
+    """The swept disk to the commands' endpoint until the window ends, and for a translation the stopping margin at
+    the current command (a tape's command changes each 100 ms: `TapeCommand`)."""
     if plan is None:
         return [0., 0., 0.], 'NO_ON_TIME_PLAN'
     if obstacles is None or not 0 <= now_ns-obstacles.measured_ns <= MAX_OBSERVATION_AGE_NS:
         return [0., 0., 0.], 'CURRENT_OBSERVATION_UNAVAILABLE_OR_STALE'
-    seconds = (plan.expires_ns-now_ns)/1e9
-    endpoint = np.array([plan.command[0]*seconds, plan.command[1]*seconds])
+    endpoint = plan.displacement(now_ns)
     allowed = _connector_clear(endpoint, obstacles.cells)
     requested = plan.request(now_ns=now_ns, allowed=allowed)
     if not allowed:
         return requested, 'CURRENT_OBSERVED_OBSTACLE_VETO'
-    if any(plan.command[:2]):
+    if any(plan.command_at(now_ns)[:2]):
         horizon = (plan.expires_ns-now_ns)/1e9+(now_ns-obstacles.measured_ns)/1e9+STOPPING_ALLOWANCE_S
-        endpoint = np.array([plan.command[0]*horizon, plan.command[1]*horizon])
-        if not _connector_clear(endpoint, obstacles.cells):
+        if not _connector_clear(plan.displacement(now_ns, horizon), obstacles.cells):
             return [0., 0., 0.], 'CURRENT_STOPPING_MARGIN_VETO'
     return requested, PASSED

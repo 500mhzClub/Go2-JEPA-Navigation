@@ -111,7 +111,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
         candidates='primitives', safety='primitive', pose_oracle=False, map_oracle=None, prediction_oracle=False,
         mover_trails=False, give_way=False, close_up=False, walker_mode='off', obstacle_polite=True, walker_memory=False,
         pose_carry='off', vacate=False, range_sensor=False, obstacle_reactive=False, decision='rules',
-        noslip=False):
+        noslip=False, tapes='ring_velocity'):
     """Run one mission into the folder `out` (created; must not exist). Returns the result record. Dynamics
     perturbations: `friction` (uniform mu), `strips` ((mu, marked)), `stall_stop_s` (recording missions), `obstacles`
     (how many moving obstacles; `obstacle_series` their placement series, `obstacle_speed` their speed range,
@@ -183,6 +183,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                  **(dict(vacate=True) if vacate else {}),
                                  **(dict(range_sensor=True) if range_sensor else {}),
                                  **(dict(decision=decision) if decision != 'rules' else {}),
+                                 **(dict(tapes=tapes) if decision == 'tapes' else {}),
                                  **(dict(noslip=True) if noslip else {}),
                                  **(dict(walker_mode=walker_mode) if walker_mode != 'off' else {}),
                                  **(dict(walker_memory=True) if walker_memory is True or walker_memory == 'on' else
@@ -252,7 +253,7 @@ def run(arm, set_name, maze, out, *, episode_index=0, recovery=False, decoder_fi
                                           give_way=give_way, close_up=close_up, walker_finder=finder,
                                           walker_mode=walker_mode, walker_memory=memory,
                                           pose_carry=None if pose_carry == 'off' else pose_carry, vacate=vacate,
-                                          decision=decision)
+                                          decision=decision, tapes=tapes)
         history = deque(maxlen=4)
         for tick in range(STEP_BUDGET):
             now = session.sim_ns
@@ -400,8 +401,11 @@ def main():
                    help='reactive walkers: they pass the robot where there is room, else wait, then turn back (PLAN P13)')
     p.add_argument('--range-sensor', choices=('on', 'off'), default='off',
                    help='an L1-style range sensor whose returns join the map and the dispatch check (PLAN P13)')
-    p.add_argument('--decision', choices=('rules', 'cost'), default='rules',
-                   help="'cost': the action chosen by an intrinsic cost in place of the selection stages (PLAN P18)")
+    p.add_argument('--decision', choices=('rules', 'cost', 'tapes'), default='rules',
+                   help="'cost': the action chosen by an intrinsic cost in place of the selection stages (PLAN P18); "
+                        "'tapes': P17's planner under the frozen rule (PLAN P24 2b)")
+    p.add_argument('--tapes', default='ring_velocity',
+                   help="the walkers of the tapes decision: objects:PATH (M5; a path in the repository) or ring_velocity")
     p.add_argument('--vacate', choices=('on', 'off'), default='off',
                    help='get out of the way of a walker that waits for the robot (PLAN P11)')
     p.add_argument('--close-up', choices=('on', 'off'), default='off',
@@ -438,7 +442,8 @@ def main():
                  give_way=a.give_way == 'on', close_up=a.close_up == 'on', walker_mode=a.walker_mode,
                  obstacle_polite=a.obstacle_polite == 'on', walker_memory={'on': True, 'veto': 'veto'}.get(a.walker_memory, False),
                  pose_carry=a.pose_carry, vacate=a.vacate == 'on', range_sensor=a.range_sensor == 'on',
-                 obstacle_reactive=a.obstacle_reactive == 'on', noslip=a.noslip == 'on', decision=a.decision)
+                 obstacle_reactive=a.obstacle_reactive == 'on', noslip=a.noslip == 'on', decision=a.decision,
+                 tapes=a.tapes)
     print(json.dumps(result))
 
 
