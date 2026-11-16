@@ -1,5 +1,7 @@
 # Development narrative and current assessment — 16 November 2026
 
+**Stopped at the user’s request, 16 November 2026, 16:03 UTC.** No further experiments are authorized by the historical instructions below. F004 factual training ended at update2,361; its latest saved checkpoint is2,000. Branch/paired training and F004 forecast evaluation never started. See the [full work account](FULL_WORK_ACCOUNT_2026-11-16.md) for the current status, results and explanation of the drift from JEPA-plus-head research to a direct supervised baseline.
+
 This is a dated synthesis of reviewed evidence while full O0 planning is still
 running. It is preparation for the final report, not completion of P25/P26. It
 introduces no new experiment, statistic or scientific interpretation. The

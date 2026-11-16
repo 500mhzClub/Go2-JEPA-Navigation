@@ -1,3 +1,7 @@
+# User stop — 16 November 2026
+
+The user explicitly requested: "just do a full write up of everything youve done, and stop these". All experimentation is stopped. F004 factual training has been terminated, its checkpoints/logs preserved, and its GPU interval closed. Do not resume it, launch branch/paired arms, run numerical/forecast evaluation, or advance the old P25/P26 matrix under earlier authorization. The only current work is completing and publishing the requested account and preserving source. The previous direction question is withdrawn; no answer to that older question overrides this stop. See `docs/research/FULL_WORK_ACCOUNT_2026-11-16.md`. The instructions below describe historical workflow, not permission to restart.
+
 # Research workflow
 
 ## Primary objective clarified by the user — 16 November 2026

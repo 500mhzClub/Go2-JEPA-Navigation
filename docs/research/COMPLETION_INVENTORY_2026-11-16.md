@@ -1,5 +1,7 @@
 # Remaining approved work after the GPU-time override
 
+**Stopped at the user’s request, 16 November 2026, 16:03 UTC.** No further experiments are authorized by the historical instructions below. F004 factual training ended at update2,361; its latest saved checkpoint is2,000. Branch/paired training and F004 forecast evaluation never started. See the [full work account](FULL_WORK_ACCOUNT_2026-11-16.md) for the current status, results and explanation of the drift from JEPA-plus-head research to a direct supervised baseline.
+
 The user's subsequent [forecasting clarification](FORECASTING_PRIORITY_2026-11-16.md)
 changes execution priority: physical forecasts and action responses, with learned
 heads permitted, govern the next experiment. The inventory below is preserved as

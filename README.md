@@ -1,5 +1,7 @@
 # Go2-JEPA-Navigation
 
+Research experimentation was stopped at the user’s request on16November2026. The [full work account](docs/research/FULL_WORK_ACCOUNT_2026-11-16.md) records completed results, unfinished work, the supervised-baseline scope drift and preserved checkpoints.
+
 [![JEPA navigation demo: a simulated Unitree Go2 reaches the goal in a textured maze](assets/demo/jepa-navigation-preview.webp)](assets/demo/jepa-navigation.mp4)
 
 **[Full navigation demo — 1080p, 30 fps, 52 seconds](assets/demo/jepa-navigation.mp4)** · Reach the goal, then return home.
