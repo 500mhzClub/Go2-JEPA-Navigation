@@ -2773,3 +2773,25 @@ three seeds) was written before seeds 1 and 2 were run.
   The rings are in the crops; why they cost precision is not tested.
 - **P27 closes with no recipe passing section 4's bars as written.** R4 on T2 meets seven of eight on the mean of
   three seeds. docs/REVIEW_2026-11-16.md sets out what each rung showed and the decision this leaves.
+
+## P28: the references on the F004 scenes (16 November)
+
+R4 was promoted on 16 November with the toy's false-response bar waived ("Do 1"; docs/REVIEW_2026-11-16.md). P28 is
+set out in PLAN, on branch `feature/ring-tokens`. Built: `data.ring_scenes` (the export as M5's inputs),
+`models.ring_tokens`, `training.ring_tokens`, `eval.ring_tokens`.
+
+**The references** on the 10,601 validation scenes (98 layouts), against the walkers' true positions. M5 is run from
+the export's inputs with its own decoded rollout:
+
+| | (a) median error, m: 1.6 / 3.2 / 6.4 s | ... walkers waiting on the robot | (b) response error / zero-response, all pairs | ... responsive pairs | False responses | Slope |
+|---|---|---|---|---|---|---|
+| Holding | 0.305 / 0.553 / 0.980 | 0.020 / 0.151 / 0.526 | equal | equal | 0 | 0 |
+| Constant velocity | 0.054 / 0.271 / 0.937 | 0.051 / 0.195 / 0.566 | equal | equal | 0 | 0 |
+| M5 | 0.033 / 0.097 / 0.338 | 0.027 / 0.082 / 0.251 | 0.027 / 0.023; 0.069 / 0.057; 0.192 / 0.143 | 0.091 / 0.141; 0.165 / 0.239; 0.390 / 0.484 | 7% / 20% / 41% | 0.49 / 0.48 / 0.39 |
+
+- **The loader is right:** M5's (a) here (0.033, 0.097, 0.338 m) is its published one on the corpus (0.033, 0.101,
+  0.325 m), and constant velocity's likewise.
+- **M5's responses are as F002 found them:** over all pairs its predicted difference is worse than predicting none
+  at every horizon; it is better only on responsive pairs; its false responses grow to 41% at 6.4 s.
+- **The bars this sets** (PLAN P28 item 4): (a) at most 0.050 / 0.146 / 0.507 m and below constant velocity at 3.2
+  and 6.4 s; (b) false responses below 7% / 20% / 41% and slope at least 0.49 / 0.48 / 0.39.
