@@ -2456,6 +2456,9 @@ over training frames (Hungarian):
 **3. Bars** (T2, set before any run):
 - **Stage 1, the locator:** binding at least 95% for every object; precision at most 0.3 px for every object (under
   the slowest obstacle's step of 0.5 px; the detector errs 0.078); swaps at most 1%.
+  - Amended before any run (18 November): binding and precision are read after removing each keypoint's constant
+    offset from its object, fitted on training frames, since a fixed offset loses nothing a head cannot recover. The
+    raw figures are reported beside them. The model is not given the offsets; the assignment only reorders tokens.
 - **Stage 2, the dynamics,** only if stage 1 passes: Q3 over the learned keypoints, 36,000 steps, meets P27's eight
   bars on seed 0, with three seeds if it looks like passing (read on their mean, as P27). Reported beside Q3 on the
   detector.

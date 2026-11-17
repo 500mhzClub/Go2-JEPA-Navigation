@@ -22,6 +22,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from go2nav.models.keypoints import KeypointConfig, KeypointNet
 from go2nav.models.lewm import ARPredictor, Embedder, MLP
 from go2nav.sim import reactive_balls as world
 
@@ -44,6 +45,7 @@ class ObjectTokenConfig:
     grid: tuple = ()                     # read by code written for `LeWMConfig`
     residual: bool = False               # P27b Q3: the predictor's output is added to the frame's own tokens
     velocity: bool = False               # P27b Q4: and the token's last change (a constant-velocity prior)
+    keypoints: int = 0                   # P30: learned keypoints (`models.keypoints`) in place of the colour detector
     velocity_agent: bool = True          # Q4's second round: False keeps the prior off the agent's token, whose motion
                                          # is its action (the ring world's robot token is given, not predicted)
 
@@ -98,6 +100,10 @@ class ObjectTokenJEPA(nn.Module):
             nn.init.zeros_(self.pred_proj.net[-1].weight)
             nn.init.zeros_(self.pred_proj.net[-1].bias)
         self.register_buffer('scales', math.pi*2.**torch.arange(c.frequencies), persistent=False)
+        self.locator = None
+        if c.keypoints:                  # P30: frozen; `order` is each object's keypoint, a fixed reordering of tokens
+            self.locator = KeypointNet(KeypointConfig(keypoints=c.keypoints, size=c.size)).requires_grad_(False)
+            self.register_buffer('order', torch.arange(c.tokens))
 
     def position_features(self, xy, seen):
         """(…, 2) px and (…,) bool to (…, 4 x frequencies + 3): the position in [-1, 1], its Fourier features, and seen."""
@@ -110,7 +116,11 @@ class ObjectTokenJEPA(nn.Module):
         b = pixels.size(0)
         flat = pixels.flatten(0, 1)
         with torch.no_grad():
-            xy, seen = detect(flat)
+            if self.locator is not None:
+                xy = self.locator(flat)[:, self.order]
+                seen = torch.ones(xy.shape[:2], dtype=torch.bool, device=xy.device)
+            else:
+                xy, seen = detect(flat)
             windows = crops(flat, xy, self.config.crop).flatten(2)
         x = self.crop_embed(windows.to(self.crop_embed[0].weight.dtype))+self.position_embed(self.position_features(xy, seen))
         x = self.mix(x+self.identity)
