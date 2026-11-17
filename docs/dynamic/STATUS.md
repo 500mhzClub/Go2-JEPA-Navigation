@@ -2882,3 +2882,20 @@ Option 1 of the P28 report was approved on 17 November: precision on the toy fir
   predictor's:** 0.065 m one step ahead where its own true token is read to 0.023 m. The reading of 17 November
   ("the latent's precision is the limit") was wrong; it was the head there too, and behind it the predictor.
 - So the ladder goes on, and Q3 (a residual predictor) is the rung aimed at what P28 lacks.
+
+## P27b Q1-Q3: the screens (17 November)
+
+R4 with one change each, T2, one seed, 6,000 steps, Q0's head (px):
+
+| Rung | R: worst object | k = 1: obstacle, straight (cv 0.038) | k = 8: E | X bounce | X straight | A: error / zero | False | Slope |
+|---|---|---|---|---|---|---|---|---|
+| R4 | 0.153 | 0.255 | 0.63 | 3.28 | 1.78 | 0.639 | 18.2% | 0.47 |
+| Q1 [float32] | 0.152 | 0.254 | 0.63 | 3.27 | 1.78 | 0.639 | 18.0% | 0.47 |
+| Q2 [SIGReg weight 0.01] | 16.4 | 24.0 | 21.1 | 30.1 | 22.9 | 1.00 | - | 0 |
+| Q3 [residual predictor] | 0.139 | 0.236 | 0.67 | 2.01 | 1.37 | 0.556 | 16.9% | 0.62 |
+
+- **Q1:** bf16 autocast does not cap the precision; float32 gives the same model to three figures.
+- **Q2:** at a weight of 0.01 the tokens collapse (prediction loss 0.00005; every object at chance). Not retried.
+- **Q3:** the predicted token is the frame's own token plus the predictor's output, starting as a copy. At equal
+  steps it is ahead on everything at k = 8 (bounce windows 2.01 against 3.28 px; slope 0.62 against 0.47) and a
+  little more precise at one step. Confirmed at 36,000 steps next.
