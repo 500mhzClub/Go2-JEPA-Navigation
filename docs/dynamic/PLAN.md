@@ -2532,6 +2532,8 @@ at a time, under 85% of the R9700's memory.
 
 ### P32. A memory for each object on the toy (approved 18 November, step 1 of 4; set out before any run)
 
+**Closed 18 November** (STATUS): both rounds failed the gain bar; the memory did not use what it saw.
+
 **Why.** Action → obstacle is the weakest capability in both worlds, and in both the cause is hidden obstacle state.
 On the toy, most of Q3's false responses are indifferent obstacles the agent approaches: from 3 frames they look like
 ones that will yield or pause (false 59% on those pairs on T2, 16% with the kinds shown, T1). P22 found the same in

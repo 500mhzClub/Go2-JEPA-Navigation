@@ -3190,3 +3190,22 @@ exist and are at least half visible (38,359):
   separation term climbed to 0.57: once the separation faded, the keypoints converged. With colours, each keypoint
   picks one; with identical obstacles nothing tells them apart. P30's fade suited coloured discs only.
 - **Round 2,** one change: the separation stays on throughout, at 2 px (pairs within a disc's width), not 4 px.
+
+## P32 round 2, and P32 closed: the memory does not use what it saw (18 November)
+
+Round 2: the memory steps on through the rollout's predicted frames. T2, seed 0, 24,000 steps, Q0's head:
+
+| | False, near, kind shown (1,312) | False, near, not shown (533) | Error / zero, responsive, shown | X straight k = 1 | X bounce k = 8 | X bounce k = 16 |
+|---|---|---|---|---|---|---|
+| Bar | ≤ 21.9% | | ≤ 0.424 | | | |
+| Q3, no memory | 43.8% | 53.5% | 0.424 | 0.104 | 0.82 | 2.08 |
+| Round 1, memory frozen in rollouts | 33.2% | 44.7% | 0.438 | 0.197 | 1.67 | 6.31 |
+| Round 2, memory steps on | 47.6% | 52.2% | 0.453 | 0.139 | 0.96 | 2.03 |
+| Oracle-S, kinds shown (T1) | 16.4% | 4.5% | | | | |
+
+- **Round 2 fails both bars.** Updating the memory removes round 1's damage to progression (bounce windows at k = 16:
+  2.03 against 2.08 without memory), and with it round 1's fall in false responses. That fall was the stale memory
+  damping every predicted reaction, not a memory of the kinds.
+- **P32 closes:** a GRU over the episode's tokens, trained only by the prediction loss, did not learn to tell an
+  indifferent obstacle from a reactive one by how it reacted earlier. P34 uses Q3 without memory (36,000 steps, Q0's
+  head), as PLAN P34 says.
