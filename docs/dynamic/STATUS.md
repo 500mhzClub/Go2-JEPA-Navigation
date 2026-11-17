@@ -2813,3 +2813,38 @@ the export's inputs with its own decoded rollout:
   in evaluation mode. A 2,000-step check: training 0.023 / 0.037 (teacher-forced / rollout), evaluation 0.021 /
   0.034; forecasts 0.13 / 0.28 / 0.68 m.
 - The void run is counted as the first of P28's two rounds.
+
+## P28, second round: fails against M5; the latent's precision is the limit (17 November)
+
+`p28_s0`, the fixed port, 32,000 steps, one seed. In evaluation mode its objective reads as in training (0.010 /
+0.018). On the 10,601 validation scenes:
+
+| | (a) median error, m: 1.6 / 3.2 / 6.4 s | ... waiting on the robot | (b) response error / zero-response, responsive pairs | False responses | Slope |
+|---|---|---|---|---|---|
+| Bar | ≤ 0.050 / 0.146 / 0.507 | | | below M5's | at least M5's |
+| Constant velocity | 0.054 / 0.271 / 0.937 | 0.051 / 0.195 / 0.566 | equal | 0 | 0 |
+| M5 | 0.033 / 0.097 / 0.338 | 0.027 / 0.082 / 0.251 | 0.091 / 0.141; 0.165 / 0.239; 0.390 / 0.484 | 7% / 20% / 41% | 0.49 / 0.48 / 0.39 |
+| P28 | 0.117 / 0.230 / 0.592 | 0.094 / 0.185 / 0.451 | 0.107 / 0.141; 0.183 / 0.239; 0.402 / 0.484 | 8% / 26% / 65% | 0.29 / 0.29 / 0.28 |
+
+- **It fails every bar.** (a) is 3.5, 2.4 and 1.8 times M5's. It is below constant velocity at 3.2 and 6.4 s and
+  above it at 1.6 s. (b): more false responses than M5 and a lower slope at every horizon.
+- **It does learn the dynamics:** on responsive pairs its response error is below zero-response's at every horizon
+  (0.107 against 0.141 m at 1.6 s), close to M5's at 6.4 s (0.402 against 0.390), and it reacts for each kind of walker
+  (slope 0.44-0.50 for those that do not yield, M5 0.68-0.75).
+- **Where the error is,** on the recorded future (median, m):
+
+| Horizon | P28 | M5 | Constant velocity | The head on the encoded true token (retention) |
+|---|---|---|---|---|
+| 0.4 s | 0.065 | 0.008 | 0.010 | 0.046 |
+| 1.6 s | 0.117 | 0.033 | 0.054 | 0.047 |
+| 6.4 s | 0.592 | 0.338 | 0.937 | 0.055 |
+
+  - **The latent holds a walker's position to about 5 cm,** and a walker moves 8 cm in a step. M5 and constant
+    velocity keep the position in metres and are right to 1 cm at one step.
+  - It is noise in the token, not an offset of the head: reading the forecast as a displacement from the tracker's
+    position changes nothing (0.112 / 0.231 / 0.597 m).
+  - The same precision was there on the toy: R4's retention was 0.27 px in a 64-px frame, 0.4% of the range, as 5 cm
+    is of this one. The toy's bars (1 px, with discs moving 1-3 px a step) did not ask for more.
+  - Retention was better early in training (0.033 m at 2,000 steps, 0.050 m at 32,000).
+- Not separated: what the missing wall look-up in the latent rollout costs at 3.2 and 6.4 s.
+- **P28 stops here after its two rounds** (the first void). The decision is the user's.
