@@ -42,6 +42,7 @@ class RingTokenConfig:
     predictor_heads: int = 4
     predictor_head_dim: int = 32
     predictor_mlp: int = 512
+    residual: bool = False            # P27b Q3: an object's predicted token is its own token plus the predictor's output
 
     @property
     def tokens(self):
@@ -65,6 +66,9 @@ class RingTokenJEPA(nn.Module):
                                      dim_head=c.predictor_head_dim, mlp_dim=c.predictor_mlp, dim=c.latent, tokens=c.tokens)
         self.pred_proj = MLP(c.latent, c.projector_hidden, c.latent)
         self.robot_pred_proj = MLP(c.latent, c.projector_hidden, c.latent)
+        if c.residual:
+            nn.init.zeros_(self.pred_proj.net[-1].weight)
+            nn.init.zeros_(self.pred_proj.net[-1].bias)
         self.absent = nn.Parameter(torch.zeros(c.latent))
         self.register_buffer('scales', math.pi*2.**torch.arange(c.frequencies), persistent=False)
 
@@ -99,7 +103,10 @@ class RingTokenJEPA(nn.Module):
         predicted next states (B, T, 1 + S, D); a slot empty at the branch point stays empty."""
         out = self.predictor(z, self.action_encoder(actions))
         robot = self.robot_pred_proj(out[:, :, 0].flatten(0, 1)).unflatten(0, out.shape[:2])
-        objects = self.fill(self.pred_proj, out[:, :, 1:], present[:, None].expand(-1, out.size(1), -1))
+        alive = present[:, None].expand(-1, out.size(1), -1)
+        objects = self.fill(self.pred_proj, out[:, :, 1:], alive)
+        if self.config.residual:
+            objects = torch.where(alive[..., None], z[:, :, 1:].to(objects.dtype)+objects, objects)
         return torch.cat((robot[:, :, None].to(objects.dtype), objects), 2)
 
     def rollout(self, z, actions, future_robot, steps, present):

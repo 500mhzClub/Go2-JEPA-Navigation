@@ -42,6 +42,7 @@ class ObjectTokenConfig:
     action_dim: int = 2
     tokens: int = 1+world.K
     grid: tuple = ()                     # read by code written for `LeWMConfig`
+    residual: bool = False               # P27b Q3: the predictor's output is added to the frame's own tokens
 
 
 def palette(device=None):
@@ -90,6 +91,9 @@ class ObjectTokenJEPA(nn.Module):
         self.predictor = ARPredictor(num_frames=c.history, depth=c.predictor_depth, heads=c.predictor_heads,
                                      dim_head=c.predictor_head_dim, mlp_dim=c.predictor_mlp, dim=c.latent, tokens=c.tokens)
         self.pred_proj = MLP(c.latent, c.projector_hidden, c.latent)
+        if c.residual:                   # starts as a copy of the last frame
+            nn.init.zeros_(self.pred_proj.net[-1].weight)
+            nn.init.zeros_(self.pred_proj.net[-1].bias)
         self.register_buffer('scales', math.pi*2.**torch.arange(c.frequencies), persistent=False)
 
     def position_features(self, xy, seen):
@@ -112,7 +116,8 @@ class ObjectTokenJEPA(nn.Module):
     def predict(self, z, actions):
         """Tokens (B, T, 4, D) and actions (B, T, 2) to the predicted next tokens at every position (B, T, 4, D)."""
         out = self.predictor(z, self.action_encoder(actions))
-        return self.pred_proj(out.flatten(0, 2)).unflatten(0, out.shape[:3])
+        out = self.pred_proj(out.flatten(0, 2)).unflatten(0, out.shape[:3])
+        return z+out if self.config.residual else out
 
     def rollout(self, z, actions, steps):
         """As `models.lewm.LeWorldModel.rollout`: the history's tokens (B, N, 4, D) and N-1+steps actions to the `steps`
