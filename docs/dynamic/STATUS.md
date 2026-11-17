@@ -3073,3 +3073,27 @@ cache):
   detector was not doing work the model could not.
 - **Not tested:** T1; the locator trained jointly with the JEPA; K above the number of objects (a disc entering or
   leaving would need it); the confounded data.
+
+## P31 stage 1, round 1: the locator finds 88% of the tracker's walkers; the join I wrote was the wrong rule (18 November)
+
+P31 (PLAN; approved 18 November) puts P30's locator on the ring world's scans. Built: `data.ring_rasters` (the scans
+as 64 x 64 images on the GPU, 0.1 m a pixel), `training.ring_keypoints`, `data.ring_windows`,
+`training.ring_windows`, `eval.ring_keypoints`. Round 1: K = 6, 10,000 steps, P30's schedule. On F004's 10,601
+validation scenes:
+
+| | Found (of the tracker's 15,125 walkers) | Found (of all 16,143 in sight within 3 m) | Identity kept over the history | Median error |
+|---|---|---|---|---|
+| Bar | ≥ 90% | | ≥ 95% | |
+| The ring tracker | 100% (by construction) | 93.7% | | 4-5 mm (P24) |
+| Round 1, joins by least total distance (as built) | 88.2% | 84.4% | 67.2% | 0.111 m |
+| Round 1, joins by nearest within 0.4 m (corrected) | 88.2% | 84.4% | 87.4% | 0.111 m |
+
+- **The join was the wrong rule.** PLAN said "as the tracker joins its detections", and the tracker joins each to the
+  nearest track within 0.4 m; I built a least-total-distance join. With most keypoints on clutter, the global
+  optimum pulled walkers' keypoints off them: walkers found at all three steps were joined right 70% of the time by
+  least total distance and 99.4% by the nearest. PLAN item 3 is corrected, in the measures and in stage 2's windows.
+- **Detection coverage is the rest:** a walker found at t0 is found at both earlier steps 85% of the time. Only about
+  two of the six keypoints sit on walkers (1.9 with one walker in sight, 2.5 with four); the rest go to wall segments
+  that appear and vanish as the robot moves, which change more pixels than a walker's arc.
+- The median error, 0.11 m, is about the gap between a walker's visible arc and its centre (0.175 m).
+- **Round 2,** one change to the learned part: K = 10 keypoints, so walkers are not starved by clutter.
