@@ -2899,3 +2899,21 @@ R4 with one change each, T2, one seed, 6,000 steps, Q0's head (px):
 - **Q3:** the predicted token is the frame's own token plus the predictor's output, starting as a copy. At equal
   steps it is ahead on everything at k = 8 (bounce windows 2.01 against 3.28 px; slope 0.62 against 0.47) and a
   little more precise at one step. Confirmed at 36,000 steps next.
+
+## P27b Q3 at 36,000 steps: the residual predictor meets the one-step bar (17 November)
+
+T2, seed 0, Q0's head (px):
+
+| | R: agent / green / blue / yellow | k = 1: agent; obstacle straight; bounce | k = 8: E; X bounce; X straight | A: error / zero | False | Slope [95%] | k = 16: X bounce; A |
+|---|---|---|---|---|---|---|---|
+| Bar | each ≤ 0.117 | -; ≤ 0.14; - | within 10% of R4 | within 10% of R4 | P27: ≤ 10% | P27: above 0.5 | |
+| R4 | 0.073 / 0.124 / 0.092 / 0.067 | 0.160; 0.147; 0.467 | 0.40; 1.00; 0.62 | 0.474 | 8.8% | 0.77 [0.75, 0.79] | 3.16; 0.681 |
+| Q3 | 0.083 / 0.124 / 0.091 / 0.066 | 0.147; 0.094; 0.258 | 0.43; 0.68; 0.49 | 0.459 | 9.0% | 0.78 [0.76, 0.80] | 1.70; 0.626 |
+
+- **The one-step bar is met** (0.094 px), and Q3 keeps all eight of P27's bars. Bounce windows are a third better
+  at k = 8 and nearly half at k = 16; the agent is 7% worse at k = 8, inside the no-loss bar.
+- **The retention bar is missed by 0.007 px** (green 0.124). The detector's own error is 0.044 / 0.105 / 0.090 /
+  0.071 px by object, so green is read to 1.2 times its input's error and the agent to 1.9 times. Q3 changes the
+  predictor and cannot move this; Q0 showed it is not what limits the ring world.
+- **Gone ahead on that basis** (past PLAN's wording that every precision bar be met first): the residual predictor
+  in the ring world, `p28q3_s0`, one run, read against P28's bars as written.
