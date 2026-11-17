@@ -46,7 +46,7 @@ def nearest_join(a, b, gate=GATE_M, chunk=100000):
 
 
 @torch.no_grad()
-def locate(corpus_root, locator_path, device, batch=4096):
+def locate(corpus_root, locator_path, device, batch=1024):
     """Every frame's keypoints in the world (F, K, 2), each scan drawn in the robot's own pose, for both splits;
     saved beside the locator as keypoints_<split>.npy."""
     from go2nav.models.keypoints import KeypointConfig, KeypointNet

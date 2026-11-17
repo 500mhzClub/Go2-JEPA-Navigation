@@ -80,9 +80,13 @@ def rasterise(ranges, poses, frames):
 def nearest_return(points, scan_points, scan_valid, clip=1.):
     """The distance from points (N, P, 2) to the nearest valid return of the matching scan (N, 720, 2), clipped:
     the scan's stand-in for the layout's wall distance (N, P)."""
-    d = torch.cdist(points.float(), scan_points.float())
-    d = torch.where(scan_valid[:, None], d, torch.full_like(d, 1e3))
-    return d.min(-1).values.clamp(max=clip)
+    size = max(1, int(2e8)//max(1, points.shape[1]*scan_points.shape[1]))         # bounded memory: chunks of frames
+    out = []
+    for i in range(0, len(points), size):
+        d = torch.cdist(points[i:i+size].float(), scan_points[i:i+size].float())
+        d = torch.where(scan_valid[i:i+size, None], d, torch.full_like(d, 1e3))
+        out.append(d.min(-1).values)
+    return torch.cat(out).clamp(max=clip)
 
 
 class Corpus:
