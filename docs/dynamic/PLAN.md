@@ -2409,6 +2409,16 @@ the first rung that meets the bars:
 Q1-Q3 are screened at 6,000 steps (7 minutes with the measures) and the first to meet the bars is confirmed at
 36,000.
 
+**Q4, added 17 November (approved, "1 approved", after P28 with Q3 fell short at 1.6 and 3.2 s).** Q3 with a
+constant-velocity prior in latent space: an object's predicted token is its last token, plus its last change of
+token (z_t - z_(t-1); none where either is an empty slot or at the first history step), plus the predictor's
+correction, which starts at zero. It is M5's form (a correction to constant velocity) carried into the latent.
+- **On the toy,** screened at 6,000 steps against Q3's screen, and confirmed at 36,000 steps if it is ahead. Bars:
+  P27b's precision bars and P27's eight, as for Q3; it goes on to the ring world if it meets the one-step bar and is
+  no worse than Q3 by more than 10% on the k = 8 figures.
+- **In the ring world,** one run (`p28q4`), read against P28's bars as written. This is the last ring-world run of
+  P27b; whatever it shows is reported and you decide.
+
 **Back to P28:** the winning change is applied to the ring-world model, one run (or for Q0, a rescoring of the
 trained `p28_s0` with the new head, no retraining), read against P28's bars as written. If Q0-Q3 do not meet the
 precision bars, that is recorded and you decide.
