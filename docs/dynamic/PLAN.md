@@ -2518,6 +2518,9 @@ window. This is the one engineered part, and it is named in every result.
   each horizon; (b) false responses at most 5 points above the tracker tokens', and the slope at least 0.8 times
   theirs. One seed; three if it looks like passing.
 - Two rounds at most a stage. Whatever stage 2 shows is reported, and you decide what follows.
+- **Override (approved 18 November, "1 approved"):** stage 1 failed identity after two rounds (87.0% against 95%;
+  found 90.1% passed). Stage 2 runs regardless, with round 2's locator (K = 10), since it measures what the misses
+  cost against the tracker directly. Its bars stand as written.
 
 **7. Compute:** the locator about 25 minutes; each dynamics model about 40 minutes with its measures; one GPU process
 at a time, under 85% of the R9700's memory.
