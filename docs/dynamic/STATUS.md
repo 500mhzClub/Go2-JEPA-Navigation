@@ -2848,3 +2848,37 @@ the export's inputs with its own decoded rollout:
   - Retention was better early in training (0.033 m at 2,000 steps, 0.050 m at 32,000).
 - Not separated: what the missing wall look-up in the latent rollout costs at 3.2 and 6.4 s.
 - **P28 stops here after its two rounds** (the first void). The decision is the user's.
+
+## P27b Q0: the head was the toy's limit, and R4 now meets P27's eight bars (17 November)
+
+Option 1 of the P28 report was approved on 17 November: precision on the toy first (PLAN P27b).
+
+**The diagnostic** (R4's seed 0 at 36,000 steps, validation frames, px):
+
+| Head | Against the truth: mean / median | Against the detector's own position |
+|---|---|---|
+| P27's (attention pooling, 4,000 steps at batch 256) | 0.240 / 0.184 | 0.243 / 0.192 |
+| A per-token MLP, 3 x 1,024, 10,000 steps at batch 512 | 0.089 / 0.042 | 0.101 / 0.068 |
+| The detector itself | 0.078 / 0.049 | - |
+
+**Q0** [the head only: that per-token MLP; no JEPA retrained] on R4's three 36,000-step models, T2:
+
+| | R: agent / green / blue / yellow | k = 1: agent; obstacle, straight (cv 0.038) | k = 8: E; X bounce; X straight | A: error / zero | False | Slope, lower end |
+|---|---|---|---|---|---|---|
+| P27's head, seeds 0 / 1 / 2 | 0.22-0.30 for all | 0.29-0.31; 0.28-0.31 | 0.56; 1.11; 0.75 (means) | 0.490 | 10.3 / 9.8 / 13.5% | 0.74 |
+| Q0, seed 0 | 0.073 / 0.124 / 0.092 / 0.067 | 0.160; 0.147 | 0.40; 1.00; 0.62 | 0.474 | 8.8% | 0.75 |
+| Q0, seed 1 | 0.076 / 0.123 / 0.090 / 0.066 | 0.163; 0.168 | 0.41; 1.08; 0.67 | 0.478 | 9.1% | 0.76 |
+| Q0, seed 2 | 0.077 / 0.121 / 0.089 / 0.064 | 0.161; 0.171 | 0.41; 1.15; 0.69 | 0.512 | 10.9% | 0.70 |
+
+- **The latent held the positions all along;** P27's head did not read them. Retention is now at the detector's
+  level for three objects.
+- **R4 meets all eight of P27's bars on the mean of three seeds** with this head: false responses 9.6% (bar 10%),
+  response error 0.488 of zero-response (bar 0.50). The review's "seven of eight" was the head's doing. The waiver
+  of 16 November is no longer needed for the toy.
+- **The new precision bars are missed narrowly:** green's retention 0.121-0.124 px (bar 0.117; green is drawn first
+  and covered most often), and the one-step error on straight windows 0.147-0.171 px (bar 0.14).
+- **The same head on the ring-world model** (`p28_s0`, no retraining): retention 0.050 to 0.023 m (median), and the
+  forecasts unchanged, 0.120 / 0.228 / 0.588 m (M5 0.033 / 0.097 / 0.338). **In the ring world the error is the
+  predictor's:** 0.065 m one step ahead where its own true token is read to 0.023 m. The reading of 17 November
+  ("the latent's precision is the limit") was wrong; it was the head there too, and behind it the predictor.
+- So the ladder goes on, and Q3 (a residual predictor) is the rung aimed at what P28 lacks.
