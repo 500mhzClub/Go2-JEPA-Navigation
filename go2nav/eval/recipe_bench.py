@@ -258,7 +258,11 @@ def train_head(model, root, variant, policy='interactive', steps=4000, batch=256
 
 
 def jepa_forecaster(model, head, batch=512):
+    """With a memory (P32), each window's whole episode is encoded and each object's memory read at the history's
+    frames (it runs over frames up to them only); batches are then 64 windows."""
     device = next(model.parameters()).device
+    memory = getattr(model.config, 'memory', False)
+    batch = 64 if memory else batch
 
     @torch.no_grad()
     def forecast(bench, e, t0, future):
@@ -266,11 +270,20 @@ def jepa_forecaster(model, head, batch=512):
         future = torch.from_numpy(np.asarray(future, np.float32)).to(device)/world.MAX_ACTION
         out = []
         for i in range(0, len(e), batch):
-            frames = t0[i:i+batch, None]+torch.arange(1-model.config.history, 1, device=device)
+            h = model.config.history
+            frames = t0[i:i+batch, None]+torch.arange(1-h, 1, device=device)
             rows = e[i:i+batch, None]
-            z = model.encode(to_pixels(bench.frames[rows, frames]))
+            mem = None
+            if memory:
+                z_all = model.encode(to_pixels(bench.frames[e[i:i+batch]]))
+                states = model.memory_states(z_all, bench.actions[e[i:i+batch]])
+                z, mem = z_all[torch.arange(len(frames), device=device)[:, None], frames], \
+                    states[torch.arange(len(frames), device=device)[:, None], frames]
+            else:
+                z = model.encode(to_pixels(bench.frames[rows, frames]))
             actions = torch.cat((bench.actions[rows, frames[:, :-1]], future[i:i+batch]), 1)
-            out.append((head(model.rollout(z, actions, STEPS))*HALF+HALF).cpu().numpy())
+            out.append((head(model.rollout(z, actions, STEPS, mem) if memory else head(model.rollout(z, actions, STEPS)))
+                        *HALF+HALF).cpu().numpy())
         return np.concatenate(out)
     return forecast
 
@@ -328,6 +341,8 @@ def measure(forecast, bench, seed=0, draws=1000, first=HISTORY-1):
                           for tape in range(len(world.TAPES))], 1)[:, :, :, 1:]                   # (N, 4, 16, K, 2)
     truth = branches['obstacle'][e, m].astype(np.float64)
     touched = np.cumsum(branches['contact'][e, m], 2) > 0                                        # (N, 4, 16, K)
+    approached = np.cumsum(branches['near'][e, m], 2) > 0                                       # (N, 4, 16, K)
+    shown = np.stack([labels['near'][ei, :max(0, ti-HISTORY+1)].any(0) for ei, ti in zip(e, t0)])   # (N, K), P32
     a, b = PAIRS.T
     shape = (len(e), len(PAIRS), world.K)
     group = np.broadcast_to(e[:, None, None], shape).reshape(-1)
@@ -350,8 +365,12 @@ def measure(forecast, bench, seed=0, draws=1000, first=HISTORY-1):
                 fit = bootstrap.regression(true[mask], pred[mask], group[mask])
                 out['slope'], out['ci'] = fit['slope'], fit['ci95']
             return out
+        near = (approached[:, a, j] | approached[:, b, j]).reshape(-1) & ~contact
+        known = np.broadcast_to(shown[:, None], (len(e), len(PAIRS), world.K)).reshape(-1)
         row['A'][k] = dict(all=part(np.ones(len(tn), bool)), contact=part(contact), distance=part(~contact),
-                           **{name: part(kind == i) for i, name in enumerate(world.KINDS)})
+                           **{name: part(kind == i) for i, name in enumerate(world.KINDS)},
+                           shown=part(known), hidden=part(~known), shown_near=part(known & near),
+                           hidden_near=part(~known & near))
     return row
 
 

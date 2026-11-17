@@ -12,7 +12,8 @@ r2, r1 with each patch token's prediction error weighted by the change of its ta
 r3, r2 with half of each batch drawn from the exact branches: a quarter as many moments under two tapes each, with
 `branch_losses`' terms (r3b, its second round: those terms carry r2's weights too); r4, the object-token JEPA (`models.object_tokens`); r5, r4 with 16 history frames; q3 (P27b), r4 with a residual predictor; q4, q3 with a constant-velocity prior in latent space
 (q4b: on the obstacles' tokens only); q3k (P30), q3 over learned keypoints
-(`training.keypoints`; the locator's file given as `--set locator=PATH`).
+(`training.keypoints`; the locator's file given as `--set locator=PATH`); q3m (P32), q3 with a memory token for each
+object (whole episodes encoded, `episode_memory`).
 
 **Training:** AdamW, warm-up then cosine, clip 1, bf16 autocast (SIGReg in float32, 128 projections), on the GPU only;
 6,000 steps at batch 64 (a patch-token step costs 0.2-0.35 s, and a run with its measures must fit 45 minutes). A step
@@ -49,7 +50,8 @@ RECIPES = dict(r0=dict(), r1=dict(model=dict(grid=(8, 8))), r2=dict(model=dict(g
                r5=dict(kind='objects', model=dict(history=16)), q3=dict(kind='objects', model=dict(residual=True)),
                q4=dict(kind='objects', model=dict(residual=True, velocity=True)),
                q4b=dict(kind='objects', model=dict(residual=True, velocity=True, velocity_agent=False)),
-               q3k=dict(kind='objects', model=dict(residual=True, keypoints=4)))
+               q3k=dict(kind='objects', model=dict(residual=True, keypoints=4)),
+               q3m=dict(kind='objects', model=dict(residual=True, memory=True)))
 
 
 def model_config(**overrides):
@@ -155,6 +157,19 @@ def branch_losses(model, history, futures, tapes, floor=None):
                 paired=cls((ra-rb)-(za-zb))+grid((ra-rb)-(za-zb), (wa+wb)/2))
 
 
+def episode_memory(model, windows, episodes, starts, length):
+    """P32: the episodes' every frame encoded in one call, each object's memory over them, and the windows starting at
+    `starts`: (tokens (B, length, 4, D), actions (B, length-1, 2) over 3 px, memory of the history frames (B, H, 4, D))."""
+    pixels = to_pixels(windows.frames[episodes])                                       # (B, T, 3, 64, 64)
+    z_all = model.encode(pixels)
+    actions_all = windows.actions[episodes]
+    memory = model.memory_states(z_all, actions_all)
+    steps = starts[:, None]+torch.arange(length, device=starts.device)
+    rows = torch.arange(len(episodes), device=starts.device)[:, None]
+    h = model.config.history
+    return z_all[rows, steps], actions_all[rows, steps[:, :-1]], memory[rows, steps[:, :h]]
+
+
 def save(path, model, meta, extra=None):
     state = dict(config=asdict(model.config), model_state_dict=model.state_dict(), **meta, **(extra or {}))
     partial = Path(str(path)+'.partial')
@@ -245,7 +260,12 @@ def train(root, variant, recipe, out, seed=0, overrides=None):
         pixels, actions = drawn[:2]
         shared = dict(rollout_steps=cfg['rollout'], sigreg=sigreg, lam=cfg['sigreg_weight'], generator=g)
         with torch.autocast('cuda', dtype=torch.bfloat16, enabled=cfg['bf16']):
-            if options.get('kind') == 'objects':
+            if options.get('kind') == 'objects' and model.config.memory:
+                e = torch.randint(0, trainset.episodes, (cfg['batch'],), generator=g, device=device)
+                s = torch.randint(0, trainset.length-length+1, (cfg['batch'],), generator=g, device=device)
+                z, actions, memory = episode_memory(model, trainset, e, s, length)
+                terms = token_losses(model, None, actions, z=z, memory=memory, **shared)
+            elif options.get('kind') == 'objects':
                 z = model.encode(pixels, drawn[2]) if located is not None else None
                 terms = token_losses(model, pixels, actions, z=z, **shared)
             elif 'motion_floor' in options:

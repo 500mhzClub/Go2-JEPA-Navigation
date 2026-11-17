@@ -2565,6 +2565,8 @@ validation set).
 
 **4. Compute:** Q3 trained in 25 minutes; encoding whole episodes costs more, and the step count is set from the
 measured speed so that a run with its measures fits 45 minutes, with Q3 rescored at the same step count if it differs.
+- Measured: 11.3 steps a second with memory, so both models train 24,000 steps (Q3 retrained at that count as the
+  reference); seed 0 each.
 
 ## Compute and order
 

@@ -236,3 +236,22 @@ def test_the_weighted_branch_terms_run_on_a_patch_grid_model():
     cls_and_grid = lambda d: d[:, :, 0].pow(2).mean()+d[:, :, 1:].pow(2).mean()
     zh, za = model.encode(history), model.encode(futures[0])
     assert torch.isfinite(flat['branch']) and float(cls_and_grid(model.rollout(zh, tapes[0], 8)-za)) > 0
+
+
+def test_the_memory_reads_only_the_past_and_the_bench_splits_by_what_was_shown():
+    import pytest
+    torch = pytest.importorskip('torch')
+    from go2nav.training import recipe_bench as training
+    model = training.build('q3m').eval()
+    z, actions = torch.randn(2, 20, 4, 128), torch.randn(2, 19, 2)
+    m = model.memory_states(z, actions)
+    z2 = z.clone(); z2[:, 12:] += 5.                                        # change the future of frame 11
+    m2 = model.memory_states(z2, actions)
+    assert m.shape == (2, 20, 4, 128) and torch.allclose(m[:, :12], m2[:, :12], atol=1e-6) and not torch.allclose(m[:, 12], m2[:, 12])
+    out = model.rollout(z[:, :3], torch.zeros(2, 10, 2), 8, m[:, :3])
+    assert out.shape == (2, 8, 4, 128)
+    rb, bench = bench_of(episodes=12, frames=60, moments=2)
+    row = rb.measure(rb.constant_velocity, bench, draws=50)
+    parts = row['A'][8]
+    assert parts['shown']['pairs']+parts['hidden']['pairs'] == parts['all']['pairs']
+    assert parts['shown_near']['pairs'] <= parts['shown']['pairs']
