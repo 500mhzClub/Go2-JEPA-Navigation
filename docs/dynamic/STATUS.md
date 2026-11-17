@@ -3097,3 +3097,22 @@ validation scenes:
   that appear and vanish as the robot moves, which change more pixels than a walker's arc.
 - The median error, 0.11 m, is about the gap between a walker's visible arc and its centre (0.175 m).
 - **Round 2,** one change to the learned part: K = 10 keypoints, so walkers are not starved by clutter.
+
+## P31 stage 1, round 2: found passes, identity does not; stage 1 stops (18 November)
+
+K = 10, otherwise round 1 with the corrected join. F004's validation scenes:
+
+| | Found (of the tracker's walkers) | Found (of all in sight within 3 m) | Identity kept over the history | Median error |
+|---|---|---|---|---|
+| Bar | ≥ 90% | | ≥ 95% | |
+| The ring tracker | 100% | 93.7% | | 4-5 mm |
+| Round 1, K = 6 (corrected join) | 88.2% | 84.4% | 87.4% | 0.111 m |
+| Round 2, K = 10 | **90.1%** | 86.7% | **87.0%** | 0.112 m |
+
+- **Found passes, narrowly; identity fails** (87.0% against 95%). Stage 1 has had its two rounds, so it stops, and
+  stage 2 was not run (the gate held it).
+- Identity is limited by detection, not by the join: a walker found at the branch point is missed at one of the two
+  earlier steps about one time in eight, and a learned keypoint has no memory to carry it through a miss. The
+  tracker does: a track with no detection stays where it was last seen.
+- Learned from scan pairs alone, with no layout, the locator finds 87% of the walkers in sight within 3 m, against
+  the layout-based tracker's 94%.
