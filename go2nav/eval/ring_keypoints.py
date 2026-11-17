@@ -125,12 +125,13 @@ def score(corpus_root, scenes_root, run, keypoints=None):
         head.load_state_dict(torch.load(run/'head_mlp.pt'))
         head.eval().requires_grad_(False)
     else:
-        train_frames = Frames(corpus_root, 'train', device, keypoints=state['keypoints'], labels=True)
+        train_frames = Frames(corpus_root, 'train', device, keypoints=state['keypoints'] if kind == 'learned' else None,
+                              labels=True)
         head = train_head(model, train_frames, kind, **HEAD)
         torch.save(head.state_dict(), run/'head_mlp.pt')
         del train_frames
         torch.cuda.empty_cache()
-    frames = Frames(corpus_root, 'val', device, keypoints=keypoints, labels=True)
+    frames = Frames(corpus_root, 'val', device, keypoints=keypoints if kind == 'learned' else None, labels=True)
     out, found = forecast(model, head, frames, kind, scenes(scenes_root))
     np.savez(run/'forecast.npz', forecast=out, found=found)
     print(f'{run.name}: found {found.sum()} of {int((scenes(scenes_root)["walker"] >= 0).sum())} matched walkers', flush=True)

@@ -46,10 +46,11 @@ def train(corpus_root, kind, out, keypoints=None, seed=0, overrides=None):
     out.mkdir(parents=True, exist_ok=True)
     run_seed = 2026111895+seed
     torch.manual_seed(run_seed)
-    model = RingTokenJEPA(RingTokenConfig(residual=True)).to(device)
+    frames = Frames(corpus_root, 'train', device, keypoints=keypoints if kind == 'learned' else None, labels=False)
+    slots = frames.keypoints if kind == 'learned' else 6
+    model = RingTokenJEPA(RingTokenConfig(residual=True, slots=slots)).to(device)
     params = list(model.parameters())
     sigreg = SIGReg(num_proj=cfg['sigreg_projections']).to(device)
-    frames = Frames(corpus_root, 'train', device, keypoints=keypoints, labels=False)
     windows = torch.as_tensor(frames.windows(cfg['future']), device=device)
     optimiser = torch.optim.AdamW(params, lr=cfg['lr'], weight_decay=cfg['weight_decay'])
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(cfg['warmup'], cfg['steps']))

@@ -7,9 +7,11 @@ differ only in where the objects come from.
 - `tracker`: the ring tracker's slots (`data.object_tracks`): a slot is present at a step if its track is the one it
   holds at the window's last history step t0, seen if detected then; its velocity is the tracker's.
 - `learned`: P31's locator on every frame's scan drawn in the robot's own pose (`locate`, stored once a locator as
-  world positions). Each step's keypoints are joined to the step 0.4 s later by least total distance (exactly: all 720
-  orderings of 6 keypoints are tried on the GPU), and a keypoint's velocity is its joined displacement over 0.3 s.
-  The chain of joins gives each keypoint at t0 its keypoint at every other step. Always present and seen.
+  world positions). Each keypoint is joined to the nearest keypoint 0.4 s earlier and 0.4 s later within the tracker's
+  0.4-m gate (PLAN P31 item 3, as corrected after round 1), and its velocity is its joined displacement over 0.3 s
+  (none if unjoined). The chain of joins gives each keypoint at t0 its keypoint at every other step; where the chain
+  breaks, the keypoint is not seen in the history (it stays where it was next seen, as a remembered track) and has no
+  target in the future. Every keypoint at t0 is present.
 
 **Tokens** (`Windows.batch`), in the robot's pose at t0 as `models.object_jepa`'s features: an object's walls are the
 distance to the nearest scan return of its step on M5's 5 x 5 grid (`data.ring_rasters.nearest_return`), not the
@@ -20,7 +22,6 @@ layout's; the robot's on the 7 x 7 grid, from its own step's scan in the history
 0.3 m of its position at that step.
 """
 import argparse
-import itertools
 import json
 from pathlib import Path
 
@@ -31,19 +32,16 @@ from go2nav.data import ring_rasters as rr
 from go2nav.models.object_jepa import (CLIP_M, OBJECT_GRID, OBJECT_SPACING, ROBOT_GRID, ROBOT_SPACING, STEP_FRAMES,
                                        STEP_S, actions_input, object_features, offsets, robot_features)
 
-SLOTS, HISTORY, VELOCITY_FRAMES, MATCH_M = 6, 3, 3, .3
-PERMUTATIONS = torch.tensor(list(itertools.permutations(range(SLOTS))))
+SLOTS, HISTORY, VELOCITY_FRAMES, MATCH_M, GATE_M = 6, 3, 3, .3, .4
 
 
-def best_join(a, b, chunk=20000):
-    """Keypoints a, b (N, K, 2) to the ordering of b that each keypoint of a joins (N, K), by least total distance,
-    over all orderings (exact)."""
-    perms = PERMUTATIONS.to(a.device)
+def nearest_join(a, b, gate=GATE_M, chunk=100000):
+    """Keypoints a, b (N, K, 2): each keypoint of a to the nearest keypoint of b within `gate` (N, K), -1 if none."""
     out = []
     for i in range(0, len(a), chunk):
-        d = torch.cdist(a[i:i+chunk].float(), b[i:i+chunk].float())                     # (n, K, K)
-        cost = d[:, torch.arange(SLOTS, device=a.device), perms].sum(-1)              # (n, P)
-        out.append(perms[cost.argmin(-1)])
+        d = torch.cdist(a[i:i+chunk].float(), b[i:i+chunk].float())
+        best, which = d.min(-1)
+        out.append(torch.where(best < gate, which, torch.full_like(which, -1)))
     return torch.cat(out)
 
 
@@ -88,20 +86,21 @@ class Frames:
         self.device = device
         if keypoints is not None:
             kp = torch.as_tensor(np.load(keypoints), device=device)
-            n = len(kp)
+            n, self.keypoints = len(kp), kp.shape[1]
             same = lambda shift: torch.as_tensor(np.r_[self.episode[shift:] == self.episode[:n-shift],
                                                        np.zeros(shift, bool)], device=device)
-            ahead = torch.arange(n, device=device)
-            self.join4 = torch.zeros(n, SLOTS, dtype=torch.long, device=device)+torch.arange(SLOTS, device=device)
-            ok = same(STEP_FRAMES)
-            self.join4[ok] = best_join(kp[ok], kp[ahead[ok]+STEP_FRAMES])                  # frame f's keypoint k -> f+4's
-            back = torch.zeros_like(self.join4)+torch.arange(SLOTS, device=device)
-            ok3 = same(VELOCITY_FRAMES)
-            src = ahead[ok3]+VELOCITY_FRAMES
-            back[src] = best_join(kp[src], kp[ahead[ok3]])                                # frame f's keypoint k -> f-3's
-            prior = torch.gather(kp[(ahead-VELOCITY_FRAMES).clamp(min=0)], 1, back[..., None].expand(-1, -1, 2))
-            self.learned = dict(xy=kp, velocity=(kp-prior)/(VELOCITY_FRAMES*.1))
-            self.learned['velocity'][:VELOCITY_FRAMES] = 0.
+            frame = torch.arange(n, device=device)
+
+            def joins(shift):                       # frame f's keypoints -> frame f+shift's (shift may be negative)
+                out = torch.full((n, self.keypoints), -1, dtype=torch.long, device=device)
+                ok = same(abs(shift))
+                src = frame[ok] if shift > 0 else frame[ok]+abs(shift)
+                out[src] = nearest_join(kp[src], kp[src+shift])
+                return out
+            self.ahead4, self.back4, back3 = joins(STEP_FRAMES), joins(-STEP_FRAMES), joins(-VELOCITY_FRAMES)
+            prior = torch.gather(kp[(frame-VELOCITY_FRAMES).clamp(min=0)], 1, back3.clamp(min=0)[..., None].expand(-1, -1, 2))
+            velocity = torch.where((back3 >= 0)[..., None], (kp-prior)/(VELOCITY_FRAMES*.1), torch.zeros_like(kp))
+            self.learned = dict(xy=kp, velocity=velocity)
 
     def windows(self, future):
         """Every frame that can be a window's t0: 3 history steps (and 0.3 s before the first) and `future` steps
@@ -121,17 +120,23 @@ class Frames:
             same = (o['id'][steps] == o['id'][t0][:, None]) & (o['id'][t0][:, None] >= 0)
             return dict(xy=o['xy'][steps], velocity=o['velocity'][steps].float(), seen=o['seen'][steps] & same,
                         present=same, steps=steps)
-        o, h = self.learned, HISTORY-1
-        index = torch.zeros(*steps.shape, SLOTS, dtype=torch.long, device=self.device)
-        index[:, h] = torch.arange(SLOTS, device=self.device)
+        o, h, k_all = self.learned, HISTORY-1, self.keypoints
+        index = torch.full((*steps.shape, k_all), -1, dtype=torch.long, device=self.device)
+        index[:, h] = torch.arange(k_all, device=self.device)
+        follow = lambda table, step, prev: torch.where(prev >= 0, torch.gather(table[step], 1, prev.clamp(min=0)), prev)
         for k in range(h+1, steps.shape[1]):                      # forward: t0's keypoint -> its keypoint at step k
-            index[:, k] = torch.gather(self.join4[steps[:, k-1]], 1, index[:, k-1])
-        for k in range(h-1, -1, -1):                              # back: invert the join from step k to step k+1
-            inverse = torch.argsort(self.join4[steps[:, k]], -1)
-            index[:, k] = torch.gather(inverse, 1, index[:, k+1])
-        take = lambda a: torch.gather(a[steps], 2, index[..., None].expand(-1, -1, -1, 2))
-        alive = torch.ones(*steps.shape, SLOTS, dtype=torch.bool, device=self.device)
-        return dict(xy=take(o['xy']), velocity=take(o['velocity']), seen=alive, present=alive, steps=steps)
+            index[:, k] = follow(self.ahead4, steps[:, k-1], index[:, k-1])
+        for k in range(h-1, -1, -1):                              # back
+            index[:, k] = follow(self.back4, steps[:, k+1], index[:, k+1])
+        alive = index >= 0
+        take = lambda a: torch.gather(a[steps], 2, index.clamp(min=0)[..., None].expand(-1, -1, -1, 2))
+        xy, velocity = take(o['xy']), take(o['velocity'])*alive[..., None]
+        for k in range(h-1, -1, -1):                              # unseen in the history: where it was next seen
+            xy[:, k] = torch.where(alive[:, k, :, None], xy[:, k], xy[:, k+1])
+        xy = torch.where(alive[..., None] | (torch.arange(steps.shape[1], device=self.device) <= h)[None, :, None, None],
+                         xy, torch.full_like(xy, float('nan')))
+        present = torch.ones_like(alive)
+        return dict(xy=xy, velocity=velocity, seen=alive, present=present, steps=steps)
 
     def batch(self, kind, t0, future, future_pose=None, future_requested=None):
         """`models.ring_tokens.token_losses`' batch for windows ending their history at frames t0 (B,). For F004's

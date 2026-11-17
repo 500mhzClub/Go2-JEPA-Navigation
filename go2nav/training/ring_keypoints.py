@@ -13,7 +13,7 @@ branch point t0 and 0.4 and 0.8 s before), drawn in the robot's pose at t0.
   distance; a walker is found if its match is within 0.3 m. Read over the walkers the tracker matched (F004's
   population) and over all walkers in sight within 3 m (beside the tracker's share of those).
 - **precision:** the median distance of the found matches.
-- **identity:** each step's keypoints are joined to the step before by least total distance (P31 item 3); a found
+- **identity:** each step's keypoints are joined to the step before, each to the nearest within 0.4 m (P31 item 3); a found
   walker keeps its identity if its joined keypoint is within 0.3 m of it at both earlier steps (where it is in sight).
 DIR/locator.pt holds the keypoint network and the measures; DIR/measures.json the measures.
 """
@@ -53,12 +53,14 @@ def keypoints_world(net, corpus, index, frame, batch=2048):
     return torch.cat(out).cpu().numpy()
 
 
-def join(a, b):
-    """Keypoints a (K, 2) to b (K, 2) by least total distance: the index in b of each keypoint of a (K,)."""
-    rows, cols = linear_sum_assignment(np.linalg.norm(a[:, None]-b[None], axis=-1))
-    out = np.empty(len(a), np.int64)
-    out[rows] = cols
-    return out
+GATE_M = .4                                     # `perception.ring_walkers.GATE_M`: the tracker's join
+
+
+def join(a, b, gate=GATE_M):
+    """Each keypoint of a (K, 2) to the nearest keypoint of b (K', 2) within `gate`: its index in b, or -1 (K,).
+    (Round 1 joined by least total distance; PLAN P31 item 3's correction.)"""
+    d = np.linalg.norm(a[:, None]-b[None], axis=-1)
+    return np.where(d.min(1) < gate, d.argmin(1), -1)
 
 
 def stage1(net, corpus, scenes, device):
@@ -92,10 +94,11 @@ def stage1(net, corpus, scenes, device):
         counts['tracker_found'] += sum(w in matched for w in tracked)
         back1, back2 = join(kp[0][n], kp[-4][n]), join(kp[-4][n], kp[-8][n])
         for w, k in matched.items():
-            ok = True
-            for s, k_s in ((-4, back1[k]), (-8, back2[back1[k]])):
+            ok, k_s = True, k
+            for s, back in ((-4, back1), (-8, back2)):
+                k_s = back[k_s] if k_s >= 0 else -1
                 if sight[s][n][w] and np.isfinite(truth[s][n][w]).all():
-                    ok &= np.linalg.norm(kp[s][n][k_s]-truth[s][n][w]) < FOUND_M
+                    ok &= bool(k_s >= 0 and np.linalg.norm(kp[s][n][k_s]-truth[s][n][w]) < FOUND_M)
             counts['kept'] += int(ok)
             counts['kept_counted'] += 1
     tracker_all = float(scenes['walker'].__ge__(0).sum()/max(1, scenes['visible_count'].sum()))

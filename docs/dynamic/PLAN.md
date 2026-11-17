@@ -2487,7 +2487,11 @@ No labels and no layout.
 
 **3. Identity is engineered.** Walkers look alike in a scan, so a keypoint has no identity across frames by
 appearance. Each step's keypoints are joined to the next step's by least total distance (Hungarian), as the tracker
-joins its detections. A keypoint's velocity is its joined displacement over 0.3 s (frame t-3 to t), as the tracker's
+joins its detections.
+- **Corrected after round 1 (18 November):** the tracker joins each detection to the nearest track within 0.4 m, not
+  by least total distance, and round 1 showed the difference (STATUS P31). Joins are now each keypoint to the nearest
+  keypoint of the neighbouring step within 0.4 m; a keypoint with none within the gate has no identity there (not
+  seen in the history, no target in the future), as a track without a detection. A keypoint's velocity is its joined displacement over 0.3 s (frame t-3 to t), as the tracker's
 window. This is the one engineered part, and it is named in every result.
 
 **4. The dynamics,** two models trained identically, differing only in where the objects come from:
