@@ -2941,3 +2941,24 @@ T2, seed 0, Q0's head (px):
   correction to constant velocity in metres; this predicts a correction to the last token, with no velocity prior and
   no walls looked up along the way.
 - This run was the one P27b allowed. The decision is the user's.
+
+## P27b Q4: a velocity prior in latent space helps obstacles and costs the action's effect; not run in the ring world (17 November)
+
+Q4 [Q3 with each obstacle's last change of token added to its prediction, the predictor's correction starting at
+zero] tests capability 3 and, through the predictor, 2. T2, one seed, 6,000 steps, Q0's head (px):
+
+| 6,000 steps | k = 1: agent | k = 1: obstacle, straight (cv 0.038) | k = 8: agent | X bounce | X straight | A: error / zero | False | Slope | k = 16: X bounce |
+|---|---|---|---|---|---|---|---|---|---|
+| Q3 | 0.216 | 0.236 | 0.67 | 2.01 | 1.37 | 0.556 | 16.9% | 0.62 | 3.51 |
+| Q4, round 1 (the agent's token too) | 0.407 | 0.162 | 0.91 | 1.53 | 1.14 | 0.775 | 29% | 0.30 | 4.52 |
+| Q4, round 2 (obstacles only, as in the ring world) | 0.197 | 0.159 | 0.63 | 1.54 | 1.12 | 0.772 | 25% | 0.29 | 4.64 |
+
+- **Round 1** put the prior on the agent too, whose motion is its action; the agent's forecast doubled its error.
+  The ring world's robot token is given, so round 2 is the form that ports.
+- **Round 2 helps progression:** a third less error one step ahead and on bounce windows at k = 8.
+- **It costs action → obstacle from the first step:** the slope is 0.08 at k = 1 (Q3 0.26), 0.09 on contacts
+  (Q3 0.35), 0.29 at k = 8 (Q3 0.62). With the obstacle's own motion carried by the prior, the predictor's correction
+  learns less of what the agent does to it. Beyond 8 steps the prior also carries its errors forward (bounce windows
+  at k = 16 4.64 against 3.51).
+- **Against the rule set for it** (within 10% of Q3 at k = 8): it fails on A by 39%. Two rounds are spent, so Q4
+  stops; it was not confirmed at 36,000 steps, and `p28q4` was not run in the ring world.
