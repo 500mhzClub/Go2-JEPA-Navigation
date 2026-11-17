@@ -2636,6 +2636,30 @@ actions); the best JEPA from P32 (Q3, or Q3 with memory if it passed), from fram
 - its contacts per task no more than constant velocity's.
 - Reported beside it: Oracle-S, and success alone.
 
+### P35. Joint training: the world model's loss reaches the locator (approved 18 November, step 4 of 4; set out before any run)
+
+**Why.** On the hard toy (P33), keypoints learned by reconstruction alone did not bind identical obstacles (4.3% and
+26.7% found within 1 px). P35 asks whether the world model's own loss can teach the locator: a keypoint that jumps
+between obstacles makes its token unpredictable, so the prediction loss should favour keypoints that follow one
+object. It is the "absorb into the world model" step for estimation, and the user's standing rule for joint training.
+
+**1. The model** (`training.joint_keypoints`): P33 round 2's locator (K = 6, 2-px separation throughout) as the start,
+and a new Q3 [object tokens, residual predictor] over its keypoints (the agent by colour). Trained together:
+- the locator's reconstruction loss on frame pairs, as before (it keeps keypoints on what moves, so they cannot hide
+  on the static bars, where tokens would be trivially predictable);
+- Q3's loss on windows of 3 history frames and 4 future frames, the tokens built from the locator's keypoints with
+  the gradient passing through the crops and positions into the locator. Chains join keypoints frame to frame by the
+  nearest within 5 px (P33), the joins themselves without gradient.
+- One change from P33: the prediction loss reaches the locator.
+
+**2. Measures:** P33's stage 1 on the jointly trained locator's keypoints; if it passes, P33's stage 2 with this
+model's dynamics against Q3 over the blob tracker.
+
+**3. Bars:** P33's, unchanged (found ≥ 95%, mean error ≤ 0.2 px, identity ≥ 95%; then the dynamics within 1.25 times
+the blobs' and false responses at most 3 points above). Two rounds at most.
+
+**4. Compute:** the step count set from the measured speed so a run with its measures fits 45 minutes.
+
 ## Compute and order
 
 | Phase | Compute |
