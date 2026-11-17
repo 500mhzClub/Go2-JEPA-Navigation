@@ -3173,3 +3173,20 @@ rollout), against Q3 retrained at the same 24,000 steps. T2, seed 0, Q0's head, 
   on a memory that goes stale.
 - **Round 2,** one change: the memory steps on through the rollout's predicted frames (the GRU continued exactly,
   tested).
+
+## P33 stage 1, round 1: on identical obstacles the learned keypoints collapse (18 November)
+
+The hard toy (PLAN P33): one colour for every obstacle, 1-3 of them, two grey bars. Validation frames, obstacles that
+exist and are at least half visible (38,359):
+
+| | Found (within 1 px) | Mean error of the found | Identity over the history |
+|---|---|---|---|
+| Bar (learned keypoints) | ≥ 95% | ≤ 0.2 px | ≥ 95% |
+| Blob tracker (engineered) | 95.6% | 0.14 px | 97.0% |
+| Learned keypoints, round 1 (P30's schedule, K = 6) | 4.3% | 0.84 px | 32% |
+
+- **Why, measured:** two of the six keypoints sit near obstacles (one within 2 px in 99% of frames) but about 0.9 px
+  off; none sits on the agent. The rebuilding loss rose from 0.0039 to 0.0094 as the masks narrowed, while the
+  separation term climbed to 0.57: once the separation faded, the keypoints converged. With colours, each keypoint
+  picks one; with identical obstacles nothing tells them apart. P30's fade suited coloured discs only.
+- **Round 2,** one change: the separation stays on throughout, at 2 px (pairs within a disc's width), not 4 px.
