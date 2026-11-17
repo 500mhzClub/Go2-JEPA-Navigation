@@ -301,6 +301,8 @@ def retention(model, head, bench, batch=1024):
 # -- the measures -----------------------------------------------------------------------------------------------------
 
 def mean(values):
+    """The mean of the finite values (P33: an obstacle a model has not found is NaN), or None."""
+    values = values[np.isfinite(values)]
     return float(values.mean()) if len(values) else None
 
 
@@ -320,13 +322,14 @@ def measure(forecast, bench, seed=0, draws=1000, first=HISTORY-1):
     err, shuffled, cv, still = error(forecast, future), error(forecast, future[perm]), error(constant_velocity, future), \
         error(hold, future)
     gap = np.linalg.norm(labels['obstacle']-labels['agent'][:, :, None], axis=-1)                # (E, T, K)
+    live = labels['active'] if 'active' in labels else np.ones(labels['kind'].shape, bool)        # P33: obstacles that exist
     row = dict(E={}, X={}, A={})
     for k in KS:
         j = k-1
         row['E'][k] = dict(error=mean(err[:, j, 0]), shuffled=mean(shuffled[:, j, 0]),
                            ratio=mean(shuffled[:, j, 0])/max(mean(err[:, j, 0]), 1e-9), cv=mean(cv[:, j, 0]),
                            hold=mean(still[:, j, 0]))
-        far = gap[e[:, None], t0[:, None]+np.arange(k+1)].min(1) > 2*world.REACT                  # (N, K)
+        far = (gap[e[:, None], t0[:, None]+np.arange(k+1)].min(1) > 2*world.REACT) & live[e] & np.isfinite(err[:, j, 1:])
         bounced = labels['bounce'][e[:, None], steps[:, :k]+1].any(1)
         row['X'][k] = {name: dict(n=int(mask.sum()), error=mean(err[:, j, 1:][mask]), cv=mean(cv[:, j, 1:][mask]),
                                   hold=mean(still[:, j, 1:][mask]))
@@ -354,9 +357,14 @@ def measure(forecast, bench, seed=0, draws=1000, first=HISTORY-1):
         pred = (predicted[:, b, j].astype(np.float64)-predicted[:, a, j]).reshape(-1, 2)
         contact = (touched[:, a, j] | touched[:, b, j]).reshape(-1)
         tn, pn, err = np.linalg.norm(true, axis=-1), np.linalg.norm(pred, axis=-1), np.linalg.norm(pred-true, axis=-1)
-        responsive, quiet = tn > RESPONSIVE, tn < QUIET
+        # P33: pairs of an obstacle that exists and that the forecaster found in both tapes
+        ok = (live[e][:, None, :] & np.isfinite(predicted[:, a, j][..., 0]) & np.isfinite(predicted[:, b, j][..., 0])).reshape(-1)
+        true, pred = np.where(ok[:, None], true, 0.), np.where(ok[:, None], np.nan_to_num(pred), 0.)
+        responsive, quiet = ok & (tn > RESPONSIVE), ok & (tn < QUIET)
+        near = (approached[:, a, j] | approached[:, b, j]).reshape(-1) & ~contact
 
         def part(mask):
+            mask = mask & ok
             r, q = mask & responsive, mask & quiet
             out = dict(pairs=int(mask.sum()), responsive=int(r.sum()), error=mean(err[r]), zero=mean(tn[r]),
                        quiet=int(q.sum()), false_rate=mean((pn[q] > RESPONSIVE).astype(float)), slope=None, ci=None)
@@ -365,7 +373,6 @@ def measure(forecast, bench, seed=0, draws=1000, first=HISTORY-1):
                 fit = bootstrap.regression(true[mask], pred[mask], group[mask])
                 out['slope'], out['ci'] = fit['slope'], fit['ci95']
             return out
-        near = (approached[:, a, j] | approached[:, b, j]).reshape(-1) & ~contact
         known = np.broadcast_to(shown[:, None], (len(e), len(PAIRS), world.K)).reshape(-1)
         row['A'][k] = dict(all=part(np.ones(len(tn), bool)), contact=part(contact), distance=part(~contact),
                            **{name: part(kind == i) for i, name in enumerate(world.KINDS)},
