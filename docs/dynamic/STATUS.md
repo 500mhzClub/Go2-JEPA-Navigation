@@ -2917,3 +2917,27 @@ T2, seed 0, Q0's head (px):
   predictor and cannot move this; Q0 showed it is not what limits the ring world.
 - **Gone ahead on that basis** (past PLAN's wording that every precision bar be met first): the residual predictor
   in the ring world, `p28q3_s0`, one run, read against P28's bars as written.
+
+## P28 with the residual predictor: much closer to M5, still short at 1.6 and 3.2 s (17 November)
+
+`p28q3_s0`: P28's model with Q3's residual predictor, 32,000 steps, one seed, read through Q0's head (an MLP of
+3 x 1,024 on tokens encoded once). Evaluation-mode objective as training's (0.010 / 0.018).
+
+| | (a) median error, m: 1.6 / 3.2 / 6.4 s | ... waiting on the robot | (b) response error / zero-response, responsive pairs | False responses | Slope | Retention, median |
+|---|---|---|---|---|---|---|
+| Bar | ≤ 0.050 / 0.146 / 0.507 | | | below M5's | at least M5's | |
+| Constant velocity | 0.054 / 0.271 / 0.937 | 0.051 / 0.195 / 0.566 | equal | 0 | 0 | |
+| M5 | 0.033 / 0.097 / 0.338 | 0.027 / 0.082 / 0.251 | 0.091 / 0.141; 0.165 / 0.239; 0.390 / 0.484 | 7.4% / 20.2% / 41.3% | 0.49 / 0.48 / 0.39 | |
+| P28, Q0's head | 0.120 / 0.228 / 0.588 | 0.094 / 0.181 / 0.449 | 0.110; 0.187; 0.407 | 7% / 25% / 64% | 0.25 / 0.27 / 0.26 | 0.023 m |
+| P28 with Q3 | 0.082 / 0.185 / 0.503 | 0.055 / 0.146 / 0.430 | 0.098; 0.171; 0.398 | 5.1% / 20.4% / 63% | 0.37 / 0.39 / 0.39 | 0.011 m |
+
+- **The toy's change carries over:** every figure improves, the error at 1.6 s by a third, the slope from about
+  0.26 to about 0.38, and the encoded token is now read to 1.1 cm.
+- **Against the bars:** (a) passes at 6.4 s only (0.503 against 0.507); at 1.6 s it is 2.5 times M5's and above
+  constant velocity. (b): false responses are below M5's at 1.6 s, level at 3.2 s and well above at 6.4 s; the slope
+  equals M5's at 6.4 s and is below it before. **P28 still fails.**
+- On responsive pairs its response error is within 2-8% of M5's at every horizon.
+- What remains is the predictor over the first seconds: 0.082 m at 1.6 s with tokens read to 0.011 m. M5 predicts a
+  correction to constant velocity in metres; this predicts a correction to the last token, with no velocity prior and
+  no walls looked up along the way.
+- This run was the one P27b allowed. The decision is the user's.
