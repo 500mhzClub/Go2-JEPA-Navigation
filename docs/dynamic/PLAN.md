@@ -2665,6 +2665,27 @@ the blobs' and false responses at most 3 points above). Two rounds at most.
 
 **4. Compute:** the step count set from the measured speed so a run with its measures fits 45 minutes.
 
+### P34b. Each forecaster's margin from its own errors (approved 18 November; set out before any run)
+
+**Why.** In P34 the JEPA completed more tasks than constant velocity (53.5% against 48.7% without contact) but touched
+obstacles twice as often (0.064 against 0.034 a task): the planner trusted every forecast equally, to the same 7.5 px.
+A forecaster that is less sure near the agent should keep further away.
+
+**One change to the planner,** applied identically to every forecaster and not tuned afterwards: the clearance at step
+k of a tape is 7.5 px plus that forecaster's own error at k, measured once beforehand.
+- **The error** (`eval.toy_planning calibrate`): on the standard toy's validation windows (kinds hidden), for each
+  obstacle within 24 px (twice the reaction radius) of the agent at the window's last frame, under the recorded
+  actions: the error of the predicted gap between agent and obstacle (both predicted, as the planner uses them),
+  its 90th percentile at each k from 1 to 12. Labels serve only this calibration.
+- The simulator's error is zero, so its planning is unchanged. Constant velocity, Oracle-S and the JEPA (Q3, as in
+  P34) are recalibrated and rerun on P34's 1,000 tasks.
+
+**Bars** (set before any run): the JEPA, with its margin,
+- touches obstacles no more often than constant velocity with its margin;
+- succeeds without contact at least as often as constant velocity with its margin plus half the gap to the simulator
+  (56.9%).
+- Reported beside them: every forecaster before and after. One round.
+
 ## Compute and order
 
 | Phase | Compute |
