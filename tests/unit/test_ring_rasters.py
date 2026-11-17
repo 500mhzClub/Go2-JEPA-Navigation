@@ -41,3 +41,13 @@ def test_joining_keypoints_follows_them_and_a_one_channel_locator_runs():
     model = Transporter(KeypointConfig(keypoints=6, channels=1))
     out, kp = model(torch.rand(2, 1, 64, 64)*2-1, torch.rand(2, 1, 64, 64)*2-1)
     assert out.shape == (2, 1, 64, 64) and kp.shape == (2, 6, 2)
+
+
+def test_the_exact_join_finds_the_ordering_of_least_total_distance():
+    from go2nav.data.ring_windows import best_join
+    rng = np.random.default_rng(3)
+    a = torch.tensor(rng.uniform(-3, 3, (50, 6, 2)), dtype=torch.float32)
+    perm = torch.tensor(np.stack([rng.permutation(6) for _ in range(50)]))
+    b = torch.gather(a, 1, perm[..., None].expand(-1, -1, 2))+.01
+    join = best_join(a, b)
+    assert torch.equal(torch.gather(perm, 1, join), torch.arange(6).expand(50, -1))   # b[join[k]] is a[k]
