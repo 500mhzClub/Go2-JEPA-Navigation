@@ -3246,3 +3246,25 @@ obstacles of hidden kinds within 28 steps); intervals are paired over the same t
 - On this task the forecast is worth at most 8 points; the planner and the clock decide the rest, as in the ring
   world. The JEPA's forecasts are decision-relevant here, modestly.
 - Not tuned (the planner is fixed); one run, no second round planned.
+
+## P35 round 1: the world model's loss does not teach the locator to bind; P35 stopped (18 November)
+
+The locator (from P33 round 2) and a new Q3 trained together on the hard toy, 8,000 steps (41 minutes), the gradient
+of Q3's loss passing through the crops and positions into the locator:
+
+| Validation, obstacles at least half visible | Found within 1 px | Mean error of found | Identity |
+|---|---|---|---|
+| Bar | ≥ 95% | ≤ 0.2 px | ≥ 95% |
+| Blob tracker (engineered) | 95.6% | 0.14 px | 97.0% |
+| P33 round 2 (reconstruction only, the start) | 26.7% | 0.71 px | 28% |
+| P35, joint | 19.8% | 0.75 px | 24% |
+
+- **It fails, and is slightly worse than its start.** Q3's loss fell far (rollout 0.0076 at the end), so the tokens
+  became predictable without the keypoints binding.
+- **Why, measured:** in the starting locator and after joint training alike, one keypoint follows the obstacles
+  (91% and 85% of frames within 2 px), one sits on the agent, and four sit on nothing (flat heatmaps, no gradient).
+  Joint training did not revive them. And the prediction loss rewards predictable tokens, not tokens on objects: a
+  keypoint resting on empty floor is perfectly predictable.
+- **Stopped after one round** (two were allowed): a change that would address this (breaking the symmetry between
+  identical obstacles in the locator, e.g. features that know where they are) is a locator redesign, not a test of
+  joint training.

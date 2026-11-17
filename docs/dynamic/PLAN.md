@@ -2640,6 +2640,9 @@ actions); the best JEPA from P32 (Q3, or Q3 with memory if it passed), from fram
 
 ### P35. Joint training: the world model's loss reaches the locator (approved 18 November, step 4 of 4; set out before any run)
 
+**Stopped 18 November after round 1** (STATUS): 19.8% found against the start's 26.7%; the prediction loss rewards
+predictable tokens, not bound ones, and the start's dead keypoints stayed dead.
+
 **Why.** On the hard toy (P33), keypoints learned by reconstruction alone did not bind identical obstacles (4.3% and
 26.7% found within 1 px). P35 asks whether the world model's own loss can teach the locator: a keypoint that jumps
 between obstacles makes its token unpredictable, so the prediction loss should favour keypoints that follow one
