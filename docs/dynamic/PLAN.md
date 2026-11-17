@@ -2470,6 +2470,54 @@ over training frames (Hungarian):
 **4. Compute:** the locator about 20-30 minutes on the R9700; stage 2 about 30 minutes a seed with its measures; one
 GPU process at a time.
 
+### P31. Learned objects on the ring world's scan (approved 18 November, option 1 after P30; set out before any run)
+
+**Why.** P30 found the toy's objects from pixels without labels, at no measurable cost to the dynamics. P31 asks the
+same on the robot's own sensor: the ring world's 720-beam scan, where the ring tracker (engineered, using the known
+layout) finds the walkers today. Branch `feature/ring-keypoints`, cut from `feature/learned-objects`.
+
+**1. The image.** Each frame's scan is rasterised on the GPU (`data.ring_rasters`): the returns as points, splatted
+into a 64 x 64 image at 0.1 m a pixel (±3.2 m, the range the measures score), in one frame for a whole window: the
+robot's pose at the window's last history step, heading up. Walls are lines; a walker is the arc of its near side,
+about 5 px. In a common frame the walls stay still, so the locator's background is copied as on the toy.
+
+**2. The locator:** P30's (`models.keypoints`; one channel, K = 6, the tracker's slot count; masks narrowed from 8 to
+2 px; the separation fading with them), trained on pairs of frames 1-8 apart from the corpus's training episodes.
+No labels and no layout.
+
+**3. Identity is engineered.** Walkers look alike in a scan, so a keypoint has no identity across frames by
+appearance. Each step's keypoints are joined to the next step's by least total distance (Hungarian), as the tracker
+joins its detections. A keypoint's velocity is its joined displacement over 0.3 s (frame t-3 to t), as the tracker's
+window. This is the one engineered part, and it is named in every result.
+
+**4. The dynamics,** two models trained identically, differing only in where the objects come from:
+- **tracker tokens:** the ring tracker's slots (position, seen, present, velocity);
+- **learned tokens:** the joined keypoints (position, velocity; seen and present always).
+- In both, the walls in a token are the distance to the nearest scan return on M5's 5 x 5 grid round the object (7 x 7
+  round the robot), not the layout's distance. The robot's future tokens use the last history step's scan.
+- The recipe is P28's with Q3 (residual predictor), on the corpus's recorded training episodes: windows of 3
+  history steps and 8 future steps of 0.4 s. Targets are each model's own tokens of the future steps; no true
+  positions enter training. 32,000 steps.
+- Read by Q0's head (an MLP of 3 x 1,024 on encoded tokens).
+
+**5. Measures,** on F004's 10,601 validation scenes, history from the scans at the scene's frames:
+- **stage 1, the locator:** of the walkers the tracker matched at the branch point (F004's population), the share
+  with a keypoint within 0.3 m (the tracker's tolerance), the median error, and, over the 3 history steps, the share
+  whose joined keypoint stays within 0.3 m of the same walker at every step; beside them, the share of all walkers in
+  sight within 3 m that each finds;
+- **stage 2:** P28's (a) and (b) for both models, on the walkers both find, beside M5 and P28 with Q3.
+
+**6. Bars** (set before any run):
+- **Stage 1:** found at least 90% of the tracker's walkers; identity kept over the history for at least 95% of those
+  found.
+- **Stage 2,** only if stage 1 passes: the learned tokens' (a) at most 1.25 times the tracker tokens' median error at
+  each horizon; (b) false responses at most 5 points above the tracker tokens', and the slope at least 0.8 times
+  theirs. One seed; three if it looks like passing.
+- Two rounds at most a stage. Whatever stage 2 shows is reported, and you decide what follows.
+
+**7. Compute:** the locator about 25 minutes; each dynamics model about 40 minutes with its measures; one GPU process
+at a time, under 85% of the R9700's memory.
+
 ## Compute and order
 
 | Phase | Compute |
