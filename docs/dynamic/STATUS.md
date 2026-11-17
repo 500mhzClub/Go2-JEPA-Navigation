@@ -3010,3 +3010,22 @@ keypoint's offset; raw beside it in measures.json):
 - **The likely cause is the separation term,** which still pushes keypoints 6-9 px apart (at 0.08-0.32 of its full
   strength) though it was needed only against the early collapse.
 - **Round 2,** one change: the separation's weight falls to zero as the masks narrow, then stays off.
+
+## P30 stage 1, round 2: the learned keypoints pass, as precise as the colour detector (18 November)
+
+The separation fades to zero as the masks narrow, then stays off; nothing else changed. T2 validation frames (px):
+
+| | Agent | Green | Blue | Yellow | Bar |
+|---|---|---|---|---|---|
+| Binding (within 1 px) | 100% | 98.3% | 99.5% | 99.99% | ≥ 95% |
+| Precision, mean, offset removed | 0.041 | 0.110 | 0.057 | 0.040 | ≤ 0.3 |
+| Precision, mean, raw | 0.113 | 0.264 | 0.218 | 0.156 | |
+| Swaps | 0% | 0.14% | 0.07% | 0.01% | ≤ 1% |
+| Round 1, offset removed | 0.314 | 0.576 | 0.231 | 0.130 | |
+| The colour detector | 0.044 | 0.105 | 0.090 | 0.071 | |
+
+- **Stage 1 passes on every bar,** raw as well as with the offsets removed.
+- With the offsets removed the keypoints are level with the colour detector on the agent and green and finer on blue
+  and yellow. They were learned from frame pairs alone: no labels, no colours.
+- Round 1's misses near other discs were the separation term's: with it gone in the fine phase they vanish.
+- **Stage 2** runs: Q3 over this locator (`q3k`), 36,000 steps, seed 0, read by Q0's head.
