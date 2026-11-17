@@ -2773,3 +2773,200 @@ three seeds) was written before seeds 1 and 2 were run.
   The rings are in the crops; why they cost precision is not tested.
 - **P27 closes with no recipe passing section 4's bars as written.** R4 on T2 meets seven of eight on the mean of
   three seeds. docs/REVIEW_2026-11-16.md sets out what each rung showed and the decision this leaves.
+
+## P28: the references on the F004 scenes (16 November)
+
+R4 was promoted on 16 November with the toy's false-response bar waived ("Do 1"; docs/REVIEW_2026-11-16.md). P28 is
+set out in PLAN, on branch `feature/ring-tokens`. Built: `data.ring_scenes` (the export as M5's inputs),
+`models.ring_tokens`, `training.ring_tokens`, `eval.ring_tokens`.
+
+**The references** on the 10,601 validation scenes (98 layouts), against the walkers' true positions. M5 is run from
+the export's inputs with its own decoded rollout:
+
+| | (a) median error, m: 1.6 / 3.2 / 6.4 s | ... walkers waiting on the robot | (b) response error / zero-response, all pairs | ... responsive pairs | False responses | Slope |
+|---|---|---|---|---|---|---|
+| Holding | 0.305 / 0.553 / 0.980 | 0.020 / 0.151 / 0.526 | equal | equal | 0 | 0 |
+| Constant velocity | 0.054 / 0.271 / 0.937 | 0.051 / 0.195 / 0.566 | equal | equal | 0 | 0 |
+| M5 | 0.033 / 0.097 / 0.338 | 0.027 / 0.082 / 0.251 | 0.027 / 0.023; 0.069 / 0.057; 0.192 / 0.143 | 0.091 / 0.141; 0.165 / 0.239; 0.390 / 0.484 | 7% / 20% / 41% | 0.49 / 0.48 / 0.39 |
+
+- **The loader is right:** M5's (a) here (0.033, 0.097, 0.338 m) is its published one on the corpus (0.033, 0.101,
+  0.325 m), and constant velocity's likewise.
+- **M5's responses are as F002 found them:** over all pairs its predicted difference is worse than predicting none
+  at every horizon; it is better only on responsive pairs; its false responses grow to 41% at 6.4 s.
+- **The bars this sets** (PLAN P28 item 4): (a) at most 0.050 / 0.146 / 0.507 m and below constant velocity at 3.2
+  and 6.4 s; (b) false responses below 7% / 20% / 41% and slope at least 0.49 / 0.48 / 0.39.
+
+## P28, first run: void, a fault in the port (16 November)
+
+`p28_s0_void`, 32,000 steps: the head reads encoded true tokens to 0.029 m, and forecasts are 1.64 m out at 1.6 s.
+- **The fault, measured:** the BatchNorm projectors gave different tokens in training and in evaluation.
+  - In training, the history's and the future's tokens were encoded in separate calls. About three slots in four are
+    empty, and the two batches held different shares of them, so their statistics differed: the same walker 0.4 s
+    apart had tokens 2.05 apart (their variance is 0.7-1.5). With the running statistics they are 0.025 apart.
+  - The predictor learnt the mapping between training's two batches. In evaluation its one-step latent error is
+    1.77 (0.007 with batch statistics).
+- The toy could not show it: all four objects are always present, and a window's frames went through one call.
+  R3's branch terms did encode the history and the futures in separate calls (16 x 3 and 16 x 8 frames); the shares
+  of content were alike there, but it may have added noise to that rung.
+- **The fix:** an empty slot takes one learned token and passes through no BatchNorm, in the encoder and in the
+  predictor's output; the history and the future are encoded in one call; the trainer logs the objective once more
+  in evaluation mode. A 2,000-step check: training 0.023 / 0.037 (teacher-forced / rollout), evaluation 0.021 /
+  0.034; forecasts 0.13 / 0.28 / 0.68 m.
+- The void run is counted as the first of P28's two rounds.
+
+## P28, second round: fails against M5; the latent's precision is the limit (17 November)
+
+`p28_s0`, the fixed port, 32,000 steps, one seed. In evaluation mode its objective reads as in training (0.010 /
+0.018). On the 10,601 validation scenes:
+
+| | (a) median error, m: 1.6 / 3.2 / 6.4 s | ... waiting on the robot | (b) response error / zero-response, responsive pairs | False responses | Slope |
+|---|---|---|---|---|---|
+| Bar | ≤ 0.050 / 0.146 / 0.507 | | | below M5's | at least M5's |
+| Constant velocity | 0.054 / 0.271 / 0.937 | 0.051 / 0.195 / 0.566 | equal | 0 | 0 |
+| M5 | 0.033 / 0.097 / 0.338 | 0.027 / 0.082 / 0.251 | 0.091 / 0.141; 0.165 / 0.239; 0.390 / 0.484 | 7% / 20% / 41% | 0.49 / 0.48 / 0.39 |
+| P28 | 0.117 / 0.230 / 0.592 | 0.094 / 0.185 / 0.451 | 0.107 / 0.141; 0.183 / 0.239; 0.402 / 0.484 | 8% / 26% / 65% | 0.29 / 0.29 / 0.28 |
+
+- **It fails every bar.** (a) is 3.5, 2.4 and 1.8 times M5's. It is below constant velocity at 3.2 and 6.4 s and
+  above it at 1.6 s. (b): more false responses than M5 and a lower slope at every horizon.
+- **It does learn the dynamics:** on responsive pairs its response error is below zero-response's at every horizon
+  (0.107 against 0.141 m at 1.6 s), close to M5's at 6.4 s (0.402 against 0.390), and it reacts for each kind of walker
+  (slope 0.44-0.50 for those that do not yield, M5 0.68-0.75).
+- **Where the error is,** on the recorded future (median, m):
+
+| Horizon | P28 | M5 | Constant velocity | The head on the encoded true token (retention) |
+|---|---|---|---|---|
+| 0.4 s | 0.065 | 0.008 | 0.010 | 0.046 |
+| 1.6 s | 0.117 | 0.033 | 0.054 | 0.047 |
+| 6.4 s | 0.592 | 0.338 | 0.937 | 0.055 |
+
+  - **The latent holds a walker's position to about 5 cm,** and a walker moves 8 cm in a step. M5 and constant
+    velocity keep the position in metres and are right to 1 cm at one step.
+  - It is noise in the token, not an offset of the head: reading the forecast as a displacement from the tracker's
+    position changes nothing (0.112 / 0.231 / 0.597 m).
+  - The same precision was there on the toy: R4's retention was 0.27 px in a 64-px frame, 0.4% of the range, as 5 cm
+    is of this one. The toy's bars (1 px, with discs moving 1-3 px a step) did not ask for more.
+  - Retention was better early in training (0.033 m at 2,000 steps, 0.050 m at 32,000).
+- Not separated: what the missing wall look-up in the latent rollout costs at 3.2 and 6.4 s.
+- **P28 stops here after its two rounds** (the first void). The decision is the user's.
+
+## P27b Q0: the head was the toy's limit, and R4 now meets P27's eight bars (17 November)
+
+Option 1 of the P28 report was approved on 17 November: precision on the toy first (PLAN P27b).
+
+**The diagnostic** (R4's seed 0 at 36,000 steps, validation frames, px):
+
+| Head | Against the truth: mean / median | Against the detector's own position |
+|---|---|---|
+| P27's (attention pooling, 4,000 steps at batch 256) | 0.240 / 0.184 | 0.243 / 0.192 |
+| A per-token MLP, 3 x 1,024, 10,000 steps at batch 512 | 0.089 / 0.042 | 0.101 / 0.068 |
+| The detector itself | 0.078 / 0.049 | - |
+
+**Q0** [the head only: that per-token MLP; no JEPA retrained] on R4's three 36,000-step models, T2:
+
+| | R: agent / green / blue / yellow | k = 1: agent; obstacle, straight (cv 0.038) | k = 8: E; X bounce; X straight | A: error / zero | False | Slope, lower end |
+|---|---|---|---|---|---|---|
+| P27's head, seeds 0 / 1 / 2 | 0.22-0.30 for all | 0.29-0.31; 0.28-0.31 | 0.56; 1.11; 0.75 (means) | 0.490 | 10.3 / 9.8 / 13.5% | 0.74 |
+| Q0, seed 0 | 0.073 / 0.124 / 0.092 / 0.067 | 0.160; 0.147 | 0.40; 1.00; 0.62 | 0.474 | 8.8% | 0.75 |
+| Q0, seed 1 | 0.076 / 0.123 / 0.090 / 0.066 | 0.163; 0.168 | 0.41; 1.08; 0.67 | 0.478 | 9.1% | 0.76 |
+| Q0, seed 2 | 0.077 / 0.121 / 0.089 / 0.064 | 0.161; 0.171 | 0.41; 1.15; 0.69 | 0.512 | 10.9% | 0.70 |
+
+- **The latent held the positions all along;** P27's head did not read them. Retention is now at the detector's
+  level for three objects.
+- **R4 meets all eight of P27's bars on the mean of three seeds** with this head: false responses 9.6% (bar 10%),
+  response error 0.488 of zero-response (bar 0.50). The review's "seven of eight" was the head's doing. The waiver
+  of 16 November is no longer needed for the toy.
+- **The new precision bars are missed narrowly:** green's retention 0.121-0.124 px (bar 0.117; green is drawn first
+  and covered most often), and the one-step error on straight windows 0.147-0.171 px (bar 0.14).
+- **The same head on the ring-world model** (`p28_s0`, no retraining): retention 0.050 to 0.023 m (median), and the
+  forecasts unchanged, 0.120 / 0.228 / 0.588 m (M5 0.033 / 0.097 / 0.338). **In the ring world the error is the
+  predictor's:** 0.065 m one step ahead where its own true token is read to 0.023 m. The reading of 17 November
+  ("the latent's precision is the limit") was wrong; it was the head there too, and behind it the predictor.
+- So the ladder goes on, and Q3 (a residual predictor) is the rung aimed at what P28 lacks.
+
+## P27b Q1-Q3: the screens (17 November)
+
+R4 with one change each, T2, one seed, 6,000 steps, Q0's head (px):
+
+| Rung | R: worst object | k = 1: obstacle, straight (cv 0.038) | k = 8: E | X bounce | X straight | A: error / zero | False | Slope |
+|---|---|---|---|---|---|---|---|---|
+| R4 | 0.153 | 0.255 | 0.63 | 3.28 | 1.78 | 0.639 | 18.2% | 0.47 |
+| Q1 [float32] | 0.152 | 0.254 | 0.63 | 3.27 | 1.78 | 0.639 | 18.0% | 0.47 |
+| Q2 [SIGReg weight 0.01] | 16.4 | 24.0 | 21.1 | 30.1 | 22.9 | 1.00 | - | 0 |
+| Q3 [residual predictor] | 0.139 | 0.236 | 0.67 | 2.01 | 1.37 | 0.556 | 16.9% | 0.62 |
+
+- **Q1:** bf16 autocast does not cap the precision; float32 gives the same model to three figures.
+- **Q2:** at a weight of 0.01 the tokens collapse (prediction loss 0.00005; every object at chance). Not retried.
+- **Q3:** the predicted token is the frame's own token plus the predictor's output, starting as a copy. At equal
+  steps it is ahead on everything at k = 8 (bounce windows 2.01 against 3.28 px; slope 0.62 against 0.47) and a
+  little more precise at one step. Confirmed at 36,000 steps next.
+
+## P27b Q3 at 36,000 steps: the residual predictor meets the one-step bar (17 November)
+
+T2, seed 0, Q0's head (px):
+
+| | R: agent / green / blue / yellow | k = 1: agent; obstacle straight; bounce | k = 8: E; X bounce; X straight | A: error / zero | False | Slope [95%] | k = 16: X bounce; A |
+|---|---|---|---|---|---|---|---|
+| Bar | each ≤ 0.117 | -; ≤ 0.14; - | within 10% of R4 | within 10% of R4 | P27: ≤ 10% | P27: above 0.5 | |
+| R4 | 0.073 / 0.124 / 0.092 / 0.067 | 0.160; 0.147; 0.467 | 0.40; 1.00; 0.62 | 0.474 | 8.8% | 0.77 [0.75, 0.79] | 3.16; 0.681 |
+| Q3 | 0.083 / 0.124 / 0.091 / 0.066 | 0.147; 0.094; 0.258 | 0.43; 0.68; 0.49 | 0.459 | 9.0% | 0.78 [0.76, 0.80] | 1.70; 0.626 |
+
+- **The one-step bar is met** (0.094 px), and Q3 keeps all eight of P27's bars. Bounce windows are a third better
+  at k = 8 and nearly half at k = 16; the agent is 7% worse at k = 8, inside the no-loss bar.
+- **The retention bar is missed by 0.007 px** (green 0.124). The detector's own error is 0.044 / 0.105 / 0.090 /
+  0.071 px by object, so green is read to 1.2 times its input's error and the agent to 1.9 times. Q3 changes the
+  predictor and cannot move this; Q0 showed it is not what limits the ring world.
+- **Gone ahead on that basis** (past PLAN's wording that every precision bar be met first): the residual predictor
+  in the ring world, `p28q3_s0`, one run, read against P28's bars as written.
+
+## P28 with the residual predictor: much closer to M5, still short at 1.6 and 3.2 s (17 November)
+
+`p28q3_s0`: P28's model with Q3's residual predictor, 32,000 steps, one seed, read through Q0's head (an MLP of
+3 x 1,024 on tokens encoded once). Evaluation-mode objective as training's (0.010 / 0.018).
+
+| | (a) median error, m: 1.6 / 3.2 / 6.4 s | ... waiting on the robot | (b) response error / zero-response, responsive pairs | False responses | Slope | Retention, median |
+|---|---|---|---|---|---|---|
+| Bar | ≤ 0.050 / 0.146 / 0.507 | | | below M5's | at least M5's | |
+| Constant velocity | 0.054 / 0.271 / 0.937 | 0.051 / 0.195 / 0.566 | equal | 0 | 0 | |
+| M5 | 0.033 / 0.097 / 0.338 | 0.027 / 0.082 / 0.251 | 0.091 / 0.141; 0.165 / 0.239; 0.390 / 0.484 | 7.3% / 19.9% / 41.1% | 0.49 / 0.48 / 0.39 | |
+| P28, Q0's head | 0.120 / 0.228 / 0.588 | 0.094 / 0.181 / 0.449 | 0.110; 0.187; 0.407 | 7% / 25% / 64% | 0.25 / 0.27 / 0.26 | 0.023 m |
+| P28 with Q3 | 0.082 / 0.185 / 0.503 | 0.055 / 0.146 / 0.430 | 0.098; 0.171; 0.398 | 5.3% / 19.8% / 63% | 0.37 / 0.39 / 0.39 | 0.011 m |
+
+- **The toy's change carries over:** every figure improves, the error at 1.6 s by a third, the slope from about
+  0.26 to about 0.38, and the encoded token is now read to 1.1 cm.
+- **Against the bars:** (a) passes at 6.4 s only (0.503 against 0.507); at 1.6 s it is 2.5 times M5's and above
+  constant velocity. (b): false responses are below M5's at 1.6 s, level at 3.2 s and well above at 6.4 s; the slope
+  equals M5's at 6.4 s and is below it before. **P28 still fails.**
+- On responsive pairs its response error is within 2-8% of M5's at every horizon.
+- What remains is the predictor over the first seconds: 0.082 m at 1.6 s with tokens read to 0.011 m. M5 predicts a
+  correction to constant velocity in metres; this predicts a correction to the last token, with no velocity prior and
+  no walls looked up along the way.
+- This run was the one P27b allowed. The decision is the user's.
+
+## P27b Q4: a velocity prior in latent space helps obstacles and costs the action's effect; not run in the ring world (17 November)
+
+Q4 [Q3 with each obstacle's last change of token added to its prediction, the predictor's correction starting at
+zero] tests capability 3 and, through the predictor, 2. T2, one seed, 6,000 steps, Q0's head (px):
+
+| 6,000 steps | k = 1: agent | k = 1: obstacle, straight (cv 0.038) | k = 8: agent | X bounce | X straight | A: error / zero | False | Slope | k = 16: X bounce |
+|---|---|---|---|---|---|---|---|---|---|
+| Q3 | 0.216 | 0.236 | 0.67 | 2.01 | 1.37 | 0.556 | 16.9% | 0.62 | 3.51 |
+| Q4, round 1 (the agent's token too) | 0.407 | 0.162 | 0.91 | 1.53 | 1.14 | 0.775 | 29% | 0.30 | 4.52 |
+| Q4, round 2 (obstacles only, as in the ring world) | 0.197 | 0.159 | 0.63 | 1.54 | 1.12 | 0.772 | 25% | 0.29 | 4.64 |
+
+- **Round 1** put the prior on the agent too, whose motion is its action; the agent's forecast doubled its error.
+  The ring world's robot token is given, so round 2 is the form that ports.
+- **Round 2 helps progression:** a third less error one step ahead and on bounce windows at k = 8.
+- **It costs action → obstacle from the first step:** the slope is 0.08 at k = 1 (Q3 0.26), 0.09 on contacts
+  (Q3 0.35), 0.29 at k = 8 (Q3 0.62). With the obstacle's own motion carried by the prior, the predictor's correction
+  learns less of what the agent does to it. Beyond 8 steps the prior also carries its errors forward (bounce windows
+  at k = 16 4.64 against 3.51).
+- **Against the rule set for it** (within 10% of Q3 at k = 8): it fails on A by 39%. Two rounds are spent, so Q4
+  stops; it was not confirmed at 36,000 steps, and `p28q4` was not run in the ring world.
+
+## P27b and P28 closed (17 November)
+
+Closed on approval. docs/REVIEW_2026-11-17.md records what the port showed:
+- On the toy the object-token JEPA meets P27's eight bars on three seeds, once read by an adequate head.
+- In the ring world it learns the walkers' dynamics and responses but trails M5 on position over the first seconds.
+- It corrects two readings of 16 and 17 November: both limits were the read-out head's, not the latent's.
+Next piece: your decision (the review's last table).

@@ -42,6 +42,10 @@ class ObjectTokenConfig:
     action_dim: int = 2
     tokens: int = 1+world.K
     grid: tuple = ()                     # read by code written for `LeWMConfig`
+    residual: bool = False               # P27b Q3: the predictor's output is added to the frame's own tokens
+    velocity: bool = False               # P27b Q4: and the token's last change (a constant-velocity prior)
+    velocity_agent: bool = True          # Q4's second round: False keeps the prior off the agent's token, whose motion
+                                         # is its action (the ring world's robot token is given, not predicted)
 
 
 def palette(device=None):
@@ -90,6 +94,9 @@ class ObjectTokenJEPA(nn.Module):
         self.predictor = ARPredictor(num_frames=c.history, depth=c.predictor_depth, heads=c.predictor_heads,
                                      dim_head=c.predictor_head_dim, mlp_dim=c.predictor_mlp, dim=c.latent, tokens=c.tokens)
         self.pred_proj = MLP(c.latent, c.projector_hidden, c.latent)
+        if c.residual:                   # starts as a copy of the last frame
+            nn.init.zeros_(self.pred_proj.net[-1].weight)
+            nn.init.zeros_(self.pred_proj.net[-1].bias)
         self.register_buffer('scales', math.pi*2.**torch.arange(c.frequencies), persistent=False)
 
     def position_features(self, xy, seen):
@@ -112,7 +119,13 @@ class ObjectTokenJEPA(nn.Module):
     def predict(self, z, actions):
         """Tokens (B, T, 4, D) and actions (B, T, 2) to the predicted next tokens at every position (B, T, 4, D)."""
         out = self.predictor(z, self.action_encoder(actions))
-        return self.pred_proj(out.flatten(0, 2)).unflatten(0, out.shape[:3])
+        out = self.pred_proj(out.flatten(0, 2)).unflatten(0, out.shape[:3])
+        if self.config.velocity:         # none at the first step, which has no earlier frame
+            change = z-torch.cat((z[:, :1], z[:, :-1]), 1)
+            if not self.config.velocity_agent:
+                change = torch.cat((torch.zeros_like(change[:, :, :1]), change[:, :, 1:]), 2)
+            out = out+change
+        return z+out if self.config.residual else out
 
     def rollout(self, z, actions, steps):
         """As `models.lewm.LeWorldModel.rollout`: the history's tokens (B, N, 4, D) and N-1+steps actions to the `steps`

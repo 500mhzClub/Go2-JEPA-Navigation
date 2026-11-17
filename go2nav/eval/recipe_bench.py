@@ -200,17 +200,35 @@ class TokenHead(nn.Module):
         return self.out(q).unflatten(0, lead)
 
 
-def build_head(config):
+class ObjectHead(nn.Module):
+    """P27b's head for object tokens (..., 4, D): each object's position (..., 4, 2) from its own token and which
+    object it is, an MLP of 3 layers of 1,024."""
+
+    def __init__(self, latent, hidden=1024):
+        super().__init__()
+        self.net = mlp(latent+len(OBJECTS), hidden, 2, layers=3)
+
+    def forward(self, z):
+        which = torch.eye(len(OBJECTS), device=z.device, dtype=z.dtype).expand(*z.shape[:-2], -1, -1)
+        return self.net(torch.cat((z, which), -1))
+
+
+HEADS = dict(pool=dict(steps=4000, batch=256), mlp=dict(steps=10000, batch=512))
+
+
+def build_head(config, kind='pool'):
+    if kind == 'mlp':
+        return ObjectHead(config.latent)
     return TokenHead(config.latent, config.tokens) if config.tokens > 1 else ClsHead(config.latent)
 
 
-def train_head(model, root, variant, policy='interactive', steps=4000, batch=256, lr=1e-3, seed=0):
+def train_head(model, root, variant, policy='interactive', steps=4000, batch=256, lr=1e-3, seed=0, kind='pool'):
     """The head on encoded training frames (the JEPA frozen, in eval mode)."""
     device = next(model.parameters()).device
     torch.manual_seed(2026111660+seed)
     bench = Bench(root, variant, policy, 'train', device)
     positions = torch.from_numpy(bench.positions).to(device)
-    head = build_head(model.config).to(device)
+    head = build_head(model.config, kind).to(device)
     optimiser = torch.optim.AdamW(head.parameters(), lr=lr, weight_decay=0.)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(200, steps))
     g = torch.Generator(device=device).manual_seed(2026111661+seed)
@@ -392,25 +410,27 @@ def references(root, variant, out, policy='interactive', first=HISTORY-1):
     print(table(rows, rows['oracle']))
 
 
-def score(root, run, policy='interactive', first=HISTORY-1):
-    """The head (trained once, kept in RUN/head.pt), then the measures: RUN/bench.json, or RUN/bench_from<first>.json."""
+def score(root, run, policy='interactive', first=HISTORY-1, head_kind='pool'):
+    """The head (trained once, kept in RUN/head.pt), then the measures: RUN/bench.json, or RUN/bench_from<first>.json.
+    With `head_kind` 'mlp' (P27b): RUN/head_mlp.pt and RUN/bench_mlp.json."""
+    tag = '' if head_kind == 'pool' else f'_{head_kind}'
     run, device = Path(run), torch.device('cuda')
     torch.cuda.set_per_process_memory_fraction(.3)
     model, state = load(run/'model.pt', device)
     variant = state['variant']
     first = max(first, model.config.history-1)
-    if (run/'head.pt').exists():
-        head = build_head(model.config).to(device)
-        head.load_state_dict(torch.load(run/'head.pt'))
+    if (run/f'head{tag}.pt').exists():
+        head = build_head(model.config, head_kind).to(device)
+        head.load_state_dict(torch.load(run/f'head{tag}.pt'))
         head.eval().requires_grad_(False)
     else:
-        head = train_head(model, root, variant, policy)
-        torch.save(head.state_dict(), run/'head.pt')
+        head = train_head(model, root, variant, policy, kind=head_kind, **HEADS[head_kind])
+        torch.save(head.state_dict(), run/f'head{tag}.pt')
     bench = Bench(root, variant, policy, 'val', device)
     row = measure(jepa_forecaster(model, head), bench, first=first)
     row['R'] = retention(model, head, bench)
     row['meta'] = dict(recipe=state['recipe'], variant=variant, seed=state['seed'], steps=state['step'])
-    (run/f'bench{suffix(first)}.json').write_text(json.dumps(row, indent=1))
+    (run/f'bench{suffix(first)}{tag}.json').write_text(json.dumps(row, indent=1))
     print(table({f"{state['recipe']} {variant}": row}))
     print('R:', {k: round(v, 2) for k, v in row['R'].items()})
 
@@ -428,15 +448,17 @@ def main():
     t = sub.add_parser('table')
     for command in (r, s, t):
         command.add_argument('--first', type=int, default=HISTORY-1, help='the earliest last-history frame scored')
+    for command in (s, t):
+        command.add_argument('--head', choices=sorted(HEADS), default='pool')
     t.add_argument('--references', required=True)
     t.add_argument('--runs', nargs='+', required=True)
     args = parser.parse_args()
     if args.command == 'references':
         references(args.data, args.variant, args.out, first=args.first)
     elif args.command == 'score':
-        score(args.data, args.run, first=args.first)
+        score(args.data, args.run, first=args.first, head_kind=args.head)
     else:
-        name = f'bench{suffix(args.first)}.json'
+        name = f"bench{suffix(args.first)}{'' if args.head == 'pool' else '_'+args.head}.json"
         rows = {Path(run).name: keyed(json.loads((Path(run)/name).read_text())) for run in args.runs}
         for variant in ('t1', 't2'):
             part = {name: row for name, row in rows.items() if row['meta']['variant'] == variant}
