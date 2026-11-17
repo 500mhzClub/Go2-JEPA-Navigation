@@ -116,15 +116,16 @@ class ObjectTokenJEPA(nn.Module):
         phase = u[..., None]*self.scales
         return torch.cat((u, phase.sin().flatten(-2), phase.cos().flatten(-2), seen[..., None].float()), -1)
 
-    def encode(self, pixels, located=None):
-        """Frames (B, T, 3, H, W) in [-1, 1] to the object tokens (B, T, 4, D). `located` (B, T, 4, 2): the locator's
-        positions for these frames, already computed (P30's trainer caches them; the locator is frozen)."""
+    def encode(self, pixels, located=None, seen=None):
+        """Frames (B, T, 3, H, W) in [-1, 1] to the object tokens (B, T, S, D). `located` (B, T, S, 2): the objects'
+        positions for these frames, already computed (P30's trainer caches the locator's; P33's tracks), and `seen`
+        (B, T, S) whether each was found there (all, if not given; a position not found is NaN)."""
         b = pixels.size(0)
         flat = pixels.flatten(0, 1)
         with torch.no_grad():
             if located is not None:
-                xy = located.flatten(0, 1).float()
-                seen = torch.ones(xy.shape[:2], dtype=torch.bool, device=xy.device)
+                xy = torch.nan_to_num(located.flatten(0, 1).float(), nan=self.config.size/2)
+                seen = torch.ones(xy.shape[:2], dtype=torch.bool, device=xy.device) if seen is None else seen.flatten(0, 1)
             elif self.locator is not None:
                 xy = self.locator(flat)[:, self.order]
                 seen = torch.ones(xy.shape[:2], dtype=torch.bool, device=xy.device)
