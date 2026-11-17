@@ -78,6 +78,9 @@ def test_the_velocity_prior_starts_as_constant_velocity_in_latent_space():
     z = torch.randn(2, 3, 4, 128)
     out = toy.predict(z, torch.zeros(2, 3, 2))
     assert torch.allclose(out[:, 1:], 2*z[:, 1:]-z[:, :-1], atol=1e-5) and torch.allclose(out[:, 0], z[:, 0], atol=1e-5)
+    toy = training.build('q4b').eval()
+    out = toy.predict(z, torch.zeros(2, 3, 2))
+    assert torch.allclose(out[:, 1:, 1:], 2*z[:, 1:, 1:]-z[:, :-1, 1:], atol=1e-5) and torch.allclose(out[:, :, 0], z[:, :, 0], atol=1e-5)
     ring = RingTokenJEPA(RingTokenConfig(residual=True, velocity=True)).eval()
     z = torch.randn(2, 3, 7, 128)
     z[0, 0, 2] = ring.absent.detach()                                      # slot 1 enters at the second step

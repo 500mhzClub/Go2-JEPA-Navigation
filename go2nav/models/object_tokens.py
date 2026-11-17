@@ -44,6 +44,8 @@ class ObjectTokenConfig:
     grid: tuple = ()                     # read by code written for `LeWMConfig`
     residual: bool = False               # P27b Q3: the predictor's output is added to the frame's own tokens
     velocity: bool = False               # P27b Q4: and the token's last change (a constant-velocity prior)
+    velocity_agent: bool = True          # Q4's second round: False keeps the prior off the agent's token, whose motion
+                                         # is its action (the ring world's robot token is given, not predicted)
 
 
 def palette(device=None):
@@ -119,7 +121,10 @@ class ObjectTokenJEPA(nn.Module):
         out = self.predictor(z, self.action_encoder(actions))
         out = self.pred_proj(out.flatten(0, 2)).unflatten(0, out.shape[:3])
         if self.config.velocity:         # none at the first step, which has no earlier frame
-            out = out+z-torch.cat((z[:, :1], z[:, :-1]), 1)
+            change = z-torch.cat((z[:, :1], z[:, :-1]), 1)
+            if not self.config.velocity_agent:
+                change = torch.cat((torch.zeros_like(change[:, :, :1]), change[:, :, 1:]), 2)
+            out = out+change
         return z+out if self.config.residual else out
 
     def rollout(self, z, actions, steps):
