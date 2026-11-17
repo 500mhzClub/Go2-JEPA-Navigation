@@ -2604,6 +2604,33 @@ still followed (`training.hard_tokens`). If P32's memory passes, it is added to 
   eight bars reported for both.
 - Two rounds at most a stage.
 
+### P34. Do the toy's forecasts make better decisions? (approved 18 November, step 3 of 4; set out before any JEPA run)
+
+**Why.** P27-P33 measure forecasts. The README asks whether a JEPA's representations carry decision-relevant
+information. P34 puts each forecaster under one fixed planner on a task that needs the obstacles, and changes nothing
+else: the README's method (one harness, only the forecast differs). The planner is not tuned (REVIEW_2026-11-14,
+rabbit hole 3).
+
+**1. The task** (`eval.toy_planning`): the standard world, kinds hidden. The agent starts at the left edge and must
+reach the goal straight across within 28 steps (19 at full speed); the three obstacles start within 6 px of that line,
+between x = 20 and 44 px. The score is success without any contact, over 1,000 tasks drawn once.
+- **Calibrated before any JEPA run** (200 tasks; truth = the simulator from a copy of the state, kinds and timers
+  included): limit 24: constant velocity 22%, truth 26%; 28: 52.5% and 65%; 32: 74.5% and 76%; 40: 87% and 90.5%.
+  28 steps is where perfect foresight is worth most, so it is used. Even there truth fails a third of the tasks: the
+  planner and the clock limit most outcomes, as P17 and P22 found in the ring world.
+
+**2. The planner,** fixed: CEM over 12-step tapes (64 a round, 3 rounds, 8 elites, norms clipped to 3 px), replanning
+every step; a tape's cost is the predicted distance to the goal at its end plus 10 times the summed shortfall of each
+predicted gap under 7.5 px.
+
+**3. Forecasters:** truth (the ceiling); Oracle-S (T2's, true positions); constant velocity (the agent moved by its
+actions); the best JEPA from P32 (Q3, or Q3 with memory if it passed), from frames, read by its head.
+
+**4. Bars** (set before the JEPA's run):
+- the JEPA's success without contact at least constant velocity's plus half the gap from constant velocity to truth;
+- its contacts per task no more than constant velocity's.
+- Reported beside it: Oracle-S, and success alone.
+
 ## Compute and order
 
 | Phase | Compute |
