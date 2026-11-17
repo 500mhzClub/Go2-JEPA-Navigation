@@ -123,7 +123,7 @@ def oracle_forecaster(path, device):
     return forecast
 
 
-def jepa_forecaster(run, device, chunk=2048):
+def jepa_forecaster(run, device, chunk=8192):
     from go2nav.eval import recipe_bench as rb
     from go2nav.training.balls import to_pixels
     from go2nav.training.recipe_bench import load
@@ -141,15 +141,16 @@ def jepa_forecaster(run, device, chunk=2048):
         z, past = z.repeat_interleave(c, 0), past.repeat_interleave(c, 0)
         future = torch.as_tensor(tapes.reshape(n*c, h, 2), dtype=torch.float32, device=device)/MAX_ACTION
         out = []
-        for i in range(0, n*c, chunk):
-            rolled = model.rollout(z[i:i+chunk], torch.cat((past[i:i+chunk], future[i:i+chunk]), 1), h)
+        for i in range(0, n*c, chunk):            # bf16 autocast, as the model was trained; the head in float32
+            with torch.autocast(device.type, dtype=torch.bfloat16, enabled=device.type == 'cuda'):
+                rolled = model.rollout(z[i:i+chunk], torch.cat((past[i:i+chunk], future[i:i+chunk]), 1), h)
             out.append((head(rolled.float())*rb.HALF+rb.HALF).cpu().numpy())
         out = np.concatenate(out).reshape(n, c, h, 4, 2)
         return out[:, :, :, 0], out[:, :, :, 1:]
     return forecast
 
 
-def run(name, episodes, out, run_dir=None, batch=50):
+def run(name, episodes, out, run_dir=None, batch=100):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if device.type == 'cuda':
         torch.cuda.set_per_process_memory_fraction(.3)
