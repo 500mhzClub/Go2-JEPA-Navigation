@@ -3029,3 +3029,22 @@ The separation fades to zero as the masks narrow, then stays off; nothing else c
   and yellow. They were learned from frame pairs alone: no labels, no colours.
 - Round 1's misses near other discs were the separation term's: with it gone in the fine phase they vanish.
 - **Stage 2** runs: Q3 over this locator (`q3k`), 36,000 steps, seed 0, read by Q0's head.
+
+## P30 stage 2, seed 0: the dynamics over learned keypoints meet P27's eight bars (18 November)
+
+Q3 [object tokens, residual predictor] over the round-2 locator (`q3k`), 36,000 steps, T2, read by Q0's head:
+
+| k = 8 | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False | Slope [95%] | R: worst |
+|---|---|---|---|---|---|---|---|---|
+| Bar | ≤ 1 | ≥ 5 | ≤ 4.47 | ≤ 0.90 | ≤ 0.50 | ≤ 10% | above 0.5 | ≤ 1 |
+| Q3, colour detector | 0.432 | 30.5 | 0.682 | 0.494 | 0.459 | 9.05% | 0.78 [0.76, 0.80] | 0.124 |
+| **Q3, learned keypoints** | 0.429 | 30.7 | 0.750 | 0.524 | 0.483 | 9.12% | 0.74 [0.72, 0.76] | 0.100 |
+
+- **All eight bars are met,** and every figure is within 10% of Q3 on the colour detector. Retention is better
+  (green 0.100 against 0.124).
+- One step ahead: agent 0.156 px, obstacles on straight windows 0.095 (the detector's Q3 0.147, 0.094).
+- At a distance (where the kinds decide): error 0.63 of zero-response, slope 0.52 (detector 0.61, 0.56).
+- **The run took 48 minutes,** 3 over the limit: the frozen locator ran on every training frame at every step
+  (13.8 steps a second against 24.7). The trainer now caches its positions once (the same tokens and loss, checked),
+  and the head draws from tokens encoded once.
+- Seeds 1 and 2 run next (the rung looks like passing), read on the mean of three.
