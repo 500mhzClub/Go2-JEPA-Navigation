@@ -2431,6 +2431,9 @@ precision bars, that is recorded and you decide.
 
 ### P30. Learned objects on the toy (approved 18 November, option 1 of docs/REVIEW_2026-11-17.md; set out before any run)
 
+**Closed 18 November: passed** (STATUS). Stage 1 in round 2 (the separation faded as the masks narrow); stage 2 on
+three seeds, every bar met and every figure within 5% of Q3 on the colour detector.
+
 **Why.** The merged recipe (R4 with P27b's Q3 and Q0) learns the dynamics of objects that hand-written code finds:
 the toy's colour detector, the ring world's tracker. P30 asks whether the objects themselves can be learned from
 pixels without labels, with the dynamics unchanged. That is the open half of "self-supervised from observation".

@@ -3048,3 +3048,28 @@ Q3 [object tokens, residual predictor] over the round-2 locator (`q3k`), 36,000 
   (13.8 steps a second against 24.7). The trainer now caches its positions once (the same tokens and loss, checked),
   and the head draws from tokens encoded once.
 - Seeds 1 and 2 run next (the rung looks like passing), read on the mean of three.
+
+## P30 stage 2, three seeds: learned objects pass; P30 closed (18 November)
+
+Q3 over the round-2 locator, 36,000 steps, T2, k = 8, read by Q0's head (seeds 1 and 2 26 minutes each, with the
+cache):
+
+| | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False | Slope, lower end | R: worst |
+|---|---|---|---|---|---|---|---|---|
+| Bar | ≤ 1 | ≥ 5 | ≤ 4.47 | ≤ 0.90 | ≤ 0.50 | ≤ 10% | above 0.5 | ≤ 1 |
+| Seed 0 | 0.429 | 30.7 | 0.750 | 0.524 | 0.483 | 9.1% | 0.72 | 0.100 |
+| Seed 1 | 0.445 | 29.7 | 0.764 | 0.527 | 0.463 | 8.7% | 0.75 | 0.103 |
+| Seed 2 | 0.429 | 30.8 | 0.627 | 0.467 | 0.449 | 9.3% | 0.77 | 0.101 |
+| **Mean** | 0.434 | 30.4 | 0.714 | 0.506 | 0.465 | 9.0% | 0.74 | 0.101 |
+| Q3 on the colour detector, seed 0 | 0.432 | 30.5 | 0.682 | 0.494 | 0.459 | 9.1% | 0.76 | 0.124 |
+
+- **Every seed meets all eight bars,** and so does the mean.
+- **The learned objects cost nothing measurable:** every mean is within 5% of Q3 on the colour detector, and
+  retention is better (0.101 against 0.124 px).
+- One step ahead: obstacles on straight windows 0.095 px (detector 0.094). At a distance: 0.62 of zero-response,
+  slope 0.53 (detector 0.61, 0.56).
+- **What this establishes:** on the toy, a world model whose objects are found from pixels without labels (learned
+  keypoints, frozen) and whose dynamics are learned in latent space keeps all three capabilities. The colour
+  detector was not doing work the model could not.
+- **Not tested:** T1; the locator trained jointly with the JEPA; K above the number of objects (a disc entering or
+  leaving would need it); the confounded data.
