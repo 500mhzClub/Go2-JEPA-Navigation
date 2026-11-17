@@ -223,7 +223,10 @@ def build_head(config, kind='pool'):
 
 
 def train_head(model, root, variant, policy='interactive', steps=4000, batch=256, lr=1e-3, seed=0, kind='pool'):
-    """The head on encoded training frames (the JEPA frozen, in eval mode)."""
+    """The head on encoded training frames (the JEPA frozen, in eval mode). For object tokens (at most 8 a frame) every
+    training frame is encoded once and the steps draw from that cache: the frozen encoder is deterministic in eval
+    mode, so the samples and the head are those of encoding each batch afresh (P30: a locator in the encoder made that
+    17 minutes)."""
     device = next(model.parameters()).device
     torch.manual_seed(2026111660+seed)
     bench = Bench(root, variant, policy, 'train', device)
@@ -233,11 +236,17 @@ def train_head(model, root, variant, policy='interactive', steps=4000, batch=256
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(200, steps))
     g = torch.Generator(device=device).manual_seed(2026111661+seed)
     episodes, length = positions.shape[:2]
+    cache = None
+    if model.config.tokens <= 8:
+        with torch.no_grad():
+            flat = bench.frames.flatten(0, 1)
+            cache = torch.cat([model.encode(to_pixels(flat[i:i+2048])[:, None])[:, 0] for i in range(0, len(flat), 2048)])
+            cache = cache.unflatten(0, (episodes, length))
     for step in range(steps):
         e = torch.randint(0, episodes, (batch,), generator=g, device=device)
         t = torch.randint(0, length, (batch,), generator=g, device=device)
         with torch.no_grad():
-            z = model.encode(to_pixels(bench.frames[e, t])[:, None])[:, 0]
+            z = cache[e, t] if cache is not None else model.encode(to_pixels(bench.frames[e, t])[:, None])[:, 0]
         loss = F.mse_loss(head(z), (positions[e, t]-HALF)/HALF)
         optimiser.zero_grad(set_to_none=True)
         loss.backward()
