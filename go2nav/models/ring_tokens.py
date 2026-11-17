@@ -120,9 +120,10 @@ class RingTokenJEPA(nn.Module):
 class PositionHead(nn.Module):
     """An object's token (..., D) to its position (..., 2) in the scene's frame, over `position_scale`."""
 
-    def __init__(self, config, hidden=512):
+    def __init__(self, config, hidden=512, layers=2):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(config.latent, hidden), nn.GELU(), nn.Linear(hidden, hidden), nn.GELU(),
+        widths = [config.latent]+[hidden]*layers
+        self.net = nn.Sequential(*[m for a, b in zip(widths, widths[1:]) for m in (nn.Linear(a, b), nn.GELU())],
                                  nn.Linear(hidden, 2))
 
     def forward(self, z):

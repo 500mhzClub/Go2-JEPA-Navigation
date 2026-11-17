@@ -104,13 +104,17 @@ def table(rows, m5=None):
 
 # -- the JEPA's head and forecast -------------------------------------------------------------------------------------
 
-def train_head(model, scenes, steps=4000, batch=256, lr=1e-3, seed=0):
+HEADS = dict(small=dict(steps=4000, batch=256, hidden=512, layers=2),          # P28's first head
+             mlp=dict(steps=10000, batch=512, hidden=1024, layers=3))           # P27b's Q0
+
+
+def train_head(model, scenes, steps=4000, batch=256, lr=1e-3, seed=0, hidden=512, layers=2):
     """`models.ring_tokens.PositionHead` on encoded tokens (history slots seen, and the true future tokens)."""
     from go2nav.models.ring_tokens import PositionHead
     from go2nav.training.balls import schedule
     device = scenes.device
     torch.manual_seed(2026111670+seed)
-    head = PositionHead(model.config).to(device)
+    head = PositionHead(model.config, hidden, layers).to(device)
     optimiser = torch.optim.AdamW(head.parameters(), lr=lr, weight_decay=0.)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(200, steps))
     g = torch.Generator(device=device).manual_seed(2026111671+seed)
@@ -176,23 +180,24 @@ def references(root, corpus, m5, out):
     print(table(rows))
 
 
-def score(root, corpus, run):
+def score(root, corpus, run, head_kind='small'):
+    """RUN/bench.json with P28's first head; with `head_kind` 'mlp', RUN/head_mlp.pt and RUN/bench_mlp.json."""
     from go2nav.training.ring_tokens import load
-    run = Path(run)
+    run, tag, options = Path(run), '' if head_kind == 'small' else f'_{head_kind}', HEADS[head_kind]
     scenes, rasters = setup(root, corpus)
     model, state = load(run/'model.pt', scenes.device)
-    if (run/'head.pt').exists():
+    if (run/f'head{tag}.pt').exists():
         from go2nav.models.ring_tokens import PositionHead
-        head = PositionHead(model.config).to(scenes.device)
-        head.load_state_dict(torch.load(run/'head.pt'))
+        head = PositionHead(model.config, options['hidden'], options['layers']).to(scenes.device)
+        head.load_state_dict(torch.load(run/f'head{tag}.pt'))
         head.eval().requires_grad_(False)
     else:
-        head = train_head(model, ring_scenes.Scenes(root, 'train', rasters, scenes.device))
-        torch.save(head.state_dict(), run/'head.pt')
+        head = train_head(model, ring_scenes.Scenes(root, 'train', rasters, scenes.device), **options)
+        torch.save(head.state_dict(), run/f'head{tag}.pt')
     row = summary(scenes.numpy, collect(scenes, jepa_forecast(model, head)))
     row['R'] = retention(model, head, scenes)
     row['meta'] = dict(recipe=state['recipe'], seed=state['seed'], steps=state['step'])
-    (run/'bench.json').write_text(json.dumps(row, indent=1))
+    (run/f'bench{tag}.json').write_text(json.dumps(row, indent=1))
     print(table({run.name: row}))
     print('R:', row['R'])
 
@@ -209,17 +214,20 @@ def main():
         command.add_argument('--data', required=True)
         command.add_argument('--corpus', required=True)
     t = sub.add_parser('table')
+    for command in (s, t):
+        command.add_argument('--head', choices=sorted(HEADS), default='small')
     t.add_argument('--references', required=True)
     t.add_argument('--runs', nargs='+', required=True)
     args = parser.parse_args()
     if args.command == 'references':
         references(args.data, args.corpus, args.m5, args.out)
     elif args.command == 'score':
-        score(args.data, args.corpus, args.run)
+        score(args.data, args.corpus, args.run, args.head)
     else:
         refs = json.loads((Path(args.references)/'references.json').read_text())
         rows = {'constant velocity': refs['constant velocity'], 'M5': refs['M5'],
-                **{Path(run).name: json.loads((Path(run)/'bench.json').read_text()) for run in args.runs}}
+                **{Path(run).name: json.loads((Path(run)/('bench.json' if args.head == 'small' else f'bench_{args.head}.json')).read_text())
+                   for run in args.runs}}
         print(table(rows, refs['M5']))
 
 
