@@ -2378,6 +2378,41 @@ mean as P27's):
 **5. Compute:** M5's inference minutes; a run about 30-40 minutes on the R9700, one at a time, under 85% of its
 memory; the head and measures a few minutes.
 
+### P27b. Precision on the toy, then back to P28 (approved 17 November, "1 approved"; set out before any run)
+
+**Why.** P28 failed against M5 because the head read a walker's position from its token only to 5 cm, 0.4-0.6% of
+the range, and the toy's R4 had the same relative precision (0.27 px) under bars that did not ask for more (STATUS
+P28, 17 November). Runs take 4-7 minutes on the toy and 40 on the ring world, so precision is worked on here.
+Branch `feature/ring-tokens`.
+
+**A diagnostic run before this set-out** (STATUS): on R4's trained model, a per-token MLP head trained for 10,000
+steps reads positions to 0.089 px (mean), where the attention-pooling head of P27 read 0.240 px and the colour
+detector itself errs 0.078 px. So the first rung is the head.
+
+**Precision bars** (T2, one seed; added to P27's, which stay):
+- **R:** retention (mean, against the true positions) at most 1.5 times the detector's own error for every object
+  (0.078 px: at most 0.117 px).
+- **X at one step:** an obstacle's error on straight windows at k = 1 at most constant velocity's plus 0.10 px (0.14).
+- **No loss:** at k = 8, the agent's error, the bounce windows' and the response error over zero-response no more
+  than 10% worse than R4's with P27's head, at the same steps.
+
+**The ladder,** each rung R4 [object tokens, 3 history frames] with one change; two rounds at most a rung; stop at
+the first rung that meets the bars:
+
+| Rung | Change | Asks |
+|---|---|---|
+| Q0 | The head only: a per-token MLP (3 layers of 1,024) trained 10,000 steps at batch 512, on R4's three 36,000-step models. No JEPA is retrained. | Was the precision the head's? |
+| Q1 | Training in float32 (bf16 carries 8 bits, 0.4% of a value) | Does autocast cap what the latent holds? |
+| Q2 | SIGReg weight 0.01 (from 0.09) | Does the regulariser trade position away? |
+| Q3 | The predictor's output added to the last frame's token (a residual predictor) | Short-horizon forecast precision |
+
+Q1-Q3 are screened at 6,000 steps (7 minutes with the measures) and the first to meet the bars is confirmed at
+36,000.
+
+**Back to P28:** the winning change is applied to the ring-world model, one run (or for Q0, a rescoring of the
+trained `p28_s0` with the new head, no retraining), read against P28's bars as written. If Q0-Q3 do not meet the
+precision bars, that is recorded and you decide.
+
 ## Compute and order
 
 | Phase | Compute |
