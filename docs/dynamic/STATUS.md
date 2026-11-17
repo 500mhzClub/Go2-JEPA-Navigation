@@ -2989,3 +2989,24 @@ before round 1 (T2, validation frames; precision after removing each keypoint's 
   more finely (0.048), the agent and blue less finely (0.069, 0.278).
 - Green is the disc drawn first and covered most often.
 - **Round 1** (K = 4, 10,000 steps, 22 minutes) runs with smoke 4's settings.
+
+## P30 stage 1, round 1: all four discs bound; misses where discs come near (18 November)
+
+The locator, K = 4, 10,000 steps (22 minutes), smoke 4's settings. T2 validation frames (px, after removing each
+keypoint's offset; raw beside it in measures.json):
+
+| | Agent | Green | Blue | Yellow | Bar |
+|---|---|---|---|---|---|
+| Binding (within 1 px) | 94.3% | 94.0% | 97.9% | 99.9% | ≥ 95% |
+| Precision, mean | 0.314 | 0.576 | 0.231 | 0.130 | ≤ 0.3 |
+| Median | 0.070 | 0.235 | 0.094 | 0.036 | |
+| Swaps | 0% | 0.5% | 0.1% | 0% | ≤ 1% |
+| Precision with no other disc within 12 px | 0.10 | 0.23 | 0.10 | 0.05 | |
+
+- **It fails narrowly:** binding for the agent and green, precision for the agent and green. Swaps pass.
+- **The misses are all near other discs.** With no other disc within 12 px every keypoint binds in 100% of frames.
+  Within 6-9 px, where the discs are apart, the agent misses in 12.7% of frames and green in 9.1%; the colour
+  detector errs 0.02-0.04 px there. Within 3 px (discs overlapping) green misses in nearly all frames.
+- **The likely cause is the separation term,** which still pushes keypoints 6-9 px apart (at 0.08-0.32 of its full
+  strength) though it was needed only against the early collapse.
+- **Round 2,** one change: the separation's weight falls to zero as the masks narrow, then stays off.
