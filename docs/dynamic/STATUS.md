@@ -2970,3 +2970,22 @@ Closed on approval. docs/REVIEW_2026-11-17.md records what the port showed:
 - In the ring world it learns the walkers' dynamics and responses but trails M5 on position over the first seconds.
 - It corrects two readings of 16 and 17 November: both limits were the read-out head's, not the latent's.
 Next piece: your decision (the review's last table).
+
+## P30: the locator built, and what its smoke runs found (18 November)
+
+P30 (PLAN; option 1 of docs/REVIEW_2026-11-17.md, approved 18 November after the merges) replaces the toy's colour
+detector with learned keypoints after Transporter, the dynamics unchanged. Built: `models.keypoints`,
+`training.keypoints`, and `models.object_tokens` over a frozen locator (recipe `q3k`). Smoke runs of 1,500 steps
+before round 1 (T2, validation frames; precision after removing each keypoint's constant offset, px):
+
+| Smoke | Change | Agent | Green | Blue | Yellow | What happened |
+|---|---|---|---|---|---|---|
+| 1 | Dilated convolutions | – | – | – | – | 0.8 steps a second: dilated convolutions are 30-50 times slower in MIOpen on the R9700 (370-650 ms against 11-13 ms a layer) |
+| 2 | Plain 3 x 3 stack | 25.5 | 32.0 | 30.9 | 0.37 | All four keypoints on yellow (sharp heatmaps, the four within 1 px) |
+| 3 | + separation (pairs closer than ~4 px penalised) | 20.4 | 22.9 | 22.8 | 0.067 | Yellow bound; the other three apart but dead (flat heatmaps near the centre) |
+| 4 | + masks narrowed from 8 to 2 px over the first half | 0.069 | 23.3 | 0.278 | 0.048 | Three bound; green not |
+
+- Yellow and the agent are located more finely than by the colour detector (0.048 and 0.069 against its 0.071 and
+  0.044 px... the agent level with it), before any offset is given to the model.
+- Green is the disc drawn first and covered most often.
+- **Round 1** (K = 4, 10,000 steps, 22 minutes) runs with smoke 4's settings.
