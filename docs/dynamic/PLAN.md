@@ -2568,6 +2568,42 @@ measured speed so that a run with its measures fits 45 minutes, with Q3 rescored
 - Measured: 11.3 steps a second with memory, so both models train 24,000 steps (Q3 retrained at that count as the
   reference); seed 0 each.
 
+### P33. A harder toy: identity from motion (approved 18 November, step 2 of 4; set out before any run)
+
+**Why.** P31 failed in the ring world because learned keypoints on the scan were about a walker's step out and lost
+identity without memory; each run there takes 40 minutes. P33 brings the toy's difficulties nearer the ring world's,
+so such failures can be found and worked on in minutes. Branch `feature/object-memory` (built while P32 ran).
+
+**1. The world** (`sim.reactive_balls`, `hard=True`; the standard variant unchanged, checked byte for byte): one
+colour for every obstacle, so identity can come only from motion; 1-3 obstacles an episode; two grey bars over them
+(4 x 16-28 px). The agent stays red. 2,000 training and 200 validation episodes with exact branches
+(outputs/data/reactive_balls_hard).
+
+**2. Two estimators of the obstacles,** up to 6 a frame, joined frame to frame by the nearest within 5 px
+(`data.hard_tracks`):
+- **blobs** (engineered, the toy's ring tracker): connected regions of the obstacles' colour, their weighted centres;
+- **keypoints** (learned): P30's locator (K = 6, P30 round 2's schedule) trained on pairs of hard frames.
+The agent is found by its colour in both.
+
+**3. The dynamics:** Q3 [object tokens, residual predictor] over each estimator, trained identically (36,000 steps or
+as the 45 minutes allow, the same for both), a token for the agent and each of the 6 slots, the loss on the slots
+still followed (`training.hard_tokens`). If P32's memory passes, it is added to both.
+
+**4. Measures** (`eval.hard_bench`; labels for scoring only):
+- **stage 1:** of the obstacles that exist and are at least half visible, the share with a detection within 1 px;
+  the found detections' mean error; identity over the 3 history frames. The blob tracker reads 95.6%, 0.14 px and
+  97.0%.
+- **stage 2:** P27's measures, each obstacle given the slot nearest it at t0 within 1.5 px (left out if none), read by
+  a per-token MLP head.
+
+**5. Bars** (set before any run):
+- **Stage 1, the learned keypoints:** found at least 95%; mean error at most 0.2 px (a sixth of a typical step, P31's
+  lesson); identity at least 95%.
+- **Stage 2,** only if stage 1 passes: over the keypoints, X (bounce and straight windows) and A's error over
+  zero-response within 1.25 times those over the blobs at k = 8, and false responses at most 3 points above. P27's
+  eight bars reported for both.
+- Two rounds at most a stage.
+
 ## Compute and order
 
 | Phase | Compute |
