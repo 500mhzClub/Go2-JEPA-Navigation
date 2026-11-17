@@ -2985,7 +2985,7 @@ before round 1 (T2, validation frames; precision after removing each keypoint's 
 | 3 | + separation (pairs closer than ~4 px penalised) | 20.4 | 22.9 | 22.8 | 0.067 | Yellow bound; the other three apart but dead (flat heatmaps near the centre) |
 | 4 | + masks narrowed from 8 to 2 px over the first half | 0.069 | 23.3 | 0.278 | 0.048 | Three bound; green not |
 
-- Yellow and the agent are located more finely than by the colour detector (0.048 and 0.069 against its 0.071 and
-  0.044 px... the agent level with it), before any offset is given to the model.
+- Against the colour detector's own error (agent 0.044, green 0.105, blue 0.090, yellow 0.071 px): yellow is located
+  more finely (0.048), the agent and blue less finely (0.069, 0.278).
 - Green is the disc drawn first and covered most often.
 - **Round 1** (K = 4, 10,000 steps, 22 minutes) runs with smoke 4's settings.
