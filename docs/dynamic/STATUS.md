@@ -3268,3 +3268,27 @@ of Q3's loss passing through the crops and positions into the locator:
 - **Stopped after one round** (two were allowed): a change that would address this (breaking the symmetry between
   identical obstacles in the locator, e.g. features that know where they are) is a locator redesign, not a test of
   joint training.
+
+## P34b: margins from each forecaster's own errors make every forecaster worse (18 November)
+
+The planner's clearance at step k became 7.5 px plus the forecaster's 90th-percentile error in the agent-obstacle gap
+at k, near the agent (calibrated on the standard toy's validation windows): at 12 steps 21 px for constant velocity,
+12 for Oracle-S, 10 for the JEPA; the simulator's 0. P34's 1,000 tasks:
+
+| Success without contact (contacts a task) | P34, no margins | P34b, own margins |
+|---|---|---|
+| Constant velocity | 48.7% (0.034) | 11.5% (0.099) |
+| Oracle-S | 47.6% (0.045) | 20.5% (0.012) |
+| JEPA (Q3) | 53.5% (0.064) | 25.6% (0.044) |
+| Simulator | 56.9% (0.001) | unchanged |
+
+- **It fails.** The JEPA's contacts fall (0.064 to 0.044, below constant velocity's 0.099 with its margin), but its
+  success without contact halves, under the bar of 34.2% (constant velocity's 11.5% plus half the gap to 56.9%).
+- **Why:** margins of 10-21 px twelve steps ahead, in a world 64 px wide, leave no path that keeps them within 28 steps.
+  The planner replans every step, yet prices each 12-step tape as if it could not react: honest uncertainty about an
+  open-loop future freezes it. This is rabbit hole 4 of the review of 14 November (the freezing-robot problem,
+  Trautman and Krause 2010), now on the toy. Constant velocity even touches more: when every tape breaks the margin,
+  the least bad one is taken.
+- **The ranking holds:** with margins as without, the JEPA's forecasts give the best decisions of the three learned or
+  simple forecasters.
+- One round, as set out; the rule is not adjusted after seeing the result.

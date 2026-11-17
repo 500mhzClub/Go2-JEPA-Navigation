@@ -2667,6 +2667,9 @@ the blobs' and false responses at most 3 points above). Two rounds at most.
 
 ### P34b. Each forecaster's margin from its own errors (approved 18 November; set out before any run)
 
+**Done 18 November, failed** (STATUS): own margins halve every forecaster's success; the JEPA's contacts fall
+(0.064 to 0.044) but its success without contact is 25.6% against a bar of 34.2%.
+
 **Why.** In P34 the JEPA completed more tasks than constant velocity (53.5% against 48.7% without contact) but touched
 obstacles twice as often (0.064 against 0.034 a task): the planner trusted every forecast equally, to the same 7.5 px.
 A forecaster that is less sure near the agent should keep further away.
