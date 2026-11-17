@@ -45,14 +45,16 @@ def tasks(rng, n):
     return state, goal
 
 
-def cost(agent, obstacles, goal):
-    """Tapes' predicted agent (N, C, H, 2) and obstacles (N, C, H, K, 2), goals (N, 2) to costs (N, C)."""
+def cost(agent, obstacles, goal, margin=None):
+    """Tapes' predicted agent (N, C, H, 2) and obstacles (N, C, H, K, 2), goals (N, 2) to costs (N, C). P34b: `margin`
+    (H,) px added to the clearance at each step (the forecaster's own error there)."""
     reach = np.linalg.norm(agent[:, :, -1]-goal[:, None], axis=-1)
     gap = np.linalg.norm(obstacles-agent[..., None, :], axis=-1)
-    return reach+CLEARANCE_COST*np.clip(CLEARANCE_PX-gap, 0, None).sum((-1, -2))
+    clearance = CLEARANCE_PX+(0. if margin is None else np.asarray(margin)[None, None, :gap.shape[2], None])
+    return reach+CLEARANCE_COST*np.clip(clearance-gap, 0, None).sum((-1, -2))
 
 
-def plan(forecast, history, goal, rng):
+def plan(forecast, history, goal, rng, margin=None):
     """CEM: the first action of the best tape for each of N tasks (N, 2)."""
     n = len(goal)
     mean, std = np.zeros((n, HORIZON, 2)), np.full((n, HORIZON, 2), 2.)
@@ -63,7 +65,7 @@ def plan(forecast, history, goal, rng):
         tapes = clip_actions(mean[:, None]+std[:, None]*rng.normal(size=(n, SAMPLES, HORIZON, 2)))
         tapes[:, 0] = clip_actions(mean)
         agent, obstacles = forecast(history, tapes)
-        c = cost(agent, obstacles, goal)
+        c = cost(agent, obstacles, goal, margin)
         order = np.argsort(c, 1)[:, :ELITES]
         elite = np.take_along_axis(tapes, order[:, :, None, None], 1)
         mean, std = elite.mean(1), elite.std(1)+.1
@@ -150,11 +152,12 @@ def jepa_forecaster(run, device, chunk=8192):
     return forecast
 
 
-def run(name, episodes, out, run_dir=None, batch=100):
+def run(name, episodes, out, run_dir=None, batch=100, margins=None):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if device.type == 'cuda':
         torch.cuda.set_per_process_memory_fraction(.3)
     rng = np.random.default_rng(SEED)
+    margin = None if margins is None else json.loads(Path(margins).read_text())[name]['p90']        # P34b
     results = []
     for start in range(0, episodes, batch):
         n = min(batch, episodes-start)
@@ -177,7 +180,7 @@ def run(name, episodes, out, run_dir=None, batch=100):
                                                  history['obstacle'].reshape(-1, world.K, 2)).reshape(n, 3, 64, 64, 3)
             if name == 'truth':
                 forecast = truth_forecaster([state])
-            a = np.where(done[:, None], 0., plan(forecast, history, goal, rng))
+            a = np.where(done[:, None], 0., plan(forecast, history, goal, rng, margin))
             state = world.step(state, a)
             rows.append(world.record(state)), actions.append(a)
             contacts += (state.contact.any(-1) & ~done)
@@ -187,13 +190,53 @@ def run(name, episodes, out, run_dir=None, batch=100):
         for i in range(n):
             results.append(dict(reached=int(reached[i]), contacts=int(contacts[i]), kinds=state.kind[i].tolist()))
         print(f'{name}: {start+n} episodes', flush=True)
-    summary = dict(forecaster=name, run=run_dir, episodes=len(results),
+    summary = dict(forecaster=name, run=run_dir, margins=margin, episodes=len(results),
                    success=float(np.mean([r['reached'] > 0 for r in results])),
                    clean_success=float(np.mean([r['reached'] > 0 and r['contacts'] == 0 for r in results])),
                    contacts=float(np.mean([r['contacts'] for r in results])),
                    steps=float(np.mean([r['reached'] for r in results if r['reached'] > 0] or [np.nan])))
     Path(out).write_text(json.dumps(dict(summary=summary, episodes=results), indent=1))
     print(json.dumps(summary), flush=True)
+
+
+def calibrate(out, jepa_run, near=2*world.REACT):
+    """P34b: each forecaster's error in the agent-obstacle gap, 90th percentile at each step 1..HORIZON, for obstacles
+    within `near` px of the agent at the window's last frame, on the standard toy's validation windows (T2) under
+    the recorded actions. The simulator's is zero."""
+    from go2nav.eval import recipe_bench as rb
+    from go2nav.training.recipe_bench import load
+    device = torch.device('cuda')
+    torch.cuda.set_per_process_memory_fraction(.3)
+    bench = rb.Bench('outputs/data/reactive_balls', 't2', 'interactive', 'val', device)
+    net = rb.OracleS(kinds=False).to(device)
+    net.load_state_dict(torch.load('outputs/recipe_bench/references/oracle_t2.pt', map_location='cpu')['state'])
+    model, _ = load(Path(jepa_run)/'model.pt', device)
+    head = rb.build_head(model.config, 'mlp').to(device)
+    head.load_state_dict(torch.load(Path(jepa_run)/'head_mlp.pt', map_location='cpu'))
+    head.eval()
+
+    def cv(bench, e, t0, future):            # the planner's constant velocity: the agent moved by its actions
+        out = rb.constant_velocity(bench, e, t0, future)
+        out[:, :, 0] = agent_path(bench.positions[e, t0, 0], future[:, None])[:, 0]
+        return out
+    forecasters = dict(cv=cv, oracle=rb.oracle_forecaster(net.eval()), jepa=rb.jepa_forecaster(model, head))
+    episodes, length = bench.positions.shape[:2]
+    starts = np.arange(2, length-rb.STEPS, 2)
+    e, t0 = np.repeat(np.arange(episodes), len(starts)), np.tile(starts, episodes)
+    steps = t0[:, None]+np.arange(rb.STEPS)
+    future = bench.labels['actions'][e[:, None], steps]
+    truth = bench.positions[e[:, None], steps+1]                                              # (N, 16, 4, 2)
+    near_now = np.linalg.norm(bench.positions[e, t0, 1:]-bench.positions[e, t0, :1], axis=-1) < near   # (N, K)
+    true_gap = truth[:, :, 1:]-truth[:, :, :1]
+    result = dict(truth=dict(p90=[0.]*HORIZON))
+    for name, f in forecasters.items():
+        pred = f(bench, e, t0, future)
+        err = np.linalg.norm((pred[:, :, 1:]-pred[:, :, :1])-true_gap, axis=-1)                # (N, 16, K)
+        result[name] = dict(p90=[float(np.quantile(err[:, k][near_now], .9)) for k in range(HORIZON)],
+                            median=[float(np.median(err[:, k][near_now])) for k in range(HORIZON)],
+                            count=int(near_now.sum()))
+        print(name, 'p90 at k = 1, 4, 8, 12:', [round(result[name]['p90'][k], 2) for k in (0, 3, 7, 11)], flush=True)
+    Path(out).write_text(json.dumps(result, indent=1))
 
 
 def main():
@@ -204,8 +247,15 @@ def main():
     r.add_argument('--run')
     r.add_argument('--out', required=True)
     r.add_argument('--episodes', type=int, default=200)
+    r.add_argument('--margins', help="P34b: the calibrated margins' file (`calibrate`)")
+    c = sub.add_parser('calibrate')
+    c.add_argument('--jepa', required=True)
+    c.add_argument('--out', required=True)
     args = parser.parse_args()
-    run(args.forecaster, args.episodes, args.out, args.run)
+    if args.command == 'calibrate':
+        calibrate(args.out, args.jepa)
+    else:
+        run(args.forecaster, args.episodes, args.out, args.run, margins=args.margins)
 
 
 if __name__ == '__main__':
