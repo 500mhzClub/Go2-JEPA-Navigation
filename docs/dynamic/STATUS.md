@@ -2538,3 +2538,238 @@ layout. 24 recorded ring-world missions repeat exactly, and the unit tests pass 
     export.
 - **Next:** docs/HANDOFF_2026-11-16.md proposes P27, a recipe bench on reactive balls. It measures action
   sensitivity, action → obstacle and obstacle progression through a head on predicted latents, against an oracle.
+
+## P27: the recipe bench, its references, R0 and R1 (16 November)
+
+**Built** (PLAN P27; branch `feature/recipe-bench`): `sim.reactive_balls` (three kinds, contact, exact four-tape
+branches), `data.reactive_balls`, `training.recipe_bench`, `eval.recipe_bench` (the head, E, X, A, R, Oracle-S).
+- The measures are checked on a forecaster that returns the truth (errors 0, slope 1) and on constant velocity
+  (zero-response exactly), in the unit tests.
+- **The world reacts measurably.** Of the validation branch pairs, 29% respond by over 1.5 px at 8 steps (mean
+  response 9.4 px) and 69% by under 0.5 px. Obstacles bounce in 3% of steps and touch the agent in 7%.
+- **Compute, as found:** two GPU processes at once each run at under a third of the solo speed, so a rung runs T2
+  then T1 in one service. A patch-token step costs 0.17 s at batch 64 in bf16 (0.5 s in float32), so every rung is
+  6,000 steps at batch 64 (17 minutes for patch tokens, 5 for [CLS]); the head and measures take 3 minutes.
+  GPU and CPU gradients agree for both architectures.
+
+**References** (validation, k = 8; errors in px; X on windows with the agent over 24 px away):
+
+| | E: agent | X bounce | X straight | A: error / zero-response | False responses | Slope [95%] |
+|---|---|---|---|---|---|---|
+| Constant velocity | 12.06 | 8.94 | 0.40 | 9.37 / 9.37 = 1.00 | 0% | 0 |
+| Oracle-S, T1 (kinds shown) | 0.43 | 1.29 | 0.60 | 4.59 / 9.37 = 0.49 | 4% | 0.65 [0.62, 0.67] |
+| Oracle-S, T2 (kinds hidden) | 0.41 | 1.25 | 0.61 | 5.57 / 9.37 = 0.59 | 5% | 0.58 [0.57, 0.60] |
+
+- The measures separate Oracle-S from constant velocity (X, bounce windows: a seventh of its error) and from
+  zero-response (A).
+- **Oracle-S passes every bar on T1 and misses A's error bar on T2** (0.59 against 0.50). The gap is the hidden
+  kinds: for reactions at a distance its slope is 0.58 on T1 and 0.26 on T2. With 3 history frames nothing shows an
+  obstacle's kind before it reacts. Reactions by contact are hard on both (error 5.3-5.9 px against 11.5 for
+  zero-response): a pushed disc slides off the pusher.
+- The bar stands as written. Each rung is also read as its share of Oracle-S's gain.
+
+**R0** [LeWM, one [CLS] latent; the known negative] **and R1** [patch-token JEPA: all 64 patch tokens predicted],
+one seed, k = 8:
+
+| T2 | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False | Slope | R: agent / green / blue / yellow |
+|---|---|---|---|---|---|---|---|---|
+| Oracle-S | 0.41 | 31.6 | 1.25 | 0.61 | 0.59 | 5% | 0.58 | - |
+| R0 | 1.59 | 8.1 | 24.3 | 21.3 | 1.30 | 90% | 0.63 | 0.9 / 1.1 / 19.1 / 17.7 |
+| R1 | 15.0 | 1.2 | 22.6 | 18.8 | 1.28 | 82% | 0.27 | 3.1 / 2.4 / 1.4 / 1.8 |
+
+- **R0 fails as expected.** Its latent keeps the agent and one obstacle and drops the other two (19 px is chance).
+  Its forecasts of the agent follow the action (capability 1); it has neither of the others. On T1 the same run kept
+  nothing (every object 19-21 px); it is one short run and is not tuned.
+- **R1's encoder keeps every object** (1.4-3.1 px, short of the 1-px bar), so spatial tokens do keep small movers.
+  **Its predictor loses them:** one step ahead the head reads the agent 13.7 px out and an obstacle 8.6 px out, worse
+  than holding (1.7 and 1.2 px), and the action no longer shows (shuffle ratio 1.2).
+- **Why, measured:**
+  - The latent loss is low and says little: one step ahead the predicted tokens are 0.007 from the true ones (their
+    variance is 1.3), but the previous frame's tokens are only 0.011 away. The predictor explains 40% of a step's
+    change.
+  - A head trained on the predicted tokens themselves still reads the agent 12.7 px out and green 18.6 px out at one
+    step (blue 3.6, yellow 5.0). The information is not in the predictions; it is not the head's transfer.
+  - The BatchNorm statistics are not the cause (batch and running statistics read alike).
+- **On T1, R1 reads the same and worse:** retention 3.7-4.8 px, forecasts at chance (agent 21.5 px, slope 0).
+- By PLAN's reading (R passes, X fails: the predictor), R2 follows: weight each token's error by its target patch's
+  change.
+
+## P27 R2: motion-weighted patch tokens (16 November)
+
+R2 [R1 with each patch token's prediction error weighted by its target patch's pixel change; floor 0.1, mean
+weight 1] tests capability 3: whether the predictor can be made to carry the movers that R1's dropped. One seed,
+6,000 steps, k = 8:
+
+| T2 | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False | Slope | R: agent / green / blue / yellow |
+|---|---|---|---|---|---|---|---|---|
+| Oracle-S | 0.41 | 31.6 | 1.25 | 0.61 | 0.59 | 5% | 0.58 | - |
+| R1 | 15.0 | 1.2 | 22.6 | 18.8 | 1.28 | 82% | 0.27 | 3.1 / 2.4 / 1.4 / 1.8 |
+| R2 | 5.05 | 2.8 | 23.2 | 20.0 | 1.32 | 95% | 0.69 | 0.9 / 1.0 / 1.5 / 0.9 |
+
+- **Retention nearly meets its bar:** every object within 0.9-1.5 px (bar 1 px). The weighting makes the encoder
+  hold the discs precisely.
+- **The agent comes back in part:** 3.1 px at one step and 5.1 px at 8 (R1 13.7 and 15.0), still worse than holding
+  at one step (1.7 px), with a shuffle ratio of 2.8 (bar 5).
+- **Obstacles' forecasts stay at chance:** 11 px at one step where holding errs 1.2 px. The slope of 0.69 comes with
+  95% false responses: the predicted obstacle positions swing with the action whether or not the obstacle responds.
+- **On T1 it fails outright:** retention 2.4-3.2 px, forecasts at chance, shuffle ratio 1.0.
+  - Every patch-token and [CLS] run has read worse on T1 than on T2. A likely cause, not tested: the rings are
+    constant through an episode and differ between episodes, so they satisfy SIGReg at no prediction cost.
+- **Reading:** the encoder is no longer the limit on T2; the predictor is. Its one-step output is further from the
+  truth, as the head reads it, than a copy of the last frame would be.
+
+## P27 R3, first round: the branch terms collapse the encoder (16 November)
+
+R3 [R2 with half of each batch drawn from the exact branches: one history under two tapes, a loss on both futures
+and a paired term] tests capability 2. T2 only, one seed, 6,000 steps.
+
+| T2, k = 8 | E: agent | X bounce | X straight | A: error / zero | False | Slope | R: agent / green / blue / yellow |
+|---|---|---|---|---|---|---|---|
+| R2 | 5.05 | 23.2 | 20.0 | 1.32 | 95% | 0.69 | 0.9 / 1.0 / 1.5 / 0.9 |
+| R3, first round | 14.8 | 30.8 | 24.3 | 1.70 | 96% | 0.22 | 10.3 / 14.9 / 20.1 / 18.0 |
+
+- **It fails, and loses what R2 had gained:** retention falls back to chance for the obstacles.
+- **Why:** I wrote the branch and paired terms without R2's weights. Every token of the branch futures counted
+  alike, as in R1, and the tokens went still: the grid's prediction loss fell to 0.001 (R2: 0.025) while SIGReg rose
+  from 3.0 to 5.2.
+- **Second round** (`r3b`): the branch and paired terms carry R2's weights. Not run on T1 or on the confounded data:
+  the confound test needs a predictor that carries the obstacles, and no patch-token run has one.
+
+## P27 R4, first round: object tokens carry all three (16 November)
+
+R4 [object-token JEPA: a colour detector places each object; a token embeds a 16 x 16 crop centred on it, its
+position and which object it is; LeWM's predictor runs over the 4 tokens of each of 3 frames, conditioned on the
+action; the targets are the next frame's tokens; SIGReg on every token] tests capabilities 2 and 3 with estimation
+engineered and dynamics learned. One seed, 6,000 steps (4 minutes), k = 8:
+
+| | E: agent | Shuffle ratio | X bounce (cv 8.94) | X straight (cv 0.40) | A: error / zero | False | Slope [95%] | R: worst | X share | A share |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Bar | ≤ 1 | ≥ 5 | ≤ 4.47 | ≤ 0.90 | ≤ 0.50 | ≤ 10% | above 0.5 | ≤ 1 | | |
+| Oracle-S, T2 | 0.41 | 31.6 | 1.25 | 0.61 | 0.59 | 5% | 0.58 [0.57, 0.60] | - | 1 | 1 |
+| R4, T2 | 0.72 | 18.1 | 3.30 | 1.81 | 0.64 | 20% | 0.48 [0.46, 0.50] | 0.29 | 0.73 | 0.90 |
+| Oracle-S, T1 | 0.43 | 30.2 | 1.29 | 0.60 | 0.49 | 4% | 0.65 [0.62, 0.67] | - | 1 | 1 |
+| R4, T1 | 0.89 | 14.6 | 4.39 | 2.95 | 0.72 | 50% | 0.38 [0.37, 0.40] | 0.45 | 0.59 | 0.55 |
+
+- **The first recipe whose predicted latents hold all three capabilities.**
+  - E passes: the agent within 0.72 px, 18 times better than under shuffled tapes.
+  - R passes: every object within 0.29 px (the position is an input to the token).
+  - X on bounce windows passes (3.30 px, 37% of constant velocity's): the predictor has learnt the walls. On straight
+    windows it is 1.8 px, where constant velocity is exact to 0.4 px.
+  - A: 90% of Oracle-S's gain over zero-response on T2. Reactions at a distance have slope 0.37 (Oracle-S 0.26).
+- **What it misses on T2:** the straight windows, false responses (20%) and the slope's interval (bar 0.5).
+  All three are imprecision: a 1.8-px error on an obstacle that does nothing reads as a response over 1.5 px.
+- **T1 is worse than T2 again** (false responses 50%), as for every recipe so far.
+- The loss was still falling at 6,000 steps, so the second round is the same recipe for 36,000 steps (25 minutes).
+
+## P27 R4, second round: 36,000 steps nearly pass every bar on T2 (16 November)
+
+The same recipe and seed for 36,000 steps (25 minutes; the first round's loss was still falling). T2, k = 8:
+
+| | E: agent | Shuffle ratio | X bounce (cv 8.94) | X straight (cv 0.40) | A: error / zero | False | Slope [95%] | R: worst |
+|---|---|---|---|---|---|---|---|---|
+| Bar | ≤ 1 | ≥ 5 | ≤ 4.47 | ≤ 0.90 | ≤ 0.50 | ≤ 10% | above 0.5 | ≤ 1 |
+| Oracle-S | 0.41 | 31.6 | 1.25 | 0.61 | 0.59 | 4.9% | 0.58 [0.57, 0.60] | - |
+| R4, 6,000 steps | 0.72 | 18.1 | 3.30 | 1.81 | 0.64 | 20.1% | 0.48 [0.46, 0.50] | 0.29 |
+| R4, 36,000 steps | 0.58 | 22.7 | 1.06 | 0.73 | 0.48 | 10.3% | 0.77 [0.75, 0.79] | 0.27 |
+
+- **It meets every bar but one,** on one seed: false responses are 10.3% against 10%.
+- **It is level with Oracle-S or better** on X (1.06 against 1.25 px on bounce windows) and on A (0.48 against 0.59;
+  slope 0.77 against 0.58). Oracle-S is a cheap reference, 4,000 steps of an MLP, not a ceiling.
+- **By kind and by how the obstacle is reached** (response error over zero-response; slope):
+
+| k = 8 | All | Contact | At a distance | Indifferent | Yielding | Pausing |
+|---|---|---|---|---|---|---|
+| Oracle-S | 0.59; 0.58 | 0.51; 0.64 | 0.85; 0.26 | 0.63; 0.61 | 0.73; 0.46 | 0.47; 0.65 |
+| R4, 36,000 steps | 0.48; 0.77 | 0.42; 0.82 | 0.65; 0.51 | 0.56; 0.84 | 0.52; 0.68 | 0.40; 0.80 |
+
+  - Reactions at a distance, where the hidden kind decides, are the weakest part for both (R4 slope 0.51).
+  - False responses are 9.1% away from contact; the few quiet pairs with a contact (294) are 68% false, for both.
+- **Horizon:** at 16 steps the response error is 0.68 of zero-response and false responses 39%; at 4 steps 0.47 and 4%.
+- **Next:** two more seeds on T2 (the rung "looks like passing"), the same run on T1, and R5 (16 history frames).
+
+## P27 R3, second round: fails; closed on patch tokens (16 November)
+
+`r3b`: the branch and paired terms carry R2's weights. T2, one seed, 6,000 steps, k = 8:
+
+| | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False | Slope | R: agent / green / blue / yellow |
+|---|---|---|---|---|---|---|---|---|
+| R2 | 5.05 | 2.8 | 23.2 | 20.0 | 1.32 | 95% | 0.69 | 0.9 / 1.0 / 1.5 / 0.9 |
+| R3, first round | 14.8 | 1.2 | 30.8 | 24.3 | 1.70 | 96% | 0.22 | 10.3 / 14.9 / 20.1 / 18.0 |
+| R3, second round | 30.0 | 1.0 | 30.6 | 24.7 | 1.25 | 84% | 0.03 | 1.4 / 1.0 / 1.0 / 0.7 |
+
+- The weights keep the encoder (retention as R2's). The predictor carries nothing: the agent is read 20.7 px out
+  one step ahead, and the action has no effect (shuffle ratio 1.0, slope 0.03).
+- **R3 is closed after its two rounds.** On patch tokens, branches and a paired term do not make the predictor carry
+  the obstacles; they cost R2's partial hold on the agent.
+- Not tested, and outside the ladder: the same terms on R4's object tokens, whose predictor does carry them.
+
+**The patch-token line (R1-R3), in one sentence:** per-token SIGReg with motion weights makes an encoder that holds
+every disc to about a pixel, but in 6,000 steps no predictor over 195 such tokens produced a next frame the head
+could read better than a copy of the last one.
+
+## P27 R5: a 16-frame history does not help action → obstacle (16 November)
+
+R5 [R4 with 16 history frames] tests capabilities 2 and 3 under T2's hidden kinds and delays. One seed, 30,000 steps
+(36,000 would have overrun 45 minutes). Every row is scored from frame 15, on the same windows:
+
+| T2, k = 8 | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False | Slope [95%] | At a distance: error / zero; slope |
+|---|---|---|---|---|---|---|---|---|
+| Oracle-S | 0.44 | 30.1 | 1.23 | 0.64 | 0.60 | 5% | 0.58 [0.56, 0.60] | 0.85; 0.26 |
+| R4, 3 frames, 36,000 steps | 0.60 | 22.2 | 1.05 | 0.75 | 0.48 | 10.8% | 0.77 [0.75, 0.79] | 0.65; 0.52 |
+| R5, 16 frames, 30,000 steps | 0.52 | 25.1 | 0.80 | 0.78 | 0.51 | 12.9% | 0.72 [0.70, 0.75] | 0.64; 0.51 |
+
+- **Reactions at a distance, where the hidden kind decides, are unchanged** (0.64 against 0.65). A is slightly worse
+  overall, within what 6,000 fewer steps might cost.
+- The agent and the bounces are slightly better (bounce windows 0.80 against 1.05 px; at 16 steps 1.75 against 3.15).
+- **Why history cannot do much here:** the agent is within the reaction radius in 20% of obstacle-frames, so 16
+  frames seldom show an obstacle's kind before the branch.
+- R5 is not tuned further. R4 with 3 frames stays the best recipe.
+
+## P27 R4, three seeds: every bar but false responses (16 November)
+
+R4 [object-token JEPA, 3 history frames] at 36,000 steps, T2, k = 8. The reading rule (PLAN P27 item 6: the mean of
+three seeds) was written before seeds 1 and 2 were run.
+
+| | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False responses | Slope, lower end | R: worst |
+|---|---|---|---|---|---|---|---|---|
+| Bar | ≤ 1 | ≥ 5 | ≤ 4.47 | ≤ 0.90 | ≤ 0.50 | ≤ 10% | above 0.5 | ≤ 1 |
+| Seed 0 | 0.58 | 22.7 | 1.06 | 0.73 | 0.475 | 10.3% | 0.75 | 0.27 |
+| Seed 1 | 0.54 | 24.3 | 1.09 | 0.75 | 0.481 | 9.8% | 0.75 | 0.26 |
+| Seed 2 | 0.56 | 23.5 | 1.19 | 0.78 | 0.512 | 13.5% | 0.72 | 0.30 |
+| **Mean** | 0.56 | 23.5 | 1.11 | 0.75 | 0.490 | **11.2%** | 0.74 | 0.28 |
+| Oracle-S | 0.41 | 31.6 | 1.25 | 0.61 | 0.59 | 4.9% | 0.57 | - |
+
+- **R4 does not pass:** it meets seven of the eight bars and misses false responses by 1.2 points. Seed 1 alone
+  passes all eight.
+- **Where the false responses are** (quiet pairs, true response under 0.5 px; seed 0 / seed 2 / Oracle-S):
+
+| Quiet pairs, k = 8 | Pairs | R4 seed 0 | R4 seed 2 | Oracle-S |
+|---|---|---|---|---|
+| The agent never within the reaction radius, either tape | 12,716 | 2.3% | 6.9% | 1.8% |
+| Within it in one tape only, no contact | 888 | 61% | 57% | 13% |
+| Within it in both tapes, no contact | 957 | 52% | 44% | 21% |
+| A contact in either tape | 294 | 68% | 63% | 62% |
+| All | 14,855 | 10.3% | 13.5% | 4.9% |
+
+  - Away from the agent the predictions are steady: 2-7% false, the median predicted difference 0.5 px.
+  - **The false responses are obstacles the agent comes near that do not react.** Of the 888 pairs near in one tape
+    only, 696 are indifferent obstacles: the model cannot see the kind, predicts part of a yield or a pause, and is
+    wrong 59% of the time.
+  - Oracle-S is seldom false there because it hardly responds at a distance at all (slope 0.26 against R4's 0.51).
+    With the kinds hidden and one predicted future, responding to those that react and staying still for those that
+    do not are in conflict.
+
+## P27 R4 on T1 at 36,000 steps, and the close (16 November)
+
+| T1, k = 8 | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False | Slope [95%] | R: worst | At a distance: error / zero; slope |
+|---|---|---|---|---|---|---|---|---|---|
+| Oracle-S | 0.43 | 30.2 | 1.29 | 0.60 | 0.49 | 3.9% | 0.65 [0.62, 0.67] | - | 0.58; 0.58 |
+| R4, 36,000 steps | 0.61 | 21.4 | 2.79 | 1.48 | 0.48 | 16.0% | 0.69 [0.66, 0.71] | 0.31 | 0.56; 0.70 |
+
+- **With the kinds shown, R4 uses them.** Reactions at a distance: slope 0.70 (T2 0.51). For indifferent obstacles
+  the agent comes near in one tape only, false responses fall from 59% (T2) to 16%.
+- **T1 is less precise.** Straight windows 1.48 px (T2 0.75), and 13.4% false responses on pairs the agent never
+  comes near (T2 2.3%). So T1 misses X's straight bar and the false-response bar for a different reason from T2.
+  The rings are in the crops; why they cost precision is not tested.
+- **P27 closes with no recipe passing section 4's bars as written.** R4 on T2 meets seven of eight on the mean of
+  three seeds. docs/REVIEW_2026-11-16.md sets out what each rung showed and the decision this leaves.

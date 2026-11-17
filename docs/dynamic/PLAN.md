@@ -2091,7 +2091,7 @@ suite. Each round fitted P17's planner to the harness, and none measured M5.
 ### P25. A second world: bouncing balls (set out 15 November, before any run)
 
 **Closed 16 November** (STATUS; docs/HANDOFF_2026-11-16.md): its toy had no interaction and its rebuild check failed. P26's
-first part below is deferred. P27 (the handoff, section 6) is proposed in their place.
+first part below is deferred. P27 (below, after P26) takes their place.
 
 **Why.** Zhu et al. (arXiv 2609.04264) found that LeWM, trained from scratch with one [CLS] vector, fails in
 bouncing-ball worlds:
@@ -2221,6 +2221,102 @@ are among stage 1's 400.
 - measures: under an hour.
 
 It shares the card with P25 at no more than 85% of its memory.
+
+### P27. A recipe bench on reactive balls (approved 16 November; set out before any run)
+
+**Why.** docs/HANDOFF_2026-11-16.md: P25's toy had no interaction, so it could not measure the question. P27 is a toy
+that can, for fast iteration on a JEPA **recipe** whose predicted latents keep three things:
+1. **action sensitivity:** what the agent's own actions do;
+2. **action → obstacle:** how the agent's actions change what dynamic obstacles do;
+3. **obstacle progression:** how obstacles move on their own.
+
+Branch `feature/recipe-bench`. Bars are here and results go in STATUS; no attestation or ledger machinery. Every run,
+measures included, takes 45 minutes or less. At most two GPU processes at once.
+
+**1. The world** (`sim.reactive_balls`, `data.reactive_balls`):
+- **Frames:** 64 x 64 RGB on black. The agent is a red disc (radius 3); an action is its displacement (dx, dy), its
+  norm clipped to 3 px. It stops at the walls.
+- **Obstacles:** 3 discs of radius 3, each its own colour (green, blue, yellow), so each keeps its identity.
+- **On their own** they cruise at 0.5-2 px a step and bounce off the walls. They pass through each other.
+- **Kinds,** drawn per obstacle per episode (uniform), with R = 12 px:
+  - *indifferent:* cruises whatever the agent does;
+  - *yielding:* while the agent is within R it moves at its cruise velocity plus 2 px a step straight away from the
+    agent, then cruises again;
+  - *pausing:* stops while the agent is within R, and resumes its cruise after a hidden delay of 5-15 steps (drawn at
+    each pause from a table kept in the state).
+- **Contact:** an obstacle the agent touches (centres under 6 px) is pushed along the contact normal until they are
+  6 px apart. Its cruise velocity is unchanged.
+- **Variants:** T1, kinds visible (a ring round the disc: none, white or magenta); T2, kinds hidden. Both are rendered
+  from the same episodes. The pause timer is hidden in both.
+- **Data:** 2,000 training and 200 validation episodes of 100 frames, per policy:
+  - *interactive:* segments of 5-20 steps; in about half the agent heads for a random obstacle at 1-3 px a step with
+    noise, in the rest it takes random held actions. Neither depends on the obstacles' kinds.
+  - *confounded:* a scripted avoider that slows and turns away as obstacles come near. For R3's confound test only.
+- **Exact branches:** at sampled moments (6 a validation episode, 3 a training one) the full state is copied and 4
+  tapes of 16 steps are run: hold (no motion), approach (towards the nearest obstacle at 3 px a step), retreat (away
+  from it) and random. True states for all; frames for training (R3).
+
+**2. The head and the measures** (`eval.recipe_bench`; one JSON row a run):
+- **The head** reads one frame's latent (gradient stopped, JEPA frozen) into the agent's and each obstacle's position.
+  An MLP for a [CLS] latent, attention pooling (one query an object) for tokens. It is trained after the JEPA on
+  encoded training frames only, and applied to the encoded current frame, the **encoded true future** (retention)
+  and the **predicted future** (forecast). Visibility is not read: every disc is always in the frame.
+- **Errors** are mean Euclidean distances in pixels, at k = 1, 4, 8 and 16 steps after the last history frame.
+
+| Measure | What it is |
+|---|---|
+| E, ego | The agent's forecast error. The *action-shuffle ratio*: the error with tapes shuffled across the batch over the error with the true ones. |
+| X, progression | An obstacle's forecast error on windows where the agent stays more than 2R from it throughout, split by whether the obstacle bounces in the window. Against constant velocity (the last displacement, walls unknown) and Oracle-S. |
+| A, action → obstacle | On the 6 pairs of a moment's 4 tapes, per obstacle: the true response (its position under tape A less under tape B) against the predicted one, through the head. Response error against zero-response on **responsive** pairs (true response over 1.5 px). The shared slope of predicted on true response vectors, with a 95% bootstrap interval over episodes (`paired_forecast_metrics.LayoutBootstrap`). The **false-response rate:** predicted over 1.5 px where the true response is under 0.5 px. Split by kind, and by contact (the agent touches the obstacle in either tape) against reaction at a distance. |
+| R, retention | The head's error on the encoded true frame, per object. |
+
+- **References,** no JEPA: hold and constant velocity on true states; zero-response; and **Oracle-S**, a supervised
+  predictor on true positions, velocities and actions over the same history, rolled out the same way (the kinds are
+  among its inputs on T1 only). It is M5's analogue and the attainable level.
+- A recipe is reported as its share of the gain Oracle-S makes over constant velocity (X) or over zero-response (A).
+- **Before any JEPA run:** the measures must separate Oracle-S from constant velocity (X, bounce windows) and from
+  zero-response (A). If Oracle-S itself misses a bar below on T2, that is reported before the ladder starts.
+
+**3. The ladder:** one change a rung, one seed, three seeds only where a rung looks like passing; two rounds at most
+on a rung. Each on T1 and T2. The base is `training.balls`'s L0 sizes (patch 8, width 64, 4 blocks; latent 128;
+3 history frames) with an 8-step rollout loss.
+
+| Rung | Recipe | Capability tested |
+|---|---|---|
+| R0 | LeWM, one [CLS] latent | the known negative: 1 kept, 3 and 2 dropped |
+| R1 | Patch-token JEPA: every 8 x 8 patch token predicted (`LeWMConfig(grid=(8, 8))`) | 3 (and R): can spatial tokens keep small movers? |
+| R2 | R1 with each token's error weighted by its target's change | 3: keeping movers that R1 drops |
+| R3 | R1 or R2 trained on branches: two tapes a history, a loss on both futures and a paired term ((pred_A - pred_B) against (z_A - z_B)); with and without the confounded data | 2, and false responses |
+| R4 | Object-token JEPA: a colour detector places the objects; each token embeds a 16 x 16 crop and its position; the predictor runs over the object tokens and the action; the targets are the crops' future embeddings | 2 and 3, "estimation engineered, dynamics learned" |
+| R5 | The best of R1-R4 with 8-16 history frames or a recurrent state token | 2 and 3 under T2's hidden kinds and delays |
+
+Reading a failure: R fails, the encoder drops the object; R passes and X fails, the predictor; A gives false
+responses, confounding; A near zero, the action is not reaching the obstacles' tokens.
+
+**4. Bars** (set before any run; T2, 3 seeds, k = 8):
+- **E:** agent error at most 1 px; action-shuffle ratio at least 5.
+- **X:** obstacle error at most half constant velocity's on bounce windows, and no more than 0.5 px above it on the
+  others.
+- **A:** response error at most half zero-response's on responsive pairs; false responses on at most 10% of
+  non-responsive pairs; the slope's interval above 0.5.
+- **R:** retention error at most 1 px for every object.
+- A recipe that passes is promoted to the ring world (the handoff's section 7). If none passes after R5, a review of
+  what each rung showed is written; no rungs are added.
+
+**5. Compute:** data minutes on the CPU; Oracle-S minutes on the GPU; each rung 20-40 minutes on the R9700, two at
+once (T1 and T2), under 85% of its memory.
+
+**6. As run** (16 November; STATUS P27):
+- Two GPU processes at once each ran at under a third of the solo speed, so a rung runs T2 and then T1 in one
+  service. Every rung is 6,000 steps at batch 64 in bf16; a second round may run longer within the 45 minutes.
+- R2's weight is the change of the target patch's pixels (floor 0.1, mean 1), not of its embedding, so that an encoder
+  cannot lower a token's weight by making it still.
+- R3 ran on T2 only and without the confounded data: no patch-token run had a predictor that carried the obstacles,
+  which the confound test needs.
+- R5 is R4 with 16 history frames. Its windows start at frame 15, so it is compared with references and R4 rescored
+  from that frame (`--first 15`).
+- **Reading 3 seeds** (written after R4's seed 0 at 36,000 steps was scored, before seeds 1 and 2): a bar is met when
+  the mean of the three seeds meets it (for the slope, the mean of the intervals' lower ends). Each seed is shown.
 
 ## Compute and order
 
