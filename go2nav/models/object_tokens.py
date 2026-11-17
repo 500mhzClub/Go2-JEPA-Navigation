@@ -111,12 +111,16 @@ class ObjectTokenJEPA(nn.Module):
         phase = u[..., None]*self.scales
         return torch.cat((u, phase.sin().flatten(-2), phase.cos().flatten(-2), seen[..., None].float()), -1)
 
-    def encode(self, pixels):
-        """Frames (B, T, 3, H, W) in [-1, 1] to the object tokens (B, T, 4, D)."""
+    def encode(self, pixels, located=None):
+        """Frames (B, T, 3, H, W) in [-1, 1] to the object tokens (B, T, 4, D). `located` (B, T, 4, 2): the locator's
+        positions for these frames, already computed (P30's trainer caches them; the locator is frozen)."""
         b = pixels.size(0)
         flat = pixels.flatten(0, 1)
         with torch.no_grad():
-            if self.locator is not None:
+            if located is not None:
+                xy = located.flatten(0, 1).float()
+                seen = torch.ones(xy.shape[:2], dtype=torch.bool, device=xy.device)
+            elif self.locator is not None:
                 xy = self.locator(flat)[:, self.order]
                 seen = torch.ones(xy.shape[:2], dtype=torch.bool, device=xy.device)
             else:

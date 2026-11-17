@@ -102,11 +102,15 @@ class Windows:
         e = episodes[:, None]
         return to_pixels(self.frames[e, steps]), self.actions[e, steps[:, :-1]]
 
-    def draw(self, count, length, generator):
+    def draw(self, count, length, generator, located=None):
+        """`batch` of random windows; with `located` (E, T, 4, 2), the windows' cached locator positions as well."""
         device = self.frames.device
         episodes = torch.randint(0, self.episodes, (count,), generator=generator, device=device)
         starts = torch.randint(0, self.length-length+1, (count,), generator=generator, device=device)
-        return self.batch(episodes, starts, length)
+        if located is None:
+            return self.batch(episodes, starts, length)
+        steps = starts[:, None]+torch.arange(length, device=device)
+        return (*self.batch(episodes, starts, length), located[episodes[:, None], steps])
 
 
 class BranchWindows:
@@ -228,13 +232,22 @@ def train(root, variant, recipe, out, seed=0, overrides=None):
             metrics.write_text(''.join(r+'\n' for r in rows))
     (out/'config.json').write_text(json.dumps(dict(**meta, run_seed=run_seed, model=asdict(model.config)), indent=1))
 
+    located = None
+    if getattr(model, 'locator', None) is not None:      # P30: the frozen locator's positions, once for every frame
+        with torch.no_grad():
+            flat = trainset.frames.flatten(0, 1)
+            located = torch.cat([model.locator(to_pixels(flat[i:i+2048]))[:, model.order]
+                                 for i in range(0, len(flat), 2048)]).unflatten(0, trainset.frames.shape[:2])
+
     def objective(index, offset=0):
         g = torch.Generator(device=device).manual_seed(run_seed*10_000_000+offset+index)
-        pixels, actions = trainset.draw(cfg['batch']//2 if branchset else cfg['batch'], length, g)
+        drawn = trainset.draw(cfg['batch']//2 if branchset else cfg['batch'], length, g, located)
+        pixels, actions = drawn[:2]
         shared = dict(rollout_steps=cfg['rollout'], sigreg=sigreg, lam=cfg['sigreg_weight'], generator=g)
         with torch.autocast('cuda', dtype=torch.bfloat16, enabled=cfg['bf16']):
             if options.get('kind') == 'objects':
-                terms = token_losses(model, pixels, actions, **shared)
+                z = model.encode(pixels, drawn[2]) if located is not None else None
+                terms = token_losses(model, pixels, actions, z=z, **shared)
             elif 'motion_floor' in options:
                 terms = motion_losses(model, pixels, actions, floor=options['motion_floor'], **shared)
             else:
