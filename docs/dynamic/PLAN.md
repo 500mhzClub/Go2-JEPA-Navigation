@@ -2521,6 +2521,8 @@ window. This is the one engineered part, and it is named in every result.
 - **Override (approved 18 November, "1 approved"):** stage 1 failed identity after two rounds (87.0% against 95%;
   found 90.1% passed). Stage 2 runs regardless, with round 2's locator (K = 10), since it measures what the misses
   cost against the tracker directly. Its bars stand as written.
+- Both models train 20,000 steps, not 32,000: the learned tokens run at 10.7 steps a second and their measures take
+  8.5 minutes, and a run must fit 45 minutes. The two are trained identically.
 
 **7. Compute:** the locator about 25 minutes; each dynamics model about 40 minutes with its measures; one GPU process
 at a time, under 85% of the R9700's memory.
