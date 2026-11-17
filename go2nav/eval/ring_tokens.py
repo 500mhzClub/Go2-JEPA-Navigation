@@ -108,30 +108,38 @@ HEADS = dict(small=dict(steps=4000, batch=256, hidden=512, layers=2),          #
              mlp=dict(steps=10000, batch=512, hidden=1024, layers=3))           # P27b's Q0
 
 
-def train_head(model, scenes, steps=4000, batch=256, lr=1e-3, seed=0, hidden=512, layers=2):
-    """`models.ring_tokens.PositionHead` on encoded tokens (history slots seen, and the true future tokens)."""
+def train_head(model, scenes, steps=4000, batch=256, lr=1e-3, seed=0, hidden=512, layers=2, cache=120):
+    """`models.ring_tokens.PositionHead` on encoded tokens (history slots seen, and the true future tokens). The tokens
+    of `cache` batches of 512 scenes (each under one of its futures) are encoded once; a step draws `batch` x 16 of
+    them."""
     from go2nav.models.ring_tokens import PositionHead
     from go2nav.training.balls import schedule
     device = scenes.device
     torch.manual_seed(2026111670+seed)
+    g = torch.Generator(device=device).manual_seed(2026111671+seed)
+    tokens, targets = [], []
+    with torch.no_grad():
+        for _ in range(cache):
+            index = torch.randint(0, scenes.count, (512,), generator=g, device=device)
+            b = scenes.batch(index, torch.randint(0, ring_scenes.FUTURES, (512,), generator=g, device=device))
+            z = torch.cat((model.encode_objects(b['objects']), model.encode_objects(b['future_objects'])), 1)
+            count = torch.cat((b['seen'], b['valid']), 1)
+            tokens.append(z[count])
+            targets.append((torch.cat((b['objects'][..., :2], b['truth']), 1)/model.config.position_scale)[count])
+    tokens, targets = torch.cat(tokens), torch.cat(targets)
     head = PositionHead(model.config, hidden, layers).to(device)
     optimiser = torch.optim.AdamW(head.parameters(), lr=lr, weight_decay=0.)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, schedule(200, steps))
-    g = torch.Generator(device=device).manual_seed(2026111671+seed)
     for step in range(steps):
-        index = torch.randint(0, scenes.count, (batch,), generator=g, device=device)
-        b = scenes.batch(index, torch.randint(0, ring_scenes.FUTURES, (batch,), generator=g, device=device))
-        with torch.no_grad():
-            z = torch.cat((model.encode_objects(b['objects']), model.encode_objects(b['future_objects'])), 1)
-        target = torch.cat((b['objects'][..., :2], b['truth']), 1)/model.config.position_scale
-        count = torch.cat((b['seen'], b['valid']), 1)
-        loss = ((head(z)-target).pow(2).sum(-1)*count).sum()/count.sum()
+        pick = torch.randint(0, len(tokens), (batch*16,), generator=g, device=device)
+        loss = (head(tokens[pick])-targets[pick]).pow(2).sum(-1).mean()
         optimiser.zero_grad(set_to_none=True)
         loss.backward()
         optimiser.step()
         scheduler.step()
         if (step+1) % 1000 == 0:
-            print(f'head step {step+1}: rms {model.config.position_scale*float(loss.detach())**.5:.4f} m', flush=True)
+            print(f'head step {step+1}: rms {model.config.position_scale*float(loss.detach())**.5:.4f} m ({len(tokens)} tokens)',
+                  flush=True)
     return head.eval().requires_grad_(False)
 
 
