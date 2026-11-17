@@ -2530,6 +2530,42 @@ window. This is the one engineered part, and it is named in every result.
 **7. Compute:** the locator about 25 minutes; each dynamics model about 40 minutes with its measures; one GPU process
 at a time, under 85% of the R9700's memory.
 
+### P32. A memory for each object on the toy (approved 18 November, step 1 of 4; set out before any run)
+
+**Why.** Action → obstacle is the weakest capability in both worlds, and in both the cause is hidden obstacle state.
+On the toy, most of Q3's false responses are indifferent obstacles the agent approaches: from 3 frames they look like
+ones that will yield or pause (false 59% on those pairs on T2, 16% with the kinds shown, T1). P22 found the same in
+the ring world. A world model that remembers how each object reacted earlier in the episode could infer its kind.
+That is the harness's per-walker memory, absorbed into the model. Branch `feature/object-memory`, from
+`feature/ring-keypoints`. Steps 2-4 (a harder toy, decision relevance with a fixed planner, joint training) follow,
+each set out in turn.
+
+**1. The model:** Q3 [object tokens over the colour detector, residual predictor], T2, with one change: **a memory
+token for each object.**
+- A GRU (one, shared by the objects) runs over every frame of the episode from its start, its input at each frame the
+  object's token, the agent's token and the action; its state after each frame is that object's memory.
+- The predictor attends over 8 tokens a frame: the 4 objects and their 4 memories at that frame. In a rollout the
+  memories stay at their last history state (an obstacle's kind does not change within 16 steps).
+- The loss is Q3's, on the object tokens only. The whole episode is encoded in one call (one set of batch statistics).
+- Read by Q0's head; Q3 (seed 0, 36,000 steps) is the reference without memory.
+
+**2. Measures:** P27's, plus action → obstacle split by whether the obstacle's kind was **shown before the history**
+(the agent came within the reaction radius of it before the history's first frame: 52% of obstacle-moments on the
+validation set).
+- The key pairs: quiet pairs (true response under 0.5 px) where the agent comes within the reaction radius in either
+  tape without contact. Their false-response rate, shown and not shown.
+- Beside them, Oracle-S with kinds hidden (T2) and shown (T1) on the same split: what knowing the kind is worth.
+
+**3. Bars** (T2, k = 8, seed 0; three seeds if it looks like passing, read on the mean):
+- **Gain:** on the key quiet pairs whose kind was shown, false responses at most half Q3's on the same pairs.
+- **No loss:** P27's eight bars still met; on responsive pairs whose kind was shown, response error over zero-response
+  no worse than Q3's.
+- Reported, no bar: the same on pairs whose kind was not shown (where memory should not help).
+- Two rounds at most.
+
+**4. Compute:** Q3 trained in 25 minutes; encoding whole episodes costs more, and the step count is set from the
+measured speed so that a run with its measures fits 45 minutes, with Q3 rescored at the same step count if it differs.
+
 ## Compute and order
 
 | Phase | Compute |
