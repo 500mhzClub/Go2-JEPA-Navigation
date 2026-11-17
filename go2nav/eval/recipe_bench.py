@@ -282,8 +282,8 @@ def jepa_forecaster(model, head, batch=512):
             else:
                 z = model.encode(to_pixels(bench.frames[rows, frames]))
             actions = torch.cat((bench.actions[rows, frames[:, :-1]], future[i:i+batch]), 1)
-            out.append((head(model.rollout(z, actions, STEPS, mem) if memory else head(model.rollout(z, actions, STEPS)))
-                        *HALF+HALF).cpu().numpy())
+            rolled = model.rollout(z, actions, STEPS, mem) if memory else model.rollout(z, actions, STEPS)
+            out.append((head(rolled)*HALF+HALF).cpu().numpy())
         return np.concatenate(out)
     return forecast
 

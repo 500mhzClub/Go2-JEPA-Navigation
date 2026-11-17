@@ -255,3 +255,17 @@ def test_the_memory_reads_only_the_past_and_the_bench_splits_by_what_was_shown()
     parts = row['A'][8]
     assert parts['shown']['pairs']+parts['hidden']['pairs'] == parts['all']['pairs']
     assert parts['shown_near']['pairs'] <= parts['shown']['pairs']
+
+
+def test_the_jepa_forecaster_reads_each_object_once_with_and_without_memory():
+    import pytest
+    torch = pytest.importorskip('torch')
+    from go2nav.training import recipe_bench as training
+    rb, bench = bench_of(episodes=4, frames=40, moments=1)
+    bench.frames = torch.from_numpy(world.episodes(np.random.default_rng(11), 4, 40, moments=1)[0]['frames'])
+    bench.actions = torch.from_numpy(bench.labels['actions'])/3
+    for recipe in ('q3', 'q3m'):
+        model = training.build(recipe).eval()
+        head = rb.build_head(model.config, 'mlp').eval()
+        out = rb.jepa_forecaster(model, head)(bench, np.array([0, 1]), np.array([5, 20]), np.zeros((2, 16, 2)))
+        assert out.shape == (2, 16, 4, 2) and np.isfinite(out).all()
