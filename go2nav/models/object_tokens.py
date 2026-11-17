@@ -123,7 +123,8 @@ class ObjectTokenJEPA(nn.Module):
         (B, T, S) whether each was found there (all, if not given; a position not found is NaN)."""
         b = pixels.size(0)
         flat = pixels.flatten(0, 1)
-        with torch.no_grad():
+        joint = located is not None and located.requires_grad          # P35: the gradient reaches the locator
+        with torch.set_grad_enabled(joint and torch.is_grad_enabled()):
             if located is not None:
                 xy = torch.nan_to_num(located.flatten(0, 1).float(), nan=self.config.size/2)
                 seen = torch.ones(xy.shape[:2], dtype=torch.bool, device=xy.device) if seen is None else seen.flatten(0, 1)

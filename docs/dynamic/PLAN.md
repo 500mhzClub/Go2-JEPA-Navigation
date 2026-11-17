@@ -2611,6 +2611,8 @@ still followed (`training.hard_tokens`). If P32's memory passes, it is added to 
 
 ### P34. Do the toy's forecasts make better decisions? (approved 18 November, step 3 of 4; set out before any JEPA run)
 
+**Done 18 November** (STATUS): success 53.5% passes (bar 52.8%); contacts 0.064 a task fail (bar 0.034).
+
 **Why.** P27-P33 measure forecasts. The README asks whether a JEPA's representations carry decision-relevant
 information. P34 puts each forecaster under one fixed planner on a task that needs the obstacles, and changes nothing
 else: the README's method (one harness, only the forecast differs). The planner is not tuned (REVIEW_2026-11-14,

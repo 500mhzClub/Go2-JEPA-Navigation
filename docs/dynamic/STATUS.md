@@ -3226,3 +3226,23 @@ Round 2: the memory steps on through the rollout's predicted frames. T2, seed 0,
   obstacle. On the toy with coloured obstacles (P30) it did; the colour was doing the binding.
 - Step 4 (joint training) takes this up: whether the world model's own prediction loss can teach the locator what
   reconstruction alone did not.
+
+## P34: the JEPA decides better than constant velocity and Oracle-S, but touches more (18 November)
+
+One fixed planner (CEM, replanning each step), only the forecaster changed; 1,000 tasks (cross the world past three
+obstacles of hidden kinds within 28 steps); intervals are paired over the same tasks (bootstrap):
+
+| | Success without contact | Success | Contacts per task | Against constant velocity |
+|---|---|---|---|---|
+| Constant velocity | 48.7% | 49.8% | 0.034 | |
+| Oracle-S (true positions) | 47.6% | 48.6% | 0.045 | -1.1 points [-5.1, +2.6] |
+| **JEPA, Q3 (36,000 steps, Q0's head)** | **53.5%** | 55.9% | 0.064 | **+4.8 points [+0.4, +9.5]** |
+| Simulator (perfect foresight) | 56.9% | 57.0% | 0.001 | +8.2 points [+4.5, +11.9] |
+| Bar | ≥ 52.8% | | ≤ 0.034 | |
+
+- **The success bar passes; the contacts bar fails.** The JEPA captures 58% of what perfect foresight adds over
+  constant velocity, and beats Oracle-S by 5.9 points [+1.2, +10.4] although Oracle-S forecasts better on P27's
+  measures. It reaches the goal more often by passing closer, and touches obstacles about twice as often.
+- On this task the forecast is worth at most 8 points; the planner and the clock decide the rest, as in the ring
+  world. The JEPA's forecasts are decision-relevant here, modestly.
+- Not tuned (the planner is fixed); one run, no second round planned.

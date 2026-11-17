@@ -122,7 +122,7 @@ def save_blobs(root, workers=16):
 
 
 @torch.no_grad()
-def save_keypoints(root, locator, batch=1024):
+def save_keypoints(root, locator, batch=1024, name='keypoints'):
     from go2nav.models.keypoints import KeypointConfig, KeypointNet
     from go2nav.training.balls import to_pixels
     device = torch.device('cuda')
@@ -136,8 +136,8 @@ def save_keypoints(root, locator, batch=1024):
         flat = frames.reshape(-1, world.SIZE, world.SIZE, 3)
         xy = np.concatenate([net(to_pixels(torch.from_numpy(np.asarray(flat[i:i+batch])).to(device))).cpu().numpy()
                              for i in range(0, len(flat), batch)]).reshape(*frames.shape[:2], -1, 2)
-        np.savez(folder/'tracks_keypoints.npz', xy=xy.astype(np.float32), agent=agents(frames, device))
-        print(split, 'keypoints', flush=True)
+        np.savez(folder/f'tracks_{name}.npz', xy=xy.astype(np.float32), agent=agents(frames, device))
+        print(split, name, flush=True)
 
 
 def load(root, split, estimator):
@@ -155,12 +155,13 @@ def main():
     k = sub.add_parser('keypoints')
     k.add_argument('--data', required=True)
     k.add_argument('--locator', required=True)
+    k.add_argument('--name', default='keypoints', help='the tracks file: tracks_<name>.npz (P35: joint)')
     args = parser.parse_args()
     torch.cuda.set_per_process_memory_fraction(.2)
     if args.command == 'blobs':
         save_blobs(args.data, args.workers)
     else:
-        save_keypoints(args.data, args.locator)
+        save_keypoints(args.data, args.locator, name=args.name)
 
 
 if __name__ == '__main__':
