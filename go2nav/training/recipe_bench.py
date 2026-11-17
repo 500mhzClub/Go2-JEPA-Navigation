@@ -13,7 +13,7 @@ r3, r2 with half of each batch drawn from the exact branches: a quarter as many 
 `branch_losses`' terms (r3b, its second round: those terms carry r2's weights too); r4, the object-token JEPA (`models.object_tokens`); r5, r4 with 16 history frames; q3 (P27b), r4 with a residual predictor; q4, q3 with a constant-velocity prior in latent space
 (q4b: on the obstacles' tokens only); q3k (P30), q3 over learned keypoints
 (`training.keypoints`; the locator's file given as `--set locator=PATH`); q3m (P32), q3 with a memory token for each
-object (whole episodes encoded, `episode_memory`).
+object (whole episodes encoded, `episode_memory`); q3m2, its second round: the memory steps on through rollouts.
 
 **Training:** AdamW, warm-up then cosine, clip 1, bf16 autocast (SIGReg in float32, 128 projections), on the GPU only;
 6,000 steps at batch 64 (a patch-token step costs 0.2-0.35 s, and a run with its measures must fit 45 minutes). A step
@@ -51,7 +51,8 @@ RECIPES = dict(r0=dict(), r1=dict(model=dict(grid=(8, 8))), r2=dict(model=dict(g
                q4=dict(kind='objects', model=dict(residual=True, velocity=True)),
                q4b=dict(kind='objects', model=dict(residual=True, velocity=True, velocity_agent=False)),
                q3k=dict(kind='objects', model=dict(residual=True, keypoints=4)),
-               q3m=dict(kind='objects', model=dict(residual=True, memory=True)))
+               q3m=dict(kind='objects', model=dict(residual=True, memory=True)),
+               q3m2=dict(kind='objects', model=dict(residual=True, memory=True, memory_rolls=True)))
 
 
 def model_config(**overrides):
@@ -260,7 +261,7 @@ def train(root, variant, recipe, out, seed=0, overrides=None):
         pixels, actions = drawn[:2]
         shared = dict(rollout_steps=cfg['rollout'], sigreg=sigreg, lam=cfg['sigreg_weight'], generator=g)
         with torch.autocast('cuda', dtype=torch.bfloat16, enabled=cfg['bf16']):
-            if options.get('kind') == 'objects' and model.config.memory:
+            if options.get('kind') == 'objects' and getattr(model.config, 'memory', False):
                 e = torch.randint(0, trainset.episodes, (cfg['batch'],), generator=g, device=device)
                 s = torch.randint(0, trainset.length-length+1, (cfg['batch'],), generator=g, device=device)
                 z, actions, memory = episode_memory(model, trainset, e, s, length)

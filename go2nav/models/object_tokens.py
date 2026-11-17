@@ -49,6 +49,7 @@ class ObjectTokenConfig:
     velocity_agent: bool = True          # Q4's second round: False keeps the prior off the agent's token, whose motion
                                          # is its action (the ring world's robot token is given, not predicted)
     memory: bool = False                 # P32: a memory token for each object, a GRU over the episode so far
+    memory_rolls: bool = False           # P32 round 2: the memory steps on through a rollout's predicted frames
 
 
 def palette(device=None):
@@ -142,9 +143,16 @@ class ObjectTokenJEPA(nn.Module):
         action that led to the frame (none at the first)]."""
         b, length, s, _ = z.shape
         led = torch.cat((torch.zeros_like(actions[:, :1]), actions[:, :length-1]), 1).to(z.dtype)
-        x = torch.cat((z, z[:, :, :1].expand(-1, -1, s, -1), led[:, :, None].expand(-1, -1, s, -1)), -1)
+        return self.memory_step(z, led)
+
+    def memory_step(self, z, led, state=None):
+        """The memory's GRU over frames z (B, L, S, D) with the actions that led to them (B, L, 2), from `state`
+        (B, S, D; none: the start): each object's memory after each frame (B, L, S, D)."""
+        b, length, s, _ = z.shape
+        x = torch.cat((z, z[:, :, :1].expand(-1, -1, s, -1), led.to(z.dtype)[:, :, None].expand(-1, -1, s, -1)), -1)
         x = self.memory_in(x).transpose(1, 2).flatten(0, 1)                                          # (B S, L, D)
-        out, _ = self.memory_cell(x.float())
+        h0 = None if state is None else state.float().flatten(0, 1)[None]
+        out, _ = self.memory_cell(x.float(), h0)
         return out.unflatten(0, (b, s)).transpose(1, 2).to(z.dtype)
 
     def predict(self, z, actions, memory=None):
@@ -172,7 +180,9 @@ class ObjectTokenJEPA(nn.Module):
             nxt = self.predict(sequence[:, -n:], actions[:, k:k+n], None if mem is None else mem[:, -n:])[:, -1:]
             predicted.append(nxt)
             sequence = torch.cat((sequence, nxt), dim=1)
-            if mem is not None:
+            if mem is not None and self.config.memory_rolls:      # the GRU steps on over the predicted frame
+                mem = torch.cat((mem, self.memory_step(nxt, actions[:, k+n-1:k+n], mem[:, -1])), 1)
+            elif mem is not None:
                 mem = torch.cat((mem, mem[:, -1:]), 1)
         return torch.cat(predicted, dim=1)
 

@@ -264,8 +264,20 @@ def test_the_jepa_forecaster_reads_each_object_once_with_and_without_memory():
     rb, bench = bench_of(episodes=4, frames=40, moments=1)
     bench.frames = torch.from_numpy(world.episodes(np.random.default_rng(11), 4, 40, moments=1)[0]['frames'])
     bench.actions = torch.from_numpy(bench.labels['actions'])/3
-    for recipe in ('q3', 'q3m'):
+    for recipe in ('q3', 'q3m', 'q3m2'):
         model = training.build(recipe).eval()
         head = rb.build_head(model.config, 'mlp').eval()
         out = rb.jepa_forecaster(model, head)(bench, np.array([0, 1]), np.array([5, 20]), np.zeros((2, 16, 2)))
         assert out.shape == (2, 16, 4, 2) and np.isfinite(out).all()
+
+
+def test_a_rolling_memory_continues_the_gru_exactly():
+    import pytest
+    torch = pytest.importorskip('torch')
+    from go2nav.training import recipe_bench as training
+    model = training.build('q3m2').eval()
+    z, actions = torch.randn(2, 12, 4, 128), torch.randn(2, 11, 2)
+    whole = model.memory_states(z, actions)
+    first = model.memory_states(z[:, :8], actions[:, :7])
+    rest = model.memory_step(z[:, 8:], actions[:, 7:11], first[:, -1])
+    assert torch.allclose(torch.cat((first, rest), 1), whole, atol=1e-5)

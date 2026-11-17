@@ -3146,3 +3146,30 @@ objects come from; read by Q0's head; on F004's validation scenes, on the walker
   true future positions and the layout's walls; the matched comparison here is the fair one for estimation.
 - **P31 closes on this result.** Learned from scan pairs without a layout, keypoints find 90% of the tracker's walkers,
   but are not precise or steady enough for dynamics.
+
+## P32 round 1: a memory token for each object; false responses fall, but not by what was seen (18 November)
+
+Q3 with a memory token for each object (a GRU over the episode so far; frozen at the last history frame in a
+rollout), against Q3 retrained at the same 24,000 steps. T2, seed 0, Q0's head, k = 8:
+
+| | E: agent | X bounce | X straight | A: error / zero | False | Slope | P27's eight bars |
+|---|---|---|---|---|---|---|---|
+| Q3, 24,000 steps | 0.45 | 0.82 | 0.55 | 0.45 | 8.5% | 0.78 | all met |
+| Q3 with memory | 0.47 | 1.67 | 0.76 | 0.46 | 6.5% | 0.77 | all met |
+
+| False responses on quiet pairs the agent comes near (no contact) | Pairs | Q3 | With memory | Bar |
+|---|---|---|---|---|
+| The obstacle's kind shown before the history | 1,312 | 43.8% | 33.2% | ≤ 21.9% |
+| Not shown | 533 | 53.5% | 44.7% | (reported) |
+
+- **It fails the gain bar** (33.2% against 21.9%), and the no-loss bar narrowly: on responsive pairs whose kind was
+  shown, error over zero-response is 0.438 against 0.424.
+- **The fall is not from what the memory saw:** false responses fall about as much where the kind was never shown.
+- **It costs obstacle progression from the first step** (straight windows at k = 1: 0.197 against 0.104 px; bounce
+  windows at k = 16: 6.31 against 2.08).
+- **Why, measured:** not over-fitting (training and validation objectives match). With memory the teacher-forced loss
+  halves (0.0042 against 0.0092) while the rollout loss rises (0.030 against 0.028 on validation): in teacher-forced
+  steps each frame's memory is current, in a rollout it was frozen at the last history frame, so the predictor leans
+  on a memory that goes stale.
+- **Round 2,** one change: the memory steps on through the rollout's predicted frames (the GRU continued exactly,
+  tested).
