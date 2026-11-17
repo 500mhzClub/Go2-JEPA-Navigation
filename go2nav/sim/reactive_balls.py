@@ -32,6 +32,8 @@ KINDS = ('indifferent', 'yielding', 'pausing')
 AGENT = np.array((255., 0., 0.))
 COLOURS = np.array(((0., 220., 0.), (40., 90., 255.), (235., 215., 0.)))       # green, blue, yellow
 RINGS = np.array(((0., 0., 0.), (255., 255., 255.), (255., 0., 255.)))         # by kind: none, white, magenta
+SAME, OCCLUDER = np.array((200., 200., 200.)), np.array((90., 90., 90.))      # P33: the hard variant's colours
+PARK = -1000.                                                                  # P33: where an absent obstacle waits
 RING_RADIUS = 5.
 TAPES = ('hold', 'approach', 'retreat', 'random')
 BRANCH_STEPS = 16
@@ -50,9 +52,10 @@ class State:
     near: np.ndarray       # (B, K) bool: the agent was within REACT at the last step
     contact: np.ndarray    # (B, K) bool: the agent pushed the obstacle at the last step
     bounce: np.ndarray     # (B, K) bool: the obstacle met a wall at the last step
+    active: np.ndarray = None  # (B, K) bool, the hard variant (P33): obstacles that exist; the others are parked
 
     def take(self, index):
-        return State(**{k: v[index].copy() for k, v in vars(self).items()})
+        return State(**{k: None if v is None else v[index].copy() for k, v in vars(self).items()})
 
 
 def reset(rng, batch):
@@ -99,14 +102,32 @@ def step(state, actions):
         back = contact[:, k] & (d < 2*RADIUS-1e-9)
         n = gap/np.maximum(d, 1e-9)[:, None]
         agent = np.where(back[:, None], np.clip(obstacle[:, k]-2*RADIUS*n, LOW, HIGH), agent)
+    bounce = (below | above).any(-1)
+    if state.active is not None:         # P33: parked obstacles stay where they are and touch nothing
+        live = state.active
+        obstacle = np.where(live[..., None], obstacle, state.obstacle)
+        near, contact, bounce = near & live, contact & live, bounce & live
     return replace(state, agent=agent, obstacle=obstacle, cruise=cruise, velocity=obstacle-state.obstacle, timer=timer,
-                   pauses=pauses, near=near, contact=contact, bounce=(below | above).any(-1))
+                   pauses=pauses, near=near, contact=contact, bounce=bounce)
 
 
-def render(agent, obstacle, kinds=None):
+def occluded(occluders):
+    """Bars (B, J, 4) [x0, y0, x1, y1] px to their mask (B, 64, 64) in [0, 1] (pixel coverage)."""
+    centres = np.arange(SIZE)+.5
+    mask = np.zeros((len(occluders), SIZE, SIZE))
+    for j in range(occluders.shape[1]):
+        x0, y0, x1, y1 = (occluders[:, j, i, None] for i in range(4))
+        cx = np.clip(np.minimum(centres+.5, x1)-np.maximum(centres-.5, x0), 0, 1)                    # (B, 64)
+        cy = np.clip(np.minimum(centres+.5, y1)-np.maximum(centres-.5, y0), 0, 1)
+        mask = np.maximum(mask, cy[:, :, None]*cx[:, None, :])
+    return mask
+
+
+def render(agent, obstacle, kinds=None, active=None, occluders=None, colour=None):
     """Frames (B, 64, 64, 3) uint8: the obstacles in order, then the agent over them; each disc covers a pixel by
     clip(radius + 1/2 - distance, 0, 1). With `kinds` (B, K), T1: a ring of width 1 at RING_RADIUS in the kind's
-    colour, drawn under its disc (INDIFFERENT has none)."""
+    colour, drawn under its disc (INDIFFERENT has none). The hard variant (P33): only `active` obstacles (B, K) are
+    drawn, all in `colour`, and the `occluders` (B, J, 4) are drawn over them in OCCLUDER, under the agent."""
     centres = np.arange(SIZE)+.5
     frame = np.zeros((len(agent), SIZE, SIZE, 3))
 
@@ -119,7 +140,12 @@ def render(agent, obstacle, kinds=None):
             ring = (np.clip(1.-np.abs(d-RING_RADIUS), 0., 1.)*(kinds[:, k] != INDIFFERENT)[:, None, None])[..., None]
             frame = ring*RINGS[kinds[:, k]][:, None, None]+(1-ring)*frame
         alpha = np.clip(RADIUS+.5-d, 0., 1.)[..., None]
-        frame = alpha*COLOURS[k]+(1-alpha)*frame
+        if active is not None:
+            alpha = alpha*active[:, k, None, None, None]
+        frame = alpha*(COLOURS[k] if colour is None else colour)+(1-alpha)*frame
+    if occluders is not None:
+        cover = occluded(occluders)[..., None]
+        frame = cover*OCCLUDER+(1-cover)*frame
     alpha = np.clip(RADIUS+.5-distances(agent), 0., 1.)[..., None]
     return np.round(alpha*AGENT+(1-alpha)*frame).astype(np.uint8)
 
@@ -141,7 +167,11 @@ class Interactive:
         new = self.left <= 0
         self.left = np.where(new, rng.integers(5, 21, n), self.left)-1
         self.chase = np.where(new, rng.random(n) < .5, self.chase)
-        self.target = np.where(new, rng.integers(0, K, n), self.target)
+        if state.active is None:
+            self.target = np.where(new, rng.integers(0, K, n), self.target)
+        else:                            # P33: a random obstacle among those that exist
+            pick = np.argmax(rng.random((n, K))*state.active, -1)
+            self.target = np.where(new, pick, self.target)
         self.speed = np.where(new, rng.uniform(1., MAX_ACTION, n), self.speed)
         redraw = new | (self.hold <= 0)
         self.hold = np.where(redraw, rng.integers(1, 6, n), self.hold)-1
@@ -224,7 +254,37 @@ def branches(rng, state, steps=BRANCH_STEPS):
     return np.stack(actions, 1), target, {k: np.stack([r[k] for r in rows], 1) for k in rows[0]}
 
 
-def episodes(rng, batch, frames, policy='interactive', moments=0, branch_frames=False):
+def harden(rng, state):
+    """P33's hard variant: 1-3 obstacles exist (uniform), the rest parked out of reach; 2 bars of 4 x 16-28 px,
+    horizontal or vertical at random, anywhere in the frame. Returns the bars (B, 2, 4)."""
+    n = len(state.agent)
+    count = rng.integers(1, K+1, n)
+    state.active = np.arange(K)[None] < count[:, None]
+    state.obstacle = np.where(state.active[..., None], state.obstacle, PARK)
+    state.cruise = np.where(state.active[..., None], state.cruise, 0.)
+    state.velocity = state.cruise.copy()
+    state.kind = np.where(state.active, state.kind, INDIFFERENT)
+    length, start = rng.uniform(16, 28, (n, 2)), rng.uniform(0, SIZE, (n, 2, 2))
+    vertical = rng.random((n, 2)) < .5
+    w = np.where(vertical, 4., length)
+    h = np.where(vertical, length, 4.)
+    x0, y0 = np.minimum(start[..., 0], SIZE-w), np.minimum(start[..., 1], SIZE-h)
+    return np.stack((x0, y0, x0+w, y0+h), -1)
+
+
+def visible(obstacle, occluders):
+    """The share of each obstacle's disc not under a bar (..., K), for obstacles (N, K, 2) and bars (N, J, 4)."""
+    mask = occluded(occluders)
+    centres = np.arange(SIZE)+.5
+    out = []
+    for k in range(obstacle.shape[1]):
+        d = np.hypot(centres[None, None, :]-obstacle[:, k, 0, None, None], centres[None, :, None]-obstacle[:, k, 1, None, None])
+        alpha = np.clip(RADIUS+.5-d, 0., 1.)
+        out.append(1-(alpha*mask).sum((1, 2))/np.maximum(alpha.sum((1, 2)), 1e-9))
+    return np.stack(out, -1)
+
+
+def episodes(rng, batch, frames, policy='interactive', moments=0, branch_frames=False, hard=False):
     """`batch` episodes of `frames` frames under a policy, with `moments` branch moments each.
 
     Returns (episode, branch). `episode`: the T2 frames `frames` and T1 frames `frames_t1` (B, T, 64, 64, 3) uint8, the
@@ -233,6 +293,7 @@ def episodes(rng, batch, frames, policy='interactive', moments=0, branch_frames=
     branch starts from, sorted; `target` (B, M); `actions` (B, M, 4, 16, 2); the states after each step (B, M, 4, 16,
     ...); and with `branch_frames`, the frames of both variants (B, M, 4, 16, 64, 64, 3)."""
     state, drive = reset(rng, batch), POLICIES[policy](rng, batch)
+    bars = harden(rng, state) if hard else None
     t0 = np.sort(np.stack([rng.choice(np.arange(3, frames-BRANCH_STEPS), moments, replace=False) for _ in range(batch)]),
                  -1) if moments else None
     rows, actions, parts = [record(state)], [], [[None]*moments for _ in range(batch)]
@@ -252,7 +313,16 @@ def episodes(rng, batch, frames, policy='interactive', moments=0, branch_frames=
     flat = lambda x: x.reshape(-1, *x.shape[2:])
     kinds = np.repeat(state.kind, frames, 0)
     shape = (batch, frames, SIZE, SIZE, 3)
-    episode = dict(frames=render(flat(ep['agent']), flat(ep['obstacle'])).reshape(shape),
+    if hard:                                 # P33: one colour, absent obstacles undrawn, bars over the obstacles
+        live, cover = np.repeat(state.active, frames, 0), np.repeat(bars, frames, 0)
+        images = render(flat(ep['agent']), flat(ep['obstacle']), active=live, occluders=cover, colour=SAME).reshape(shape)
+        extra = dict(active=state.active, bars=bars.astype(np.float32),
+                     visible=visible(flat(ep['obstacle']), cover).reshape(batch, frames, K).astype(np.float32))
+        episode = dict(frames=images, actions=np.stack(actions, 1).astype(np.float32), kind=state.kind.astype(np.int8),
+                       **extra, **{k: v.astype(np.float32) if v.dtype == np.float64 else v for k, v in ep.items()})
+    else:
+        episode = None
+    episode = episode or dict(frames=render(flat(ep['agent']), flat(ep['obstacle'])).reshape(shape),
                    frames_t1=render(flat(ep['agent']), flat(ep['obstacle']), kinds).reshape(shape),
                    actions=np.stack(actions, 1).astype(np.float32), kind=state.kind.astype(np.int8),
                    **{k: v.astype(np.float32) if v.dtype == np.float64 else v for k, v in ep.items()})
@@ -260,7 +330,7 @@ def episodes(rng, batch, frames, policy='interactive', moments=0, branch_frames=
         return episode, None
     branch = {k: np.stack([np.stack([parts[b][m][k] for m in range(moments)]) for b in range(batch)])
               for k in parts[0][0]}
-    if branch_frames:
+    if branch_frames and not hard:
         a, o = branch['agent'].reshape(-1, 2), branch['obstacle'].reshape(-1, K, 2)
         shape = (*branch['agent'].shape[:-1], SIZE, SIZE, 3)
         kinds = np.repeat(state.kind, moments*len(TAPES)*BRANCH_STEPS, 0)
