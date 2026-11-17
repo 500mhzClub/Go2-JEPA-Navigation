@@ -4,7 +4,8 @@
 
 A step draws `batch` pairs (s, t) of frames 1-8 apart in the interactive training split, from (seed, step); the loss
 is the mean squared pixel error of the rebuilt frame t, plus `separation_weight` x `models.keypoints.separation`. The masks' deviation falls linearly from `sigma_start` to
-`sigma` over the first `anneal` of the steps, then stays. Adam with warm-up then cosine, float32, on the GPU. DIR/
+`sigma` over the first `anneal` of the steps, then stays. With `separation_fades` (round 2), the separation's
+weight falls with it to zero: round 1's keypoints were pushed off discs within 9 px of one another. Adam with warm-up then cosine, float32, on the GPU. DIR/
 checkpoint.pt every `checkpoint_every` steps (rerunning resumes). At the end the stage-1 measures are taken
 (`models.keypoints.measures`, on 20,000 training frames for the assignment and offsets and on every validation frame),
 and DIR/locator.pt holds the keypoint network, the keypoint of each object (`order`), the offsets and the measures;
@@ -27,7 +28,7 @@ from go2nav.training.balls import schedule, to_pixels
 
 DEFAULTS = dict(steps=10000, batch=64, lr=1e-3, warmup=500, gap=(1, 8), keypoints=4, sigma=2., log_every=250,
                 checkpoint_every=2000, memory_fraction=.3, policy='interactive', assignment_frames=20000,
-                separation_weight=.01, sigma_start=8., anneal=.5)
+                separation_weight=.01, sigma_start=8., anneal=.5, separation_fades=False)
 
 
 @torch.no_grad()
@@ -96,10 +97,11 @@ def train(root, out, variant='t2', seed=0, overrides=None):
         gap = torch.randint(cfg['gap'][0], cfg['gap'][1]+1, (cfg['batch'],), generator=g, device=device)
         s = (torch.rand(cfg['batch'], generator=g, device=device)*(length-gap)).long()
         source, target = to_pixels(frames[e, s]), to_pixels(frames[e, s+gap])
-        sigma = cfg['sigma']+(cfg['sigma_start']-cfg['sigma'])*max(0., 1-step/(cfg['anneal']*cfg['steps']))
+        wide = max(0., 1-step/(cfg['anneal']*cfg['steps']))                     # 1 at the start, 0 once narrowed
+        sigma = cfg['sigma']+(cfg['sigma_start']-cfg['sigma'])*wide
         rebuilt, kp = model(source, target, sigma)
         rebuild, apart = F.mse_loss(rebuilt, target), separation(kp)
-        loss = rebuild+cfg['separation_weight']*apart
+        loss = rebuild+cfg['separation_weight']*(wide if cfg['separation_fades'] else 1.)*apart
         optimiser.zero_grad(set_to_none=True)
         loss.backward()
         optimiser.step()
