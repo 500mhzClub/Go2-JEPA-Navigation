@@ -2962,3 +2962,11 @@ zero] tests capability 3 and, through the predictor, 2. T2, one seed, 6,000 step
   at k = 16 4.64 against 3.51).
 - **Against the rule set for it** (within 10% of Q3 at k = 8): it fails on A by 39%. Two rounds are spent, so Q4
   stops; it was not confirmed at 36,000 steps, and `p28q4` was not run in the ring world.
+
+## P27b and P28 closed (17 November)
+
+Closed on approval. docs/REVIEW_2026-11-17.md records what the port showed:
+- On the toy the object-token JEPA meets P27's eight bars on three seeds, once read by an adequate head.
+- In the ring world it learns the walkers' dynamics and responses but trails M5 on position over the first seconds.
+- It corrects two readings of 16 and 17 November: both limits were the read-out head's, not the latent's.
+Next piece: your decision (the review's last table).

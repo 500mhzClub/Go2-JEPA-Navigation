@@ -2320,6 +2320,9 @@ once (T1 and T2), under 85% of its memory.
 
 ### P28. The object-token JEPA in the ring world (promotion of P27's R4; approved 16 November, "Do 1"; set out before any run)
 
+**Closed 17 November (approved; docs/REVIEW_2026-11-17.md).** It fails its bars against M5; its best form (with
+P27b's Q3) is 0.082 / 0.185 / 0.503 m against 0.033 / 0.097 / 0.338, passing (a) at 6.4 s only. No missions.
+
 **Why.** P27's R4 [object-token JEPA] kept all three capabilities in predicted latents on the toy and met seven of
 its eight bars (docs/REVIEW_2026-11-16.md). The user promoted it with the false-response bar waived. P28 asks whether
 the same recipe holds on the ring world's walkers, against M5 [the supervised object predictor of P22, on the ring
@@ -2379,6 +2382,9 @@ mean as P27's):
 memory; the head and measures a few minutes.
 
 ### P27b. Precision on the toy, then back to P28 (approved 17 November, "1 approved"; set out before any run)
+
+**Closed 17 November (approved; docs/REVIEW_2026-11-17.md).** Q0 (the head) and Q3 (a residual predictor) carried;
+Q1 changed nothing, Q2 collapsed, Q4 stopped after two rounds.
 
 **Why.** P28 failed against M5 because the head read a walker's position from its token only to 5 cm, 0.4-0.6% of
 the range, and the toy's R4 had the same relative precision (0.27 px) under bars that did not ask for more (STATUS
