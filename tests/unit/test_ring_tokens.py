@@ -69,3 +69,20 @@ def test_the_summary_scores_the_truth_as_perfect_and_holding_as_no_response():
     still = ring_tokens.summary(data, np.broadcast_to(history[:, -1][:, None, None], data['target'].shape), draws=100)['3.2']
     assert still['fde']['median'] > .05 and abs(still['response']['error']-still['response']['zero']) < 1e-9
     assert '| truth | 3.2 s |' in ring_tokens.table(dict(truth={'3.2': perfect}))
+
+
+def test_the_velocity_prior_starts_as_constant_velocity_in_latent_space():
+    from go2nav.models.ring_tokens import RingTokenConfig, RingTokenJEPA
+    from go2nav.training import recipe_bench as training
+    toy = training.build('q4').eval()
+    z = torch.randn(2, 3, 4, 128)
+    out = toy.predict(z, torch.zeros(2, 3, 2))
+    assert torch.allclose(out[:, 1:], 2*z[:, 1:]-z[:, :-1], atol=1e-5) and torch.allclose(out[:, 0], z[:, 0], atol=1e-5)
+    ring = RingTokenJEPA(RingTokenConfig(residual=True, velocity=True)).eval()
+    z = torch.randn(2, 3, 7, 128)
+    z[0, 0, 2] = ring.absent.detach()                                      # slot 1 enters at the second step
+    present = torch.tensor([[1, 1, 0, 0, 0, 0], [1, 0, 0, 0, 0, 1]]).bool()
+    out = ring.predict(z, torch.zeros(2, 3, 12), present)
+    assert torch.allclose(out[1, 2, 1], 2*z[1, 2, 1]-z[1, 1, 1], atol=1e-5)
+    assert torch.allclose(out[0, 1, 2], z[0, 1, 2], atol=1e-5)          # next to an empty slot: no velocity
+    assert torch.equal(out[0, 2, 3], ring.absent)                          # empty at the branch point: stays empty

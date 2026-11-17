@@ -43,6 +43,7 @@ class ObjectTokenConfig:
     tokens: int = 1+world.K
     grid: tuple = ()                     # read by code written for `LeWMConfig`
     residual: bool = False               # P27b Q3: the predictor's output is added to the frame's own tokens
+    velocity: bool = False               # P27b Q4: and the token's last change (a constant-velocity prior)
 
 
 def palette(device=None):
@@ -117,6 +118,8 @@ class ObjectTokenJEPA(nn.Module):
         """Tokens (B, T, 4, D) and actions (B, T, 2) to the predicted next tokens at every position (B, T, 4, D)."""
         out = self.predictor(z, self.action_encoder(actions))
         out = self.pred_proj(out.flatten(0, 2)).unflatten(0, out.shape[:3])
+        if self.config.velocity:         # none at the first step, which has no earlier frame
+            out = out+z-torch.cat((z[:, :1], z[:, :-1]), 1)
         return z+out if self.config.residual else out
 
     def rollout(self, z, actions, steps):

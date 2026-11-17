@@ -43,6 +43,7 @@ class RingTokenConfig:
     predictor_head_dim: int = 32
     predictor_mlp: int = 512
     residual: bool = False            # P27b Q3: an object's predicted token is its own token plus the predictor's output
+    velocity: bool = False            # P27b Q4: plus its last change of token (none next to an empty slot)
 
     @property
     def tokens(self):
@@ -107,6 +108,12 @@ class RingTokenJEPA(nn.Module):
         objects = self.fill(self.pred_proj, out[:, :, 1:], alive)
         if self.config.residual:
             objects = torch.where(alive[..., None], z[:, :, 1:].to(objects.dtype)+objects, objects)
+        if self.config.velocity:
+            last = z[:, :, 1:]
+            prev = torch.cat((last[:, :1], last[:, :-1]), 1)
+            absent = self.absent.to(last.dtype)
+            known = ~((prev == absent).all(-1) | (last == absent).all(-1)) & alive
+            objects = objects+torch.where(known[..., None], last-prev, 0.).to(objects.dtype)
         return torch.cat((robot[:, :, None].to(objects.dtype), objects), 2)
 
     def rollout(self, z, actions, future_robot, steps, present):

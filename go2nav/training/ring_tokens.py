@@ -26,7 +26,7 @@ from go2nav.training.recipe_bench import recalibrate, save
 DEFAULTS = dict(steps=32000, batch=64, rollout=8, lr=3e-4, weight_decay=1e-3, warmup=500, grad_clip=1.,
                 sigreg_weight=.09, sigreg_projections=128, bf16=True, log_every=250, checkpoint_every=2000,
                 memory_fraction=.4, recalibration_batches=200)
-RECIPES = dict(p28=dict(), p28q3=dict(model=dict(residual=True)))
+RECIPES = dict(p28=dict(), p28q3=dict(model=dict(residual=True)), p28q4=dict(model=dict(residual=True, velocity=True)))
 
 
 def load(path, device='cpu'):
