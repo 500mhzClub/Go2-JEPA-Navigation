@@ -2478,7 +2478,7 @@ layout) finds the walkers today. Branch `feature/ring-keypoints`, cut from `feat
 
 **1. The image.** Each frame's scan is rasterised on the GPU (`data.ring_rasters`): the returns as points, splatted
 into a 64 x 64 image at 0.1 m a pixel (±3.2 m, the range the measures score), in one frame for a whole window: the
-robot's pose at the window's last history step, heading up. Walls are lines; a walker is the arc of its near side,
+robot's pose at the window's last history step, heading along the image's x axis. Walls are lines; a walker is the arc of its near side,
 about 5 px. In a common frame the walls stay still, so the locator's background is copied as on the toy.
 
 **2. The locator:** P30's (`models.keypoints`; one channel, K = 6, the tracker's slot count; masks narrowed from 8 to
