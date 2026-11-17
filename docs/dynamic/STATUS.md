@@ -3116,3 +3116,33 @@ K = 10, otherwise round 1 with the corrected join. F004's validation scenes:
   tracker does: a track with no detection stays where it was last seen.
 - Learned from scan pairs alone, with no layout, the locator finds 87% of the walkers in sight within 3 m, against
   the layout-based tracker's 94%.
+
+## P31 stage 2: learned scan keypoints fail against the tracker; P31 closed (18 November)
+
+Run past stage 1's identity bar on approval. Two models trained identically (P28's recipe with Q3, 20,000 steps on
+the corpus's windows, walls from the scan in both, each model's own tokens as targets), differing only in where the
+objects come from; read by Q0's head; on F004's validation scenes, on the walkers both find (13,686 of 15,125):
+
+| | (a) median, m: 1.6 / 3.2 / 6.4 s | ... waiting on the robot | Responsive pairs: error / zero-response | False responses | Slope |
+|---|---|---|---|---|---|
+| Constant velocity | 0.052 / 0.265 / 0.932 | 0.051 / 0.192 / 0.543 | equal | 0 | 0 |
+| M5 (layout, branches) | 0.032 / 0.094 / 0.329 | 0.025 / 0.077 / 0.226 | 0.089 / 0.141; 0.163 / 0.238; 0.385 / 0.483 | 7 / 20 / 41% | 0.50 / 0.50 / 0.40 |
+| Tracker tokens | 0.095 / 0.247 / 0.615 | 0.046 / 0.125 / 0.373 | 0.108; 0.183; 0.396 | 5 / 22 / 53% | 0.26 / 0.29 / 0.26 |
+| Learned tokens | 0.278 / 0.489 / 0.843 | 0.069 / 0.152 / 0.374 | 0.111; 0.200; 0.433 | 38 / 64 / 80% | 0.37 / 0.33 / 0.24 |
+| Bar for learned | ≤ 1.25 x tracker | | | ≤ tracker + 5 points | ≥ 0.8 x tracker |
+
+- **It fails (a) at every horizon** (2.9, 2.0 and 1.4 times the tracker tokens' error) **and false responses at every
+  horizon.** The slope bar passes, but with false responses at 38-80% the slope is not a sign of real reactions.
+- **Why, measured:**
+  - The learned tokens are imprecise from the first step: at 0.4 s, 0.085 m median against the tracker tokens' 0.020;
+    at 1.6 s 20% of walkers are within 0.1 m (tracker tokens 53%). None are lost (none beyond 1 m).
+  - Keypoints jitter: off the walkers they move a median 0.086 m every 0.4 s, as much as a walker does (0.091 m), and
+    on a walker a keypoint sits about 0.1 m from its centre. A walker's step is about 0.09 m, so a keypoint's velocity
+    is mostly noise. Their moves do not follow the robot's (correlation 0.02 on walkers, -0.06 off).
+  - On the toy the learned keypoints were precise to 0.04-0.11 px against steps of 0.5-2 px, a tenth of a step or
+    better. Here the noise is a whole step. Stage 1's 0.3-m tolerance (the tracker's) was three walker-steps, so it
+    could not catch this. P27b's lesson again: set a precision bar against a step's motion.
+- The tracker tokens are themselves short of P28 with Q3 (0.082 / 0.185 / 0.503 m), which was trained on branches with
+  true future positions and the layout's walls; the matched comparison here is the fair one for estimation.
+- **P31 closes on this result.** Learned from scan pairs without a layout, keypoints find 90% of the tracker's walkers,
+  but are not precise or steady enough for dynamics.

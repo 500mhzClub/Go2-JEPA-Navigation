@@ -2472,6 +2472,9 @@ GPU process at a time.
 
 ### P31. Learned objects on the ring world's scan (approved 18 November, option 1 after P30; set out before any run)
 
+**Closed 18 November** (STATUS). Stage 1 failed identity (87.0%) after two rounds; stage 2, run on approval, failed
+(a) and false responses at every horizon: the learned keypoints are about 0.1 m noisy, a walker's whole step.
+
 **Why.** P30 found the toy's objects from pixels without labels, at no measurable cost to the dynamics. P31 asks the
 same on the robot's own sensor: the ring world's 720-beam scan, where the ring tracker (engineered, using the known
 layout) finds the walkers today. Branch `feature/ring-keypoints`, cut from `feature/learned-objects`.
