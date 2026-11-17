@@ -2572,6 +2572,9 @@ measured speed so that a run with its measures fits 45 minutes, with Q3 rescored
 
 ### P33. A harder toy: identity from motion (approved 18 November, step 2 of 4; set out before any run)
 
+**Stopped 18 November** (STATUS): stage 1 failed in both rounds (found 4.3% and 26.7% of the obstacles within 1 px);
+stage 2 not run.
+
 **Why.** P31 failed in the ring world because learned keypoints on the scan were about a walker's step out and lost
 identity without memory; each run there takes 40 minutes. P33 brings the toy's difficulties nearer the ring world's,
 so such failures can be found and worked on in minutes. Branch `feature/object-memory` (built while P32 ran).

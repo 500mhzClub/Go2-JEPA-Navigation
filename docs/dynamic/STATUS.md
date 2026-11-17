@@ -3209,3 +3209,20 @@ Round 2: the memory steps on through the rollout's predicted frames. T2, seed 0,
 - **P32 closes:** a GRU over the episode's tokens, trained only by the prediction loss, did not learn to tell an
   indifferent obstacle from a reactive one by how it reacted earlier. P34 uses Q3 without memory (36,000 steps, Q0's
   head), as PLAN P34 says.
+
+## P33 stage 1, round 2, and P33 stopped: learned keypoints do not bind identical obstacles (18 November)
+
+| Validation, obstacles at least half visible (38,359) | Found within 1 px | Within 2 px | Within 3 px | Mean error of found | Identity |
+|---|---|---|---|---|---|
+| Bar (learned) | ≥ 95% | | | ≤ 0.2 px | ≥ 95% |
+| Blob tracker (engineered) | 95.6% | | | 0.14 px | 97.0% |
+| Round 1 (separation fades) | 4.3% | 65.2% | 84.9% | 0.84 px | 32% |
+| Round 2 (2-px separation throughout) | 26.7% | 47.7% | 51.0% | 0.71 px | 28% |
+
+- **Both rounds fail; stage 1 stops, and stage 2 (the dynamics over each estimator) is not run.**
+- Round 1's keypoints sat near the obstacles but off their centres (median 1.7 px); round 2 put more on a disc but
+  drifted to the agent (17% of keypoints within 2 px of it) and away from the obstacles.
+- With the obstacles alike and only the agent distinct, frame-pair reconstruction does not give one keypoint an
+  obstacle. On the toy with coloured obstacles (P30) it did; the colour was doing the binding.
+- Step 4 (joint training) takes this up: whether the world model's own prediction loss can teach the locator what
+  reconstruction alone did not.
