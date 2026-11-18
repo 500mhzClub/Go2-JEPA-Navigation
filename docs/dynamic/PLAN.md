@@ -2744,6 +2744,88 @@ the task's start.
 set so that the run with its measures fits 45 minutes; the planning run about 25-35 minutes. One GPU process at a
 time, under 85% of the R9700's memory.
 
+### P37. One shared object detector on the hard toy (approved 18 November, option 2 of docs/REVIEW_2026-11-18.md; set out before any run)
+
+**Closed 18 November: passed** (STATUS). Stage 1 in round 2 (the peak threshold from the mask itself): found 98.2%,
+0.093 px, identity 98.2%, beating the blob tracker. Stage 2 on three seeds: every bar met against stage 0's mean
+(obstacle motion 0.78 and 0.71 times, the agent's effect 1.00 times, false responses 7.7 points lower).
+
+**Why.** Learned estimation failed wherever the objects look alike: walkers in the ring world's scan (P31) and the
+hard toy's identical obstacles (P33, P35). Each time a keypoint had its own heatmap and had to pick one object, and
+nothing told identical objects apart: the keypoints collapsed, drifted, or died (in P35 four of six sat on nothing
+and got no gradient). One map for every object treats identical obstacles alike, so none has to be told apart; and if
+that map is itself the rebuilding mask, no part of it can sit dead. Branch `feature/shared-detector`, from
+`feature/object-memory`.
+
+**Stages, and the capability each tests:**
+
+| Stage | What | Capability tested |
+|---|---|---|
+| 0 | Q3 [object tokens, residual predictor] over the blob tracker: the reference P33 never trained | All three, on identical obstacles with engineered objects. No bar of its own: it is stage 2's reference. P27's eight bars reported |
+| 1 | The shared detector | None of the three directly: whether identical objects can be found without labels, which 2 and 3 need in such a world (and P31 needed) |
+| 2 | Q3 over the shared detector, only if stage 1 passes | All three, against stage 0 |
+
+**1. The detector** (`models.shared_detector`, `training.shared_detector`):
+- **One mask:** P30's keypoint network (five 3 x 3 convolutions) with one output channel and a sigmoid: a mask M in
+  [0, 1] at full resolution.
+- **Trained by P30's frame-pair rebuilding** with the mask in place of the keypoints' Gaussians:
+  F <- (1 - M_s)(1 - M_t) F_s + M_t F_t, and a decoder rebuilds frame t. Pairs 1-8 frames apart from the hard toy's
+  training split, 10,000 steps, batch 64. The background comes from frame s, so only what moved needs the mask.
+- **A cost on the mask's mean,** weight 0.02, so the mask keeps to what moves (a mask of ones would copy frame t
+  whole). The weight is set from the pixel errors, not tuned: a disc's edge pixel at a quarter's cover costs about
+  0.15 unmasked, so 0.02 keeps it; the background gains nothing from the mask.
+- **Detections,** without gradient: the mask smoothed by a Gaussian of 1.5 px; its local maxima over 5 x 5 above 0.5
+  are the peaks, at most 6 a frame. Each is refined to the mask's centre of mass within 4 px of it, over the pixels
+  nearer it than any other peak (a local soft-argmax, split between neighbours so touching discs do not pull each
+  other). A detection within 2 px of the agent (found by its colour, as in P33: the robot knows itself) is dropped.
+  These rules are engineered and fixed here.
+- No labels and no obstacle colours. The agent's colour is used only to drop its detection.
+
+**2. Identity** is engineered, as P33's: each detection joined to the nearest of the next frame within 5 px
+(`data.hard_tracks`), named in every result.
+
+**3. The dynamics** (`training.hard_tokens`), identical over both estimators: 36,000 steps, seed 0 (measured 22 steps
+a second, so 27 minutes; scoring takes 1 minute). Read by P33's per-token MLP head (`eval.hard_bench score`).
+
+**4. Measures:** P33's (`eval.hard_bench`; labels for scoring only). Stage 1: of the obstacles that exist and are at
+least half visible, the share with a detection within 1 px, the found detections' mean error, and identity over the
+3 history frames. Stage 2: P27's measures, each obstacle given the slot nearest it at the history's last frame within
+1.5 px.
+
+**5. Bars** (set before any run; P33's, unchanged):
+- **Stage 1:** found at least 95%; mean error at most 0.2 px; identity at least 95%. The blob tracker reads 95.6%,
+  0.14 px and 97.0%.
+- **Stage 2:** over the detector, X (bounce and straight windows) and A's error over zero-response within 1.25 times
+  stage 0's at k = 8, and false responses at most 3 points above stage 0's. P27's eight bars reported for both. One
+  seed; three if it looks like passing.
+- Two rounds at most a stage, one change a round.
+
+**6. What could defeat it, known beforehand:**
+- The mask covers whatever moves, the agent included. Where an obstacle touches the agent, their region's peak may sit
+  between them, and the blob tracker separates them by colour.
+- Touching obstacles make one region, split between their peaks; if the smoothed region has one peak, they merge into
+  one detection, as they do for the blob tracker.
+- Under a bar, only an obstacle's visible part can be found, so its centre is biased, as the blob tracker's is (the
+  measures count obstacles at least half visible).
+- The join stays engineered, and the ring world's step-sized noise (P31) is a further problem that a pass here does
+  not address.
+
+**Round 2 of stage 1** (set 18 November after round 1, before its run; STATUS): round 1 found no obstacles because
+the fixed peak threshold (0.5) sat above the trained mask's smoothed peaks (about 0.35), though the mask marked every
+disc. One change: the threshold is set from the mask itself, without labels, at half the median over 20,000 training
+frames (drawn once) of each frame's highest smoothed value. Round 1's trained detector is reused; nothing else
+changes. The bars stand.
+
+**Seeds for stage 2** (set 18 November after seed 0, before seeds 1-2): seed 0 met every stage-2 bar, so seeds 1 and
+2 run over the detector, read on the three seeds' mean. Since the bars are relative to stage 0, stage 0 also runs
+seeds 1 and 2, and the bars are read mean against mean. Four runs of about 28 minutes each, one after another (about
+2 hours in all; each run is under 45 minutes).
+
+**7. Order and compute:** a smoke run of 1,000 steps first checks the code and the speed. It is not scored, and its
+settings are not changed by what it shows unless it shows a fault (recorded if so). Then stage 1, round 1 (the
+detector about 15-25 minutes; tracks and measures a few minutes), then stage 0 (about 28 minutes), in one service,
+one after the other; stage 2 after both if stage 1 passes. One GPU process at a time, under 85% of the R9700's memory.
+
 ## Compute and order
 
 | Phase | Compute |

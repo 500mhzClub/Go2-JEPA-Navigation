@@ -3408,3 +3408,107 @@ measures; the step count set by the 45 minutes), T2, seed 0, read by Q0's head. 
 
 **Stopped after round 1** (two allowed). The round 2 I had in mind, drawing only branches whose kind was shown, would
 move 73% to 100%, so it cannot address the measured cause. What remains is a different objective, not a round.
+
+## P37 stage 1, round 1: the shared mask marks every disc, but the fixed peak rule finds none (18 November)
+
+The shared detector (PLAN P37: one mask for every object, trained by frame-pair rebuilding, 10,000 steps, 21
+minutes). Validation frames of the hard toy, obstacles that exist and are at least half visible (38,359):
+
+| | Found within 1 px | Mean error of found | Identity |
+|---|---|---|---|
+| Bar | ≥ 95% | ≤ 0.2 px | ≥ 95% |
+| Blob tracker (engineered) | 95.6% | 0.14 px | 97.0% |
+| Shared detector, round 1 | 0% (no detections) | – | – |
+
+- **It fails, and the fault is in the detection rule I fixed beforehand, not in the mask.** The mask covers each disc
+  with a small core (radius about 2 px, height about 0.6), the same on all three obstacles and the agent, and almost
+  nothing else (0.4 pixels over 0.5 a frame off the discs). Smoothed by 1.5 px, a core that small peaks at about 0.35,
+  under the 0.5 threshold, so no peak survives.
+- Measured with labels, for diagnosis only, on 150 isolated, fully visible obstacles: the mask's centre of mass
+  within 5 px is 0.075 px from the true centre (median 0.078); the blob tracker's error is 0.14.
+- The mask shrank during training, from 2.3% of the frame at step 250 to 0.5% at the end. The cost on its mean keeps
+  only what rebuilding needs, and the decoder rebuilds a disc from its core.
+- **Round 2,** one change: the threshold is set from the mask itself, without labels. It is half the median, over
+  20,000 training frames, of each frame's highest smoothed value. Round 1's trained detector is reused unchanged:
+  the threshold applies only after training.
+
+## P37 stage 1, round 2: the shared detector passes, and beats the blob tracker on identical obstacles (18 November)
+
+Round 1's trained detector, with one change: the peak threshold set from the mask itself (0.174: half the median of
+20,000 training frames' highest smoothed values; no labels). Validation frames, obstacles that exist and are at least
+half visible (38,359):
+
+| | Found within 1 px | Mean error of found | Identity over the history |
+|---|---|---|---|
+| Bar | ≥ 95% | ≤ 0.2 px | ≥ 95% |
+| **Shared detector, round 2** | **98.2%** | **0.093 px** | **98.2%** |
+| Blob tracker (engineered) | 95.6% | 0.14 px | 97.0% |
+| P33's learned keypoints, best round | 26.7% | 0.71 px | 28% |
+| P35's jointly trained keypoints | 19.8% | 0.75 px | 24% |
+
+- **Stage 1 passes on every bar.** It also beats the blob tracker, which uses the obstacles' colour, on all three.
+  Learned from frame pairs alone: no labels, no obstacle colours.
+- **Where each finds them** (labels for diagnosis only; shares of the counted obstacles):
+
+| Where | Share | Detector found | Detector error | Blobs found | Blobs error |
+|---|---|---|---|---|---|
+| In the open | 72.9% | 100% | 0.077 px | 100% | 0.126 px |
+| Within 8 px of the agent | 15.5% | 98.4% | 0.102 px | 96.2% | 0.116 px |
+| Partly under a bar | 6.3% | 100% | 0.198 px | 81.4% | 0.403 px |
+| Within 8 px of another obstacle | 5.3% | 70.1% | 0.201 px | 49.0% | 0.252 px |
+
+- The detector is better where the blob tracker is weakest: under bars, where a bar can split a blob, and next to
+  another obstacle, where blobs merge. Touching obstacles remain the main loss (70% found).
+- 1.97 detections a frame against 1.92 obstacles counted. The difference includes obstacles less than half visible,
+  which the measures do not count.
+- One cause, two rounds: P33 and P35 failed because each keypoint had to pick one of several identical obstacles. A
+  shared map does not have to, and since the map is the rebuilding mask it cannot die.
+- **Stage 2 runs next:** Q3 over the detector's tracks, 36,000 steps, seed 0, against stage 0 (Q3 over the blob
+  tracker, training now).
+
+## P37 stage 2, seed 0: the dynamics over the shared detector meet P37's bars against the blob tracker (18 November)
+
+Q3 [object tokens, residual predictor] on the hard toy, 36,000 steps, seed 0, trained identically over each
+estimator's tracks; P33's per-token MLP head; T2 validation, k = 8:
+
+| | E: agent px | X bounce px (cv 9.1) | X straight px (cv 0.37) | A: error / zero | False responses | Slope | R worst px | Pairs scored |
+|---|---|---|---|---|---|---|---|---|
+| Stage 0: over the blob tracker | 0.44 | 2.84 | 1.81 | 0.439 | 30.4% | 0.81 | 0.19 | 13,434 |
+| **Stage 2: over the shared detector** | 0.44 | **2.07** | **1.40** | 0.447 | **19.6%** | 0.77 | 0.13 | 14,154 |
+| P37 bar (against stage 0) | | ≤ 3.55 | ≤ 2.26 | ≤ 0.549 | ≤ 33.4% | | | |
+
+- **Every P37 bar is met, by a wide margin:** obstacle motion 0.73 and 0.77 times the blob tracker's error; the
+  agent's effect on obstacles 1.02 times; false responses 10.8 points lower.
+- The detector's run is scored on 5% more pairs, since it finds more of the obstacles (each needs a slot within
+  1.5 px). The extra ones are the harder cases, under bars and next to other obstacles.
+- **P27's eight bars** (fixed on the standard toy, reported): both runs fail X (straight windows, 1.40 and 1.81 px
+  against constant velocity's 0.37 + 0.5) and A (false responses over 10%); both meet E, R and X on bounce windows.
+  The hard toy's one colour, bars and 1-3 obstacles cost both against the standard toy's Q3 (straight 0.55 px, false
+  9%).
+- **It looks like passing, so seeds 1 and 2 run** (PLAN). Stage 0 also gets seeds 1 and 2, so the comparison is mean
+  against mean.
+
+## P37 stage 2, three seeds: learned objects pass on identical obstacles; P37 closed (18 November)
+
+Q3 over each estimator's tracks, seeds 0-2 of each, 36,000 steps, P33's per-token MLP head; T2 validation, k = 8,
+mean of three seeds (spread across seeds in brackets, one standard deviation):
+
+| | E: agent px | X bounce px (cv 9.1) | X straight px (cv 0.37) | A: error / zero | False responses | Slope | R worst px |
+|---|---|---|---|---|---|---|---|
+| Stage 0: over the blob tracker | 0.44 | 2.64 (0.42) | 1.86 (0.39) | 0.444 (0.006) | 25.2% (5.2) | 0.80 | 0.19 |
+| **Stage 2: over the shared detector** | 0.44 | **2.05** (0.05) | **1.32** (0.09) | 0.445 (0.004) | **17.5%** (1.9) | 0.78 | 0.13 |
+| P37 bar, against stage 0's mean | | ≤ 3.30 | ≤ 2.32 | ≤ 0.555 | ≤ 28.2% | | |
+
+- **Stage 2 passes on the three seeds' mean,** and seed by seed: obstacle motion 0.78 and 0.71 times the blob
+  tracker's error, the agent's effect on obstacles 1.00 times, false responses 7.7 points lower. The detector's runs
+  also vary far less from seed to seed (bounce windows 0.05 px against 0.42; false responses 1.9 points against 5.2).
+- **Why the dynamics are better over the learned objects** (labels for diagnosis only): Q3's targets are each slot's
+  chain through the window, and the detector's chains stay on their obstacle longer. Of obstacles found at the history's
+  last frame, the share still on the same obstacle 8 steps on is 97.3% for the detector against 93.2% for the blob
+  tracker. The blob tracker's chains break under bars (2.8% lost, against 0.1%); swaps are about equal (1.1% and 0.9%).
+- **P27's eight bars** (fixed on the standard toy, reported): every run of both meets E, R and X on bounce windows and
+  fails X on straight windows (1.2-2.3 px against 0.87) and A's false responses (over 10%). The hard toy costs both
+  estimators against the standard toy's Q3 (straight 0.55 px, false 9%).
+- **P37 closes, passed.** Learned objects now work where they look alike, on the toy: found 98.2% within 1 px without
+  labels, and the dynamics over them better than over the engineered tracker. What stays engineered is the join
+  (nearest within 5 px), the peak rule, and the agent found by its colour.

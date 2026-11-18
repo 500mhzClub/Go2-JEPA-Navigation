@@ -3,6 +3,7 @@ their chains through a window.
 
     python -m go2nav.data.hard_tracks blobs --data ROOT [--workers N]
     python -m go2nav.data.hard_tracks keypoints --data ROOT --locator LOCATOR.pt
+    python -m go2nav.data.hard_tracks detector --data ROOT --detector DETECTOR.pt     # P37
 
 **The agent** is found by its colour (`models.object_tokens.detect`): the robot knows itself, as the ring world's robot
 token is given.
@@ -140,6 +141,41 @@ def save_keypoints(root, locator, batch=1024, name='keypoints'):
         print(split, name, flush=True)
 
 
+@torch.no_grad()
+def save_detector(root, detector, batch=1024, name='detector', peak=None, frames_for_peak=20000):
+    """P37: the shared detector's detections (`models.shared_detector.detect`), the agent's dropped by its colour.
+    `peak`: the peak threshold (round 1: the module's 0.5); 'auto' (round 2) sets it from the mask itself, without
+    labels: half the median, over `frames_for_peak` training frames drawn once, of each frame's highest smoothed value."""
+    from go2nav.models.keypoints import KeypointConfig
+    from go2nav.models.shared_detector import PEAK, MaskNet, detect, smoothed_peak
+    from go2nav.training.balls import to_pixels
+    device = torch.device('cuda')
+    state = torch.load(detector, map_location='cpu', weights_only=False)
+    net = MaskNet(KeypointConfig(**state['config'])).to(device)
+    net.load_state_dict(state['mask'])
+    net.eval()
+    if peak == 'auto':
+        frames = np.load(Path(root)/'interactive'/'train'/'frames_t2.npy', mmap_mode='r')
+        rng = np.random.default_rng(2026111938)
+        pick = np.sort(rng.choice(frames.shape[0]*frames.shape[1], frames_for_peak, replace=False))
+        flat = frames.reshape(-1, world.SIZE, world.SIZE, 3)
+        highs = torch.cat([smoothed_peak(net(to_pixels(torch.from_numpy(np.asarray(flat[pick[i:i+batch]])).to(device))))
+                           for i in range(0, len(pick), batch)])
+        peak = float(highs.median())/2
+        print(f'peak threshold from the mask: {peak:.4f} (half the median of {len(pick)} training frames\' highest)', flush=True)
+    peak = PEAK if peak is None else float(peak)
+    for split in ('train', 'val'):
+        folder = Path(root)/'interactive'/split
+        frames = np.load(folder/'frames_t2.npy', mmap_mode='r')
+        agent = agents(frames, device)
+        flat, at = frames.reshape(-1, world.SIZE, world.SIZE, 3), agent.reshape(-1, 2)
+        xy = np.concatenate([detect(net(to_pixels(torch.from_numpy(np.asarray(flat[i:i+batch])).to(device))),
+                                    torch.from_numpy(at[i:i+batch]).to(device), slots=SLOTS, peak=peak).cpu().numpy()
+                             for i in range(0, len(flat), batch)]).reshape(*frames.shape[:2], SLOTS, 2)
+        np.savez(folder/f'tracks_{name}.npz', xy=xy.astype(np.float32), agent=agent, peak=np.float32(peak))
+        print(split, name, f'{np.isfinite(xy[..., 0]).sum(-1).mean():.2f} detections a frame', flush=True)
+
+
 def load(root, split, estimator):
     with np.load(Path(root)/'interactive'/split/f'tracks_{estimator}.npz') as z:
         xy, agent = z['xy'], z['agent']
@@ -156,10 +192,18 @@ def main():
     k.add_argument('--data', required=True)
     k.add_argument('--locator', required=True)
     k.add_argument('--name', default='keypoints', help='the tracks file: tracks_<name>.npz (P35: joint)')
+    d = sub.add_parser('detector')
+    d.add_argument('--data', required=True)
+    d.add_argument('--detector', required=True)
+    d.add_argument('--name', default='detector')
+    d.add_argument('--peak', default=None, help="the peak threshold: a number, or 'auto' (P37 round 2); default 0.5")
+    d.add_argument('--batch', type=int, default=1024)
     args = parser.parse_args()
     torch.cuda.set_per_process_memory_fraction(.2)
     if args.command == 'blobs':
         save_blobs(args.data, args.workers)
+    elif args.command == 'detector':
+        save_detector(args.data, args.detector, batch=args.batch, name=args.name, peak=args.peak)
     else:
         save_keypoints(args.data, args.locator, name=args.name)
 
