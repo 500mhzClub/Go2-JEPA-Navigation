@@ -3431,3 +3431,37 @@ minutes). Validation frames of the hard toy, obstacles that exist and are at lea
 - **Round 2,** one change: the threshold is set from the mask itself, without labels. It is half the median, over
   20,000 training frames, of each frame's highest smoothed value. Round 1's trained detector is reused unchanged:
   the threshold applies only after training.
+
+## P37 stage 1, round 2: the shared detector passes, and beats the blob tracker on identical obstacles (18 November)
+
+Round 1's trained detector, with one change: the peak threshold set from the mask itself (0.174: half the median of
+20,000 training frames' highest smoothed values; no labels). Validation frames, obstacles that exist and are at least
+half visible (38,359):
+
+| | Found within 1 px | Mean error of found | Identity over the history |
+|---|---|---|---|
+| Bar | ≥ 95% | ≤ 0.2 px | ≥ 95% |
+| **Shared detector, round 2** | **98.2%** | **0.093 px** | **98.2%** |
+| Blob tracker (engineered) | 95.6% | 0.14 px | 97.0% |
+| P33's learned keypoints, best round | 26.7% | 0.71 px | 28% |
+| P35's jointly trained keypoints | 19.8% | 0.75 px | 24% |
+
+- **Stage 1 passes on every bar.** It also beats the blob tracker, which uses the obstacles' colour, on all three.
+  Learned from frame pairs alone: no labels, no obstacle colours.
+- **Where each finds them** (labels for diagnosis only; shares of the counted obstacles):
+
+| Where | Share | Detector found | Detector error | Blobs found | Blobs error |
+|---|---|---|---|---|---|
+| In the open | 72.9% | 100% | 0.077 px | 100% | 0.126 px |
+| Within 8 px of the agent | 15.5% | 98.4% | 0.102 px | 96.2% | 0.116 px |
+| Partly under a bar | 6.3% | 100% | 0.198 px | 81.4% | 0.403 px |
+| Within 8 px of another obstacle | 5.3% | 70.1% | 0.201 px | 49.0% | 0.252 px |
+
+- The detector is better where the blob tracker is weakest: under bars, where a bar can split a blob, and next to
+  another obstacle, where blobs merge. Touching obstacles remain the main loss (70% found).
+- 1.97 detections a frame against 1.92 obstacles counted. The difference includes obstacles less than half visible,
+  which the measures do not count.
+- One cause, two rounds: P33 and P35 failed because each keypoint had to pick one of several identical obstacles. A
+  shared map does not have to, and since the map is the rebuilding mask it cannot die.
+- **Stage 2 runs next:** Q3 over the detector's tracks, 36,000 steps, seed 0, against stage 0 (Q3 over the blob
+  tracker, training now).
