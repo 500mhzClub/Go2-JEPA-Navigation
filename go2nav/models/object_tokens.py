@@ -48,6 +48,8 @@ class ObjectTokenConfig:
     keypoints: int = 0                   # P30: learned keypoints (`models.keypoints`) in place of the colour detector
     velocity_agent: bool = True          # Q4's second round: False keeps the prior off the agent's token, whose motion
                                          # is its action (the ring world's robot token is given, not predicted)
+    memory: bool = False                 # P32: a memory token for each object, a GRU over the episode so far
+    memory_rolls: bool = False           # P32 round 2: the memory steps on through a rollout's predicted frames
 
 
 def palette(device=None):
@@ -94,7 +96,11 @@ class ObjectTokenJEPA(nn.Module):
         self.projector = MLP(c.width, c.projector_hidden, c.latent)
         self.action_encoder = Embedder(c.action_dim, 10, c.latent, 4)
         self.predictor = ARPredictor(num_frames=c.history, depth=c.predictor_depth, heads=c.predictor_heads,
-                                     dim_head=c.predictor_head_dim, mlp_dim=c.predictor_mlp, dim=c.latent, tokens=c.tokens)
+                                     dim_head=c.predictor_head_dim, mlp_dim=c.predictor_mlp, dim=c.latent,
+                                     tokens=2*c.tokens if c.memory else c.tokens)
+        if c.memory:                     # P32: input [the object's token, the agent's token, the action that led here]
+            self.memory_in = nn.Linear(2*c.latent+c.action_dim, c.latent)
+            self.memory_cell = nn.GRU(c.latent, c.latent, batch_first=True)
         self.pred_proj = MLP(c.latent, c.projector_hidden, c.latent)
         if c.residual:                   # starts as a copy of the last frame
             nn.init.zeros_(self.pred_proj.net[-1].weight)
@@ -111,15 +117,17 @@ class ObjectTokenJEPA(nn.Module):
         phase = u[..., None]*self.scales
         return torch.cat((u, phase.sin().flatten(-2), phase.cos().flatten(-2), seen[..., None].float()), -1)
 
-    def encode(self, pixels, located=None):
-        """Frames (B, T, 3, H, W) in [-1, 1] to the object tokens (B, T, 4, D). `located` (B, T, 4, 2): the locator's
-        positions for these frames, already computed (P30's trainer caches them; the locator is frozen)."""
+    def encode(self, pixels, located=None, seen=None):
+        """Frames (B, T, 3, H, W) in [-1, 1] to the object tokens (B, T, S, D). `located` (B, T, S, 2): the objects'
+        positions for these frames, already computed (P30's trainer caches the locator's; P33's tracks), and `seen`
+        (B, T, S) whether each was found there (all, if not given; a position not found is NaN)."""
         b = pixels.size(0)
         flat = pixels.flatten(0, 1)
-        with torch.no_grad():
+        joint = located is not None and located.requires_grad          # P35: the gradient reaches the locator
+        with torch.set_grad_enabled(joint and torch.is_grad_enabled()):
             if located is not None:
-                xy = located.flatten(0, 1).float()
-                seen = torch.ones(xy.shape[:2], dtype=torch.bool, device=xy.device)
+                xy = torch.nan_to_num(located.flatten(0, 1).float(), nan=self.config.size/2)
+                seen = torch.ones(xy.shape[:2], dtype=torch.bool, device=xy.device) if seen is None else seen.flatten(0, 1)
             elif self.locator is not None:
                 xy = self.locator(flat)[:, self.order]
                 seen = torch.ones(xy.shape[:2], dtype=torch.bool, device=xy.device)
@@ -130,9 +138,29 @@ class ObjectTokenJEPA(nn.Module):
         x = self.mix(x+self.identity)
         return self.projector(x.flatten(0, 1)).unflatten(0, (b, -1, self.config.tokens))
 
-    def predict(self, z, actions):
-        """Tokens (B, T, 4, D) and actions (B, T, 2) to the predicted next tokens at every position (B, T, 4, D)."""
-        out = self.predictor(z, self.action_encoder(actions))
+    def memory_states(self, z, actions):
+        """P32: the tokens of an episode's frames from its start (B, L, 4, D) and the actions between them (B, L-1, 2)
+        to each object's memory after each frame (B, L, 4, D): a GRU over [the object's token, the agent's token, the
+        action that led to the frame (none at the first)]."""
+        b, length, s, _ = z.shape
+        led = torch.cat((torch.zeros_like(actions[:, :1]), actions[:, :length-1]), 1).to(z.dtype)
+        return self.memory_step(z, led)
+
+    def memory_step(self, z, led, state=None):
+        """The memory's GRU over frames z (B, L, S, D) with the actions that led to them (B, L, 2), from `state`
+        (B, S, D; none: the start): each object's memory after each frame (B, L, S, D)."""
+        b, length, s, _ = z.shape
+        x = torch.cat((z, z[:, :, :1].expand(-1, -1, s, -1), led.to(z.dtype)[:, :, None].expand(-1, -1, s, -1)), -1)
+        x = self.memory_in(x).transpose(1, 2).flatten(0, 1)                                          # (B S, L, D)
+        h0 = None if state is None else state.float().flatten(0, 1)[None]
+        out, _ = self.memory_cell(x.float(), h0)
+        return out.unflatten(0, (b, s)).transpose(1, 2).to(z.dtype)
+
+    def predict(self, z, actions, memory=None):
+        """Tokens (B, T, 4, D) and actions (B, T, 2) to the predicted next tokens at every position (B, T, 4, D). With
+        a memory (P32), its tokens at those frames (B, T, 4, D) are attended over beside the objects'."""
+        x = z if memory is None else torch.cat((z, memory.to(z.dtype)), 2)
+        out = self.predictor(x, self.action_encoder(actions))[:, :, :z.size(2)]
         out = self.pred_proj(out.flatten(0, 2)).unflatten(0, out.shape[:3])
         if self.config.velocity:         # none at the first step, which has no earlier frame
             change = z-torch.cat((z[:, :1], z[:, :-1]), 1)
@@ -141,27 +169,33 @@ class ObjectTokenJEPA(nn.Module):
             out = out+change
         return z+out if self.config.residual else out
 
-    def rollout(self, z, actions, steps):
+    def rollout(self, z, actions, steps, memory=None):
         """As `models.lewm.LeWorldModel.rollout`: the history's tokens (B, N, 4, D) and N-1+steps actions to the `steps`
-        predicted frames' tokens (B, steps, 4, D)."""
+        predicted frames' tokens (B, steps, 4, D). With a memory (B, N, 4, D) for the history's frames, the predicted
+        frames keep the last history frame's memory."""
         n = self.config.history
         if z.size(1) != n or actions.size(1) < n-1+steps:
             raise ValueError(f'{n} history frames and {n-1+steps} actions required')
-        sequence, predicted = z, []
+        sequence, predicted, mem = z, [], memory
         for k in range(steps):
-            nxt = self.predict(sequence[:, -n:], actions[:, k:k+n])[:, -1:]
+            nxt = self.predict(sequence[:, -n:], actions[:, k:k+n], None if mem is None else mem[:, -n:])[:, -1:]
             predicted.append(nxt)
             sequence = torch.cat((sequence, nxt), dim=1)
+            if mem is not None and self.config.memory_rolls:      # the GRU steps on over the predicted frame
+                mem = torch.cat((mem, self.memory_step(nxt, actions[:, k+n-1:k+n], mem[:, -1])), 1)
+            elif mem is not None:
+                mem = torch.cat((mem, mem[:, -1:]), 1)
         return torch.cat(predicted, dim=1)
 
 
-def token_losses(model, pixels, actions, *, rollout_steps, sigreg, lam, generator=None, z=None):
+def token_losses(model, pixels, actions, *, rollout_steps, sigreg, lam, generator=None, z=None, memory=None):
     """LeWM's objective on token states (B, T, S, D): `pred` (teacher-forced over the history), `rollout` (the
     autoregressive rollout to the next `rollout_steps` frames) and `sigreg` (every token at every time step a set of
     samples across the batch)."""
     n = model.config.history
     z = model.encode(pixels) if z is None else z
-    pred, rolled = model.predict(z[:, :n], actions[:, :n]), model.rollout(z[:, :n], actions, rollout_steps)
+    pred = model.predict(z[:, :n], actions[:, :n], memory)
+    rolled = model.rollout(z[:, :n], actions, rollout_steps, memory)
     terms = dict(pred=(pred-z[:, 1:n+1]).pow(2).mean(), rollout=(rolled-z[:, n:n+rollout_steps]).pow(2).mean(),
                  sigreg=sigreg(z.float().flatten(1, 2).transpose(0, 1), generator))
     terms['loss'] = terms['pred']+terms['rollout']+lam*terms['sigreg']

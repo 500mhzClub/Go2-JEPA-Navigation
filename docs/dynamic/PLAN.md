@@ -2530,6 +2530,220 @@ window. This is the one engineered part, and it is named in every result.
 **7. Compute:** the locator about 25 minutes; each dynamics model about 40 minutes with its measures; one GPU process
 at a time, under 85% of the R9700's memory.
 
+### P32. A memory for each object on the toy (approved 18 November, step 1 of 4; set out before any run)
+
+**Closed 18 November** (STATUS): both rounds failed the gain bar; the memory did not use what it saw.
+
+**Why.** Action → obstacle is the weakest capability in both worlds, and in both the cause is hidden obstacle state.
+On the toy, most of Q3's false responses are indifferent obstacles the agent approaches: from 3 frames they look like
+ones that will yield or pause (false 59% on those pairs on T2, 16% with the kinds shown, T1). P22 found the same in
+the ring world. A world model that remembers how each object reacted earlier in the episode could infer its kind.
+That is the harness's per-walker memory, absorbed into the model. Branch `feature/object-memory`, from
+`feature/ring-keypoints`. Steps 2-4 (a harder toy, decision relevance with a fixed planner, joint training) follow,
+each set out in turn.
+
+**1. The model:** Q3 [object tokens over the colour detector, residual predictor], T2, with one change: **a memory
+token for each object.**
+- A GRU (one, shared by the objects) runs over every frame of the episode from its start, its input at each frame the
+  object's token, the agent's token and the action; its state after each frame is that object's memory.
+- The predictor attends over 8 tokens a frame: the 4 objects and their 4 memories at that frame. In a rollout the
+  memories stay at their last history state (an obstacle's kind does not change within 16 steps).
+- The loss is Q3's, on the object tokens only. The whole episode is encoded in one call (one set of batch statistics).
+- Read by Q0's head; Q3 (seed 0, 36,000 steps) is the reference without memory.
+
+**2. Measures:** P27's, plus action → obstacle split by whether the obstacle's kind was **shown before the history**
+(the agent came within the reaction radius of it before the history's first frame: 52% of obstacle-moments on the
+validation set).
+- The key pairs: quiet pairs (true response under 0.5 px) where the agent comes within the reaction radius in either
+  tape without contact. Their false-response rate, shown and not shown.
+- Beside them, Oracle-S with kinds hidden (T2) and shown (T1) on the same split: what knowing the kind is worth.
+
+**3. Bars** (T2, k = 8, seed 0; three seeds if it looks like passing, read on the mean):
+- **Gain:** on the key quiet pairs whose kind was shown, false responses at most half Q3's on the same pairs.
+- **No loss:** P27's eight bars still met; on responsive pairs whose kind was shown, response error over zero-response
+  no worse than Q3's.
+- Reported, no bar: the same on pairs whose kind was not shown (where memory should not help).
+- Two rounds at most.
+
+**4. Compute:** Q3 trained in 25 minutes; encoding whole episodes costs more, and the step count is set from the
+measured speed so that a run with its measures fits 45 minutes, with Q3 rescored at the same step count if it differs.
+- Measured: 11.3 steps a second with memory, so both models train 24,000 steps (Q3 retrained at that count as the
+  reference); seed 0 each.
+
+### P33. A harder toy: identity from motion (approved 18 November, step 2 of 4; set out before any run)
+
+**Stopped 18 November** (STATUS): stage 1 failed in both rounds (found 4.3% and 26.7% of the obstacles within 1 px);
+stage 2 not run.
+
+**Why.** P31 failed in the ring world because learned keypoints on the scan were about a walker's step out and lost
+identity without memory; each run there takes 40 minutes. P33 brings the toy's difficulties nearer the ring world's,
+so such failures can be found and worked on in minutes. Branch `feature/object-memory` (built while P32 ran).
+
+**1. The world** (`sim.reactive_balls`, `hard=True`; the standard variant unchanged, checked byte for byte): one
+colour for every obstacle, so identity can come only from motion; 1-3 obstacles an episode; two grey bars over them
+(4 x 16-28 px). The agent stays red. 2,000 training and 200 validation episodes with exact branches
+(outputs/data/reactive_balls_hard).
+
+**2. Two estimators of the obstacles,** up to 6 a frame, joined frame to frame by the nearest within 5 px
+(`data.hard_tracks`):
+- **blobs** (engineered, the toy's ring tracker): connected regions of the obstacles' colour, their weighted centres;
+- **keypoints** (learned): P30's locator (K = 6, P30 round 2's schedule) trained on pairs of hard frames.
+The agent is found by its colour in both.
+
+**3. The dynamics:** Q3 [object tokens, residual predictor] over each estimator, trained identically (36,000 steps or
+as the 45 minutes allow, the same for both), a token for the agent and each of the 6 slots, the loss on the slots
+still followed (`training.hard_tokens`). If P32's memory passes, it is added to both.
+
+**4. Measures** (`eval.hard_bench`; labels for scoring only):
+- **stage 1:** of the obstacles that exist and are at least half visible, the share with a detection within 1 px;
+  the found detections' mean error; identity over the 3 history frames. The blob tracker reads 95.6%, 0.14 px and
+  97.0%.
+- **stage 2:** P27's measures, each obstacle given the slot nearest it at t0 within 1.5 px (left out if none), read by
+  a per-token MLP head.
+
+**5. Bars** (set before any run):
+- **Stage 1, the learned keypoints:** found at least 95%; mean error at most 0.2 px (a sixth of a typical step, P31's
+  lesson); identity at least 95%.
+- **Stage 2,** only if stage 1 passes: over the keypoints, X (bounce and straight windows) and A's error over
+  zero-response within 1.25 times those over the blobs at k = 8, and false responses at most 3 points above. P27's
+  eight bars reported for both.
+- Two rounds at most a stage.
+
+### P34. Do the toy's forecasts make better decisions? (approved 18 November, step 3 of 4; set out before any JEPA run)
+
+**Done 18 November** (STATUS): success 53.5% passes (bar 52.8%); contacts 0.064 a task fail (bar 0.034).
+Corrected 18 November: the references had run on other tasks (50 a batch against the JEPA's 100); on the JEPA's
+tasks the bars read 52.8% and 0.028, and the verdicts stand (STATUS, docs/REVIEW_2026-11-18.md).
+
+**Why.** P27-P33 measure forecasts. The README asks whether a JEPA's representations carry decision-relevant
+information. P34 puts each forecaster under one fixed planner on a task that needs the obstacles, and changes nothing
+else: the README's method (one harness, only the forecast differs). The planner is not tuned (REVIEW_2026-11-14,
+rabbit hole 3).
+
+**1. The task** (`eval.toy_planning`): the standard world, kinds hidden. The agent starts at the left edge and must
+reach the goal straight across within 28 steps (19 at full speed); the three obstacles start within 6 px of that line,
+between x = 20 and 44 px. The score is success without any contact, over 1,000 tasks drawn once.
+- **Calibrated before any JEPA run** (200 tasks; truth = the simulator from a copy of the state, kinds and timers
+  included): limit 24: constant velocity 22%, truth 26%; 28: 52.5% and 65%; 32: 74.5% and 76%; 40: 87% and 90.5%.
+  28 steps is where perfect foresight is worth most, so it is used. Even there truth fails a third of the tasks: the
+  planner and the clock limit most outcomes, as P17 and P22 found in the ring world.
+
+**2. The planner,** fixed: CEM over 12-step tapes (64 a round, 3 rounds, 8 elites, norms clipped to 3 px), replanning
+every step; a tape's cost is the predicted distance to the goal at its end plus 10 times the summed shortfall of each
+predicted gap under 7.5 px.
+
+**3. Forecasters:** truth (the ceiling); Oracle-S (T2's, true positions); constant velocity (the agent moved by its
+actions); the best JEPA from P32 (Q3, or Q3 with memory if it passed), from frames, read by its head.
+
+**4. Bars** (set before the JEPA's run):
+- the JEPA's success without contact at least constant velocity's plus half the gap from constant velocity to truth;
+- its contacts per task no more than constant velocity's.
+- Reported beside it: Oracle-S, and success alone.
+
+### P35. Joint training: the world model's loss reaches the locator (approved 18 November, step 4 of 4; set out before any run)
+
+**Stopped 18 November after round 1** (STATUS): 19.8% found against the start's 26.7%; the prediction loss rewards
+predictable tokens, not bound ones, and the start's dead keypoints stayed dead.
+
+**Why.** On the hard toy (P33), keypoints learned by reconstruction alone did not bind identical obstacles (4.3% and
+26.7% found within 1 px). P35 asks whether the world model's own loss can teach the locator: a keypoint that jumps
+between obstacles makes its token unpredictable, so the prediction loss should favour keypoints that follow one
+object. It is the "absorb into the world model" step for estimation, and the user's standing rule for joint training.
+
+**1. The model** (`training.joint_keypoints`): P33 round 2's locator (K = 6, 2-px separation throughout) as the start,
+and a new Q3 [object tokens, residual predictor] over its keypoints (the agent by colour). Trained together:
+- the locator's reconstruction loss on frame pairs, as before (it keeps keypoints on what moves, so they cannot hide
+  on the static bars, where tokens would be trivially predictable);
+- Q3's loss on windows of 3 history frames and 4 future frames, the tokens built from the locator's keypoints with
+  the gradient passing through the crops and positions into the locator. Chains join keypoints frame to frame by the
+  nearest within 5 px (P33), the joins themselves without gradient.
+- One change from P33: the prediction loss reaches the locator.
+
+**2. Measures:** P33's stage 1 on the jointly trained locator's keypoints; if it passes, P33's stage 2 with this
+model's dynamics against Q3 over the blob tracker.
+
+**3. Bars:** P33's, unchanged (found ≥ 95%, mean error ≤ 0.2 px, identity ≥ 95%; then the dynamics within 1.25 times
+the blobs' and false responses at most 3 points above). Two rounds at most.
+
+**4. Compute:** the step count set from the measured speed so a run with its measures fits 45 minutes.
+
+### P34b. Each forecaster's margin from its own errors (approved 18 November; set out before any run)
+
+**Done 18 November, failed** (STATUS): own margins halve every forecaster's success; the JEPA's contacts fall
+(0.064 to 0.044) but its success without contact is 25.6% against a bar of 34.2% (33.2% with the simulator on the
+same tasks).
+
+**Why.** In P34 the JEPA completed more tasks than constant velocity (53.5% against 48.7% without contact) but touched
+obstacles twice as often (0.064 against 0.034 a task): the planner trusted every forecast equally, to the same 7.5 px.
+A forecaster that is less sure near the agent should keep further away.
+
+**One change to the planner,** applied identically to every forecaster and not tuned afterwards: the clearance at step
+k of a tape is 7.5 px plus that forecaster's own error at k, measured once beforehand.
+- **The error** (`eval.toy_planning calibrate`): on the standard toy's validation windows (kinds hidden), for each
+  obstacle within 24 px (twice the reaction radius) of the agent at the window's last frame, under the recorded
+  actions: the error of the predicted gap between agent and obstacle (both predicted, as the planner uses them),
+  its 90th percentile at each k from 1 to 12. Labels serve only this calibration.
+- The simulator's error is zero, so its planning is unchanged. Constant velocity, Oracle-S and the JEPA (Q3, as in
+  P34) are recalibrated and rerun on P34's 1,000 tasks.
+
+**Bars** (set before any run): the JEPA, with its margin,
+- touches obstacles no more often than constant velocity with its margin;
+- succeeds without contact at least as often as constant velocity with its margin plus half the gap to the simulator
+  (56.9%).
+- Reported beside them: every forecaster before and after. One round.
+
+### P36. Temperament from the response itself (approved 18 November, option 1 of docs/REVIEW_2026-11-18.md; set out before any run)
+
+**Stopped 18 November after round 1** (STATUS): the gain bar failed (43.4% against 21.9%; Q3 43.8%), the no-loss bar
+failed on straight windows (1.10 px against 0.90), and in planning success passed (55.4%) but contacts failed (0.116
+against 0.028). A probe reads the kind from the memory at 49% where shown, against 96% from the true motion.
+
+**Capability tested:** 2, action → obstacle: an obstacle's response to the agent when its kind is not drawn.
+
+**Why.** Q3 gives part of a reaction to every obstacle the agent approaches: right on average, false for the
+indifferent third (P27). On P34's tasks its extra contacts come only in tasks with an indifferent obstacle (STATUS, 18
+November). P32's memory could have told the kinds apart but was not used, since the prediction loss barely depends on
+the kind (the review's point 1). The paired branch term [the error of the predicted difference between two action
+tapes' futures from one moment, against the true difference, on the exact branches] makes the response itself the
+target. Where the agent leaves an obstacle alone under both tapes the true difference is zero, so a false response is
+penalised directly; for a reactive one the target is the reaction. Branch `feature/object-memory`.
+
+**1. The model** (recipe `q3mb`): P32 round 2 (`q3m2`: Q3 with a memory token for each object, the GRU stepping on
+through rollouts), with one change: R3's branch terms added to its loss.
+- Each step's 64 episodes are encoded whole and their windows drawn exactly as `q3m2` draws them. For 32 of those
+  episodes: one of the episode's branch moments and two different tapes of its four. The history is the episode's 3
+  frames to the branch point, with their memory; each tape is rolled out 8 steps, the memory stepping on; the targets
+  are the tape's own encoded frames.
+- Terms: `branch`, the MSE of each tape's rollout against its future (the mean of the two); `paired`, the MSE of
+  (rollout A - rollout B) against (future A - future B). Both weighted 1, as in R3. The episodes' and the branches'
+  frames are encoded in one call (one set of BatchNorm statistics).
+- Read by Q0's head (`eval.recipe_bench score --head mlp`).
+
+**2. Measures:** P32's (P27's eight bars; action → obstacle split by whether the obstacle's kind was shown before the
+history), then P34's planning task on the JEPA's 1,000 tasks (100 a batch), the memory running over every frame since
+the task's start.
+
+**3. Bars** (T2, k = 8, seed 0), against Q3 at 24,000 steps (P32's reference), whatever P36's step count:
+- **Gain:** on the quiet pairs the agent comes near without contact whose kind was shown, false responses at most
+  21.9% (half Q3's 43.8%).
+- **No loss:** P27's eight bars met; on responsive pairs whose kind was shown, error over zero-response at most 0.424
+  (Q3's).
+- **Decisions,** run whatever the bench shows (the review's evidence is in the contacts): contacts a task at most
+  constant velocity's 0.028, and success without contact at least P34's bar of 52.8%, on the same tasks.
+- Reported: the pairs whose kind was not shown, and `q3m2` beside it (the branch terms' effect alone).
+- One seed; three if the bench looks like passing. Two rounds at most.
+
+**4. What could defeat it, known beforehand:**
+- On P34's tasks the agent crosses once, so an obstacle's kind is seldom shown before the approach and the memory can
+  help there little; a fall in contacts would come mostly from the paired term itself.
+- Training holds 6,000 branch moments; drawn 32 a step they are seen many times over and may be over-fitted (the
+  validation measures would show it).
+- R3's branch terms collapsed patch-token encoders (P27). Object tokens differ; the trainer logs both terms.
+
+**5. Compute:** `q3m2` trained at 10.9 steps a second. The branch part's cost is measured first, and the step count
+set so that the run with its measures fits 45 minutes; the planning run about 25-35 minutes. One GPU process at a
+time, under 85% of the R9700's memory.
+
 ## Compute and order
 
 | Phase | Compute |

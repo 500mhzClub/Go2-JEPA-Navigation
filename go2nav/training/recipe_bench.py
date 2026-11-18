@@ -12,7 +12,9 @@ r2, r1 with each patch token's prediction error weighted by the change of its ta
 r3, r2 with half of each batch drawn from the exact branches: a quarter as many moments under two tapes each, with
 `branch_losses`' terms (r3b, its second round: those terms carry r2's weights too); r4, the object-token JEPA (`models.object_tokens`); r5, r4 with 16 history frames; q3 (P27b), r4 with a residual predictor; q4, q3 with a constant-velocity prior in latent space
 (q4b: on the obstacles' tokens only); q3k (P30), q3 over learned keypoints
-(`training.keypoints`; the locator's file given as `--set locator=PATH`).
+(`training.keypoints`; the locator's file given as `--set locator=PATH`); q3m (P32), q3 with a memory token for each
+object (whole episodes encoded, `episode_memory`); q3m2, its second round: the memory steps on through rollouts; q3mb
+(P36), q3m2 with R3's branch terms at a branch moment of half its episodes (`episode_memory_branches`).
 
 **Training:** AdamW, warm-up then cosine, clip 1, bf16 autocast (SIGReg in float32, 128 projections), on the GPU only;
 6,000 steps at batch 64 (a patch-token step costs 0.2-0.35 s, and a run with its measures must fit 45 minutes). A step
@@ -49,7 +51,10 @@ RECIPES = dict(r0=dict(), r1=dict(model=dict(grid=(8, 8))), r2=dict(model=dict(g
                r5=dict(kind='objects', model=dict(history=16)), q3=dict(kind='objects', model=dict(residual=True)),
                q4=dict(kind='objects', model=dict(residual=True, velocity=True)),
                q4b=dict(kind='objects', model=dict(residual=True, velocity=True, velocity_agent=False)),
-               q3k=dict(kind='objects', model=dict(residual=True, keypoints=4)))
+               q3k=dict(kind='objects', model=dict(residual=True, keypoints=4)),
+               q3m=dict(kind='objects', model=dict(residual=True, memory=True)),
+               q3m2=dict(kind='objects', model=dict(residual=True, memory=True, memory_rolls=True)),
+               q3mb=dict(kind='objects', model=dict(residual=True, memory=True, memory_rolls=True), branches=dict(paired=1.)))
 
 
 def model_config(**overrides):
@@ -155,6 +160,48 @@ def branch_losses(model, history, futures, tapes, floor=None):
                 paired=cls((ra-rb)-(za-zb))+grid((ra-rb)-(za-zb), (wa+wb)/2))
 
 
+def episode_memory(model, windows, episodes, starts, length):
+    """P32: the episodes' every frame encoded in one call, each object's memory over them, and the windows starting at
+    `starts`: (tokens (B, length, 4, D), actions (B, length-1, 2) over 3 px, memory of the history frames (B, H, 4, D))."""
+    pixels = to_pixels(windows.frames[episodes])                                       # (B, T, 3, 64, 64)
+    z_all = model.encode(pixels)
+    actions_all = windows.actions[episodes]
+    memory = model.memory_states(z_all, actions_all)
+    steps = starts[:, None]+torch.arange(length, device=starts.device)
+    rows = torch.arange(len(episodes), device=starts.device)[:, None]
+    h = model.config.history
+    return z_all[rows, steps], actions_all[rows, steps[:, :-1]], memory[rows, steps[:, :h]]
+
+
+def episode_memory_branches(model, windows, branchset, episodes, starts, length, count, generator):
+    """P36: `episode_memory`'s windows, and R3's branch terms (`branch_losses`) at one branch moment of each of the first
+    `count` episodes under two different tapes. A branch's history is the episode's 3 frames to the branch point, with
+    their memory, which steps on through each tape's rollout (`memory_rolls`). The episodes' and the tapes' frames are
+    encoded in one call. Returns `episode_memory`'s three and the terms {branch, paired}."""
+    device = starts.device
+    draw = lambda high: torch.randint(0, high, (count,), generator=generator, device=device)
+    eb = episodes[:count]
+    m, a = draw(branchset.frames.shape[1]), draw(len(world.TAPES))
+    b = (a+1+draw(len(world.TAPES)-1)) % len(world.TAPES)
+    pixels = to_pixels(windows.frames[episodes])                                       # (B, T, 3, 64, 64)
+    futures = [to_pixels(branchset.frames[eb, m, x]) for x in (a, b)]                   # (count, steps, 3, 64, 64)
+    (n, t), steps = pixels.shape[:2], futures[0].shape[1]
+    z = model.encode(torch.cat([pixels.flatten(0, 1)]+[f.flatten(0, 1) for f in futures])[None])[0]
+    z_all = z[:n*t].unflatten(0, (n, t))
+    za, zb = (z[n*t+i*count*steps:n*t+(i+1)*count*steps].unflatten(0, (count, steps)) for i in (0, 1))
+    actions_all = windows.actions[episodes]
+    memory = model.memory_states(z_all, actions_all)
+    h = model.config.history
+    rows = torch.arange(n, device=device)[:, None]
+    window = starts[:, None]+torch.arange(length, device=device)
+    history = branchset.t0[eb, m][:, None]+torch.arange(1-h, 1, device=device)
+    zh, mh, past = z_all[rows[:count], history], memory[rows[:count], history], actions_all[rows[:count], history[:, :-1]]
+    ra, rb = (model.rollout(zh, torch.cat((past, branchset.actions[eb, m, x]), 1), steps, mh) for x in (a, b))
+    terms = dict(branch=((ra-za).float().pow(2).mean()+(rb-zb).float().pow(2).mean())/2,
+                 paired=((ra-rb)-(za-zb)).float().pow(2).mean())
+    return z_all[rows, window], actions_all[rows, window[:, :-1]], memory[rows, window[:, :h]], terms
+
+
 def save(path, model, meta, extra=None):
     state = dict(config=asdict(model.config), model_state_dict=model.state_dict(), **meta, **(extra or {}))
     partial = Path(str(path)+'.partial')
@@ -239,13 +286,28 @@ def train(root, variant, recipe, out, seed=0, overrides=None):
             located = torch.cat([model.locator(to_pixels(flat[i:i+2048]))[:, model.order]
                                  for i in range(0, len(flat), 2048)]).unflatten(0, trainset.frames.shape[:2])
 
+    memory_model = options.get('kind') == 'objects' and getattr(model.config, 'memory', False)
+
     def objective(index, offset=0):
         g = torch.Generator(device=device).manual_seed(run_seed*10_000_000+offset+index)
-        drawn = trainset.draw(cfg['batch']//2 if branchset else cfg['batch'], length, g, located)
+        drawn = trainset.draw(cfg['batch']//2 if branchset and not memory_model else cfg['batch'], length, g, located)
         pixels, actions = drawn[:2]
         shared = dict(rollout_steps=cfg['rollout'], sigreg=sigreg, lam=cfg['sigreg_weight'], generator=g)
         with torch.autocast('cuda', dtype=torch.bfloat16, enabled=cfg['bf16']):
-            if options.get('kind') == 'objects':
+            if memory_model:    # the windows drawn as q3m2 draws them; P36's branches after them
+                e = torch.randint(0, trainset.episodes, (cfg['batch'],), generator=g, device=device)
+                s = torch.randint(0, trainset.length-length+1, (cfg['batch'],), generator=g, device=device)
+                if branchset:
+                    z, actions, memory, extra = episode_memory_branches(model, trainset, branchset, e, s, length,
+                                                                        cfg['batch']//2, g)
+                else:
+                    (z, actions, memory), extra = episode_memory(model, trainset, e, s, length), None
+                terms = token_losses(model, None, actions, z=z, memory=memory, **shared)
+                if extra:
+                    terms.update(extra)
+                    terms['loss'] = terms['loss']+terms['branch']+options['branches']['paired']*terms['paired']
+                return terms
+            elif options.get('kind') == 'objects':
                 z = model.encode(pixels, drawn[2]) if located is not None else None
                 terms = token_losses(model, pixels, actions, z=z, **shared)
             elif 'motion_floor' in options:

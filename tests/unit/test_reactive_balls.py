@@ -236,3 +236,121 @@ def test_the_weighted_branch_terms_run_on_a_patch_grid_model():
     cls_and_grid = lambda d: d[:, :, 0].pow(2).mean()+d[:, :, 1:].pow(2).mean()
     zh, za = model.encode(history), model.encode(futures[0])
     assert torch.isfinite(flat['branch']) and float(cls_and_grid(model.rollout(zh, tapes[0], 8)-za)) > 0
+
+
+def test_the_memory_reads_only_the_past_and_the_bench_splits_by_what_was_shown():
+    import pytest
+    torch = pytest.importorskip('torch')
+    from go2nav.training import recipe_bench as training
+    model = training.build('q3m').eval()
+    z, actions = torch.randn(2, 20, 4, 128), torch.randn(2, 19, 2)
+    m = model.memory_states(z, actions)
+    z2 = z.clone(); z2[:, 12:] += 5.                                        # change the future of frame 11
+    m2 = model.memory_states(z2, actions)
+    assert m.shape == (2, 20, 4, 128) and torch.allclose(m[:, :12], m2[:, :12], atol=1e-6) and not torch.allclose(m[:, 12], m2[:, 12])
+    out = model.rollout(z[:, :3], torch.zeros(2, 10, 2), 8, m[:, :3])
+    assert out.shape == (2, 8, 4, 128)
+    rb, bench = bench_of(episodes=12, frames=60, moments=2)
+    row = rb.measure(rb.constant_velocity, bench, draws=50)
+    parts = row['A'][8]
+    assert parts['shown']['pairs']+parts['hidden']['pairs'] == parts['all']['pairs']
+    assert parts['shown_near']['pairs'] <= parts['shown']['pairs']
+
+
+def test_the_jepa_forecaster_reads_each_object_once_with_and_without_memory():
+    import pytest
+    torch = pytest.importorskip('torch')
+    from go2nav.training import recipe_bench as training
+    rb, bench = bench_of(episodes=4, frames=40, moments=1)
+    bench.frames = torch.from_numpy(world.episodes(np.random.default_rng(11), 4, 40, moments=1)[0]['frames'])
+    bench.actions = torch.from_numpy(bench.labels['actions'])/3
+    for recipe in ('q3', 'q3m', 'q3m2'):
+        model = training.build(recipe).eval()
+        head = rb.build_head(model.config, 'mlp').eval()
+        out = rb.jepa_forecaster(model, head)(bench, np.array([0, 1]), np.array([5, 20]), np.zeros((2, 16, 2)))
+        assert out.shape == (2, 16, 4, 2) and np.isfinite(out).all()
+
+
+def test_a_rolling_memory_continues_the_gru_exactly():
+    import pytest
+    torch = pytest.importorskip('torch')
+    from go2nav.training import recipe_bench as training
+    model = training.build('q3m2').eval()
+    z, actions = torch.randn(2, 12, 4, 128), torch.randn(2, 11, 2)
+    whole = model.memory_states(z, actions)
+    first = model.memory_states(z[:, :8], actions[:, :7])
+    rest = model.memory_step(z[:, 8:], actions[:, 7:11], first[:, -1])
+    assert torch.allclose(torch.cat((first, rest), 1), whole, atol=1e-5)
+
+
+def awake(model):
+    """The zero-initialised parameters (AdaLN-zero's modulation, the residual's last layer) drawn small, as after some
+    training: at initialisation the memory cannot reach the predictions, so neither its effect nor its gradient shows."""
+    import torch
+    with torch.no_grad():
+        for p in model.parameters():
+            if not p.abs().sum():
+                p.normal_(0., .02)
+    return model
+
+def test_the_memory_branch_terms_keep_q3m2s_windows_and_read_the_branch_history_from_the_episode():
+    import pytest
+    torch = pytest.importorskip('torch')
+    from types import SimpleNamespace
+    from go2nav.training import recipe_bench as training
+    from go2nav.training.balls import to_pixels
+    ep, branch = world.episodes(np.random.default_rng(6), 4, 40, moments=2, branch_frames=True)
+    windows = SimpleNamespace(frames=torch.from_numpy(ep['frames']), actions=torch.from_numpy(ep['actions'])/3)
+    branchset = SimpleNamespace(frames=torch.from_numpy(branch['frames'][:, :, :, :8]),
+                                t0=torch.from_numpy(branch['t0'].astype(np.int64)),
+                                actions=torch.from_numpy(branch['actions'][:, :, :, :8])/3)
+    model = training.build('q3mb').eval()                      # eval: the tokens do not depend on the batch's company
+    e, s = torch.tensor([0, 1, 2, 3]), torch.tensor([0, 5, 10, 20])
+    z, actions, memory = training.episode_memory(model, windows, e, s, 11)
+    g = torch.Generator().manual_seed(0)
+    z2, actions2, memory2, terms = training.episode_memory_branches(model, windows, branchset, e, s, 11, 2, g)
+    assert torch.allclose(z, z2, atol=1e-5) and torch.equal(actions, actions2) and torch.allclose(memory, memory2, atol=1e-5)
+    assert set(terms) == {'branch', 'paired'} and all(torch.isfinite(v) and v > 0 for v in terms.values())
+    # by hand for the first episode: its moment and tapes as drawn, the history from the episode, the memory rolling on
+    g = torch.Generator().manual_seed(0)
+    m, a = torch.randint(0, 2, (2,), generator=g), torch.randint(0, 4, (2,), generator=g)
+    b = (a+1+torch.randint(0, 3, (2,), generator=g)) % 4
+    t0 = int(branchset.t0[0, m[0]])
+    z_all = model.encode(to_pixels(windows.frames[:1]))
+    mem = model.memory_states(z_all, windows.actions[:1])
+    past = windows.actions[:1, t0-2:t0]
+    roll = lambda x: model.rollout(z_all[:, t0-2:t0+1], torch.cat((past, branchset.actions[:1, m[0], x]), 1), 8,
+                                   mem[:, t0-2:t0+1])
+    future = lambda x: model.encode(to_pixels(branchset.frames[:1, m[0], x]))
+    assert float(a[0]) != float(b[0])
+    ra, rb_ = roll(int(a[0])), roll(int(b[0]))
+    za, zb = future(int(a[0])), future(int(b[0]))
+    paired_first = ((ra-rb_)-(za-zb)).pow(2).mean()
+    assert torch.isfinite(paired_first) and paired_first > 0
+    model.train()                                              # and it trains, once awake
+    awake(model)
+    *_, terms = training.episode_memory_branches(model, windows, branchset, e, s, 11, 2, torch.Generator().manual_seed(1))
+    (terms['branch']+terms['paired']).backward()
+    assert model.memory_cell.weight_hh_l0.grad is not None and model.memory_cell.weight_hh_l0.grad.abs().sum() > 0
+
+
+def test_the_planning_forecaster_gives_a_memory_the_whole_task_and_the_others_three_frames():
+    import pytest
+    torch = pytest.importorskip('torch')
+    from go2nav.eval import recipe_bench as rb
+    from go2nav.eval import toy_planning as tp
+    from go2nav.training import recipe_bench as training
+    ep, _ = world.episodes(np.random.default_rng(3), 2, 9)
+    tapes = np.random.default_rng(0).uniform(-3, 3, (2, 5, 12, 2))
+    history = dict(frames=ep['frames'][:, -3:], actions=ep['actions'][:, -2:], episode_frames=ep['frames'],
+                   episode_actions=ep['actions'])
+    for recipe, uses_the_past in (('q3', False), ('q3m2', True)):
+        model = awake(training.build(recipe).eval())
+        forecast = tp.jepa_forecast(model, rb.build_head(model.config, 'mlp').eval(), torch.device('cpu'), chunk=4)
+        assert forecast.memory == uses_the_past
+        agent, obstacles = forecast(history, tapes)
+        assert agent.shape == (2, 5, 12, 2) and obstacles.shape == (2, 5, 12, 3, 2)
+        earlier = dict(history, episode_frames=ep['frames'].copy())
+        earlier['episode_frames'][:, :3] = 0                          # change only frames before the last three
+        agent2, obstacles2 = forecast(earlier, tapes)         # without a memory, bit for bit the same
+        assert (np.array_equal(agent, agent2) and np.array_equal(obstacles, obstacles2)) != uses_the_past

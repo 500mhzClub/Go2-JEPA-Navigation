@@ -28,7 +28,7 @@ from go2nav.training.balls import schedule, to_pixels
 
 DEFAULTS = dict(steps=10000, batch=64, lr=1e-3, warmup=500, gap=(1, 8), keypoints=4, sigma=2., log_every=250,
                 checkpoint_every=2000, memory_fraction=.3, policy='interactive', assignment_frames=20000,
-                separation_weight=.01, sigma_start=8., anneal=.5, separation_fades=False)
+                separation_weight=.01, sigma_start=8., anneal=.5, separation_fades=False, separation_scale=4.)
 
 
 @torch.no_grad()
@@ -100,7 +100,7 @@ def train(root, out, variant='t2', seed=0, overrides=None):
         wide = max(0., 1-step/(cfg['anneal']*cfg['steps']))                     # 1 at the start, 0 once narrowed
         sigma = cfg['sigma']+(cfg['sigma_start']-cfg['sigma'])*wide
         rebuilt, kp = model(source, target, sigma)
-        rebuild, apart = F.mse_loss(rebuilt, target), separation(kp)
+        rebuild, apart = F.mse_loss(rebuilt, target), separation(kp, cfg['separation_scale'])
         loss = rebuild+cfg['separation_weight']*(wide if cfg['separation_fades'] else 1.)*apart
         optimiser.zero_grad(set_to_none=True)
         loss.backward()

@@ -3146,3 +3146,265 @@ objects come from; read by Q0's head; on F004's validation scenes, on the walker
   true future positions and the layout's walls; the matched comparison here is the fair one for estimation.
 - **P31 closes on this result.** Learned from scan pairs without a layout, keypoints find 90% of the tracker's walkers,
   but are not precise or steady enough for dynamics.
+
+## P32 round 1: a memory token for each object; false responses fall, but not by what was seen (18 November)
+
+Q3 with a memory token for each object (a GRU over the episode so far; frozen at the last history frame in a
+rollout), against Q3 retrained at the same 24,000 steps. T2, seed 0, Q0's head, k = 8:
+
+| | E: agent | X bounce | X straight | A: error / zero | False | Slope | P27's eight bars |
+|---|---|---|---|---|---|---|---|
+| Q3, 24,000 steps | 0.45 | 0.82 | 0.55 | 0.45 | 8.5% | 0.78 | all met |
+| Q3 with memory | 0.47 | 1.67 | 0.76 | 0.46 | 6.5% | 0.77 | all met |
+
+| False responses on quiet pairs the agent comes near (no contact) | Pairs | Q3 | With memory | Bar |
+|---|---|---|---|---|
+| The obstacle's kind shown before the history | 1,312 | 43.8% | 33.2% | ≤ 21.9% |
+| Not shown | 533 | 53.5% | 44.7% | (reported) |
+
+- **It fails the gain bar** (33.2% against 21.9%), and the no-loss bar narrowly: on responsive pairs whose kind was
+  shown, error over zero-response is 0.438 against 0.424.
+- **The fall is not from what the memory saw:** false responses fall about as much where the kind was never shown.
+- **It costs obstacle progression from the first step** (straight windows at k = 1: 0.197 against 0.104 px; bounce
+  windows at k = 16: 6.31 against 2.08).
+- **Why, measured:** not over-fitting (training and validation objectives match). With memory the teacher-forced loss
+  halves (0.0042 against 0.0092) while the rollout loss rises (0.030 against 0.028 on validation): in teacher-forced
+  steps each frame's memory is current, in a rollout it was frozen at the last history frame, so the predictor leans
+  on a memory that goes stale.
+- **Round 2,** one change: the memory steps on through the rollout's predicted frames (the GRU continued exactly,
+  tested).
+
+## P33 stage 1, round 1: on identical obstacles the learned keypoints collapse (18 November)
+
+The hard toy (PLAN P33): one colour for every obstacle, 1-3 of them, two grey bars. Validation frames, obstacles that
+exist and are at least half visible (38,359):
+
+| | Found (within 1 px) | Mean error of the found | Identity over the history |
+|---|---|---|---|
+| Bar (learned keypoints) | ≥ 95% | ≤ 0.2 px | ≥ 95% |
+| Blob tracker (engineered) | 95.6% | 0.14 px | 97.0% |
+| Learned keypoints, round 1 (P30's schedule, K = 6) | 4.3% | 0.84 px | 32% |
+
+- **Why, measured:** two of the six keypoints sit near obstacles (one within 2 px in 99% of frames) but about 0.9 px
+  off; none sits on the agent. The rebuilding loss rose from 0.0039 to 0.0094 as the masks narrowed, while the
+  separation term climbed to 0.57: once the separation faded, the keypoints converged. With colours, each keypoint
+  picks one; with identical obstacles nothing tells them apart. P30's fade suited coloured discs only.
+- **Round 2,** one change: the separation stays on throughout, at 2 px (pairs within a disc's width), not 4 px.
+
+## P32 round 2, and P32 closed: the memory does not use what it saw (18 November)
+
+Round 2: the memory steps on through the rollout's predicted frames. T2, seed 0, 24,000 steps, Q0's head:
+
+| | False, near, kind shown (1,312) | False, near, not shown (533) | Error / zero, responsive, shown | X straight k = 1 | X bounce k = 8 | X bounce k = 16 |
+|---|---|---|---|---|---|---|
+| Bar | ≤ 21.9% | | ≤ 0.424 | | | |
+| Q3, no memory | 43.8% | 53.5% | 0.424 | 0.104 | 0.82 | 2.08 |
+| Round 1, memory frozen in rollouts | 33.2% | 44.7% | 0.438 | 0.197 | 1.67 | 6.31 |
+| Round 2, memory steps on | 47.6% | 52.2% | 0.453 | 0.139 | 0.96 | 2.03 |
+| Oracle-S, kinds shown (T1) | 16.4% | 4.5% | | | | |
+
+- **Round 2 fails both bars.** Updating the memory removes round 1's damage to progression (bounce windows at k = 16:
+  2.03 against 2.08 without memory), and with it round 1's fall in false responses. That fall was the stale memory
+  damping every predicted reaction, not a memory of the kinds.
+- **P32 closes:** a GRU over the episode's tokens, trained only by the prediction loss, did not learn to tell an
+  indifferent obstacle from a reactive one by how it reacted earlier. P34 uses Q3 without memory (36,000 steps, Q0's
+  head), as PLAN P34 says.
+
+## P33 stage 1, round 2, and P33 stopped: learned keypoints do not bind identical obstacles (18 November)
+
+| Validation, obstacles at least half visible (38,359) | Found within 1 px | Within 2 px | Within 3 px | Mean error of found | Identity |
+|---|---|---|---|---|---|
+| Bar (learned) | ≥ 95% | | | ≤ 0.2 px | ≥ 95% |
+| Blob tracker (engineered) | 95.6% | | | 0.14 px | 97.0% |
+| Round 1 (separation fades) | 4.3% | 65.2% | 84.9% | 0.84 px | 32% |
+| Round 2 (2-px separation throughout) | 26.7% | 47.7% | 51.0% | 0.71 px | 28% |
+
+- **Both rounds fail; stage 1 stops, and stage 2 (the dynamics over each estimator) is not run.**
+- Round 1's keypoints sat near the obstacles but off their centres (median 1.7 px); round 2 put more on a disc but
+  drifted to the agent (17% of keypoints within 2 px of it) and away from the obstacles.
+- With the obstacles alike and only the agent distinct, frame-pair reconstruction does not give one keypoint an
+  obstacle. On the toy with coloured obstacles (P30) it did; the colour was doing the binding.
+- Step 4 (joint training) takes this up: whether the world model's own prediction loss can teach the locator what
+  reconstruction alone did not.
+
+## P34: the JEPA decides better than constant velocity and Oracle-S, but touches more (18 November)
+
+**Corrected 18 November** (below, "P34 and P34b on one set of tasks"): the references in this table ran on other
+tasks than the JEPA, so the intervals were not paired. The verdicts stand.
+
+One fixed planner (CEM, replanning each step), only the forecaster changed; 1,000 tasks (cross the world past three
+obstacles of hidden kinds within 28 steps); intervals by bootstrap, as if paired:
+
+| | Success without contact | Success | Contacts per task | Against constant velocity |
+|---|---|---|---|---|
+| Constant velocity | 48.7% | 49.8% | 0.034 | |
+| Oracle-S (true positions) | 47.6% | 48.6% | 0.045 | -1.1 points [-5.1, +2.6] |
+| **JEPA, Q3 (36,000 steps, Q0's head)** | **53.5%** | 55.9% | 0.064 | **+4.8 points [+0.4, +9.5]** |
+| Simulator (perfect foresight) | 56.9% | 57.0% | 0.001 | +8.2 points [+4.5, +11.9] |
+| Bar | ≥ 52.8% | | ≤ 0.034 | |
+
+- **The success bar passes; the contacts bar fails.** The JEPA captures 58% of what perfect foresight adds over
+  constant velocity, and beats Oracle-S by 5.9 points [+1.2, +10.4]. (Corrected: I wrote "although Oracle-S
+  forecasts better on P27's measures"; it does not. The JEPA is better on X and A's error, Oracle-S only on false
+  responses, 4.9% against 9.0%.) It reaches the goal more often by passing closer, and touches obstacles about twice as often.
+- On this task the forecast is worth at most 8 points; the planner and the clock decide the rest, as in the ring
+  world. The JEPA's forecasts are decision-relevant here, modestly.
+- Not tuned (the planner is fixed); one run, no second round planned.
+
+## P35 round 1: the world model's loss does not teach the locator to bind; P35 stopped (18 November)
+
+The locator (from P33 round 2) and a new Q3 trained together on the hard toy, 8,000 steps (41 minutes), the gradient
+of Q3's loss passing through the crops and positions into the locator:
+
+| Validation, obstacles at least half visible | Found within 1 px | Mean error of found | Identity |
+|---|---|---|---|
+| Bar | ≥ 95% | ≤ 0.2 px | ≥ 95% |
+| Blob tracker (engineered) | 95.6% | 0.14 px | 97.0% |
+| P33 round 2 (reconstruction only, the start) | 26.7% | 0.71 px | 28% |
+| P35, joint | 19.8% | 0.75 px | 24% |
+
+- **It fails, and is slightly worse than its start.** Q3's loss fell far (rollout 0.0076 at the end), so the tokens
+  became predictable without the keypoints binding.
+- **Why, measured:** in the starting locator and after joint training alike, one keypoint follows the obstacles
+  (91% and 85% of frames within 2 px), one sits on the agent, and four sit on nothing (flat heatmaps, no gradient).
+  Joint training did not revive them. And the prediction loss rewards predictable tokens, not tokens on objects: a
+  keypoint resting on empty floor is perfectly predictable.
+- **Stopped after one round** (two were allowed): a change that would address this (breaking the symmetry between
+  identical obstacles in the locator, e.g. features that know where they are) is a locator redesign, not a test of
+  joint training.
+
+## P34b: margins from each forecaster's own errors make every forecaster worse (18 November)
+
+The planner's clearance at step k became 7.5 px plus the forecaster's 90th-percentile error in the agent-obstacle gap
+at k, near the agent (calibrated on the standard toy's validation windows): at 12 steps 21 px for constant velocity,
+12 for Oracle-S, 10 for the JEPA; the simulator's 0. P34's 1,000 tasks:
+
+| Success without contact (contacts a task) | P34, no margins | P34b, own margins |
+|---|---|---|
+| Constant velocity | 48.7% (0.034) | 11.5% (0.099) |
+| Oracle-S | 47.6% (0.045) | 20.5% (0.012) |
+| JEPA (Q3) | 53.5% (0.064) | 25.6% (0.044) |
+| Simulator | 56.9% (0.001) | unchanged |
+
+- **It fails.** The JEPA's contacts fall (0.064 to 0.044, below constant velocity's 0.099 with its margin), but its
+  success without contact halves, under the bar of 34.2% (constant velocity's 11.5% plus half the gap to 56.9%).
+- **Why:** margins of 10-21 px twelve steps ahead, in a world 64 px wide, leave no path that keeps them within 28 steps.
+  The planner replans every step, yet prices each 12-step tape as if it could not react: honest uncertainty about an
+  open-loop future freezes it. This is rabbit hole 4 of the review of 14 November (the freezing-robot problem,
+  Trautman and Krause 2010), now on the toy. Constant velocity even touches more: when every tape breaks the margin,
+  the least bad one is taken.
+- **The ranking holds:** with margins as without, the JEPA's forecasts give the best decisions of the three learned or
+  simple forecasters.
+- One round, as set out; the rule is not adjusted after seeing the result.
+
+## P34 and P34b on one set of tasks: a correction; the review of 18 November (18 November)
+
+**The fault.** Tasks are drawn from (seed, batch start). P34's constant velocity, Oracle-S and simulator ran at 50
+tasks a batch; the JEPA, after a speed change, at 100, which draws other tasks (the obstacles' kinds agree in 3% of
+them). P34's intervals were therefore not paired. P34b's runs were all at 100 (the JEPA's tasks), but its bar took the
+simulator from the other draw. The three references were rerun on the JEPA's tasks (`outputs/toy_planning/paired.sh`,
+`*_paired.json`; no training, nothing else changed):
+
+| Success without contact (contacts a task) | P34 as reported | On the JEPA's tasks |
+|---|---|---|
+| Constant velocity | 48.7% (0.034) | 50.5% (0.028) |
+| Oracle-S | 47.6% (0.045) | 48.4% (0.036) |
+| JEPA (Q3) | 53.5% (0.064) | 53.5% (0.064) |
+| Simulator | 56.9% (0.001) | 55.0% (0.008) |
+| P34's success bar | 52.8% | 52.8% |
+| P34b's success bar | 34.2% | 33.2% |
+
+Paired, 95% bootstrap over the 1,000 tasks:
+
+| | Success without contact, points | Tasks touched, points |
+|---|---|---|
+| Simulator against constant velocity | +4.5 [+0.8, +8.2] | -1.3 [-2.2, -0.5] |
+| JEPA against constant velocity | +3.0 [-1.0, +7.0] | +2.1 [+0.8, +3.4] |
+| JEPA against Oracle-S | +5.1 [+1.0, +9.1] | +1.9 [+0.7, +3.1] |
+| JEPA against the simulator | -1.5 [-5.4, +2.5] | +3.4 [+2.3, +4.6] |
+| With margins (P34b): JEPA against constant velocity | +14.1 [+11.2, +17.0] | |
+| With margins (P34b): JEPA against Oracle-S | +5.1 [+2.0, +8.2] | |
+
+- **Every verdict stands:** P34's success bar passes (53.5% against 52.8%), its contacts bar fails (0.064 against
+  0.028), P34b fails (25.6% against 33.2%).
+- **What changes:** the JEPA's lead over constant velocity is 3.0 points and not clear of zero (reported 4.8
+  [+0.4, +9.5]); "58% of what perfect foresight adds" is withdrawn. Perfect foresight itself adds only 4.5 points.
+
+**The contacts come with indifferent obstacles.** By whether a task has an obstacle that ignores the agent (success
+without contact; share of tasks touched):
+
+| | No indifferent obstacle (310 tasks) | At least one (690) |
+|---|---|---|
+| Constant velocity | 54.2%; 2.6% | 48.8%; 1.4% |
+| Oracle-S | 49.7%; 2.3% | 47.8%; 1.9% |
+| JEPA | 53.9%; 2.6% | 53.3%; 4.5% |
+| Simulator | 59.4%; 0.0% | 53.0%; 0.7% |
+| JEPA against constant velocity, touched | +0.0 [-2.3, +2.3] | +3.0 [+1.4, +4.6] |
+
+- The difference between the two groups is +3.0 points of tasks touched [+0.4, +5.9]. Oracle-S shows no such
+  pattern.
+- Likely reading (which obstacle was touched is not recorded): as P27 found, the JEPA gives part of a reaction to
+  every obstacle the agent approaches; expecting a give-way that never comes, the planner passes too close.
+
+**Second correction:** P34 said Oracle-S "forecasts better on P27's measures". It does not: the JEPA is better on X
+and A's error; Oracle-S only has fewer false responses (4.9% against 9.0%).
+
+**The review** (docs/REVIEW_2026-11-18.md, approved 18 November) takes stock of P27-P34b: the dynamics half of the
+brief is done on the toy; identity among alike objects and hidden temperament are open, and the prediction loss taught
+neither; the planner limits decisions more than the forecast does. Next piece: your decision (the review's last
+table).
+
+## P36 round 1: the paired term sharpens reactions, but the memory still does not use the kind; P36 stopped (18 November)
+
+q3mb [P32 round 2's memory model with R3's branch terms] at 14,000 steps (6.2 steps a second, 40 minutes with its
+measures; the step count set by the 45 minutes), T2, seed 0, read by Q0's head. Q3 and q3m2 at 24,000 steps beside it:
+
+| k = 8 | E: agent | X bounce | X straight | A: error / zero | False | Slope | False, near, shown (1,312) | False, near, not shown (533) | Error / zero, shown | P27's eight bars |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Bar | ≤ 1 | ≤ 4.47 | ≤ 0.90 | ≤ 0.50 | ≤ 10% | | ≤ 21.9% | | ≤ 0.424 | |
+| Q3, 24k | 0.45 | 0.82 | 0.55 | 0.452 | 8.5% | 0.78 | 43.8% | 53.5% | 0.424 | all met |
+| q3m2, 24k (P32 round 2) | 0.45 | 0.96 | 0.88 | 0.477 | 10.5% | 0.75 | 47.6% | 52.2% | 0.453 | false responses fail |
+| **q3mb, 14k (P36)** | 0.48 | 1.17 | **1.10** | **0.417** | 7.8% | **0.83** | **43.4%** | 56.7% | 0.386 | X straight fails |
+
+- **The gain bar fails:** 43.4% false responses on near, quiet pairs whose kind was shown, against 21.9% (Q3 43.8%).
+  No change.
+- **The no-loss bar fails** on P27's straight-window bar (1.10 px against 0.90; one step ahead 0.204 against Q3's
+  0.104). Error over zero-response on shown pairs passes (0.386).
+- **What the branch terms did:** action → obstacle is better than Q3's overall (0.417 of zero-response against 0.452;
+  slope 0.83 against 0.78; 7.8% false against 8.5%), at a cost to obstacle progression. The 14,000 steps against
+  24,000 confound the X figures.
+
+**Planning** (P34's task, the same 1,000 tasks as the references and Q3):
+
+| | Success without contact | Contacts a task | Tasks touched: no indifferent obstacle / some |
+|---|---|---|---|
+| Bar | ≥ 52.8% | ≤ 0.028 | |
+| Constant velocity | 50.5% | 0.028 | 2.6% / 1.4% |
+| Q3 | 53.5% | 0.064 | 2.6% / 4.5% |
+| **P36** | **55.4%** | **0.116** | 5.2% / 7.0% |
+| Simulator | 55.0% | 0.008 | 0.0% / 0.7% |
+
+- **Success passes and contacts fail.** Against constant velocity: +4.9 points [+0.8, +8.9], the first JEPA lead
+  clear of zero, and level with the simulator (+0.4 [-3.7, +4.4]). But contacts are +0.088 a task [+0.060, +0.119]
+  above constant velocity and +0.052 [+0.021, +0.084] above Q3, now in tasks without an indifferent obstacle too.
+- Across forecasters, the more one expects obstacles to give way (Oracle-S hardly at a distance, Q3 slope 0.78,
+  P36 0.83), the more tasks the planner completes and the more it touches.
+
+**Why, measured** (a linear probe of each obstacle's kind on frozen states, labels for this diagnosis only; trained on
+640 training episodes, read on the validation set at every 5th frame; chance 33%):
+
+| Kind read | Shown before the history (6,415) | Not shown (4,385) |
+|---|---|---|
+| Supervised ceiling: a GRU trained with the labels on the true positions | 95.7% | 37.3% |
+| q3m2's memory | 51.9% | 34.5% |
+| P36's memory | 49.4% | 32.7% |
+| The last 3 frames' tokens (no memory) | 42% | 33% |
+
+- **The kind is in the motion** where it was shown (96%). The memories hold about half of it, a little more than the
+  frames alone, and the branch terms added none.
+- **Not for want of cases:** 73% of training branch moments aim at an obstacle whose kind was already shown, and the
+  approach tape reaches its reaction radius in 93%.
+- The paired term made the predicted reactions stronger on average, not conditional on the kind.
+
+**Stopped after round 1** (two allowed). The round 2 I had in mind, drawing only branches whose kind was shown, would
+move 73% to 100%, so it cannot address the measured cause. What remains is a different objective, not a round.

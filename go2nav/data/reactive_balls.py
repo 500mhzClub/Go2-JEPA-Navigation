@@ -29,32 +29,36 @@ def with_branch_frames(policy, split):
 
 
 def chunk(args):
-    policy, split, index, count = args
-    rng = np.random.default_rng((SEED, INDEX[policy], INDEX[split], index))
-    return index, world.episodes(rng, count, FRAMES, policy, MOMENTS[split], with_branch_frames(policy, split))
+    policy, split, index, count, *hard = args
+    hard = bool(hard and hard[0])
+    key = (SEED, INDEX[policy], INDEX[split], index)+((33,) if hard else ())          # P33: the hard variant's own seeds
+    rng = np.random.default_rng(key)
+    return index, world.episodes(rng, count, FRAMES, policy, MOMENTS[split],
+                                 with_branch_frames(policy, split) and not hard, hard=hard)
 
 
-def build(out, policies=('interactive', 'confounded'), workers=16):
+def build(out, policies=('interactive', 'confounded'), workers=16, hard=False):
     out = Path(out)
     for policy in policies:
         for split, episodes in SPLITS.items():
             folder = out/policy/split
             folder.mkdir(parents=True, exist_ok=True)
             names = dict(frames='frames_t2', frames_t1='frames_t1')
+            keys = ('frames',) if hard else FRAME_KEYS
             maps = {k: np.lib.format.open_memmap(folder/f'{names[k]}.npy.partial', mode='w+', dtype=np.uint8,
-                                                 shape=(episodes, FRAMES, world.SIZE, world.SIZE, 3)) for k in FRAME_KEYS}
-            if with_branch_frames(policy, split):
+                                                 shape=(episodes, FRAMES, world.SIZE, world.SIZE, 3)) for k in keys}
+            if with_branch_frames(policy, split) and not hard:
                 shape = (episodes, MOMENTS[split], len(world.TAPES), world.BRANCH_STEPS, world.SIZE, world.SIZE, 3)
                 branch_maps = {k: np.lib.format.open_memmap(folder/f'branch_{names[k]}.npy.partial', mode='w+',
                                                             dtype=np.uint8, shape=shape) for k in FRAME_KEYS}
             else:
                 branch_maps = {}
             labels, branches = {}, {}
-            jobs = [(policy, split, i, min(CHUNK, episodes-i*CHUNK)) for i in range((episodes+CHUNK-1)//CHUNK)]
+            jobs = [(policy, split, i, min(CHUNK, episodes-i*CHUNK), hard) for i in range((episodes+CHUNK-1)//CHUNK)]
             with ProcessPoolExecutor(workers) as pool:
                 for index, (episode, branch) in pool.map(chunk, jobs):
                     rows = slice(index*CHUNK, index*CHUNK+len(episode['frames']))
-                    for k in FRAME_KEYS:
+                    for k in keys:
                         maps[k][rows] = episode.pop(k)
                         if branch_maps:
                             branch_maps[k][rows] = branch.pop(k)
@@ -68,7 +72,7 @@ def build(out, policies=('interactive', 'confounded'), workers=16):
                 partial.rename(partial.with_suffix(''))
             np.savez(folder/'labels.npz', **{k: np.concatenate(v) for k, v in labels.items()})
             np.savez(folder/'branches.npz', **{k: np.concatenate(v) for k, v in branches.items()})
-            meta = dict(schema='go2nav_reactive_balls.v1', policy=policy, split=split, episodes=episodes, frames=FRAMES,
+            meta = dict(schema='go2nav_reactive_balls.v1', hard=hard, policy=policy, split=split, episodes=episodes, frames=FRAMES,
                         moments=MOMENTS[split], seed=SEED, react=world.REACT, flee=world.FLEE, speed=list(world.SPEED),
                         delay=list(world.DELAY), tapes=list(world.TAPES), kinds=list(world.KINDS))
             (folder/'meta.json').write_text(json.dumps(meta, indent=1))
@@ -94,8 +98,9 @@ def main():
     b.add_argument('--out', required=True)
     b.add_argument('--policy', nargs='+', default=['interactive', 'confounded'])
     b.add_argument('--workers', type=int, default=16)
+    b.add_argument('--hard', action='store_true', help="P33's hard variant: one colour, 1-3 obstacles, bars")
     args = parser.parse_args()
-    build(args.out, tuple(args.policy), args.workers)
+    build(args.out, tuple(args.policy), args.workers, args.hard)
 
 
 if __name__ == '__main__':
