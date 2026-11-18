@@ -3229,8 +3229,11 @@ Round 2: the memory steps on through the rollout's predicted frames. T2, seed 0,
 
 ## P34: the JEPA decides better than constant velocity and Oracle-S, but touches more (18 November)
 
+**Corrected 18 November** (below, "P34 and P34b on one set of tasks"): the references in this table ran on other
+tasks than the JEPA, so the intervals were not paired. The verdicts stand.
+
 One fixed planner (CEM, replanning each step), only the forecaster changed; 1,000 tasks (cross the world past three
-obstacles of hidden kinds within 28 steps); intervals are paired over the same tasks (bootstrap):
+obstacles of hidden kinds within 28 steps); intervals by bootstrap, as if paired:
 
 | | Success without contact | Success | Contacts per task | Against constant velocity |
 |---|---|---|---|---|
@@ -3241,8 +3244,9 @@ obstacles of hidden kinds within 28 steps); intervals are paired over the same t
 | Bar | ≥ 52.8% | | ≤ 0.034 | |
 
 - **The success bar passes; the contacts bar fails.** The JEPA captures 58% of what perfect foresight adds over
-  constant velocity, and beats Oracle-S by 5.9 points [+1.2, +10.4] although Oracle-S forecasts better on P27's
-  measures. It reaches the goal more often by passing closer, and touches obstacles about twice as often.
+  constant velocity, and beats Oracle-S by 5.9 points [+1.2, +10.4]. (Corrected: I wrote "although Oracle-S
+  forecasts better on P27's measures"; it does not. The JEPA is better on X and A's error, Oracle-S only on false
+  responses, 4.9% against 9.0%.) It reaches the goal more often by passing closer, and touches obstacles about twice as often.
 - On this task the forecast is worth at most 8 points; the planner and the clock decide the rest, as in the ring
   world. The JEPA's forecasts are decision-relevant here, modestly.
 - Not tuned (the planner is fixed); one run, no second round planned.
@@ -3292,3 +3296,60 @@ at k, near the agent (calibrated on the standard toy's validation windows): at 1
 - **The ranking holds:** with margins as without, the JEPA's forecasts give the best decisions of the three learned or
   simple forecasters.
 - One round, as set out; the rule is not adjusted after seeing the result.
+
+## P34 and P34b on one set of tasks: a correction; the review of 18 November (18 November)
+
+**The fault.** Tasks are drawn from (seed, batch start). P34's constant velocity, Oracle-S and simulator ran at 50
+tasks a batch; the JEPA, after a speed change, at 100, which draws other tasks (the obstacles' kinds agree in 3% of
+them). P34's intervals were therefore not paired. P34b's runs were all at 100 (the JEPA's tasks), but its bar took the
+simulator from the other draw. The three references were rerun on the JEPA's tasks (`outputs/toy_planning/paired.sh`,
+`*_paired.json`; no training, nothing else changed):
+
+| Success without contact (contacts a task) | P34 as reported | On the JEPA's tasks |
+|---|---|---|
+| Constant velocity | 48.7% (0.034) | 50.5% (0.028) |
+| Oracle-S | 47.6% (0.045) | 48.4% (0.036) |
+| JEPA (Q3) | 53.5% (0.064) | 53.5% (0.064) |
+| Simulator | 56.9% (0.001) | 55.0% (0.008) |
+| P34's success bar | 52.8% | 52.8% |
+| P34b's success bar | 34.2% | 33.2% |
+
+Paired, 95% bootstrap over the 1,000 tasks:
+
+| | Success without contact, points | Tasks touched, points |
+|---|---|---|
+| Simulator against constant velocity | +4.5 [+0.8, +8.2] | -1.3 [-2.2, -0.5] |
+| JEPA against constant velocity | +3.0 [-1.0, +7.0] | +2.1 [+0.8, +3.4] |
+| JEPA against Oracle-S | +5.1 [+1.0, +9.1] | +1.9 [+0.7, +3.1] |
+| JEPA against the simulator | -1.5 [-5.4, +2.5] | +3.4 [+2.3, +4.6] |
+| With margins (P34b): JEPA against constant velocity | +14.1 [+11.2, +17.0] | |
+| With margins (P34b): JEPA against Oracle-S | +5.1 [+2.0, +8.2] | |
+
+- **Every verdict stands:** P34's success bar passes (53.5% against 52.8%), its contacts bar fails (0.064 against
+  0.028), P34b fails (25.6% against 33.2%).
+- **What changes:** the JEPA's lead over constant velocity is 3.0 points and not clear of zero (reported 4.8
+  [+0.4, +9.5]); "58% of what perfect foresight adds" is withdrawn. Perfect foresight itself adds only 4.5 points.
+
+**The contacts come with indifferent obstacles.** By whether a task has an obstacle that ignores the agent (success
+without contact; share of tasks touched):
+
+| | No indifferent obstacle (310 tasks) | At least one (690) |
+|---|---|---|
+| Constant velocity | 54.2%; 2.6% | 48.8%; 1.4% |
+| Oracle-S | 49.7%; 2.3% | 47.8%; 1.9% |
+| JEPA | 53.9%; 2.6% | 53.3%; 4.5% |
+| Simulator | 59.4%; 0.0% | 53.0%; 0.7% |
+| JEPA against constant velocity, touched | +0.0 [-2.3, +2.3] | +3.0 [+1.4, +4.6] |
+
+- The difference between the two groups is +3.0 points of tasks touched [+0.4, +5.9]. Oracle-S shows no such
+  pattern.
+- Likely reading (which obstacle was touched is not recorded): as P27 found, the JEPA gives part of a reaction to
+  every obstacle the agent approaches; expecting a give-way that never comes, the planner passes too close.
+
+**Second correction:** P34 said Oracle-S "forecasts better on P27's measures". It does not: the JEPA is better on X
+and A's error; Oracle-S only has fewer false responses (4.9% against 9.0%).
+
+**The review** (docs/REVIEW_2026-11-18.md, approved 18 November) takes stock of P27-P34b: the dynamics half of the
+brief is done on the toy; identity among alike objects and hidden temperament are open, and the prediction loss taught
+neither; the planner limits decisions more than the forecast does. Next piece: your decision (the review's last
+table).

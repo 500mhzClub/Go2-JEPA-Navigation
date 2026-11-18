@@ -2612,6 +2612,8 @@ still followed (`training.hard_tokens`). If P32's memory passes, it is added to 
 ### P34. Do the toy's forecasts make better decisions? (approved 18 November, step 3 of 4; set out before any JEPA run)
 
 **Done 18 November** (STATUS): success 53.5% passes (bar 52.8%); contacts 0.064 a task fail (bar 0.034).
+Corrected 18 November: the references had run on other tasks (50 a batch against the JEPA's 100); on the JEPA's
+tasks the bars read 52.8% and 0.028, and the verdicts stand (STATUS, docs/REVIEW_2026-11-18.md).
 
 **Why.** P27-P33 measure forecasts. The README asks whether a JEPA's representations carry decision-relevant
 information. P34 puts each forecaster under one fixed planner on a task that needs the obstacles, and changes nothing
@@ -2668,7 +2670,8 @@ the blobs' and false responses at most 3 points above). Two rounds at most.
 ### P34b. Each forecaster's margin from its own errors (approved 18 November; set out before any run)
 
 **Done 18 November, failed** (STATUS): own margins halve every forecaster's success; the JEPA's contacts fall
-(0.064 to 0.044) but its success without contact is 25.6% against a bar of 34.2%.
+(0.064 to 0.044) but its success without contact is 25.6% against a bar of 34.2% (33.2% with the simulator on the
+same tasks).
 
 **Why.** In P34 the JEPA completed more tasks than constant velocity (53.5% against 48.7% without contact) but touched
 obstacles twice as often (0.064 against 0.034 a task): the planner trusted every forecast equally, to the same 7.5 px.
