@@ -133,22 +133,43 @@ def jepa_forecaster(run, device, chunk=8192):
     head = rb.build_head(model.config, 'mlp').to(device)
     head.load_state_dict(torch.load(Path(run)/'head_mlp.pt', map_location='cpu'))
     head.eval()
+    return jepa_forecast(model, head, device, chunk)
+
+
+def jepa_forecast(model, head, device, chunk=8192):
+    """The forecaster over a loaded model and head. A model with a memory (P32, P36) reads every frame since the
+    task's start (`history['episode_frames']` and `['episode_actions']`, which `run` then supplies), as the bench's
+    forecaster reads the episode; the others the last 3 frames."""
+    from go2nav.eval import recipe_bench as rb
+    from go2nav.training.balls import to_pixels
+    memory = getattr(model.config, 'memory', False)
 
     @torch.no_grad()
     def forecast(history, tapes):
         n, c, h, _ = tapes.shape
-        frames = torch.as_tensor(history['frames'], device=device)                              # (N, 3, 64, 64, 3)
-        z = model.encode(to_pixels(frames))                                                     # (N, 3, 4, D)
+        mem = None
+        if memory:
+            frames = torch.as_tensor(history['episode_frames'], device=device)                  # (N, L, 64, 64, 3)
+            z_all = model.encode(to_pixels(frames))
+            led = torch.as_tensor(history['episode_actions'], dtype=torch.float32, device=device)/MAX_ACTION
+            states = model.memory_states(z_all, led)
+            z, mem = z_all[:, -model.config.history:], states[:, -model.config.history:]
+            mem = mem.repeat_interleave(c, 0)
+        else:
+            frames = torch.as_tensor(history['frames'], device=device)                          # (N, 3, 64, 64, 3)
+            z = model.encode(to_pixels(frames))                                                 # (N, 3, 4, D)
         past = torch.as_tensor(history['actions'], dtype=torch.float32, device=device)/MAX_ACTION   # (N, 2, 2)
         z, past = z.repeat_interleave(c, 0), past.repeat_interleave(c, 0)
         future = torch.as_tensor(tapes.reshape(n*c, h, 2), dtype=torch.float32, device=device)/MAX_ACTION
         out = []
         for i in range(0, n*c, chunk):            # bf16 autocast, as the model was trained; the head in float32
             with torch.autocast(device.type, dtype=torch.bfloat16, enabled=device.type == 'cuda'):
-                rolled = model.rollout(z[i:i+chunk], torch.cat((past[i:i+chunk], future[i:i+chunk]), 1), h)
+                rolled = model.rollout(z[i:i+chunk], torch.cat((past[i:i+chunk], future[i:i+chunk]), 1), h,
+                                       None if mem is None else mem[i:i+chunk])
             out.append((head(rolled.float())*rb.HALF+rb.HALF).cpu().numpy())
         out = np.concatenate(out).reshape(n, c, h, 4, 2)
         return out[:, :, :, 0], out[:, :, :, 1:]
+    forecast.memory = memory
     return forecast
 
 
@@ -170,11 +191,14 @@ def run(name, episodes, out, run_dir=None, batch=100, margins=None):
         forecast = dict(truth=lambda: truth_forecaster([state]), cv=cv_forecaster,
                         oracle=lambda: oracle_forecaster('outputs/recipe_bench/references/oracle_t2.pt', device),
                         jepa=lambda: jepa_forecaster(run_dir, device))[name]()
+        drawn = [world.render(r['agent'], r['obstacle']) for r in rows] if getattr(forecast, 'memory', False) else None
         done, contacts, reached = np.zeros(n, bool), np.zeros(n, int), np.full(n, -1)
         for t in range(LIMIT):
             history = dict(agent=np.stack([r['agent'] for r in rows[-3:]], 1),
                            obstacle=np.stack([r['obstacle'] for r in rows[-3:]], 1),
                            actions=np.stack(actions[-2:], 1))
+            if drawn is not None:                   # a memory reads every frame since the task's start (P36)
+                history['episode_frames'], history['episode_actions'] = np.stack(drawn, 1), np.stack(actions, 1)
             if name == 'jepa':
                 history['frames'] = world.render(history['agent'].reshape(-1, 2),
                                                  history['obstacle'].reshape(-1, world.K, 2)).reshape(n, 3, 64, 64, 3)
@@ -183,6 +207,8 @@ def run(name, episodes, out, run_dir=None, batch=100, margins=None):
             a = np.where(done[:, None], 0., plan(forecast, history, goal, rng, margin))
             state = world.step(state, a)
             rows.append(world.record(state)), actions.append(a)
+            if drawn is not None:
+                drawn.append(world.render(rows[-1]['agent'], rows[-1]['obstacle']))
             contacts += (state.contact.any(-1) & ~done)
             hit = ~done & (np.linalg.norm(state.agent-goal, axis=-1) < REACHED_PX)
             reached[hit] = t+1
