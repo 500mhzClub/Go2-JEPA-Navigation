@@ -2694,6 +2694,10 @@ k of a tape is 7.5 px plus that forecaster's own error at k, measured once befor
 
 ### P36. Temperament from the response itself (approved 18 November, option 1 of docs/REVIEW_2026-11-18.md; set out before any run)
 
+**Stopped 18 November after round 1** (STATUS): the gain bar failed (43.4% against 21.9%; Q3 43.8%), the no-loss bar
+failed on straight windows (1.10 px against 0.90), and in planning success passed (55.4%) but contacts failed (0.116
+against 0.028). A probe reads the kind from the memory at 49% where shown, against 96% from the true motion.
+
 **Capability tested:** 2, action → obstacle: an obstacle's response to the agent when its kind is not drawn.
 
 **Why.** Q3 gives part of a reaction to every obstacle the agent approaches: right on average, false for the

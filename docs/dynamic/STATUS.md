@@ -3353,3 +3353,58 @@ and A's error; Oracle-S only has fewer false responses (4.9% against 9.0%).
 brief is done on the toy; identity among alike objects and hidden temperament are open, and the prediction loss taught
 neither; the planner limits decisions more than the forecast does. Next piece: your decision (the review's last
 table).
+
+## P36 round 1: the paired term sharpens reactions, but the memory still does not use the kind; P36 stopped (18 November)
+
+q3mb [P32 round 2's memory model with R3's branch terms] at 14,000 steps (6.2 steps a second, 40 minutes with its
+measures; the step count set by the 45 minutes), T2, seed 0, read by Q0's head. Q3 and q3m2 at 24,000 steps beside it:
+
+| k = 8 | E: agent | X bounce | X straight | A: error / zero | False | Slope | False, near, shown (1,312) | False, near, not shown (533) | Error / zero, shown | P27's eight bars |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Bar | ≤ 1 | ≤ 4.47 | ≤ 0.90 | ≤ 0.50 | ≤ 10% | | ≤ 21.9% | | ≤ 0.424 | |
+| Q3, 24k | 0.45 | 0.82 | 0.55 | 0.452 | 8.5% | 0.78 | 43.8% | 53.5% | 0.424 | all met |
+| q3m2, 24k (P32 round 2) | 0.45 | 0.96 | 0.88 | 0.477 | 10.5% | 0.75 | 47.6% | 52.2% | 0.453 | false responses fail |
+| **q3mb, 14k (P36)** | 0.48 | 1.17 | **1.10** | **0.417** | 7.8% | **0.83** | **43.4%** | 56.7% | 0.386 | X straight fails |
+
+- **The gain bar fails:** 43.4% false responses on near, quiet pairs whose kind was shown, against 21.9% (Q3 43.8%).
+  No change.
+- **The no-loss bar fails** on P27's straight-window bar (1.10 px against 0.90; one step ahead 0.204 against Q3's
+  0.104). Error over zero-response on shown pairs passes (0.386).
+- **What the branch terms did:** action → obstacle is better than Q3's overall (0.417 of zero-response against 0.452;
+  slope 0.83 against 0.78; 7.8% false against 8.5%), at a cost to obstacle progression. The 14,000 steps against
+  24,000 confound the X figures.
+
+**Planning** (P34's task, the same 1,000 tasks as the references and Q3):
+
+| | Success without contact | Contacts a task | Tasks touched: no indifferent obstacle / some |
+|---|---|---|---|
+| Bar | ≥ 52.8% | ≤ 0.028 | |
+| Constant velocity | 50.5% | 0.028 | 2.6% / 1.4% |
+| Q3 | 53.5% | 0.064 | 2.6% / 4.5% |
+| **P36** | **55.4%** | **0.116** | 5.2% / 7.0% |
+| Simulator | 55.0% | 0.008 | 0.0% / 0.7% |
+
+- **Success passes and contacts fail.** Against constant velocity: +4.9 points [+0.8, +8.9], the first JEPA lead
+  clear of zero, and level with the simulator (+0.4 [-3.7, +4.4]). But contacts are +0.088 a task [+0.060, +0.119]
+  above constant velocity and +0.052 [+0.021, +0.084] above Q3, now in tasks without an indifferent obstacle too.
+- Across forecasters, the more one expects obstacles to give way (Oracle-S hardly at a distance, Q3 slope 0.78,
+  P36 0.83), the more tasks the planner completes and the more it touches.
+
+**Why, measured** (a linear probe of each obstacle's kind on frozen states, labels for this diagnosis only; trained on
+640 training episodes, read on the validation set at every 5th frame; chance 33%):
+
+| Kind read | Shown before the history (6,415) | Not shown (4,385) |
+|---|---|---|
+| Supervised ceiling: a GRU trained with the labels on the true positions | 95.7% | 37.3% |
+| q3m2's memory | 51.9% | 34.5% |
+| P36's memory | 49.4% | 32.7% |
+| The last 3 frames' tokens (no memory) | 42% | 33% |
+
+- **The kind is in the motion** where it was shown (96%). The memories hold about half of it, a little more than the
+  frames alone, and the branch terms added none.
+- **Not for want of cases:** 73% of training branch moments aim at an obstacle whose kind was already shown, and the
+  approach tape reaches its reaction radius in 93%.
+- The paired term made the predicted reactions stronger on average, not conditional on the kind.
+
+**Stopped after round 1** (two allowed). The round 2 I had in mind, drawing only branches whose kind was shown, would
+move 73% to 100%, so it cannot address the measured cause. What remains is a different objective, not a round.
