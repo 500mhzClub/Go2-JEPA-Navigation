@@ -2746,6 +2746,10 @@ time, under 85% of the R9700's memory.
 
 ### P37. One shared object detector on the hard toy (approved 18 November, option 2 of docs/REVIEW_2026-11-18.md; set out before any run)
 
+**Closed 18 November: passed** (STATUS). Stage 1 in round 2 (the peak threshold from the mask itself): found 98.2%,
+0.093 px, identity 98.2%, beating the blob tracker. Stage 2 on three seeds: every bar met against stage 0's mean
+(obstacle motion 0.78 and 0.71 times, the agent's effect 1.00 times, false responses 7.7 points lower).
+
 **Why.** Learned estimation failed wherever the objects look alike: walkers in the ring world's scan (P31) and the
 hard toy's identical obstacles (P33, P35). Each time a keypoint had its own heatmap and had to pick one object, and
 nothing told identical objects apart: the keypoints collapsed, drifted, or died (in P35 four of six sat on nothing

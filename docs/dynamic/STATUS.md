@@ -3487,3 +3487,28 @@ estimator's tracks; P33's per-token MLP head; T2 validation, k = 8:
   9%).
 - **It looks like passing, so seeds 1 and 2 run** (PLAN). Stage 0 also gets seeds 1 and 2, so the comparison is mean
   against mean.
+
+## P37 stage 2, three seeds: learned objects pass on identical obstacles; P37 closed (18 November)
+
+Q3 over each estimator's tracks, seeds 0-2 of each, 36,000 steps, P33's per-token MLP head; T2 validation, k = 8,
+mean of three seeds (spread across seeds in brackets, one standard deviation):
+
+| | E: agent px | X bounce px (cv 9.1) | X straight px (cv 0.37) | A: error / zero | False responses | Slope | R worst px |
+|---|---|---|---|---|---|---|---|
+| Stage 0: over the blob tracker | 0.44 | 2.64 (0.42) | 1.86 (0.39) | 0.444 (0.006) | 25.2% (5.2) | 0.80 | 0.19 |
+| **Stage 2: over the shared detector** | 0.44 | **2.05** (0.05) | **1.32** (0.09) | 0.445 (0.004) | **17.5%** (1.9) | 0.78 | 0.13 |
+| P37 bar, against stage 0's mean | | ≤ 3.30 | ≤ 2.32 | ≤ 0.555 | ≤ 28.2% | | |
+
+- **Stage 2 passes on the three seeds' mean,** and seed by seed: obstacle motion 0.78 and 0.71 times the blob
+  tracker's error, the agent's effect on obstacles 1.00 times, false responses 7.7 points lower. The detector's runs
+  also vary far less from seed to seed (bounce windows 0.05 px against 0.42; false responses 1.9 points against 5.2).
+- **Why the dynamics are better over the learned objects** (labels for diagnosis only): Q3's targets are each slot's
+  chain through the window, and the detector's chains stay on their obstacle longer. Of obstacles found at the history's
+  last frame, the share still on the same obstacle 8 steps on is 97.3% for the detector against 93.2% for the blob
+  tracker. The blob tracker's chains break under bars (2.8% lost, against 0.1%); swaps are about equal (1.1% and 0.9%).
+- **P27's eight bars** (fixed on the standard toy, reported): every run of both meets E, R and X on bounce windows and
+  fails X on straight windows (1.2-2.3 px against 0.87) and A's false responses (over 10%). The hard toy costs both
+  estimators against the standard toy's Q3 (straight 0.55 px, false 9%).
+- **P37 closes, passed.** Learned objects now work where they look alike, on the toy: found 98.2% within 1 px without
+  labels, and the dynamics over them better than over the engineered tracker. What stays engineered is the join
+  (nearest within 5 px), the peak rule, and the agent found by its colour.
