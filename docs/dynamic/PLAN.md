@@ -2812,6 +2812,11 @@ disc. One change: the threshold is set from the mask itself, without labels, at 
 frames (drawn once) of each frame's highest smoothed value. Round 1's trained detector is reused; nothing else
 changes. The bars stand.
 
+**Seeds for stage 2** (set 18 November after seed 0, before seeds 1-2): seed 0 met every stage-2 bar, so seeds 1 and
+2 run over the detector, read on the three seeds' mean. Since the bars are relative to stage 0, stage 0 also runs
+seeds 1 and 2, and the bars are read mean against mean. Four runs of about 28 minutes each, one after another (about
+2 hours in all; each run is under 45 minutes).
+
 **7. Order and compute:** a smoke run of 1,000 steps first checks the code and the speed. It is not scored, and its
 settings are not changed by what it shows unless it shows a fault (recorded if so). Then stage 1, round 1 (the
 detector about 15-25 minutes; tracks and measures a few minutes), then stage 0 (about 28 minutes), in one service,

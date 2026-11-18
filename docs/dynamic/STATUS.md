@@ -3465,3 +3465,25 @@ half visible (38,359):
   shared map does not have to, and since the map is the rebuilding mask it cannot die.
 - **Stage 2 runs next:** Q3 over the detector's tracks, 36,000 steps, seed 0, against stage 0 (Q3 over the blob
   tracker, training now).
+
+## P37 stage 2, seed 0: the dynamics over the shared detector meet P37's bars against the blob tracker (18 November)
+
+Q3 [object tokens, residual predictor] on the hard toy, 36,000 steps, seed 0, trained identically over each
+estimator's tracks; P33's per-token MLP head; T2 validation, k = 8:
+
+| | E: agent px | X bounce px (cv 9.1) | X straight px (cv 0.37) | A: error / zero | False responses | Slope | R worst px | Pairs scored |
+|---|---|---|---|---|---|---|---|---|
+| Stage 0: over the blob tracker | 0.44 | 2.84 | 1.81 | 0.439 | 30.4% | 0.81 | 0.19 | 13,434 |
+| **Stage 2: over the shared detector** | 0.44 | **2.07** | **1.40** | 0.447 | **19.6%** | 0.77 | 0.13 | 14,154 |
+| P37 bar (against stage 0) | | ≤ 3.55 | ≤ 2.26 | ≤ 0.549 | ≤ 33.4% | | | |
+
+- **Every P37 bar is met, by a wide margin:** obstacle motion 0.73 and 0.77 times the blob tracker's error; the
+  agent's effect on obstacles 1.02 times; false responses 10.8 points lower.
+- The detector's run is scored on 5% more pairs, since it finds more of the obstacles (each needs a slot within
+  1.5 px). The extra ones are the harder cases, under bars and next to other obstacles.
+- **P27's eight bars** (fixed on the standard toy, reported): both runs fail X (straight windows, 1.40 and 1.81 px
+  against constant velocity's 0.37 + 0.5) and A (false responses over 10%); both meet E, R and X on bounce windows.
+  The hard toy's one colour, bars and 1-3 obstacles cost both against the standard toy's Q3 (straight 0.55 px, false
+  9%).
+- **It looks like passing, so seeds 1 and 2 run** (PLAN). Stage 0 also gets seeds 1 and 2, so the comparison is mean
+  against mean.
