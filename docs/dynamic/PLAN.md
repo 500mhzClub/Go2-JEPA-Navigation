@@ -2806,6 +2806,12 @@ least half visible, the share with a detection within 1 px, the found detections
 - The join stays engineered, and the ring world's step-sized noise (P31) is a further problem that a pass here does
   not address.
 
+**Round 2 of stage 1** (set 18 November after round 1, before its run; STATUS): round 1 found no obstacles because
+the fixed peak threshold (0.5) sat above the trained mask's smoothed peaks (about 0.35), though the mask marked every
+disc. One change: the threshold is set from the mask itself, without labels, at half the median over 20,000 training
+frames (drawn once) of each frame's highest smoothed value. Round 1's trained detector is reused; nothing else
+changes. The bars stand.
+
 **7. Order and compute:** a smoke run of 1,000 steps first checks the code and the speed. It is not scored, and its
 settings are not changed by what it shows unless it shows a fault (recorded if so). Then stage 1, round 1 (the
 detector about 15-25 minutes; tracks and measures a few minutes), then stage 0 (about 28 minutes), in one service,

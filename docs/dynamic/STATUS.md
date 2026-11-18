@@ -3408,3 +3408,26 @@ measures; the step count set by the 45 minutes), T2, seed 0, read by Q0's head. 
 
 **Stopped after round 1** (two allowed). The round 2 I had in mind, drawing only branches whose kind was shown, would
 move 73% to 100%, so it cannot address the measured cause. What remains is a different objective, not a round.
+
+## P37 stage 1, round 1: the shared mask marks every disc, but the fixed peak rule finds none (18 November)
+
+The shared detector (PLAN P37: one mask for every object, trained by frame-pair rebuilding, 10,000 steps, 21
+minutes). Validation frames of the hard toy, obstacles that exist and are at least half visible (38,359):
+
+| | Found within 1 px | Mean error of found | Identity |
+|---|---|---|---|
+| Bar | ≥ 95% | ≤ 0.2 px | ≥ 95% |
+| Blob tracker (engineered) | 95.6% | 0.14 px | 97.0% |
+| Shared detector, round 1 | 0% (no detections) | – | – |
+
+- **It fails, and the fault is in the detection rule I fixed beforehand, not in the mask.** The mask covers each disc
+  with a small core (radius about 2 px, height about 0.6), the same on all three obstacles and the agent, and almost
+  nothing else (0.4 pixels over 0.5 a frame off the discs). Smoothed by 1.5 px, a core that small peaks at about 0.35,
+  under the 0.5 threshold, so no peak survives.
+- Measured with labels, for diagnosis only, on 150 isolated, fully visible obstacles: the mask's centre of mass
+  within 5 px is 0.075 px from the true centre (median 0.078); the blob tracker's error is 0.14.
+- The mask shrank during training, from 2.3% of the frame at step 250 to 0.5% at the end. The cost on its mean keeps
+  only what rebuilding needs, and the decoder rebuilds a disc from its core.
+- **Round 2,** one change: the threshold is set from the mask itself, without labels. It is half the median, over
+  20,000 training frames, of each frame's highest smoothed value. Round 1's trained detector is reused unchanged:
+  the threshold applies only after training.

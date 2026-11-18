@@ -67,6 +67,13 @@ def gaussian_kernel(sigma, device):
 
 
 @torch.no_grad()
+def smoothed_peak(mask, smooth=SMOOTH):
+    """Each frame's highest value of the smoothed mask (N,), for P37 round 2's threshold (no labels)."""
+    kernel, r = gaussian_kernel(smooth, mask.device)
+    return F.conv2d(F.pad(mask.float(), (r, r, r, r)), kernel).flatten(1).max(1).values
+
+
+@torch.no_grad()
 def detect(mask, agent=None, slots=SLOTS, smooth=SMOOTH, peak=PEAK, window=WINDOW, agent_px=AGENT_PX):
     """Masks (N, 1, H, W) and the agent's position (N, 2) px (or None) to detections (N, slots, 2) px (x, y), NaN past
     each frame's count, highest peak first; see the module's description."""
