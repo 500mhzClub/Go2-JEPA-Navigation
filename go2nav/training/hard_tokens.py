@@ -141,7 +141,7 @@ def main():
     sub = parser.add_subparsers(dest='command', required=True)
     t = sub.add_parser('train')
     t.add_argument('--data', required=True)
-    t.add_argument('--estimator', choices=['blobs', 'keypoints'], required=True)
+    t.add_argument('--estimator', choices=['blobs', 'keypoints', 'detector'], required=True)
     t.add_argument('--out', required=True)
     t.add_argument('--seed', type=int, default=0)
     t.add_argument('--set', action='append', default=[], help='key=value (a DEFAULTS key; the value parsed as JSON)')

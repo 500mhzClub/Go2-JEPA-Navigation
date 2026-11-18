@@ -3,6 +3,7 @@ their chains through a window.
 
     python -m go2nav.data.hard_tracks blobs --data ROOT [--workers N]
     python -m go2nav.data.hard_tracks keypoints --data ROOT --locator LOCATOR.pt
+    python -m go2nav.data.hard_tracks detector --data ROOT --detector DETECTOR.pt     # P37
 
 **The agent** is found by its colour (`models.object_tokens.detect`): the robot knows itself, as the ring world's robot
 token is given.
@@ -140,6 +141,29 @@ def save_keypoints(root, locator, batch=1024, name='keypoints'):
         print(split, name, flush=True)
 
 
+@torch.no_grad()
+def save_detector(root, detector, batch=1024, name='detector'):
+    """P37: the shared detector's detections (`models.shared_detector.detect`), the agent's dropped by its colour."""
+    from go2nav.models.keypoints import KeypointConfig
+    from go2nav.models.shared_detector import MaskNet, detect
+    from go2nav.training.balls import to_pixels
+    device = torch.device('cuda')
+    state = torch.load(detector, map_location='cpu', weights_only=False)
+    net = MaskNet(KeypointConfig(**state['config'])).to(device)
+    net.load_state_dict(state['mask'])
+    net.eval()
+    for split in ('train', 'val'):
+        folder = Path(root)/'interactive'/split
+        frames = np.load(folder/'frames_t2.npy', mmap_mode='r')
+        agent = agents(frames, device)
+        flat, at = frames.reshape(-1, world.SIZE, world.SIZE, 3), agent.reshape(-1, 2)
+        xy = np.concatenate([detect(net(to_pixels(torch.from_numpy(np.asarray(flat[i:i+batch])).to(device))),
+                                    torch.from_numpy(at[i:i+batch]).to(device), slots=SLOTS).cpu().numpy()
+                             for i in range(0, len(flat), batch)]).reshape(*frames.shape[:2], SLOTS, 2)
+        np.savez(folder/f'tracks_{name}.npz', xy=xy.astype(np.float32), agent=agent)
+        print(split, name, f'{np.isfinite(xy[..., 0]).sum(-1).mean():.2f} detections a frame', flush=True)
+
+
 def load(root, split, estimator):
     with np.load(Path(root)/'interactive'/split/f'tracks_{estimator}.npz') as z:
         xy, agent = z['xy'], z['agent']
@@ -156,10 +180,16 @@ def main():
     k.add_argument('--data', required=True)
     k.add_argument('--locator', required=True)
     k.add_argument('--name', default='keypoints', help='the tracks file: tracks_<name>.npz (P35: joint)')
+    d = sub.add_parser('detector')
+    d.add_argument('--data', required=True)
+    d.add_argument('--detector', required=True)
+    d.add_argument('--name', default='detector')
     args = parser.parse_args()
     torch.cuda.set_per_process_memory_fraction(.2)
     if args.command == 'blobs':
         save_blobs(args.data, args.workers)
+    elif args.command == 'detector':
+        save_detector(args.data, args.detector, name=args.name)
     else:
         save_keypoints(args.data, args.locator, name=args.name)
 
