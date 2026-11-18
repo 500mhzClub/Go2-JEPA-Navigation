@@ -2692,6 +2692,54 @@ k of a tape is 7.5 px plus that forecaster's own error at k, measured once befor
   (56.9%).
 - Reported beside them: every forecaster before and after. One round.
 
+### P36. Temperament from the response itself (approved 18 November, option 1 of docs/REVIEW_2026-11-18.md; set out before any run)
+
+**Capability tested:** 2, action → obstacle: an obstacle's response to the agent when its kind is not drawn.
+
+**Why.** Q3 gives part of a reaction to every obstacle the agent approaches: right on average, false for the
+indifferent third (P27). On P34's tasks its extra contacts come only in tasks with an indifferent obstacle (STATUS, 18
+November). P32's memory could have told the kinds apart but was not used, since the prediction loss barely depends on
+the kind (the review's point 1). The paired branch term [the error of the predicted difference between two action
+tapes' futures from one moment, against the true difference, on the exact branches] makes the response itself the
+target. Where the agent leaves an obstacle alone under both tapes the true difference is zero, so a false response is
+penalised directly; for a reactive one the target is the reaction. Branch `feature/object-memory`.
+
+**1. The model** (recipe `q3mb`): P32 round 2 (`q3m2`: Q3 with a memory token for each object, the GRU stepping on
+through rollouts), with one change: R3's branch terms added to its loss.
+- Each step's 64 episodes are encoded whole and their windows drawn exactly as `q3m2` draws them. For 32 of those
+  episodes: one of the episode's branch moments and two different tapes of its four. The history is the episode's 3
+  frames to the branch point, with their memory; each tape is rolled out 8 steps, the memory stepping on; the targets
+  are the tape's own encoded frames.
+- Terms: `branch`, the MSE of each tape's rollout against its future (the mean of the two); `paired`, the MSE of
+  (rollout A - rollout B) against (future A - future B). Both weighted 1, as in R3. The episodes' and the branches'
+  frames are encoded in one call (one set of BatchNorm statistics).
+- Read by Q0's head (`eval.recipe_bench score --head mlp`).
+
+**2. Measures:** P32's (P27's eight bars; action → obstacle split by whether the obstacle's kind was shown before the
+history), then P34's planning task on the JEPA's 1,000 tasks (100 a batch), the memory running over every frame since
+the task's start.
+
+**3. Bars** (T2, k = 8, seed 0), against Q3 at 24,000 steps (P32's reference), whatever P36's step count:
+- **Gain:** on the quiet pairs the agent comes near without contact whose kind was shown, false responses at most
+  21.9% (half Q3's 43.8%).
+- **No loss:** P27's eight bars met; on responsive pairs whose kind was shown, error over zero-response at most 0.424
+  (Q3's).
+- **Decisions,** run whatever the bench shows (the review's evidence is in the contacts): contacts a task at most
+  constant velocity's 0.028, and success without contact at least P34's bar of 52.8%, on the same tasks.
+- Reported: the pairs whose kind was not shown, and `q3m2` beside it (the branch terms' effect alone).
+- One seed; three if the bench looks like passing. Two rounds at most.
+
+**4. What could defeat it, known beforehand:**
+- On P34's tasks the agent crosses once, so an obstacle's kind is seldom shown before the approach and the memory can
+  help there little; a fall in contacts would come mostly from the paired term itself.
+- Training holds 6,000 branch moments; drawn 32 a step they are seen many times over and may be over-fitted (the
+  validation measures would show it).
+- R3's branch terms collapsed patch-token encoders (P27). Object tokens differ; the trainer logs both terms.
+
+**5. Compute:** `q3m2` trained at 10.9 steps a second. The branch part's cost is measured first, and the step count
+set so that the run with its measures fits 45 minutes; the planning run about 25-35 minutes. One GPU process at a
+time, under 85% of the R9700's memory.
+
 ## Compute and order
 
 | Phase | Compute |
