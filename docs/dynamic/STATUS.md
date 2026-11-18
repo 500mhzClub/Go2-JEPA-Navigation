@@ -3073,3 +3073,76 @@ cache):
   detector was not doing work the model could not.
 - **Not tested:** T1; the locator trained jointly with the JEPA; K above the number of objects (a disc entering or
   leaving would need it); the confounded data.
+
+## P31 stage 1, round 1: the locator finds 88% of the tracker's walkers; the join I wrote was the wrong rule (18 November)
+
+P31 (PLAN; approved 18 November) puts P30's locator on the ring world's scans. Built: `data.ring_rasters` (the scans
+as 64 x 64 images on the GPU, 0.1 m a pixel), `training.ring_keypoints`, `data.ring_windows`,
+`training.ring_windows`, `eval.ring_keypoints`. Round 1: K = 6, 10,000 steps, P30's schedule. On F004's 10,601
+validation scenes:
+
+| | Found (of the tracker's 15,125 walkers) | Found (of all 16,143 in sight within 3 m) | Identity kept over the history | Median error |
+|---|---|---|---|---|
+| Bar | ≥ 90% | | ≥ 95% | |
+| The ring tracker | 100% (by construction) | 93.7% | | 4-5 mm (P24) |
+| Round 1, joins by least total distance (as built) | 88.2% | 84.4% | 67.2% | 0.111 m |
+| Round 1, joins by nearest within 0.4 m (corrected) | 88.2% | 84.4% | 87.4% | 0.111 m |
+
+- **The join was the wrong rule.** PLAN said "as the tracker joins its detections", and the tracker joins each to the
+  nearest track within 0.4 m; I built a least-total-distance join. With most keypoints on clutter, the global
+  optimum pulled walkers' keypoints off them: walkers found at all three steps were joined right 70% of the time by
+  least total distance and 99.4% by the nearest. PLAN item 3 is corrected, in the measures and in stage 2's windows.
+- **Detection coverage is the rest:** a walker found at t0 is found at both earlier steps 85% of the time. Only about
+  two of the six keypoints sit on walkers (1.9 with one walker in sight, 2.5 with four); the rest go to wall segments
+  that appear and vanish as the robot moves, which change more pixels than a walker's arc.
+- The median error, 0.11 m, is about the gap between a walker's visible arc and its centre (0.175 m).
+- **Round 2,** one change to the learned part: K = 10 keypoints, so walkers are not starved by clutter.
+
+## P31 stage 1, round 2: found passes, identity does not; stage 1 stops (18 November)
+
+K = 10, otherwise round 1 with the corrected join. F004's validation scenes:
+
+| | Found (of the tracker's walkers) | Found (of all in sight within 3 m) | Identity kept over the history | Median error |
+|---|---|---|---|---|
+| Bar | ≥ 90% | | ≥ 95% | |
+| The ring tracker | 100% | 93.7% | | 4-5 mm |
+| Round 1, K = 6 (corrected join) | 88.2% | 84.4% | 87.4% | 0.111 m |
+| Round 2, K = 10 | **90.1%** | 86.7% | **87.0%** | 0.112 m |
+
+- **Found passes, narrowly; identity fails** (87.0% against 95%). Stage 1 has had its two rounds, so it stops, and
+  stage 2 was not run (the gate held it).
+- Identity is limited by detection, not by the join: a walker found at the branch point is missed at one of the two
+  earlier steps about one time in eight, and a learned keypoint has no memory to carry it through a miss. The
+  tracker does: a track with no detection stays where it was last seen.
+- Learned from scan pairs alone, with no layout, the locator finds 87% of the walkers in sight within 3 m, against
+  the layout-based tracker's 94%.
+
+## P31 stage 2: learned scan keypoints fail against the tracker; P31 closed (18 November)
+
+Run past stage 1's identity bar on approval. Two models trained identically (P28's recipe with Q3, 20,000 steps on
+the corpus's windows, walls from the scan in both, each model's own tokens as targets), differing only in where the
+objects come from; read by Q0's head; on F004's validation scenes, on the walkers both find (13,686 of 15,125):
+
+| | (a) median, m: 1.6 / 3.2 / 6.4 s | ... waiting on the robot | Responsive pairs: error / zero-response | False responses | Slope |
+|---|---|---|---|---|---|
+| Constant velocity | 0.052 / 0.265 / 0.932 | 0.051 / 0.192 / 0.543 | equal | 0 | 0 |
+| M5 (layout, branches) | 0.032 / 0.094 / 0.329 | 0.025 / 0.077 / 0.226 | 0.089 / 0.141; 0.163 / 0.238; 0.385 / 0.483 | 7 / 20 / 41% | 0.50 / 0.50 / 0.40 |
+| Tracker tokens | 0.095 / 0.247 / 0.615 | 0.046 / 0.125 / 0.373 | 0.108; 0.183; 0.396 | 5 / 22 / 53% | 0.26 / 0.29 / 0.26 |
+| Learned tokens | 0.278 / 0.489 / 0.843 | 0.069 / 0.152 / 0.374 | 0.111; 0.200; 0.433 | 38 / 64 / 80% | 0.37 / 0.33 / 0.24 |
+| Bar for learned | ≤ 1.25 x tracker | | | ≤ tracker + 5 points | ≥ 0.8 x tracker |
+
+- **It fails (a) at every horizon** (2.9, 2.0 and 1.4 times the tracker tokens' error) **and false responses at every
+  horizon.** The slope bar passes, but with false responses at 38-80% the slope is not a sign of real reactions.
+- **Why, measured:**
+  - The learned tokens are imprecise from the first step: at 0.4 s, 0.085 m median against the tracker tokens' 0.020;
+    at 1.6 s 20% of walkers are within 0.1 m (tracker tokens 53%). None are lost (none beyond 1 m).
+  - Keypoints jitter: off the walkers they move a median 0.086 m every 0.4 s, as much as a walker does (0.091 m), and
+    on a walker a keypoint sits about 0.1 m from its centre. A walker's step is about 0.09 m, so a keypoint's velocity
+    is mostly noise. Their moves do not follow the robot's (correlation 0.02 on walkers, -0.06 off).
+  - On the toy the learned keypoints were precise to 0.04-0.11 px against steps of 0.5-2 px, a tenth of a step or
+    better. Here the noise is a whole step. Stage 1's 0.3-m tolerance (the tracker's) was three walker-steps, so it
+    could not catch this. P27b's lesson again: set a precision bar against a step's motion.
+- The tracker tokens are themselves short of P28 with Q3 (0.082 / 0.185 / 0.503 m), which was trained on branches with
+  true future positions and the layout's walls; the matched comparison here is the fair one for estimation.
+- **P31 closes on this result.** Learned from scan pairs without a layout, keypoints find 90% of the tracker's walkers,
+  but are not precise or steady enough for dynamics.

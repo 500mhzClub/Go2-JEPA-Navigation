@@ -33,6 +33,7 @@ class KeypointConfig:
     features: int = 32
     sigma: float = 2.            # px: the Gaussian masks' deviation
     size: int = 64
+    channels: int = 3            # P31: 1 for a rasterised scan
 
 
 def conv(a, b, kernel=3, dilation=1):
@@ -43,7 +44,7 @@ class KeypointNet(nn.Module):
     def __init__(self, config=KeypointConfig()):
         super().__init__()
         w, self.config = config.width, config
-        self.net = nn.Sequential(conv(3, w), nn.ReLU(), conv(w, w), nn.ReLU(), conv(w, 2*w), nn.ReLU(),
+        self.net = nn.Sequential(conv(config.channels, w), nn.ReLU(), conv(w, w), nn.ReLU(), conv(w, 2*w), nn.ReLU(),
                                  conv(2*w, 2*w), nn.ReLU(), conv(2*w, 2*w), nn.ReLU(), conv(2*w, config.keypoints, 1))
         self.register_buffer('centres', torch.arange(config.size, dtype=torch.float32)+.5, persistent=False)
 
@@ -61,10 +62,10 @@ class Transporter(nn.Module):
         super().__init__()
         self.config = c = config
         self.keypoints = KeypointNet(config)
-        self.features = nn.Sequential(conv(3, c.width), nn.ReLU(), conv(c.width, c.width), nn.ReLU(),
+        self.features = nn.Sequential(conv(c.channels, c.width), nn.ReLU(), conv(c.width, c.width), nn.ReLU(),
                                       conv(c.width, c.features))
         self.decoder = nn.Sequential(conv(c.features, 2*c.width), nn.ReLU(), conv(2*c.width, 2*c.width), nn.ReLU(),
-                                     conv(2*c.width, 3))
+                                     conv(2*c.width, c.channels))
         self.register_buffer('centres', torch.arange(c.size, dtype=torch.float32)+.5, persistent=False)
 
     def masks(self, xy, sigma=None):
