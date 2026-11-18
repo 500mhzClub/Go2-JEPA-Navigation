@@ -2970,3 +2970,106 @@ Closed on approval. docs/REVIEW_2026-11-17.md records what the port showed:
 - In the ring world it learns the walkers' dynamics and responses but trails M5 on position over the first seconds.
 - It corrects two readings of 16 and 17 November: both limits were the read-out head's, not the latent's.
 Next piece: your decision (the review's last table).
+
+## P30: the locator built, and what its smoke runs found (18 November)
+
+P30 (PLAN; option 1 of docs/REVIEW_2026-11-17.md, approved 18 November after the merges) replaces the toy's colour
+detector with learned keypoints after Transporter, the dynamics unchanged. Built: `models.keypoints`,
+`training.keypoints`, and `models.object_tokens` over a frozen locator (recipe `q3k`). Smoke runs of 1,500 steps
+before round 1 (T2, validation frames; precision after removing each keypoint's constant offset, px):
+
+| Smoke | Change | Agent | Green | Blue | Yellow | What happened |
+|---|---|---|---|---|---|---|
+| 1 | Dilated convolutions | – | – | – | – | 0.8 steps a second: dilated convolutions are 30-50 times slower in MIOpen on the R9700 (370-650 ms against 11-13 ms a layer) |
+| 2 | Plain 3 x 3 stack | 25.5 | 32.0 | 30.9 | 0.37 | All four keypoints on yellow (sharp heatmaps, the four within 1 px) |
+| 3 | + separation (pairs closer than ~4 px penalised) | 20.4 | 22.9 | 22.8 | 0.067 | Yellow bound; the other three apart but dead (flat heatmaps near the centre) |
+| 4 | + masks narrowed from 8 to 2 px over the first half | 0.069 | 23.3 | 0.278 | 0.048 | Three bound; green not |
+
+- Against the colour detector's own error (agent 0.044, green 0.105, blue 0.090, yellow 0.071 px): yellow is located
+  more finely (0.048), the agent and blue less finely (0.069, 0.278).
+- Green is the disc drawn first and covered most often.
+- **Round 1** (K = 4, 10,000 steps, 22 minutes) runs with smoke 4's settings.
+
+## P30 stage 1, round 1: all four discs bound; misses where discs come near (18 November)
+
+The locator, K = 4, 10,000 steps (22 minutes), smoke 4's settings. T2 validation frames (px, after removing each
+keypoint's offset; raw beside it in measures.json):
+
+| | Agent | Green | Blue | Yellow | Bar |
+|---|---|---|---|---|---|
+| Binding (within 1 px) | 94.3% | 94.0% | 97.9% | 99.9% | ≥ 95% |
+| Precision, mean | 0.314 | 0.576 | 0.231 | 0.130 | ≤ 0.3 |
+| Median | 0.070 | 0.235 | 0.094 | 0.036 | |
+| Swaps | 0% | 0.5% | 0.1% | 0% | ≤ 1% |
+| Precision with no other disc within 12 px | 0.10 | 0.23 | 0.10 | 0.05 | |
+
+- **It fails narrowly:** binding for the agent and green, precision for the agent and green. Swaps pass.
+- **The misses are all near other discs.** With no other disc within 12 px every keypoint binds in 100% of frames.
+  Within 6-9 px, where the discs are apart, the agent misses in 12.7% of frames and green in 9.1%; the colour
+  detector errs 0.02-0.04 px there. Within 3 px (discs overlapping) green misses in nearly all frames.
+- **The likely cause is the separation term,** which still pushes keypoints 6-9 px apart (at 0.08-0.32 of its full
+  strength) though it was needed only against the early collapse.
+- **Round 2,** one change: the separation's weight falls to zero as the masks narrow, then stays off.
+
+## P30 stage 1, round 2: the learned keypoints pass, as precise as the colour detector (18 November)
+
+The separation fades to zero as the masks narrow, then stays off; nothing else changed. T2 validation frames (px):
+
+| | Agent | Green | Blue | Yellow | Bar |
+|---|---|---|---|---|---|
+| Binding (within 1 px) | 100% | 98.3% | 99.5% | 99.99% | ≥ 95% |
+| Precision, mean, offset removed | 0.041 | 0.110 | 0.057 | 0.040 | ≤ 0.3 |
+| Precision, mean, raw | 0.113 | 0.264 | 0.218 | 0.156 | |
+| Swaps | 0% | 0.14% | 0.07% | 0.01% | ≤ 1% |
+| Round 1, offset removed | 0.314 | 0.576 | 0.231 | 0.130 | |
+| The colour detector | 0.044 | 0.105 | 0.090 | 0.071 | |
+
+- **Stage 1 passes on every bar,** raw as well as with the offsets removed.
+- With the offsets removed the keypoints are level with the colour detector on the agent and green and finer on blue
+  and yellow. They were learned from frame pairs alone: no labels, no colours.
+- Round 1's misses near other discs were the separation term's: with it gone in the fine phase they vanish.
+- **Stage 2** runs: Q3 over this locator (`q3k`), 36,000 steps, seed 0, read by Q0's head.
+
+## P30 stage 2, seed 0: the dynamics over learned keypoints meet P27's eight bars (18 November)
+
+Q3 [object tokens, residual predictor] over the round-2 locator (`q3k`), 36,000 steps, T2, read by Q0's head:
+
+| k = 8 | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False | Slope [95%] | R: worst |
+|---|---|---|---|---|---|---|---|---|
+| Bar | ≤ 1 | ≥ 5 | ≤ 4.47 | ≤ 0.90 | ≤ 0.50 | ≤ 10% | above 0.5 | ≤ 1 |
+| Q3, colour detector | 0.432 | 30.5 | 0.682 | 0.494 | 0.459 | 9.05% | 0.78 [0.76, 0.80] | 0.124 |
+| **Q3, learned keypoints** | 0.429 | 30.7 | 0.750 | 0.524 | 0.483 | 9.12% | 0.74 [0.72, 0.76] | 0.100 |
+
+- **All eight bars are met,** and every figure is within 10% of Q3 on the colour detector. Retention is better
+  (green 0.100 against 0.124).
+- One step ahead: agent 0.156 px, obstacles on straight windows 0.095 (the detector's Q3 0.147, 0.094).
+- At a distance (where the kinds decide): error 0.63 of zero-response, slope 0.52 (detector 0.61, 0.56).
+- **The run took 48 minutes,** 3 over the limit: the frozen locator ran on every training frame at every step
+  (13.8 steps a second against 24.7). The trainer now caches its positions once (the same tokens and loss, checked),
+  and the head draws from tokens encoded once.
+- Seeds 1 and 2 run next (the rung looks like passing), read on the mean of three.
+
+## P30 stage 2, three seeds: learned objects pass; P30 closed (18 November)
+
+Q3 over the round-2 locator, 36,000 steps, T2, k = 8, read by Q0's head (seeds 1 and 2 26 minutes each, with the
+cache):
+
+| | E: agent | Shuffle ratio | X bounce | X straight | A: error / zero | False | Slope, lower end | R: worst |
+|---|---|---|---|---|---|---|---|---|
+| Bar | ≤ 1 | ≥ 5 | ≤ 4.47 | ≤ 0.90 | ≤ 0.50 | ≤ 10% | above 0.5 | ≤ 1 |
+| Seed 0 | 0.429 | 30.7 | 0.750 | 0.524 | 0.483 | 9.1% | 0.72 | 0.100 |
+| Seed 1 | 0.445 | 29.7 | 0.764 | 0.527 | 0.463 | 8.7% | 0.75 | 0.103 |
+| Seed 2 | 0.429 | 30.8 | 0.627 | 0.467 | 0.449 | 9.3% | 0.77 | 0.101 |
+| **Mean** | 0.434 | 30.4 | 0.714 | 0.506 | 0.465 | 9.0% | 0.74 | 0.101 |
+| Q3 on the colour detector, seed 0 | 0.432 | 30.5 | 0.682 | 0.494 | 0.459 | 9.1% | 0.76 | 0.124 |
+
+- **Every seed meets all eight bars,** and so does the mean.
+- **The learned objects cost nothing measurable:** every mean is within 5% of Q3 on the colour detector, and
+  retention is better (0.101 against 0.124 px).
+- One step ahead: obstacles on straight windows 0.095 px (detector 0.094). At a distance: 0.62 of zero-response,
+  slope 0.53 (detector 0.61, 0.56).
+- **What this establishes:** on the toy, a world model whose objects are found from pixels without labels (learned
+  keypoints, frozen) and whose dynamics are learned in latent space keeps all three capabilities. The colour
+  detector was not doing work the model could not.
+- **Not tested:** T1; the locator trained jointly with the JEPA; K above the number of objects (a disc entering or
+  leaving would need it); the confounded data.

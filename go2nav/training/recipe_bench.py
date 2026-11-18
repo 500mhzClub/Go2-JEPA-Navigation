@@ -11,7 +11,8 @@ next-embedding MSE, the MSE of an 8-step rollout, and 0.09 x SIGReg.
 r2, r1 with each patch token's prediction error weighted by the change of its target patch's pixels (`motion_losses`);
 r3, r2 with half of each batch drawn from the exact branches: a quarter as many moments under two tapes each, with
 `branch_losses`' terms (r3b, its second round: those terms carry r2's weights too); r4, the object-token JEPA (`models.object_tokens`); r5, r4 with 16 history frames; q3 (P27b), r4 with a residual predictor; q4, q3 with a constant-velocity prior in latent space
-(q4b: on the obstacles' tokens only).
+(q4b: on the obstacles' tokens only); q3k (P30), q3 over learned keypoints
+(`training.keypoints`; the locator's file given as `--set locator=PATH`).
 
 **Training:** AdamW, warm-up then cosine, clip 1, bf16 autocast (SIGReg in float32, 128 projections), on the GPU only;
 6,000 steps at batch 64 (a patch-token step costs 0.2-0.35 s, and a run with its measures must fit 45 minutes). A step
@@ -41,13 +42,14 @@ from go2nav.training.balls import schedule, to_pixels
 HISTORY = 3
 DEFAULTS = dict(steps=6000, batch=64, rollout=8, lr=3e-4, weight_decay=1e-3, warmup=500, grad_clip=1.,
                 sigreg_weight=.09, sigreg_projections=128, bf16=True, log_every=250, checkpoint_every=2000,
-                memory_fraction=.42, recalibration_batches=200, policy='interactive')
+                memory_fraction=.42, recalibration_batches=200, policy='interactive', locator=None)
 RECIPES = dict(r0=dict(), r1=dict(model=dict(grid=(8, 8))), r2=dict(model=dict(grid=(8, 8)), motion_floor=.1),
                r3=dict(model=dict(grid=(8, 8)), motion_floor=.1, branches=dict(paired=1.)),
                r3b=dict(model=dict(grid=(8, 8)), motion_floor=.1, branches=dict(paired=1., floor=.1)), r4=dict(kind='objects'),
                r5=dict(kind='objects', model=dict(history=16)), q3=dict(kind='objects', model=dict(residual=True)),
                q4=dict(kind='objects', model=dict(residual=True, velocity=True)),
-               q4b=dict(kind='objects', model=dict(residual=True, velocity=True, velocity_agent=False)))
+               q4b=dict(kind='objects', model=dict(residual=True, velocity=True, velocity_agent=False)),
+               q3k=dict(kind='objects', model=dict(residual=True, keypoints=4)))
 
 
 def model_config(**overrides):
@@ -100,11 +102,15 @@ class Windows:
         e = episodes[:, None]
         return to_pixels(self.frames[e, steps]), self.actions[e, steps[:, :-1]]
 
-    def draw(self, count, length, generator):
+    def draw(self, count, length, generator, located=None):
+        """`batch` of random windows; with `located` (E, T, 4, 2), the windows' cached locator positions as well."""
         device = self.frames.device
         episodes = torch.randint(0, self.episodes, (count,), generator=generator, device=device)
         starts = torch.randint(0, self.length-length+1, (count,), generator=generator, device=device)
-        return self.batch(episodes, starts, length)
+        if located is None:
+            return self.batch(episodes, starts, length)
+        steps = starts[:, None]+torch.arange(length, device=device)
+        return (*self.batch(episodes, starts, length), located[episodes[:, None], steps])
 
 
 class BranchWindows:
@@ -201,6 +207,10 @@ def train(root, variant, recipe, out, seed=0, overrides=None):
     torch.manual_seed(run_seed)
     options = RECIPES[recipe]
     model = build(recipe).to(device)
+    if getattr(model, 'locator', None) is not None:
+        located = torch.load(cfg['locator'], map_location='cpu', weights_only=False)
+        model.locator.load_state_dict(located['keypoints'])
+        model.order.copy_(located['order'])
     params = list(model.parameters())
     sigreg = SIGReg(num_proj=cfg['sigreg_projections']).to(device)
     trainset = Windows(root, cfg['policy'], 'train', variant, device)
@@ -222,13 +232,22 @@ def train(root, variant, recipe, out, seed=0, overrides=None):
             metrics.write_text(''.join(r+'\n' for r in rows))
     (out/'config.json').write_text(json.dumps(dict(**meta, run_seed=run_seed, model=asdict(model.config)), indent=1))
 
+    located = None
+    if getattr(model, 'locator', None) is not None:      # P30: the frozen locator's positions, once for every frame
+        with torch.no_grad():
+            flat = trainset.frames.flatten(0, 1)
+            located = torch.cat([model.locator(to_pixels(flat[i:i+2048]))[:, model.order]
+                                 for i in range(0, len(flat), 2048)]).unflatten(0, trainset.frames.shape[:2])
+
     def objective(index, offset=0):
         g = torch.Generator(device=device).manual_seed(run_seed*10_000_000+offset+index)
-        pixels, actions = trainset.draw(cfg['batch']//2 if branchset else cfg['batch'], length, g)
+        drawn = trainset.draw(cfg['batch']//2 if branchset else cfg['batch'], length, g, located)
+        pixels, actions = drawn[:2]
         shared = dict(rollout_steps=cfg['rollout'], sigreg=sigreg, lam=cfg['sigreg_weight'], generator=g)
         with torch.autocast('cuda', dtype=torch.bfloat16, enabled=cfg['bf16']):
             if options.get('kind') == 'objects':
-                terms = token_losses(model, pixels, actions, **shared)
+                z = model.encode(pixels, drawn[2]) if located is not None else None
+                terms = token_losses(model, pixels, actions, z=z, **shared)
             elif 'motion_floor' in options:
                 terms = motion_losses(model, pixels, actions, floor=options['motion_floor'], **shared)
             else:

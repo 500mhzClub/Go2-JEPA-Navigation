@@ -22,6 +22,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from go2nav.models.keypoints import KeypointConfig, KeypointNet
 from go2nav.models.lewm import ARPredictor, Embedder, MLP
 from go2nav.sim import reactive_balls as world
 
@@ -44,6 +45,7 @@ class ObjectTokenConfig:
     grid: tuple = ()                     # read by code written for `LeWMConfig`
     residual: bool = False               # P27b Q3: the predictor's output is added to the frame's own tokens
     velocity: bool = False               # P27b Q4: and the token's last change (a constant-velocity prior)
+    keypoints: int = 0                   # P30: learned keypoints (`models.keypoints`) in place of the colour detector
     velocity_agent: bool = True          # Q4's second round: False keeps the prior off the agent's token, whose motion
                                          # is its action (the ring world's robot token is given, not predicted)
 
@@ -98,6 +100,10 @@ class ObjectTokenJEPA(nn.Module):
             nn.init.zeros_(self.pred_proj.net[-1].weight)
             nn.init.zeros_(self.pred_proj.net[-1].bias)
         self.register_buffer('scales', math.pi*2.**torch.arange(c.frequencies), persistent=False)
+        self.locator = None
+        if c.keypoints:                  # P30: frozen; `order` is each object's keypoint, a fixed reordering of tokens
+            self.locator = KeypointNet(KeypointConfig(keypoints=c.keypoints, size=c.size)).requires_grad_(False)
+            self.register_buffer('order', torch.arange(c.tokens))
 
     def position_features(self, xy, seen):
         """(…, 2) px and (…,) bool to (…, 4 x frequencies + 3): the position in [-1, 1], its Fourier features, and seen."""
@@ -105,12 +111,20 @@ class ObjectTokenJEPA(nn.Module):
         phase = u[..., None]*self.scales
         return torch.cat((u, phase.sin().flatten(-2), phase.cos().flatten(-2), seen[..., None].float()), -1)
 
-    def encode(self, pixels):
-        """Frames (B, T, 3, H, W) in [-1, 1] to the object tokens (B, T, 4, D)."""
+    def encode(self, pixels, located=None):
+        """Frames (B, T, 3, H, W) in [-1, 1] to the object tokens (B, T, 4, D). `located` (B, T, 4, 2): the locator's
+        positions for these frames, already computed (P30's trainer caches them; the locator is frozen)."""
         b = pixels.size(0)
         flat = pixels.flatten(0, 1)
         with torch.no_grad():
-            xy, seen = detect(flat)
+            if located is not None:
+                xy = located.flatten(0, 1).float()
+                seen = torch.ones(xy.shape[:2], dtype=torch.bool, device=xy.device)
+            elif self.locator is not None:
+                xy = self.locator(flat)[:, self.order]
+                seen = torch.ones(xy.shape[:2], dtype=torch.bool, device=xy.device)
+            else:
+                xy, seen = detect(flat)
             windows = crops(flat, xy, self.config.crop).flatten(2)
         x = self.crop_embed(windows.to(self.crop_embed[0].weight.dtype))+self.position_embed(self.position_features(xy, seen))
         x = self.mix(x+self.identity)

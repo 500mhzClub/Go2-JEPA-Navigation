@@ -2429,6 +2429,47 @@ correction, which starts at zero. It is M5's form (a correction to constant velo
 trained `p28_s0` with the new head, no retraining), read against P28's bars as written. If Q0-Q3 do not meet the
 precision bars, that is recorded and you decide.
 
+### P30. Learned objects on the toy (approved 18 November, option 1 of docs/REVIEW_2026-11-17.md; set out before any run)
+
+**Closed 18 November: passed** (STATUS). Stage 1 in round 2 (the separation faded as the masks narrow); stage 2 on
+three seeds, every bar met and every figure within 5% of Q3 on the colour detector.
+
+**Why.** The merged recipe (R4 with P27b's Q3 and Q0) learns the dynamics of objects that hand-written code finds:
+the toy's colour detector, the ring world's tracker. P30 asks whether the objects themselves can be learned from
+pixels without labels, with the dynamics unchanged. That is the open half of "self-supervised from observation".
+Branch `feature/learned-objects`. (P29 was the handoff's name for Genesis, not started; the number is left to it.)
+
+**1. The locator** (`models.keypoints`): learned keypoints after Transporter (Kulkarni et al., NeurIPS 2019).
+- A keypoint network maps a frame to K heatmaps at full resolution; a spatial softmax gives K positions.
+- A feature network maps a frame to a feature map. To rebuild frame t from frame s, the features of s are kept
+  except at s's and t's keypoints, where t's features are pasted (Gaussian masks round each keypoint); a decoder
+  rebuilds frame t. The loss is the pixel error. The background comes from frame s, so the loss is about what moved.
+- Pairs are 1-8 frames apart, from T2's interactive training split. No labels, no colours.
+- K = 4 in round 1.
+- Trained first, then frozen. It replaces the colour detector inside `models.object_tokens` (the crop is centred on
+  the keypoint and the keypoint is the token's position). Nothing else in R4/Q3 changes.
+
+**2. Measures** (labels for scoring only). Each keypoint is assigned once to an object, by the least mean distance
+over training frames (Hungarian):
+- **binding:** the share of validation frames in which each object's keypoint is within 1 px of it;
+- **precision:** the mean error of each object's keypoint;
+- **swaps:** the share of frames in which an assigned keypoint is nearer another object than its own;
+- then the full P27 bench (E, X, A, R) on Q3 trained over the learned keypoints, read by Q0's head.
+
+**3. Bars** (T2, set before any run):
+- **Stage 1, the locator:** binding at least 95% for every object; precision at most 0.3 px for every object (under
+  the slowest obstacle's step of 0.5 px; the detector errs 0.078); swaps at most 1%.
+  - Amended before any run (18 November): binding and precision are read after removing each keypoint's constant
+    offset from its object, fitted on training frames, since a fixed offset loses nothing a head cannot recover. The
+    raw figures are reported beside them. The model is not given the offsets; the assignment only reorders tokens.
+- **Stage 2, the dynamics,** only if stage 1 passes: Q3 over the learned keypoints, 36,000 steps, meets P27's eight
+  bars on seed 0, with three seeds if it looks like passing (read on their mean, as P27). Reported beside Q3 on the
+  detector.
+- Two rounds at most a stage. If stage 1 fails twice, that is recorded and you decide.
+
+**4. Compute:** the locator about 20-30 minutes on the R9700; stage 2 about 30 minutes a seed with its measures; one
+GPU process at a time.
+
 ## Compute and order
 
 | Phase | Compute |
